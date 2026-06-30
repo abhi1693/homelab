@@ -1,40 +1,48 @@
 # Home Automation Project
 
-Fleet tracks Home Automation workloads from `kubernetes/projects/home-automation/apps/*`
-with the `home-lab-home-automation` GitRepo.
+The Home Automation project owns services that model and operate the physical
+environment around the cluster: Home Assistant, NetBox, rack operations,
+Cloudflare tunnel ingress control, and UPS monitoring.
 
-The Rancher project object is tracked separately from
-`kubernetes/projects/home-automation/_project` by `home-lab-rancher-projects`.
-Project metadata uses non-forcing drift correction because Rancher `Project`
-objects include immutable fields.
+Fleet tracks this project through the `home-lab-home-automation` GitRepo.
 
-## Bundles
+## Why This Project Exists
 
-| Path | Bundle | Type | Notes |
-|------|--------|------|-------|
-| `apps/home-automation-helm-repositories` | `home-automation-helm-repositories` | GitOps | Registers Rancher chart repositories used by Home Automation workloads. |
-| `apps/cloudflare-tunnel-ingress-controller` | `cloudflare-tunnel-ingress-controller` | Helm | Deploys the Cloudflare Tunnel ingress controller and managed cloudflared connector. |
-| `apps/cloudflare-tunnel-ingress-controller-networkpolicy` | `cloudflare-tunnel-ingress-controller-networkpolicy` | GitOps | Applies Cloudflare tunnel network boundaries. |
-| `apps/home-assistant` | `home-assistant` | GitOps | Deploys Home Assistant through the K3s HelmChart controller. |
-| `apps/rack-ops-controllers` | `rack-ops-controllers` | GitOps | Runs rack-operation controllers such as qBittorrent Smart Queues and Raspberry Pi thermal controls in the `rack-ops` namespace. |
-| `apps/netbox` | `netbox-helmop` | GitOps wrapper | Creates `HelmOp/netbox` and `ConfigMap/netbox-values`. |
-| `apps/netbox` | `netbox` | HelmOps | Deploys the NetBox chart from `oci://ghcr.io/netbox-community/netbox-chart/netbox`. |
-| `apps/ups-monitoring` | `ups-monitoring` | GitOps | Runs NUT for the APC USB UPS on `k8s-rpi1` and exposes PeaNUT at `ups.home`. |
+Home automation services are tightly coupled to physical devices and local
+network state. They need Kubernetes desired state, but they also interact with
+systems outside Kubernetes: UniFi, UPS hardware, device inventory, Cloudflare
+tunnels, rack power, and local DNS.
 
-HelmOps apps use the app name for the `HelmOp`, Helm release, and workload.
-The GitOps wrapper bundle keeps the `-helmop` suffix because Fleet also creates
-a child bundle with the app name.
+Keeping these services in one project makes the boundary clear.
 
-## Reconcile Order
+## App Catalog
 
-`rancher-project-home-automation` and `home-automation-helm-repositories` must
-be ready before Home Automation app bundles. `postgresql`,
-`postgresql-networkpolicy`, `valkey`, and `valkey-networkpolicy` must also be
-ready before NetBox. The shared database bundles are managed by the Database
-project.
+| App | What it does | Key coupling |
+| --- | --- | --- |
+| `home-automation-helm-repositories` | Registers chart repositories for this project. | Rancher ClusterRepo. |
+| `cloudflare-tunnel-ingress-controller` | Runs the Cloudflare Tunnel ingress controller. | Public app ingress, Cloudflare credentials. |
+| `cloudflare-tunnel-ingress-controller-networkpolicy` | Applies network boundaries for tunnel connector traffic. | Public ingress to app services. |
+| `home-assistant` | Home automation runtime with Git-managed packages and code-server sidecar. | UniFi integration, device tracking, Longhorn config PVC. |
+| `netbox` | Source of truth for IPAM, device inventory, cabling, DNS, lifecycle, and BGP documentation. | PostgreSQL, Valkey, Longhorn media, custom image plugins. |
+| `rack-ops-controllers` | Rack and node automation controllers. | Kubernetes API, Home Assistant webhooks, smart queues, thermal policy. |
+| `ups-monitoring` | NUT, PeaNUT dashboard, exporter, Grafana dashboard, and alerts. | USB UPS on a specific node, Home Assistant integration, monitoring. |
 
-## Operating Model
+## Coupling Patterns
 
-Make desired-state changes in Git and let Fleet reconcile them. Direct cluster
-changes should be limited to resources Fleet cannot own, such as manually
-provisioned secrets, or to fixing ownership metadata so Fleet can take over.
+- Home Assistant is the local automation runtime, but some safety workflows are
+  intentionally kept in Kubernetes controllers instead of Home Assistant.
+- NetBox is the source-of-truth system for inventory and network planning.
+- UPS monitoring feeds both dashboards/alerts and Home Assistant integration.
+- Cloudflare tunnel control lets public apps expose hostnames without opening
+  inbound ports on the home gateway.
+- Rack operations bridge Kubernetes state and physical actions such as node
+  power or cooling workflows.
+
+## Operating Notes
+
+- Keep Home Assistant packages in Git when they represent desired automation.
+- Keep Home Assistant UI-only state limited to things that are not practical to
+  own as YAML.
+- Keep NetBox plugins baked into the custom NetBox image for repeatability.
+- Treat hardware-bound pods, such as UPS USB access, as special cases with
+  explicit node placement and update strategy.

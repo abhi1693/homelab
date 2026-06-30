@@ -1,75 +1,81 @@
----
 # Database Project
 
-Fleet-managed shared database infrastructure.
+The Database project owns shared database and cache infrastructure for the lab:
+CloudNativePG, PostgreSQL, PgBouncer-style poolers, Valkey Sentinel, database
+network policy, and related dashboards.
 
-| Path | Bundle | Type | Notes |
-|------|--------|------|-------|
-| `apps/database-helm-repositories` | `database-helm-repositories` | GitOps | Registers Rancher chart repositories used by shared database infrastructure. |
-| `apps/cnpg-operator` | `cnpg-operator` | Helm | Installs the cluster-wide CloudNativePG operator in `cnpg-system`. |
-| `apps/postgresql` | `postgresql-helmop` | GitOps wrapper | Creates `HelmOp/postgresql` and `ConfigMap/postgresql-values`. |
-| `apps/postgresql` | `postgresql` | HelmOps | Deploys the shared CloudNativePG PostgreSQL cluster with R2-backed physical backups. |
-| `apps/postgresql-networkpolicy` | `postgresql-networkpolicy` | Raw YAML | Restricts shared PostgreSQL access to app-specific poolers. |
-| `apps/postgresql-pooler-pdb` | `postgresql-pooler-pdb` | Raw YAML | Keeps at least one PgBouncer pod available per app during voluntary disruption. |
-| `apps/valkey` | `valkey-helmop` | GitOps wrapper | Creates `HelmOp/valkey` and `ConfigMap/valkey-values`. |
-| `apps/valkey` | `valkey` | HelmOps | Deploys the Bitnami Valkey chart as the shared Sentinel service. |
-| `apps/valkey-networkpolicy` | `valkey-networkpolicy` | Raw YAML | Restricts Valkey/Sentinel access to approved app clients. |
+Fleet tracks this project through the `home-lab-database` GitRepo.
 
-HelmOps apps use the app name for the `HelmOp`, Helm release, and workload.
-The GitOps wrapper bundle keeps the `-helmop` suffix because Fleet also creates
-a child bundle with the app name.
+## Why This Project Exists
 
-`database-helm-repositories` must be ready before Database Helm and HelmOps
-bundles.
+Small clusters do not have unlimited CPU, memory, or storage. Instead of
+running a separate PostgreSQL and Redis-compatible service per app, this project
+centralizes those services and gives applications isolated roles, databases,
+poolers, logical DBs, and network access.
 
-## PostgreSQL HA Contract
+The benefit is efficient shared infrastructure. The cost is that database and
+cache changes have a wider blast radius, so connection limits, pooler budgets,
+PDBs, backups, and monitoring are treated as first-class configuration.
 
-The shared PostgreSQL cluster runs three CNPG instances with required quorum
-synchronous replication: every acknowledged commit must reach one standby, and
-quorum failover must confirm that committed data is present before promoting a
-replica. This favors consistency over accepting writes when no synchronous
-standby is available.
+## App Catalog
 
-Applications must connect only through their own RW PgBouncer pooler service,
-never directly to `postgresql-rw`. Each app gets its own database, login role,
-Secret, RW pooler, NetworkPolicy, and pooler PodDisruptionBudget.
+| App | What it does | Why it matters |
+| --- | --- | --- |
+| `database-helm-repositories` | Registers chart repositories. | Makes database charts available to Rancher/Fleet. |
+| `cnpg-operator` | Installs CloudNativePG operator and CRDs. | Enables PostgreSQL `Cluster`, backups, monitoring, and poolers. |
+| `postgresql` | Shared PostgreSQL cluster, roles, databases, poolers, custom queries, and dashboards. | Primary relational database for many apps. |
+| `postgresql-networkpolicy` | Restricts database access. | Keeps apps on their approved pooler paths. |
+| `postgresql-pooler-pdb` | PDBs for app poolers. | Keeps at least one pooler pod available during voluntary disruption. |
+| `valkey` | Shared Valkey replication and Sentinel. | Queues and caches for apps. |
+| `valkey-networkpolicy` | Restricts Valkey/Sentinel access. | Keeps cache/queue access explicit. |
 
-Poolers are spread by hostname with hard per-revision scheduling rules. The
-`pod-template-hash` match key lets a new Deployment revision roll out without
-being blocked by old-revision pods, while still preventing same-revision pooler
-pods from landing on the same node. The pinned `cloudnative-pg/cluster` chart
-does not render CNPG `serviceTemplate`, so service-level locality settings such
-as `internalTrafficPolicy` remain deferred until the chart supports them or the
-poolers move to explicit Pooler manifests.
+## PostgreSQL Contract
 
-Active app-owned databases are `dispatcharr`, `gitrank`, `jellyfin`, `netbox`,
-and `shipyardhq`.
+Applications should connect through their own RW pooler service rather than
+directly to the PostgreSQL primary. Each app should have:
 
-For each new app:
+1. one login role with a bounded `connectionLimit`;
+2. one database owned by that role;
+3. one app-specific Secret contract;
+4. one RW pooler with at least two instances when the app needs availability;
+5. one NetworkPolicy allowing only the app namespace to reach that pooler;
+6. one pooler PDB.
 
-1. Add one managed role with `login: true`, no elevated privileges, and a
-   bounded `connectionLimit`.
-2. Add one database owned by that role with `databaseReclaimPolicy: retain`.
-3. Add one RW pooler with at least two instances, `poolMode: session` unless the
-   app is verified safe for transaction pooling, and hard per-revision topology
-   spread by hostname.
-4. Keep the role `connectionLimit` above the total pooler server pool size, with
-   headroom for migrations, while leaving capacity reserved for other apps and
-   operator maintenance.
-5. Add a matching NetworkPolicy that allows only that app namespace to reach its
-   pooler.
-6. Add a matching pooler PDB with `minAvailable: 1`.
+This pattern keeps shared PostgreSQL efficient while preserving app-level
+boundaries.
 
-PostgreSQL physical backups use CloudNativePG's chart-supported
-`barmanObjectStore` configuration and write WAL/base backups to Cloudflare R2 at
-`s3://home-lab-postgresql/`. The credential Secret is intentionally not stored
-in Git; `Secret/postgresql-r2-backup` must exist in the `postgresql` namespace
-with `ACCESS_KEY_ID` and `ACCESS_SECRET_KEY` keys.
+## PgBouncer Connection Budgets
 
-The scheduled backup is daily at midnight using CNPG's six-field cron syntax,
-with a 30-day recovery-window retention policy. R2 encrypts objects at rest
-automatically, so per-object S3 encryption headers are disabled for R2
-compatibility.
+Keep each pooler's backend capacity at or below the matching PostgreSQL role
+`connectionLimit`:
 
-Before this database is considered disaster-recovery complete, perform and
-document a restore test into a separate namespace or cluster.
+```text
+backend capacity = pooler instances * default_pool_size
+```
+
+For apps with explicit DB pool settings, keep backend capacity aligned with the
+declared app-side maximum connection demand.
+
+| Role | Pooler | App-side budget | Backend capacity | Role limit |
+| --- | --- | ---: | ---: | ---: |
+| `jellyfin` | `jellyfin-rw` | implicit | 12 | 15 |
+| `dispatcharr` | `dispatcharr-rw` | implicit | 6 | 8 |
+| `gitrank` | `git-rank-rw` | 8 | 8 | 8 |
+| `shipyardhq` | `shipyardhq-rw` | 16 | 32 | 32 |
+| `harbor` | `harbor-rw` | chart-managed | 36 | 36 |
+| `netbox` | `netbox-rw` | disabled | 6 | 10 |
+| `registry_artifacts` | `registry-artifacts-rw` | 12 | 12 | 12 |
+| `firefly` | `firefly-iii-rw` | implicit | 8 | 10 |
+
+## Valkey Contract
+
+Valkey provides shared Redis-compatible queues and caches through Sentinel.
+Apps should use app-specific logical DB indexes or explicit key namespaces and
+should document those choices in their app README.
+
+## Backups and Recovery
+
+PostgreSQL physical backups use CloudNativePG's chart-supported object-store
+configuration. Credentials are intentionally not stored as plaintext. Before a
+database setup is considered complete, restore testing should be documented in
+a runbook.

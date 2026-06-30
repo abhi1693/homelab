@@ -1,11 +1,6 @@
 ---
 name: firefly-iii
 defaultNamespace: finance
-namespaceLabels:
-  app.kubernetes.io/part-of: firefly-iii
-  field.cattle.io/projectId: p-applications
-namespaceAnnotations:
-  field.cattle.io/projectId: local:p-applications
 labels:
   app.kubernetes.io/part-of: firefly-iii
   home-lab.io/project-slug: applications

@@ -1,14 +1,6 @@
 ---
 name: wardn-hub
 defaultNamespace: wardn
-namespaceLabels:
-  app.kubernetes.io/managed-by: Helm
-  app.kubernetes.io/part-of: wardn-hub
-  field.cattle.io/projectId: p-applications
-namespaceAnnotations:
-  field.cattle.io/projectId: local:p-applications
-  meta.helm.sh/release-name: wardn-hub
-  meta.helm.sh/release-namespace: wardn
 labels:
   app.kubernetes.io/part-of: wardn-hub
   home-lab.io/project-slug: applications
@@ -49,4 +41,4 @@ helm:
   takeOwnership: true
   timeoutSeconds: 900
   waitForJobs: true
-forceSyncGeneration: 32
+forceSyncGeneration: 33
