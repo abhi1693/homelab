@@ -1,0 +1,7 @@
+[Unit]
+Description=Export Raspberry Pi throttling state for node-exporter
+Documentation=man:vcgencmd(1)
+
+[Service]
+Type=oneshot
+ExecStart=/usr/local/sbin/rpi-throttling-textfile-exporter

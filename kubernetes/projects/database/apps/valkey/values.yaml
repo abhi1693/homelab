@@ -1,0 +1,132 @@
+---
+fullnameOverride: valkey
+commonLabels:
+  app.kubernetes.io/part-of: valkey
+global:
+  imageRegistry: registry.home/docker.io
+  security:
+    allowInsecureImages: true
+image:
+  digest: sha256:08d2c2944533c3231952882ad2531e8109abf432a01ea9e25c4f88fa22957058
+architecture: replication
+auth:
+  enabled: false
+  sentinel: false
+commonConfiguration: |-
+  appendonly yes
+  save ""
+  databases 32
+sentinel:
+  enabled: true
+  image:
+    digest: sha256:7cd176fb3e0aeecd3febce68ca962f527c8a7da886d1294b91d787a8e79afc22
+  primarySet: valkey
+  quorum: 2
+  persistentVolumeClaimRetentionPolicy:
+    enabled: true
+    whenScaled: Retain
+    whenDeleted: Retain
+  startupProbe:
+    timeoutSeconds: 20
+  livenessProbe:
+    timeoutSeconds: 20
+    failureThreshold: 12
+  readinessProbe:
+    timeoutSeconds: 20
+  resources:
+    requests:
+      cpu: 35m
+      memory: 32Mi
+    limits:
+      memory: 96Mi
+networkPolicy:
+  enabled: false
+primary:
+  nodeSelector:
+    kubernetes.io/arch: arm64
+  podLabels:
+    home-lab.io/topology-group: valkey-data
+  podAntiAffinityPreset: hard
+  topologySpreadConstraints:
+    - maxSkew: 1
+      topologyKey: kubernetes.io/hostname
+      whenUnsatisfiable: DoNotSchedule
+      labelSelector:
+        matchLabels:
+          home-lab.io/topology-group: valkey-data
+      nodeAffinityPolicy: Honor
+      nodeTaintsPolicy: Honor
+  persistence:
+    storageClass: longhorn
+    size: 1Gi
+    annotations:
+      helm.sh/resource-policy: keep
+  persistentVolumeClaimRetentionPolicy:
+    enabled: true
+    whenScaled: Retain
+    whenDeleted: Retain
+  resources:
+    requests:
+      cpu: 50m
+      memory: 112Mi
+    limits:
+      memory: 176Mi
+replica:
+  replicaCount: 3
+  nodeSelector:
+    kubernetes.io/arch: arm64
+  podLabels:
+    home-lab.io/topology-group: valkey-data
+  podAntiAffinityPreset: hard
+  topologySpreadConstraints:
+    - maxSkew: 1
+      topologyKey: kubernetes.io/hostname
+      whenUnsatisfiable: DoNotSchedule
+      labelSelector:
+        matchLabels:
+          home-lab.io/topology-group: valkey-data
+      nodeAffinityPolicy: Honor
+      nodeTaintsPolicy: Honor
+  persistence:
+    storageClass: longhorn
+    size: 1Gi
+    annotations:
+      helm.sh/resource-policy: keep
+  persistentVolumeClaimRetentionPolicy:
+    enabled: true
+    whenScaled: Retain
+    whenDeleted: Retain
+  resources:
+    requests:
+      cpu: 50m
+      memory: 112Mi
+    limits:
+      memory: 176Mi
+metrics:
+  enabled: true
+  image:
+    digest: sha256:81bda745f33e0d3b3bd1394c2001547820fda427307a5420f6e715f89df5261b
+  resources:
+    requests:
+      cpu: 10m
+      memory: 32Mi
+    limits:
+      memory: 96Mi
+  serviceMonitor:
+    enabled: true
+    interval: 60s
+    scrapeTimeout: 10s
+    metricRelabelings:
+      - targetLabel: app
+        replacement: valkey
+    additionalEndpoints:
+      - port: http-metrics
+        path: /scrape
+        interval: 60s
+        scrapeTimeout: 10s
+        params:
+          target:
+            - localhost:26379
+        metricRelabelings:
+          - targetLabel: app
+            replacement: sentinel

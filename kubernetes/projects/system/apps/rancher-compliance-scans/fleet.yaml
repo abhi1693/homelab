@@ -1,0 +1,9 @@
+---
+name: rancher-compliance-scans
+defaultNamespace: compliance-operator-system
+labels:
+  app.kubernetes.io/name: rancher-compliance-scans
+  app.kubernetes.io/part-of: rancher-compliance
+  home-lab.io/project-slug: system
+dependsOn:
+  - name: rancher-compliance-helmop

@@ -1,0 +1,65 @@
+fullnameOverride: external-dns-unifi
+interval: 30m
+triggerLoopOnEvent: true
+sources:
+  - ingress
+podAnnotations:
+  home-lab.io/apiserver-egress-policy: cilium
+rbac:
+  additionalPermissions:
+    - apiGroups:
+        - ""
+      resources:
+        - services
+        - pods
+        - nodes
+        - endpoints
+      verbs:
+        - get
+        - watch
+        - list
+    - apiGroups:
+        - discovery.k8s.io
+      resources:
+        - endpointslices
+      verbs:
+        - get
+        - watch
+        - list
+provider:
+  name: webhook
+  webhook:
+    image:
+      repository: registry.home/ghcr.io/kashalls/external-dns-unifi-webhook
+      tag: v0.9.0
+    env:
+      - name: UNIFI_HOST
+        value: https://192.168.3.1
+      - name: UNIFI_API_KEY
+        valueFrom:
+          secretKeyRef:
+            name: external-dns-unifi-sops
+            key: api-key
+    readinessProbe:
+      httpGet:
+        path: /readyz
+    resources:
+      requests:
+        cpu: 10m
+        memory: 64Mi
+      limits:
+        memory: 128Mi
+extraArgs:
+  - --ignore-ingress-tls-spec
+  - --ingress-class=traefik
+domainFilters:
+  - home
+policy: sync
+txtOwnerId: home-lab
+txtPrefix: k8s.
+resources:
+  requests:
+    cpu: 10m
+    memory: 32Mi
+  limits:
+    memory: 96Mi

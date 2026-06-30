@@ -1,0 +1,6 @@
+# NetBox 4.6 compatible netbox-metatype-importer branch, pinned for repeatable builds.
+https://github.com/Onemind-Services-LLC/netbox-metatype-importer/archive/fbeb6b95817170a34bb2b8dec209a331f5155a4d.tar.gz
+netbox-topology-views==4.5.1
+netbox-plugin-dns==1.5.10
+netbox-lifecycle==1.1.9
+netbox-bgp==0.19.0

@@ -1,0 +1,51 @@
+---
+apiVersion: fleet.cattle.io/v1alpha1
+kind: HelmOp
+metadata:
+  name: prowlarr
+  labels:
+    app.kubernetes.io/name: prowlarr
+    app.kubernetes.io/part-of: media-stack
+    home-lab.io/project-slug: entertainment
+spec:
+  defaultNamespace: media
+  namespaceLabels:
+    app.kubernetes.io/part-of: media-stack
+    field.cattle.io/projectId: p-rm645
+  namespaceAnnotations:
+    field.cattle.io/projectId: local:p-rm645
+  dependsOn:
+    - name: rancher-project-entertainment
+    - name: media-helm-repositories
+    - name: media-storage
+    - name: flaresolverr
+  labels:
+    app.kubernetes.io/name: prowlarr
+    app.kubernetes.io/part-of: media-stack
+    home-lab.io/project-slug: entertainment
+  targets:
+    - name: default
+      clusterGroup: default
+  targetRestrictions:
+    - name: default
+      clusterGroup: default
+  correctDrift:
+    enabled: true
+    force: true
+    keepFailHistory: true
+  downstreamResources:
+    - kind: ConfigMap
+      name: prowlarr-values
+  helm:
+    releaseName: prowlarr
+    repo: oci://oci.trueforge.org/truecharts/prowlarr
+    version: 22.7.0
+    atomic: true
+    timeoutSeconds: 600
+    takeOwnership: true
+    valuesFrom:
+      - configMapKeyRef:
+          name: prowlarr-values
+          namespace: fleet-local
+          key: values.yaml
+    waitForJobs: true

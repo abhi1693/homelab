@@ -1,0 +1,138 @@
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: qbittorrent-movies
+  namespace: media
+  labels:
+    app.kubernetes.io/instance: qbittorrent-movies
+    app.kubernetes.io/name: qbittorrent-alias
+    app.kubernetes.io/part-of: media-stack
+    home-lab.io/project-slug: entertainment
+spec:
+  type: ClusterIP
+  selector:
+    app.kubernetes.io/instance: qbittorrent
+    app.kubernetes.io/name: qbittorrent
+    pod.name: main
+  ports:
+    - name: main
+      port: 8080
+      protocol: TCP
+      targetPort: 8080
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: qbittorrent-anime
+  namespace: media
+  labels:
+    app.kubernetes.io/instance: qbittorrent-anime
+    app.kubernetes.io/name: qbittorrent-alias
+    app.kubernetes.io/part-of: media-stack
+    home-lab.io/project-slug: entertainment
+spec:
+  type: ClusterIP
+  selector:
+    app.kubernetes.io/instance: qbittorrent
+    app.kubernetes.io/name: qbittorrent
+    pod.name: main
+  ports:
+    - name: main
+      port: 8080
+      protocol: TCP
+      targetPort: 8080
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: qbittorrent-prowlarr
+  namespace: media
+  labels:
+    app.kubernetes.io/instance: qbittorrent-prowlarr
+    app.kubernetes.io/name: qbittorrent-alias
+    app.kubernetes.io/part-of: media-stack
+    home-lab.io/project-slug: entertainment
+spec:
+  type: ClusterIP
+  selector:
+    app.kubernetes.io/instance: qbittorrent
+    app.kubernetes.io/name: qbittorrent
+    pod.name: main
+  ports:
+    - name: main
+      port: 8080
+      protocol: TCP
+      targetPort: 8080
+---
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: qbittorrent-movies
+  namespace: media
+  labels:
+    app.kubernetes.io/instance: qbittorrent-movies
+    app.kubernetes.io/name: qbittorrent-alias
+    app.kubernetes.io/part-of: media-stack
+    home-lab.io/project-slug: entertainment
+spec:
+  ingressClassName: traefik
+  rules:
+    - host: qbittorrent-movies.media.home
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: qbittorrent-movies
+                port:
+                  number: 8080
+---
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: qbittorrent-anime
+  namespace: media
+  labels:
+    app.kubernetes.io/instance: qbittorrent-anime
+    app.kubernetes.io/name: qbittorrent-alias
+    app.kubernetes.io/part-of: media-stack
+    home-lab.io/project-slug: entertainment
+spec:
+  ingressClassName: traefik
+  rules:
+    - host: qbittorrent-anime.media.home
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: qbittorrent-anime
+                port:
+                  number: 8080
+---
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: qbittorrent-prowlarr
+  namespace: media
+  labels:
+    app.kubernetes.io/instance: qbittorrent-prowlarr
+    app.kubernetes.io/name: qbittorrent-alias
+    app.kubernetes.io/part-of: media-stack
+    home-lab.io/project-slug: entertainment
+spec:
+  ingressClassName: traefik
+  rules:
+    - host: qbittorrent-prowlarr.media.home
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: qbittorrent-prowlarr
+                port:
+                  number: 8080

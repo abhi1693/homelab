@@ -1,0 +1,550 @@
+---
+- name: Assert Rancher is being managed from the bootstrap server
+  ansible.builtin.assert:
+    that:
+      - k3s_node.cluster_init | bool
+    fail_msg: rancher must be applied from the initial K3s server where k3s_node.cluster_init=true.
+    success_msg: "Installing Rancher from the bootstrap K3s server"
+
+- name: Assert Rancher inputs are configured
+  ansible.builtin.assert:
+    that:
+      - rancher.namespace | trim != ''
+      - rancher.chart_version | trim != ''
+      - rancher.hostname | trim != ''
+      - rancher.bootstrap_password | trim != ''
+      - rancher.bootstrap_password != 'change-me'
+      - rancher.replicas | int >= 2
+      - rancher.rolling_update.max_surge | int >= 0
+      - rancher.rolling_update.max_unavailable | int >= 0
+      - rancher.anti_affinity in ['required', 'preferred']
+      - rancher.topology_key | trim != ''
+      - rancher.priority_class_name | trim != ''
+      - rancher.resources.requests.cpu | trim != ''
+      - rancher.resources.requests.memory | trim != ''
+      - rancher.resources.limits.cpu | trim != ''
+      - rancher.resources.limits.memory | trim != ''
+      - rancher.ingress.class_name | trim != ''
+      - rancher.ingress.tls_source in ['rancher', 'letsEncrypt', 'secret']
+      - rancher.ingress.tls_secret_name | trim != ''
+      - rancher.service.type in ['ClusterIP', 'NodePort', 'LoadBalancer']
+      - rancher_fleet_image.repository | default('') | trim == '' or rancher_fleet_image.tag | default('') | trim != ''
+      - not (rancher_fleet_image_pull_secret.enabled | default(false) | bool) or rancher_fleet_image_pull_secret.name | default('') | trim != ''
+      - not (rancher_fleet_image_pull_secret.enabled | default(false) | bool) or rancher_fleet_image_pull_secret.server | default('') | trim != ''
+      - not (rancher_fleet_image_pull_secret.enabled | default(false) | bool) or rancher_fleet_image_pull_secret.username | default('') | trim != ''
+      - not (rancher_fleet_image_pull_secret.enabled | default(false) | bool) or rancher_fleet_image_pull_secret.password | default('') | trim != ''
+      - rancher_fleet_imagescan.enabled | default(false) is boolean
+    fail_msg: Expected Rancher hostname, bootstrap password, ingress, and service settings to be configured.
+    success_msg: "Rancher inputs are configured"
+  vars:
+    rancher_fleet_image: "{{ (rancher.fleet | default({})).image | default({}) }}"
+    rancher_fleet_image_pull_secret: "{{ (rancher.fleet | default({})).image_pull_secret | default({}) }}"
+    rancher_fleet_imagescan: "{{ (rancher.fleet | default({})).imagescan | default({}) }}"
+  no_log: true
+
+- name: Wait for local K3s API before deploying Rancher
+  ansible.builtin.wait_for:
+    host: 127.0.0.1
+    port: 6443
+    timeout: 120
+
+- name: Assert local K3s API is ready before deploying Rancher
+  ansible.builtin.command: /usr/local/bin/k3s kubectl get --raw=/readyz
+  environment:
+    KUBECONFIG: /etc/rancher/k3s/k3s.yaml
+  register: rancher_local_readyz
+  changed_when: false
+
+- name: Confirm local K3s API returned readyz ok
+  ansible.builtin.assert:
+    that:
+      - rancher_local_readyz.stdout | trim == 'ok'
+    fail_msg: Expected local K3s API /readyz endpoint to return ok before deploying Rancher.
+    success_msg: "Local K3s API is ready for Rancher deployment"
+
+- name: Ensure K3s manifests directory exists for Rancher
+  ansible.builtin.file:
+    path: /var/lib/rancher/k3s/server/manifests
+    state: directory
+    owner: root
+    group: root
+    mode: "0755"
+
+- name: Remove legacy Rancher priority class manifest
+  ansible.builtin.file:
+    path: /var/lib/rancher/k3s/server/manifests/rancher-priorityclass.yaml
+    state: absent
+
+- name: Remove legacy Rancher priority class addon record
+  ansible.builtin.command:
+    argv:
+      - /usr/local/bin/k3s
+      - kubectl
+      - -n
+      - kube-system
+      - delete
+      - addon
+      - rancher-priorityclass
+  environment:
+    KUBECONFIG: /etc/rancher/k3s/k3s.yaml
+  register: rancher_priorityclass_addon_delete
+  changed_when: rancher_priorityclass_addon_delete.rc == 0
+  failed_when: false
+
+- name: Remove legacy Rancher certificate manifest
+  ansible.builtin.file:
+    path: /var/lib/rancher/k3s/server/manifests/rancher-certificate.yaml
+    state: absent
+
+- name: Remove legacy Rancher certificate addon record
+  ansible.builtin.command:
+    argv:
+      - /usr/local/bin/k3s
+      - kubectl
+      - -n
+      - kube-system
+      - delete
+      - addon
+      - rancher-certificate
+  environment:
+    KUBECONFIG: /etc/rancher/k3s/k3s.yaml
+  register: rancher_certificate_addon_delete
+  changed_when: rancher_certificate_addon_delete.rc == 0
+  failed_when: false
+
+- name: Remove legacy cert-manager Rancher certificate resource
+  ansible.builtin.command:
+    argv:
+      - /usr/local/bin/k3s
+      - kubectl
+      - -n
+      - "{{ rancher.namespace }}"
+      - delete
+      - certificate
+      - rancher-ingress
+  environment:
+    KUBECONFIG: /etc/rancher/k3s/k3s.yaml
+  register: rancher_legacy_certificate_delete
+  changed_when: rancher_legacy_certificate_delete.rc == 0
+  failed_when: false
+
+- name: Check existing Rancher priority class ownership
+  ansible.builtin.command:
+    argv:
+      - /usr/local/bin/k3s
+      - kubectl
+      - get
+      - priorityclass
+      - "{{ rancher.priority_class_name }}"
+      - -o
+      - jsonpath={.metadata.annotations.meta\.helm\.sh/release-name}:{.metadata.annotations.meta\.helm\.sh/release-namespace}:{.metadata.annotations.objectset\.rio\.cattle\.io/owner-name}
+  environment:
+    KUBECONFIG: /etc/rancher/k3s/k3s.yaml
+  register: rancher_priority_class_owner
+  changed_when: false
+  failed_when: false
+
+- name: Remove legacy addon-managed Rancher priority class
+  ansible.builtin.command:
+    argv:
+      - /usr/local/bin/k3s
+      - kubectl
+      - delete
+      - priorityclass
+      - "{{ rancher.priority_class_name }}"
+  environment:
+    KUBECONFIG: /etc/rancher/k3s/k3s.yaml
+  changed_when: true
+  when:
+    - rancher_priority_class_owner.rc == 0
+    - rancher_priority_class_owner.stdout | trim != 'rancher:cattle-system:'
+
+- name: Check Fleet control-plane namespace for configured image pull Secret
+  ansible.builtin.command:
+    argv:
+      - /usr/local/bin/k3s
+      - kubectl
+      - get
+      - namespace
+      - cattle-fleet-system
+  environment:
+    KUBECONFIG: /etc/rancher/k3s/k3s.yaml
+  register: rancher_fleet_namespace_check
+  changed_when: false
+  failed_when: false
+  vars:
+    rancher_fleet_image_pull_secret: "{{ (rancher.fleet | default({})).image_pull_secret | default({}) }}"
+  when: rancher_fleet_image_pull_secret.enabled | default(false) | bool
+
+- name: Create Fleet control-plane namespace for configured image pull Secret
+  ansible.builtin.command:
+    argv:
+      - /usr/local/bin/k3s
+      - kubectl
+      - create
+      - namespace
+      - cattle-fleet-system
+  environment:
+    KUBECONFIG: /etc/rancher/k3s/k3s.yaml
+  changed_when: true
+  vars:
+    rancher_fleet_image_pull_secret: "{{ (rancher.fleet | default({})).image_pull_secret | default({}) }}"
+  when:
+    - rancher_fleet_image_pull_secret.enabled | default(false) | bool
+    - rancher_fleet_namespace_check.rc | default(1) != 0
+
+- name: Render Fleet image pull Secret manifest
+  ansible.builtin.template:
+    src: fleet-image-pull-secret.yaml.j2
+    dest: /var/lib/rancher/k3s/server/manifests/rancher-fleet-image-pull-secret.yaml
+    owner: root
+    group: root
+    mode: "0600"
+  vars:
+    rancher_fleet_image_pull_secret: "{{ (rancher.fleet | default({})).image_pull_secret | default({}) }}"
+  no_log: true
+  when: rancher_fleet_image_pull_secret.enabled | default(false) | bool
+
+- name: Apply Fleet image pull Secret manifest
+  ansible.builtin.command:
+    argv:
+      - /usr/local/bin/k3s
+      - kubectl
+      - apply
+      - -f
+      - /var/lib/rancher/k3s/server/manifests/rancher-fleet-image-pull-secret.yaml
+  environment:
+    KUBECONFIG: /etc/rancher/k3s/k3s.yaml
+  register: rancher_fleet_image_pull_secret_apply
+  changed_when: "'unchanged' not in rancher_fleet_image_pull_secret_apply.stdout"
+  vars:
+    rancher_fleet_image_pull_secret: "{{ (rancher.fleet | default({})).image_pull_secret | default({}) }}"
+  no_log: true
+  when: rancher_fleet_image_pull_secret.enabled | default(false) | bool
+
+- name: Read existing Fleet service account image pull secrets before upgrade
+  ansible.builtin.command:
+    argv:
+      - /usr/local/bin/k3s
+      - kubectl
+      - -n
+      - cattle-fleet-system
+      - get
+      - serviceaccount
+      - "{{ item }}"
+      - -o
+      - jsonpath={.imagePullSecrets[*].name}
+  environment:
+    KUBECONFIG: /etc/rancher/k3s/k3s.yaml
+  register: rancher_fleet_preupgrade_serviceaccount_pull_secrets
+  changed_when: false
+  failed_when: false
+  loop:
+    - fleet-controller
+    - gitjob
+    - helmops
+  vars:
+    rancher_fleet_image_pull_secret: "{{ (rancher.fleet | default({})).image_pull_secret | default({}) }}"
+  when: rancher_fleet_image_pull_secret.enabled | default(false) | bool
+
+- name: Attach configured pull secret to existing Fleet service accounts before upgrade
+  ansible.builtin.command:
+    argv:
+      - /usr/local/bin/k3s
+      - kubectl
+      - -n
+      - cattle-fleet-system
+      - patch
+      - serviceaccount
+      - "{{ item.item }}"
+      - --type=merge
+      - -p
+      - "{{ {'imagePullSecrets': rancher_fleet_image_pull_secret_refs} | to_json }}"
+  environment:
+    KUBECONFIG: /etc/rancher/k3s/k3s.yaml
+  register: rancher_fleet_preupgrade_serviceaccount_patch
+  changed_when: "'patched' in rancher_fleet_preupgrade_serviceaccount_patch.stdout"
+  loop: "{{ rancher_fleet_preupgrade_serviceaccount_pull_secrets.results | default([]) }}"
+  vars:
+    rancher_fleet_image_pull_secret: "{{ (rancher.fleet | default({})).image_pull_secret | default({}) }}"
+    rancher_fleet_image_pull_secret_names: "{{ (item.stdout.split() + [rancher_fleet_image_pull_secret.name]) | unique | list }}"
+    rancher_fleet_image_pull_secret_refs: "{{ rancher_fleet_image_pull_secret_names | map('regex_replace', '^(.*)$', '{\"name\":\"\\1\"}') | map('from_json') | list }}"
+  when:
+    - rancher_fleet_image_pull_secret.enabled | default(false) | bool
+    - item.rc == 0
+    - rancher_fleet_image_pull_secret.name not in item.stdout.split()
+
+- name: Read Rancher Helm install job UID before rendering HelmChart
+  ansible.builtin.command:
+    argv:
+      - /usr/local/bin/k3s
+      - kubectl
+      - -n
+      - kube-system
+      - get
+      - job
+      - helm-install-rancher
+      - -o
+      - jsonpath={.metadata.uid}
+  environment:
+    KUBECONFIG: /etc/rancher/k3s/k3s.yaml
+  register: rancher_helm_job_uid_before
+  changed_when: false
+  failed_when: false
+
+- name: Render Rancher HelmChart manifest
+  ansible.builtin.template:
+    src: rancher-helmchart.yaml.j2
+    dest: /var/lib/rancher/k3s/server/manifests/rancher-helmchart.yaml
+    owner: root
+    group: root
+    mode: "0600"
+  register: rancher_helmchart_manifest
+  no_log: true
+
+- name: Wait for Rancher Helm install job to be recreated
+  ansible.builtin.command:
+    argv:
+      - /usr/local/bin/k3s
+      - kubectl
+      - -n
+      - kube-system
+      - get
+      - job
+      - helm-install-rancher
+      - -o
+      - jsonpath={.metadata.uid}
+  environment:
+    KUBECONFIG: /etc/rancher/k3s/k3s.yaml
+  register: rancher_helm_job_uid_after
+  changed_when: false
+  until:
+    - rancher_helm_job_uid_after.rc == 0
+    - rancher_helm_job_uid_after.stdout | trim != ''
+    - rancher_helm_job_uid_after.stdout | trim != rancher_helm_job_uid_before.stdout | default('') | trim
+  retries: 60
+  delay: 2
+  when: rancher_helmchart_manifest.changed
+
+- name: Wait for Rancher Helm install job to complete
+  ansible.builtin.command:
+    argv:
+      - /usr/local/bin/k3s
+      - kubectl
+      - -n
+      - kube-system
+      - wait
+      - --for=condition=complete
+      - job/helm-install-rancher
+      - --timeout=900s
+  environment:
+    KUBECONFIG: /etc/rancher/k3s/k3s.yaml
+  changed_when: false
+  when: rancher_helmchart_manifest.changed
+
+- name: Wait for Rancher namespace to exist
+  ansible.builtin.command:
+    argv:
+      - /usr/local/bin/k3s
+      - kubectl
+      - get
+      - namespace
+      - "{{ rancher.namespace }}"
+  environment:
+    KUBECONFIG: /etc/rancher/k3s/k3s.yaml
+  register: rancher_namespace_check
+  changed_when: false
+  until: rancher_namespace_check.rc == 0
+  retries: 60
+  delay: 5
+
+- name: Wait for Rancher deployment to exist
+  ansible.builtin.command:
+    argv:
+      - /usr/local/bin/k3s
+      - kubectl
+      - -n
+      - "{{ rancher.namespace }}"
+      - get
+      - deployment
+      - rancher
+  environment:
+    KUBECONFIG: /etc/rancher/k3s/k3s.yaml
+  register: rancher_deployment_check
+  changed_when: false
+  until: rancher_deployment_check.rc == 0
+  retries: 90
+  delay: 5
+
+- name: Wait for Rancher deployment chart label to match inventory
+  ansible.builtin.command:
+    argv:
+      - /usr/local/bin/k3s
+      - kubectl
+      - -n
+      - "{{ rancher.namespace }}"
+      - get
+      - deployment
+      - rancher
+      - -o
+      - jsonpath={.metadata.labels.chart}
+  environment:
+    KUBECONFIG: /etc/rancher/k3s/k3s.yaml
+  register: rancher_deployment_chart_label
+  changed_when: false
+  until: rancher_deployment_chart_label.stdout | trim == 'rancher-' ~ rancher.chart_version
+  retries: 120
+  delay: 5
+
+- name: Wait for Rancher deployment rollout
+  ansible.builtin.command:
+    argv:
+      - /usr/local/bin/k3s
+      - kubectl
+      - -n
+      - "{{ rancher.namespace }}"
+      - rollout
+      - status
+      - deployment/rancher
+      - --timeout=600s
+  environment:
+    KUBECONFIG: /etc/rancher/k3s/k3s.yaml
+  changed_when: false
+
+- name: Read Rancher deployment rolling update strategy
+  ansible.builtin.command:
+    argv:
+      - /usr/local/bin/k3s
+      - kubectl
+      - -n
+      - "{{ rancher.namespace }}"
+      - get
+      - deployment
+      - rancher
+      - -o
+      - jsonpath={.spec.strategy.rollingUpdate.maxSurge}{" "}{.spec.strategy.rollingUpdate.maxUnavailable}
+  environment:
+    KUBECONFIG: /etc/rancher/k3s/k3s.yaml
+  register: rancher_rolling_update_strategy
+  changed_when: false
+
+- name: Enforce Rancher one-at-a-time rolling update strategy
+  ansible.builtin.command:
+    argv:
+      - /usr/local/bin/k3s
+      - kubectl
+      - -n
+      - "{{ rancher.namespace }}"
+      - patch
+      - deployment
+      - rancher
+      - --type=merge
+      - -p
+      - >-
+        {"spec":{"strategy":{"type":"RollingUpdate","rollingUpdate":{"maxSurge":{{ rancher.rolling_update.max_surge | int }},"maxUnavailable":{{ rancher.rolling_update.max_unavailable | int }}}}}}
+  environment:
+    KUBECONFIG: /etc/rancher/k3s/k3s.yaml
+  changed_when: true
+  when: >
+    rancher_rolling_update_strategy.stdout.split() | length < 2 or
+    rancher_rolling_update_strategy.stdout.split()[0] != (rancher.rolling_update.max_surge | string) or
+    rancher_rolling_update_strategy.stdout.split()[1] != (rancher.rolling_update.max_unavailable | string)
+
+- name: Wait for Rancher ingress TLS Secret to exist
+  ansible.builtin.command:
+    argv:
+      - /usr/local/bin/k3s
+      - kubectl
+      - -n
+      - "{{ rancher.namespace }}"
+      - get
+      - secret
+      - "{{ rancher.ingress.tls_secret_name }}"
+  environment:
+    KUBECONFIG: /etc/rancher/k3s/k3s.yaml
+  register: rancher_ingress_tls_secret_check
+  changed_when: false
+  until: rancher_ingress_tls_secret_check.rc == 0
+  retries: 60
+  delay: 5
+
+- name: Wait for Fleet service accounts to exist
+  ansible.builtin.command:
+    argv:
+      - /usr/local/bin/k3s
+      - kubectl
+      - -n
+      - cattle-fleet-system
+      - get
+      - serviceaccount
+      - "{{ item }}"
+  environment:
+    KUBECONFIG: /etc/rancher/k3s/k3s.yaml
+  register: rancher_fleet_serviceaccount_check
+  changed_when: false
+  until: rancher_fleet_serviceaccount_check.rc == 0
+  retries: 90
+  delay: 5
+  loop:
+    - fleet-controller
+    - gitjob
+    - helmops
+  vars:
+    rancher_fleet_image: "{{ (rancher.fleet | default({})).image | default({}) }}"
+    rancher_fleet_image_pull_secret: "{{ (rancher.fleet | default({})).image_pull_secret | default({}) }}"
+    rancher_fleet_image_pull_secret_name: "{{ rancher_fleet_image_pull_secret.name | default('') if (rancher_fleet_image_pull_secret.enabled | default(false) | bool) else ('harbor-registry' if (rancher_fleet_image.repository | default('') is match('^registry\\.home/')) else '') }}"
+  when: rancher_fleet_image_pull_secret_name | trim != ''
+
+- name: Read Fleet service account image pull secrets
+  ansible.builtin.command:
+    argv:
+      - /usr/local/bin/k3s
+      - kubectl
+      - -n
+      - cattle-fleet-system
+      - get
+      - serviceaccount
+      - "{{ item }}"
+      - -o
+      - jsonpath={.imagePullSecrets[*].name}
+  environment:
+    KUBECONFIG: /etc/rancher/k3s/k3s.yaml
+  register: rancher_fleet_serviceaccount_pull_secrets
+  changed_when: false
+  loop:
+    - fleet-controller
+    - gitjob
+    - helmops
+  vars:
+    rancher_fleet_image: "{{ (rancher.fleet | default({})).image | default({}) }}"
+    rancher_fleet_image_pull_secret: "{{ (rancher.fleet | default({})).image_pull_secret | default({}) }}"
+    rancher_fleet_image_pull_secret_name: "{{ rancher_fleet_image_pull_secret.name | default('') if (rancher_fleet_image_pull_secret.enabled | default(false) | bool) else ('harbor-registry' if (rancher_fleet_image.repository | default('') is match('^registry\\.home/')) else '') }}"
+  when: rancher_fleet_image_pull_secret_name | trim != ''
+
+- name: Attach configured pull secret to Fleet service accounts
+  ansible.builtin.command:
+    argv:
+      - /usr/local/bin/k3s
+      - kubectl
+      - -n
+      - cattle-fleet-system
+      - patch
+      - serviceaccount
+      - "{{ item.item }}"
+      - --type=merge
+      - -p
+      - "{{ {'imagePullSecrets': rancher_fleet_image_pull_secret_refs} | to_json }}"
+  environment:
+    KUBECONFIG: /etc/rancher/k3s/k3s.yaml
+  register: rancher_fleet_serviceaccount_patch
+  changed_when: "'patched' in rancher_fleet_serviceaccount_patch.stdout"
+  loop: "{{ rancher_fleet_serviceaccount_pull_secrets.results | default([]) }}"
+  vars:
+    rancher_fleet_image: "{{ (rancher.fleet | default({})).image | default({}) }}"
+    rancher_fleet_image_pull_secret: "{{ (rancher.fleet | default({})).image_pull_secret | default({}) }}"
+    rancher_fleet_image_pull_secret_name: "{{ rancher_fleet_image_pull_secret.name | default('') if (rancher_fleet_image_pull_secret.enabled | default(false) | bool) else ('harbor-registry' if (rancher_fleet_image.repository | default('') is match('^registry\\.home/')) else '') }}"
+    rancher_fleet_image_pull_secret_names: "{{ (item.stdout.split() + [rancher_fleet_image_pull_secret_name]) | unique | list }}"
+    rancher_fleet_image_pull_secret_refs: "{{ rancher_fleet_image_pull_secret_names | map('regex_replace', '^(.*)$', '{\"name\":\"\\1\"}') | map('from_json') | list }}"
+  when:
+    - rancher_fleet_image_pull_secret_name | trim != ''
+    - rancher_fleet_image_pull_secret_name not in item.stdout.split()

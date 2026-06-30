@@ -1,0 +1,266 @@
+---
+argument_specs:
+  main:
+    short_description: Install and validate Cilium plus bundled Traefik exposure on the bootstrap K3s server.
+    options:
+      k3s:
+        type: dict
+        required: true
+        options:
+          version:
+            type: str
+            required: true
+          token:
+            type: str
+            required: true
+            no_log: true
+          registration_vip:
+            type: str
+            required: true
+            description:
+              - Stable virtual IP used for K3s API access and server registration.
+          tls_sans:
+            type: list
+            elements: str
+            required: true
+      k3s_node:
+        type: dict
+        required: true
+        options:
+          cluster_init:
+            type: bool
+            required: true
+            description:
+              - Whether the target node is the initial K3s control-plane node.
+      cilium:
+        type: dict
+        required: true
+        options:
+          version:
+            type: str
+            required: true
+            description:
+              - Exact Cilium dataplane version to install.
+          cli_version:
+            type: str
+            required: true
+            description:
+              - Exact Cilium CLI version to install for bootstrap and validation.
+          agent_capabilities:
+            type: list
+            required: true
+            elements: str
+            description:
+              - Capabilities granted to the cilium-agent container.
+          operator_replicas:
+            type: int
+            required: true
+            description:
+              - Number of Cilium operator replicas to run.
+          cluster_pool_ipv4_pod_cidr_list:
+            type: str
+            required: true
+            description:
+              - Cluster pool CIDR that Cilium should allocate pod IPs from.
+          k8s_service_port:
+            type: int
+            required: true
+            description:
+              - API port Cilium should use when talking to the K3s control-plane VIP.
+          hubble:
+            type: dict
+            required: true
+            options:
+              enabled:
+                type: bool
+                required: true
+                description:
+                  - Whether Hubble flow visibility should be enabled.
+              relay:
+                type: dict
+                required: true
+                options:
+                  enabled:
+                    type: bool
+                    required: true
+                    description:
+                      - Whether Hubble Relay should be enabled.
+              ui:
+                type: dict
+                required: true
+                options:
+                  enabled:
+                    type: bool
+                    required: true
+                    description:
+                      - Whether Hubble UI should be enabled.
+                  replicas:
+                    type: int
+                    required: true
+                    description:
+                      - Number of Hubble UI replicas to run.
+                  ingress:
+                    type: dict
+                    required: true
+                    options:
+                      enabled:
+                        type: bool
+                        required: true
+                        description:
+                          - Whether to create an ingress for Hubble UI.
+                      class_name:
+                        type: str
+                        required: true
+                        description:
+                          - IngressClass name for Hubble UI.
+                      hosts:
+                        type: list
+                        elements: str
+                        required: true
+                        description:
+                          - Hostnames for the Hubble UI ingress.
+                      tls:
+                        type: list
+                        elements: dict
+                        required: true
+                        description:
+                          - TLS entries for the Hubble UI ingress.
+          bgp:
+            type: dict
+            required: true
+            options:
+              enabled:
+                type: bool
+                required: true
+                description:
+                  - Whether Cilium's BGP control plane should be enabled.
+              local_asn:
+                type: int
+                required: true
+                description:
+                  - Local ASN the cluster should use when peering upstream.
+              peer_asn:
+                type: int
+                required: true
+                description:
+                  - ASN of the upstream BGP peer.
+              peer_address:
+                type: str
+                required: true
+                description:
+                  - Address of the upstream BGP peer.
+              local_port:
+                type: int
+                required: true
+                description:
+                  - Local TCP port the Cilium BGP speaker should listen on.
+              cluster_config_name:
+                type: str
+                required: true
+                description:
+                  - Name of the CiliumBGPClusterConfig resource.
+              peer_config_name:
+                type: str
+                required: true
+                description:
+                  - Name of the CiliumBGPPeerConfig resource.
+              advertisement_name:
+                type: str
+                required: true
+                description:
+                  - Name of the CiliumBGPAdvertisement resource.
+              ip_pool_name:
+                type: str
+                required: true
+                description:
+                  - Name of the Cilium LoadBalancer IP pool resource.
+              app_ip_pool:
+                type: dict
+                required: true
+                options:
+                  name:
+                    type: str
+                    required: true
+                    description:
+                      - Name of the shared Cilium LoadBalancer IP pool for app services.
+                  start:
+                    type: str
+                    required: true
+                    description:
+                      - First IP in the app-service LoadBalancer range.
+                  stop:
+                    type: str
+                    required: true
+                    description:
+                      - Last IP in the app-service LoadBalancer range.
+              keepalive_time_seconds:
+                type: int
+                required: true
+                description:
+                  - BGP keepalive timer in seconds.
+              hold_time_seconds:
+                type: int
+                required: true
+                description:
+                  - BGP hold timer in seconds.
+              graceful_restart_enabled:
+                type: bool
+                required: true
+                description:
+                  - Whether graceful restart should be enabled for the BGP peer.
+              graceful_restart_time_seconds:
+                type: int
+                required: true
+                description:
+                  - Graceful restart timer in seconds.
+      traefik:
+        type: dict
+        required: true
+        options:
+          namespace:
+            type: str
+            required: true
+            description:
+              - Namespace used by the bundled K3s Traefik packaged component.
+          ingress_class_name:
+            type: str
+            required: true
+            description:
+              - IngressClass name apps should target.
+          service_name:
+            type: str
+            required: true
+            description:
+              - Service name created by the bundled Traefik deployment.
+          replicas:
+            type: int
+            required: true
+            description:
+              - Number of Traefik replicas to run.
+          priority_class_name:
+            type: str
+            required: true
+            description:
+              - Priority class Traefik should use.
+          service:
+            type: dict
+            required: true
+            options:
+              load_balancer_ip:
+                type: str
+                required: true
+                description:
+                  - Fixed IP that Cilium should allocate to the Traefik LoadBalancer service.
+              load_balancer_class:
+                type: str
+                required: true
+                description:
+                  - LoadBalancerClass Traefik should request from Cilium.
+              external_traffic_policy:
+                type: str
+                required: true
+                choices:
+                  - Cluster
+                  - Local
+                description:
+                  - externalTrafficPolicy Traefik should use for the BGP-advertised LoadBalancer service.

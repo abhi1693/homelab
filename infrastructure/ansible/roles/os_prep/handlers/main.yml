@@ -1,0 +1,5 @@
+---
+- name: Reboot host
+  ansible.builtin.reboot:
+    msg: Reboot triggered by os_prep after package upgrade.
+    reboot_timeout: 900

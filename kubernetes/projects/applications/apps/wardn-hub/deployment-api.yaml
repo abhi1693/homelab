@@ -1,0 +1,220 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: wardn-hub-api
+  namespace: wardn
+  labels:
+    app.kubernetes.io/name: wardn-hub-api
+    app.kubernetes.io/component: api
+    app.kubernetes.io/part-of: wardn-hub
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: wardn-hub-api
+      app.kubernetes.io/component: api
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxSurge: 1
+      maxUnavailable: 0
+  template:
+    metadata:
+      annotations:
+        home-lab.io/reconcile-token: "20260625T2115Z"
+      labels:
+        app.kubernetes.io/name: wardn-hub-api
+        app.kubernetes.io/component: api
+        app.kubernetes.io/part-of: wardn-hub
+        wardn-hub-api-client: "true"
+        wardn-hub-psql-client: "true"
+    spec:
+      automountServiceAccountToken: false
+      securityContext:
+        fsGroup: 999
+        fsGroupChangePolicy: OnRootMismatch
+      imagePullSecrets:
+        - name: harbor-registry
+      nodeSelector:
+        kubernetes.io/arch: arm64
+      affinity:
+        podAntiAffinity:
+          preferredDuringSchedulingIgnoredDuringExecution:
+            - weight: 100
+              podAffinityTerm:
+                labelSelector:
+                  matchLabels:
+                    app.kubernetes.io/name: wardn-hub-api
+                    app.kubernetes.io/component: api
+                topologyKey: kubernetes.io/hostname
+      topologySpreadConstraints:
+        - maxSkew: 1
+          topologyKey: kubernetes.io/hostname
+          whenUnsatisfiable: ScheduleAnyway
+          labelSelector:
+            matchLabels:
+              app.kubernetes.io/name: wardn-hub-api
+              app.kubernetes.io/component: api
+      initContainers:
+        - name: wait-for-codex-login
+          image: registry.home/ghcr.io/abhi1693/wardn-hub/backend:0.2.59 # {"$imagescan": "wardn-hub-backend"}
+          imagePullPolicy: IfNotPresent
+          command:
+            - sh
+            - -ec
+          args:
+            - |
+              for attempt in $(seq 1 180); do
+                if codex login status; then
+                  exit 0
+                fi
+                echo "Waiting for shared Codex login in /app/.codex (${attempt}/180)..."
+                sleep 10
+              done
+              echo "Timed out waiting for shared Codex login."
+              exit 1
+          resources:
+            requests:
+              cpu: 25m
+              memory: 128Mi
+            limits:
+              cpu: 250m
+              memory: 256Mi
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop:
+                - ALL
+            runAsGroup: 999
+            runAsNonRoot: true
+            runAsUser: 999
+          volumeMounts:
+            - name: codex-config
+              mountPath: /app/.codex
+        - name: migrate-db
+          image: registry.home/ghcr.io/abhi1693/wardn-hub/backend:0.2.59 # {"$imagescan": "wardn-hub-backend"}
+          imagePullPolicy: IfNotPresent
+          command:
+            - alembic
+            - upgrade
+            - head
+          envFrom:
+            - configMapRef:
+                name: wardn-hub
+            - secretRef:
+                name: wardn-hub
+          env:
+            - name: POSTGRES_USER
+              valueFrom:
+                secretKeyRef:
+                  name: wardn-hub-postgresql
+                  key: username
+            - name: POSTGRES_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: wardn-hub-postgresql
+                  key: password
+            - name: POSTGRES_DB
+              valueFrom:
+                secretKeyRef:
+                  name: wardn-hub-postgresql
+                  key: dbname
+            - name: WARDN_HUB_DATABASE_URL
+              value: postgresql+asyncpg://$(POSTGRES_USER):$(POSTGRES_PASSWORD)@postgresql-pooler-wardn-hub-rw.postgresql.svc.cluster.local:5432/$(POSTGRES_DB)
+          resources:
+            requests:
+              cpu: 50m
+              memory: 256Mi
+            limits:
+              cpu: 500m
+              memory: 512Mi
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop:
+                - ALL
+            runAsGroup: 999
+            runAsNonRoot: true
+            runAsUser: 999
+      volumes:
+        - name: codex-config
+          persistentVolumeClaim:
+            claimName: wardn-hub-codex-config
+      containers:
+        - name: api
+          image: registry.home/ghcr.io/abhi1693/wardn-hub/backend:0.2.59 # {"$imagescan": "wardn-hub-backend"}
+          imagePullPolicy: IfNotPresent
+          envFrom:
+            - configMapRef:
+                name: wardn-hub
+            - secretRef:
+                name: wardn-hub
+          env:
+            - name: POSTGRES_USER
+              valueFrom:
+                secretKeyRef:
+                  name: wardn-hub-postgresql
+                  key: username
+            - name: POSTGRES_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: wardn-hub-postgresql
+                  key: password
+            - name: POSTGRES_DB
+              valueFrom:
+                secretKeyRef:
+                  name: wardn-hub-postgresql
+                  key: dbname
+            - name: WARDN_HUB_DATABASE_URL
+              value: postgresql+asyncpg://$(POSTGRES_USER):$(POSTGRES_PASSWORD)@postgresql-pooler-wardn-hub-rw.postgresql.svc.cluster.local:5432/$(POSTGRES_DB)
+            - name: POD_NAME
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.name
+            - name: WARDN_HUB_OTEL_SERVICE_NAME
+              value: wardn-hub-api
+            - name: WARDN_HUB_OTEL_RESOURCE_ATTRIBUTES
+              value: service.namespace=wardn-hub,deployment.environment.name=production,service.instance.id=$(POD_NAME),k8s.namespace.name=wardn,k8s.deployment.name=wardn-hub-api,k8s.pod.name=$(POD_NAME),k8s.container.name=api
+          ports:
+            - name: http
+              containerPort: 8080
+              protocol: TCP
+          resources:
+            requests:
+              cpu: 100m
+              memory: 512Mi
+            limits:
+              cpu: "1"
+              memory: 1Gi
+          startupProbe:
+            httpGet:
+              path: /api/v1/health/ready
+              port: http
+            periodSeconds: 5
+            timeoutSeconds: 3
+            failureThreshold: 60
+          readinessProbe:
+            httpGet:
+              path: /api/v1/health/ready
+              port: http
+            periodSeconds: 10
+            timeoutSeconds: 3
+            failureThreshold: 6
+          livenessProbe:
+            httpGet:
+              path: /api/v1/health/live
+              port: http
+            periodSeconds: 30
+            timeoutSeconds: 5
+            failureThreshold: 4
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop:
+                - ALL
+            runAsGroup: 999
+            runAsNonRoot: true
+            runAsUser: 999
+          volumeMounts:
+            - name: codex-config
+              mountPath: /app/.codex

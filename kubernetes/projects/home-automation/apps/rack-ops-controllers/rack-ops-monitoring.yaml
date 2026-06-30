@@ -1,0 +1,63 @@
+---
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+  name: rack-ops
+  namespace: rack-ops
+  labels:
+    app.kubernetes.io/name: rack-ops
+    app.kubernetes.io/component: metrics
+    app.kubernetes.io/part-of: rack-ops
+    home-lab.io/project-slug: home-automation
+spec:
+  jobLabel: app.kubernetes.io/name
+  namespaceSelector:
+    matchNames:
+      - rack-ops
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: rack-ops
+  endpoints:
+    - port: metrics
+      path: /metrics
+      interval: 60s
+      scrapeTimeout: 15s
+---
+apiVersion: monitoring.coreos.com/v1
+kind: PrometheusRule
+metadata:
+  name: rack-ops
+  namespace: rack-ops
+  labels:
+    app.kubernetes.io/name: rack-ops
+    app.kubernetes.io/component: alerts
+    app.kubernetes.io/part-of: rack-ops
+    home-lab.io/project-slug: home-automation
+spec:
+  groups:
+    - name: rack-ops.health
+      rules:
+        - alert: RackOpsDown
+          expr: up{namespace="rack-ops", job="rack-ops"} == 0
+          for: 5m
+          labels:
+            severity: warning
+          annotations:
+            summary: rack-ops controller is down
+            description: Prometheus has been unable to scrape rack-ops for more than 5 minutes.
+        - alert: RackOpsReconcileStale
+          expr: time() - rack_ops_last_reconcile_timestamp_seconds > 300
+          for: 5m
+          labels:
+            severity: warning
+          annotations:
+            summary: rack-ops reconcile loop is stale
+            description: rack-ops has not completed a reconcile loop for more than 5 minutes.
+        - alert: RackOpsPrometheusQueryErrors
+          expr: increase(rack_ops_prometheus_query_errors_total[10m]) > 0
+          for: 1m
+          labels:
+            severity: warning
+          annotations:
+            summary: rack-ops cannot query Prometheus reliably
+            description: rack-ops reported Prometheus query failures in the last 10 minutes.

@@ -1,0 +1,11 @@
+---
+name: external-dns-unifi-networkpolicy
+defaultNamespace: kube-public
+namespaceLabels:
+  field.cattle.io/projectId: p-zl69x
+namespaceAnnotations:
+  field.cattle.io/projectId: local:p-zl69x
+labels:
+  app.kubernetes.io/name: external-dns-unifi
+  app.kubernetes.io/part-of: cluster-dns
+  home-lab.io/project-slug: system

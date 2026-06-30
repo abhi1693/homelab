@@ -1,0 +1,26 @@
+---
+name: firefly-iii
+defaultNamespace: finance
+namespaceLabels:
+  app.kubernetes.io/part-of: firefly-iii
+  field.cattle.io/projectId: p-applications
+namespaceAnnotations:
+  field.cattle.io/projectId: local:p-applications
+labels:
+  app.kubernetes.io/part-of: firefly-iii
+  home-lab.io/project-slug: applications
+imageScans:
+  - image: registry.home/docker.io/curlimages/curl
+    tagName: firefly-iii-curl
+    interval: 10m0s
+    policy:
+      semver:
+        range: ">=8.0.0 <9.0.0"
+dependsOn:
+  - name: rancher-project-applications
+  - name: firefly-iii-storage
+  - name: postgresql
+  - name: postgresql-networkpolicy
+  - name: postgresql-pooler-pdb
+helm:
+  takeOwnership: true

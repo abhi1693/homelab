@@ -1,0 +1,135 @@
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: indexly-default-deny
+  namespace: indexly
+  labels:
+    app.kubernetes.io/name: indexly
+    app.kubernetes.io/part-of: indexly
+spec:
+  podSelector: {}
+  policyTypes:
+    - Ingress
+    - Egress
+  ingress: []
+  egress: []
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: indexly-web-ingress
+  namespace: indexly
+  labels:
+    app.kubernetes.io/name: indexly
+    app.kubernetes.io/part-of: indexly
+spec:
+  podSelector:
+    matchLabels:
+      app.kubernetes.io/name: indexly
+      app.kubernetes.io/component: web
+  policyTypes:
+    - Ingress
+  ingress:
+    - from:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: cloudflare
+          podSelector:
+            matchLabels:
+              app: controlled-cloudflared-connector
+              strrl.dev/cloudflare-tunnel-ingress-controller: controlled-cloudflared-connector
+      ports:
+        - protocol: TCP
+          port: 3000
+    - from:
+        - podSelector:
+            matchLabels:
+              app.kubernetes.io/name: indexly
+              app.kubernetes.io/component: cron
+      ports:
+        - protocol: TCP
+          port: 3000
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: indexly-dns-egress
+  namespace: indexly
+  labels:
+    app.kubernetes.io/name: indexly
+    app.kubernetes.io/part-of: indexly
+spec:
+  podSelector: {}
+  policyTypes:
+    - Egress
+  egress:
+    - to:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: kube-system
+          podSelector:
+            matchLabels:
+              k8s-app: kube-dns
+      ports:
+        - protocol: UDP
+          port: 53
+        - protocol: TCP
+          port: 53
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: indexly-public-egress
+  namespace: indexly
+  labels:
+    app.kubernetes.io/name: indexly
+    app.kubernetes.io/part-of: indexly
+spec:
+  podSelector:
+    matchLabels:
+      app.kubernetes.io/name: indexly
+      app.kubernetes.io/component: web
+  policyTypes:
+    - Egress
+  egress:
+    - to:
+        - ipBlock:
+            cidr: 0.0.0.0/0
+            except:
+              - 10.0.0.0/8
+              - 100.64.0.0/10
+              - 172.16.0.0/12
+              - 192.168.0.0/16
+      ports:
+        - protocol: TCP
+          port: 80
+        - protocol: TCP
+          port: 443
+        - protocol: TCP
+          port: 5432
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: indexly-cron-to-web
+  namespace: indexly
+  labels:
+    app.kubernetes.io/name: indexly
+    app.kubernetes.io/part-of: indexly
+spec:
+  podSelector:
+    matchLabels:
+      app.kubernetes.io/name: indexly
+      app.kubernetes.io/component: cron
+  policyTypes:
+    - Egress
+  egress:
+    - to:
+        - podSelector:
+            matchLabels:
+              app.kubernetes.io/name: indexly
+              app.kubernetes.io/component: web
+      ports:
+        - protocol: TCP
+          port: 3000

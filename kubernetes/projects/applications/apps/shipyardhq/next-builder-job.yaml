@@ -1,0 +1,241 @@
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: shipyard-next-build
+  namespace: shipyardhq
+  annotations:
+    helm.sh/hook: pre-install,pre-upgrade
+    helm.sh/hook-delete-policy: before-hook-creation,hook-succeeded
+    helm.sh/hook-weight: "-5"
+  labels:
+    app.kubernetes.io/name: shipyardhq
+    app.kubernetes.io/component: next-builder
+    app.kubernetes.io/part-of: shipyardhq
+spec:
+  activeDeadlineSeconds: 5400
+  backoffLimit: 0
+  completions: 1
+  parallelism: 1
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: shipyardhq
+        app.kubernetes.io/component: next-builder
+        app.kubernetes.io/part-of: shipyardhq
+        shipyardhq-psql-client: "true"
+    spec:
+      automountServiceAccountToken: false
+      restartPolicy: Never
+      imagePullSecrets:
+        - name: harbor-registry
+      nodeSelector:
+        kubernetes.io/arch: arm64
+      securityContext:
+        fsGroup: 1001
+        fsGroupChangePolicy: OnRootMismatch
+      containers:
+        - name: build-next-app
+          image: registry.home/ghcr.io/abhi1693/shipyardhq:1.4.78 # {"$imagescan": "shipyardhq"}
+          imagePullPolicy: IfNotPresent
+          command:
+            - /bin/sh
+            - -c
+          args:
+            - |
+              set -eu
+
+              cache_version=next-build-v7
+              cache_root=/app/.next-build-cache
+              artifact_root="$cache_root/artifacts"
+              build_root=/app/.next
+
+              mkdir -p "$artifact_root" "$build_root"
+
+              configure_next_build() {
+                for env_name in NEXT_STATIC_PAGE_GENERATION_TIMEOUT NEXT_STATIC_GENERATION_MAX_CONCURRENCY NEXT_STATIC_GENERATION_RETRY_COUNT; do
+                  eval "env_value=\${$env_name:-}"
+                  case "$env_value" in
+                    ''|*[!0-9]*)
+                      echo "$env_name must be set to whole seconds/counts."
+                      exit 1
+                      ;;
+                  esac
+                done
+
+                node <<'NODE'
+              const fs = require("fs")
+
+              function readIntEnv(name, minimum) {
+                const value = Number.parseInt(process.env[name] || "", 10)
+                if (!Number.isSafeInteger(value) || value < minimum) {
+                  throw new Error(`${name} must be at least ${minimum}`)
+                }
+                return value
+              }
+
+              const configPath = "next.config.ts"
+              const timeout = readIntEnv("NEXT_STATIC_PAGE_GENERATION_TIMEOUT", 60)
+              const maxConcurrency = readIntEnv("NEXT_STATIC_GENERATION_MAX_CONCURRENCY", 1)
+              const retryCount = readIntEnv("NEXT_STATIC_GENERATION_RETRY_COUNT", 0)
+
+              let config = fs.readFileSync(configPath, "utf8")
+              const anchor = "const nextConfig: NextConfig = {\n"
+              if (!config.includes(anchor)) {
+                throw new Error("Unable to find nextConfig object in next.config.ts")
+              }
+
+              const setting = `  staticPageGenerationTimeout: ${timeout},`
+              if (/^\s*staticPageGenerationTimeout\s*:/m.test(config)) {
+                config = config.replace(/^\s*staticPageGenerationTimeout\s*:.*$/m, setting)
+              } else {
+                config = config.replace(anchor, `${anchor}${setting}\n`)
+              }
+
+              const experimentalSettings = [
+                `    staticGenerationRetryCount: ${retryCount},`,
+                `    staticGenerationMaxConcurrency: ${maxConcurrency},`,
+              ]
+              const experimentalMatch = config.match(/^  experimental: \{\n([\s\S]*?)^  \},/m)
+              if (experimentalMatch) {
+                let body = experimentalMatch[1]
+                for (const line of experimentalSettings) {
+                  const name = line.trim().split(":")[0]
+                  const linePattern = new RegExp(`^\\s*${name}\\s*:.*$`, "m")
+                  body = linePattern.test(body) ? body.replace(linePattern, line) : `${body}${line}\n`
+                }
+                config = config.replace(experimentalMatch[0], `  experimental: {\n${body}  },`)
+              } else {
+                config = config.replace(anchor, `${anchor}  experimental: {\n${experimentalSettings.join("\n")}\n  },\n`)
+              }
+
+              fs.writeFileSync(configPath, config)
+              console.log(`Configured Next.js static generation: timeout=${timeout}s maxConcurrency=${maxConcurrency} retryCount=${retryCount}.`)
+              NODE
+              }
+
+              configure_next_build
+
+              source_key="$(
+                {
+                  for path in actions app components hooks lib prisma public scripts types; do
+                    [ -d "$path" ] && find "$path" -type f -print0
+                  done
+                  for path in imageLoader.ts next.config.ts package.json package-lock.json postcss.config.mjs proxy.ts tailwind.config.js tsconfig.json; do
+                    [ -f "$path" ] && printf '%s\0' "$path"
+                  done
+                } | sort -z | xargs -0 sha256sum | sha256sum | awk '{print $1}'
+              )"
+              env_key="$(
+                env | LC_ALL=C sort \
+                  | grep -E '^(CACHE_ENV_PREFIX|CLERK_|DODO_|GA_|GOOGLE_|IMGPROXY_|LINKEDIN_|MONTHLY_WINNER_|NEXT_PUBLIC_|NEXT_STATIC_GENERATION_MAX_CONCURRENCY|NEXT_STATIC_GENERATION_RETRY_COUNT|NEXT_STATIC_PAGE_GENERATION_TIMEOUT|NOVU_|POSTGRES_DB|PRODUCT_HUNT_|PRODUCT_PRERENDER_LIMIT|R2_|REDDIT_|RESEND_|TWITTER_|USE_CASE_PRERENDER_LIMIT)=' \
+                  | sha256sum | awk '{print $1}'
+              )"
+              build_key="$(printf '%s\n%s\n%s\n' "$cache_version" "$source_key" "$env_key" | sha256sum | awk '{print $1}')"
+              artifact="$artifact_root/$build_key.tar.gz"
+              ready="$artifact_root/$build_key.ready"
+
+              clear_build_root() {
+                rm -rf "$build_root"/* "$build_root"/.[!.]* "$build_root"/..?* 2>/dev/null || true
+                mkdir -p "$build_root"
+              }
+
+              if [ -f "$ready" ] && [ -s "$artifact" ]; then
+                echo "Next.js build artifact $build_key already exists."
+                exit 0
+              fi
+
+              echo "Applying Prisma migrations before Next.js build..."
+              npm run prisma:deploy
+
+              echo "Building Next.js artifact $build_key..."
+              clear_build_root
+              npm run prisma:generate
+              npm run build
+              rm -rf .next/standalone/public .next/standalone/.next/static
+              mkdir -p .next/standalone/.next
+              cp -R public .next/standalone/public
+              cp -R .next/static .next/standalone/.next/static
+
+              tmp_artifact="$artifact.tmp.$$"
+              rm -f "$tmp_artifact"
+              (
+                cd "$build_root"
+                find . -mindepth 1 -maxdepth 1 -print0 | tar --null --create --gzip --file "$tmp_artifact" --files-from -
+              )
+              mv "$tmp_artifact" "$artifact"
+              touch "$ready"
+              echo "Next.js build artifact $build_key is ready."
+          envFrom:
+            - secretRef:
+                name: shipyardhq
+            - secretRef:
+                name: shipyardhq-imgproxy
+            - configMapRef:
+                name: shipyardhq
+          env:
+            - name: NODE_OPTIONS
+              value: --max-old-space-size=4096
+            - name: NPM_CONFIG_CACHE
+              value: /tmp/.npm
+            - name: PG_APPLICATION_NAME
+              value: shipyardhq-next-build
+            - name: PG_POOL_MAX
+              value: "2"
+            - name: PG_POOL_IDLE_TIMEOUT_MS
+              value: "30000"
+            - name: PG_POOL_CONNECTION_TIMEOUT_MS
+              value: "180000"
+            - name: NEXT_STATIC_PAGE_GENERATION_TIMEOUT
+              value: "300"
+            - name: NEXT_STATIC_GENERATION_MAX_CONCURRENCY
+              value: "2"
+            - name: NEXT_STATIC_GENERATION_RETRY_COUNT
+              value: "3"
+            - name: PRODUCT_PRERENDER_LIMIT
+              value: "100"
+            - name: POSTGRES_USER
+              valueFrom:
+                secretKeyRef:
+                  name: shipyardhq-postgresql
+                  key: username
+            - name: POSTGRES_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: shipyardhq-postgresql
+                  key: password
+            - name: POSTGRES_DB
+              valueFrom:
+                secretKeyRef:
+                  name: shipyardhq-postgresql
+                  key: dbname
+            - name: DATABASE_URL
+              value: postgresql://$(POSTGRES_USER):$(POSTGRES_PASSWORD)@postgresql-pooler-shipyardhq-rw.postgresql.svc.cluster.local:5432/$(POSTGRES_DB)?sslmode=disable
+            - name: DIRECT_DATABASE_URL
+              value: postgresql://$(POSTGRES_USER):$(POSTGRES_PASSWORD)@postgresql-pooler-shipyardhq-rw.postgresql.svc.cluster.local:5432/$(POSTGRES_DB)?sslmode=disable
+          resources:
+            requests:
+              cpu: 500m
+              memory: 2Gi
+            limits:
+              cpu: "3"
+              memory: 5Gi
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop:
+                - ALL
+            runAsGroup: 1001
+            runAsNonRoot: true
+            runAsUser: 1001
+          volumeMounts:
+            - name: next-build
+              mountPath: /app/.next
+            - name: next-build-cache
+              mountPath: /app/.next-build-cache
+      volumes:
+        - name: next-build
+          emptyDir:
+            sizeLimit: 2Gi
+        - name: next-build-cache
+          persistentVolumeClaim:
+            claimName: shipyardhq-next-build-cache

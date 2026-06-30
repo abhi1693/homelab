@@ -1,0 +1,23 @@
+---
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: alloy-faro
+  namespace: cattle-monitoring-system
+  labels:
+    app.kubernetes.io/name: alloy-faro
+    app.kubernetes.io/part-of: rancher-monitoring
+    home-lab.io/project-slug: system
+spec:
+  ingressClassName: cloudflare-tunnel
+  rules:
+    - host: rum.abhimanyu-saharan.com
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: alloy-faro
+                port:
+                  name: faro

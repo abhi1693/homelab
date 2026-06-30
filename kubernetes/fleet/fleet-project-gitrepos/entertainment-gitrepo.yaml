@@ -1,0 +1,41 @@
+---
+apiVersion: fleet.cattle.io/v1alpha1
+kind: GitRepo
+metadata:
+  name: home-lab-entertainment
+  namespace: fleet-local
+  labels:
+    app.kubernetes.io/name: home-lab-entertainment
+    app.kubernetes.io/part-of: fleet
+    home-lab.io/project-slug: entertainment
+spec:
+  repo: https://github.com/abhi1693/home-lab.git
+  branch: master
+  clientSecretName: home-lab-apps-github
+  pollingInterval: 1h0m0s
+  imageScanInterval: 10m0s
+  imageScanCommit:
+    authorName: home-lab-fleet
+    authorEmail: fleet@abhimanyu-saharan.com
+    messageTemplate: "Update image from Fleet ImageScan"
+  paths:
+    - kubernetes/projects/entertainment/apps/media-dispatcharr
+    - kubernetes/projects/entertainment/apps/media-do-squid-firewall
+    - kubernetes/projects/entertainment/apps/media-flaresolverr
+    - kubernetes/projects/entertainment/apps/media-helm-repositories
+    - kubernetes/projects/entertainment/apps/media-jellyfin
+    - kubernetes/projects/entertainment/apps/media-jellyseerr
+    - kubernetes/projects/entertainment/apps/media-jellyseerr-networkpolicy
+    - kubernetes/projects/entertainment/apps/media-metube
+    - kubernetes/projects/entertainment/apps/media-profilarr
+    - kubernetes/projects/entertainment/apps/media-prowlarr
+    - kubernetes/projects/entertainment/apps/media-qbittorrent
+    - kubernetes/projects/entertainment/apps/media-radarr
+    - kubernetes/projects/entertainment/apps/media-ryokan
+    - kubernetes/projects/entertainment/apps/media-ryokan-networkpolicy
+    - kubernetes/projects/entertainment/apps/media-shoko
+    - kubernetes/projects/entertainment/apps/media-sonarr
+    - kubernetes/projects/entertainment/apps/media-storage
+  correctDrift:
+    enabled: true
+    keepFailHistory: true

@@ -1,0 +1,46 @@
+apiVersion: helm.cattle.io/v1
+kind: HelmChart
+metadata:
+  name: longhorn
+  namespace: kube-system
+spec:
+  targetNamespace: {{ longhorn.namespace }}
+  createNamespace: true
+  chart: longhorn
+  repo: https://charts.rancher.io
+  version: "{{ longhorn.chart_version }}"
+  timeout: 15m
+  valuesContent: |-
+    namespaceOverride: {{ longhorn.namespace }}
+    persistence:
+      defaultClass: true
+      defaultClassReplicaCount: {{ longhorn.default_class_replica_count }}
+      defaultDataLocality: {{ longhorn.default_data_locality }}
+      reclaimPolicy: Delete
+      volumeBindingMode: Immediate
+    csi:
+      kubeletRootDir: {{ longhorn.kubelet_root_dir }}
+      podAntiAffinityPreset: {{ longhorn.csi_pod_anti_affinity_preset }}
+      attacherReplicaCount: {{ longhorn.csi_controller_replicas }}
+      provisionerReplicaCount: {{ longhorn.csi_controller_replicas }}
+      resizerReplicaCount: {{ longhorn.csi_controller_replicas }}
+      snapshotterReplicaCount: {{ longhorn.csi_controller_replicas }}
+    defaultSettings:
+      defaultDataPath: {{ longhorn.default_data_path }}
+      defaultDataLocality: {{ longhorn.default_data_locality }}
+      defaultReplicaCount: {{ longhorn.default_replica_count }}
+      replicaSoftAntiAffinity: {{ longhorn.replica_soft_anti_affinity | lower }}
+      replicaAutoBalance: {{ longhorn.replica_auto_balance }}
+      engineReplicaTimeout: {{ longhorn.engine_replica_timeout }}
+      fastReplicaRebuildEnabled: {{ longhorn.fast_replica_rebuild_enabled | lower }}
+      offlineReplicaRebuilding: {{ longhorn.offline_replica_rebuilding | lower }}
+      removeSnapshotsDuringFilesystemTrim: {{ longhorn.remove_snapshots_during_filesystem_trim | lower }}
+      rwxVolumeFastFailover: {{ longhorn.rwx_volume_fast_failover | lower }}
+      storageOverProvisioningPercentage: {{ longhorn.storage_overprovisioning_percentage }}
+      storageMinimalAvailablePercentage: {{ longhorn.storage_minimal_available_percentage }}
+      storageReservedPercentageForDefaultDisk: {{ longhorn.storage_reserved_percentage_for_default_disk }}
+      allowVolumeCreationWithDegradedAvailability: {{ longhorn.allow_volume_creation_with_degraded_availability | lower }}
+      replicaFileSyncHttpClientTimeout: {{ longhorn.replica_file_sync_http_client_timeout }}
+      concurrentReplicaRebuildPerNodeLimit: {{ longhorn.concurrent_replica_rebuild_per_node_limit }}
+      guaranteedInstanceManagerCPU: {{ longhorn.guaranteed_instance_manager_cpu }}
+      v2DataEngine: {{ longhorn.v2_data_engine | lower }}

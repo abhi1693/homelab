@@ -1,0 +1,21 @@
+---
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+configMapGenerator:
+  - name: jellyfin-values
+    files:
+      - values.yaml
+generatorOptions:
+  labels:
+    app.kubernetes.io/name: jellyfin
+    app.kubernetes.io/part-of: media-stack
+    home-lab.io/project-slug: entertainment
+configurations:
+  - kustomizeconfig.yaml
+resources:
+  - secrets.sops.yaml
+  - apiserver-egress-cnp.yaml
+  - helmop.yaml
+  - shared-pvc.yaml
+  - youtube-library-reconciler.yaml
+  - youtube-library-reconciler-networkpolicy.yaml

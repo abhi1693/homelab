@@ -1,0 +1,38 @@
+---
+- name: Gather package facts for smartctl_exporter validation
+  ansible.builtin.package_facts:
+    manager: auto
+
+- name: Gather service facts for smartctl_exporter validation
+  ansible.builtin.service_facts:
+
+- name: Assert smartctl_exporter packages are installed
+  ansible.builtin.assert:
+    that:
+      - item in ansible_facts.packages
+    fail_msg: "Expected package {{ item }} to be installed"
+    success_msg: "Package {{ item }} is installed"
+  loop: "{{ smartctl_exporter.packages }}"
+
+- name: Assert smartctl_exporter service is running
+  ansible.builtin.assert:
+    that:
+      - smartctl_exporter.service_name in ansible_facts.services
+      - ansible_facts.services[smartctl_exporter.service_name].state == 'running'
+    fail_msg: Expected smartctl_exporter service to be running.
+    success_msg: "smartctl_exporter service is running"
+
+- name: Scrape local smartctl_exporter metrics
+  ansible.builtin.uri:
+    url: "http://127.0.0.1:9633{{ smartctl_exporter.telemetry_path }}"
+    return_content: true
+    status_code: 200
+  register: smartctl_exporter_metrics
+
+- name: Assert smartctl_exporter exposes Prometheus metrics
+  ansible.builtin.assert:
+    that:
+      - "'smartctl_exporter_build_info' in smartctl_exporter_metrics.content"
+      - (smartctl_exporter_metrics.content | regex_search('(?m)^smartctl_devices\\s+[1-9][0-9]*(\\.0)?$')) is not none
+    fail_msg: Expected smartctl_exporter to expose exporter metadata and at least one discovered SMART device.
+    success_msg: "smartctl_exporter metrics are available"

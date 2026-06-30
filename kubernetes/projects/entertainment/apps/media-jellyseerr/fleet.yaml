@@ -1,0 +1,18 @@
+---
+name: jellyseerr-helmop
+defaultNamespace: fleet-local
+labels:
+  app.kubernetes.io/name: jellyseerr
+  app.kubernetes.io/part-of: media-stack
+  home-lab.io/project-slug: entertainment
+imageScans:
+  - image: registry.home/docker.io/seerr/seerr
+    tagName: jellyseerr
+    interval: 10m0s
+    policy:
+      semver:
+        range: ">=3.0.0 <4.0.0"
+dependsOn:
+  - name: rancher-project-entertainment
+  - name: media-helm-repositories
+  - name: media-storage

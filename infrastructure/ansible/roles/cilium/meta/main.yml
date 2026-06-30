@@ -1,0 +1,7 @@
+---
+galaxy_info:
+  author: OpenAI Codex
+  description: Install and validate Cilium, bundled Traefik exposure, BGP-backed service advertisement, and Cilium reload integration on the K3s bootstrap cluster.
+  license: MIT
+  min_ansible_version: "2.16"
+dependencies: []

@@ -1,0 +1,192 @@
+---
+argument_specs:
+  main:
+    short_description: Prepare Longhorn node prerequisites and install the Longhorn chart from the bootstrap K3s server.
+    options:
+      k3s_node:
+        type: dict
+        required: true
+        options:
+          cluster_init:
+            type: bool
+            required: true
+            description:
+              - Whether the target node is the initial K3s control-plane node.
+      k3s_server:
+        type: dict
+        required: true
+        options:
+          disable_components:
+            type: list
+            elements: str
+            required: true
+            description:
+              - Built-in K3s components disabled for this cluster.
+          secrets_encryption:
+            type: bool
+            required: true
+          secrets_encryption_provider:
+            type: str
+            required: true
+          protect_kernel_defaults:
+            type: bool
+            required: true
+          extra_args:
+            type: list
+            elements: str
+            required: true
+          kube_apiserver_args:
+            type: list
+            elements: str
+            required: true
+          kubelet_args:
+            type: list
+            elements: str
+            required: true
+          audit_logging:
+            type: dict
+            required: true
+          registry_mirror:
+            type: dict
+            required: false
+      longhorn:
+        type: dict
+        required: true
+        options:
+          required_packages:
+            type: list
+            elements: str
+            required: true
+            description:
+              - Host packages required before Longhorn can run.
+          required_kernel_modules:
+            type: list
+            elements: str
+            required: true
+            description:
+              - Kernel modules Longhorn expects to be present on each node.
+          namespace:
+            type: str
+            required: true
+            description:
+              - Namespace that Longhorn should run in.
+          chart_version:
+            type: str
+            required: true
+            description:
+              - Exact Longhorn chart version to install.
+          crd_chart_version:
+            type: str
+            required: true
+            description:
+              - Exact Rancher Longhorn CRD chart version to install before the app chart.
+          default_data_path:
+            type: str
+            required: true
+            description:
+              - Host path Longhorn should use for its default disk.
+          default_class_replica_count:
+            type: int
+            required: true
+            description:
+              - Default replica count for the Longhorn Kubernetes StorageClass.
+          default_replica_count:
+            type: int
+            required: true
+            description:
+              - Default replica count for volumes created through the Longhorn UI.
+          default_data_locality:
+            type: str
+            required: true
+            description:
+              - Default data locality for the Longhorn StorageClass.
+          storage_overprovisioning_percentage:
+            type: int
+            required: true
+            description:
+              - Longhorn storage over-provisioning percentage.
+          storage_minimal_available_percentage:
+            type: int
+            required: true
+            description:
+              - Longhorn minimum available storage percentage.
+          storage_reserved_percentage_for_default_disk:
+            type: int
+            required: true
+            description:
+              - Longhorn default disk reserved storage percentage.
+          replica_soft_anti_affinity:
+            type: bool
+            required: true
+            description:
+              - Whether Longhorn may place healthy replicas of the same volume on the same node.
+          allow_volume_creation_with_degraded_availability:
+            type: bool
+            required: true
+            description:
+              - Whether Longhorn may create volumes before all requested replicas are schedulable.
+          replica_auto_balance:
+            type: str
+            required: true
+            description:
+              - Longhorn replica auto-balance policy.
+          engine_replica_timeout:
+            type: int
+            required: true
+            description:
+              - Timeout in seconds between Longhorn engines and replicas.
+          fast_replica_rebuild_enabled:
+            type: bool
+            required: true
+            description:
+              - Whether Longhorn should use the fast replica rebuild path.
+          offline_replica_rebuilding:
+            type: bool
+            required: true
+            description:
+              - Whether Longhorn should rebuild degraded replicas for detached volumes.
+          remove_snapshots_during_filesystem_trim:
+            type: bool
+            required: true
+            description:
+              - Whether Longhorn should mark eligible snapshot chains as removed during filesystem trim.
+          rwx_volume_fast_failover:
+            type: bool
+            required: true
+            description:
+              - Whether Longhorn should fail over RWX share-manager volumes quickly.
+          replica_file_sync_http_client_timeout:
+            type: int
+            required: true
+            description:
+              - HTTP client timeout in seconds for Longhorn replica file sync.
+          concurrent_replica_rebuild_per_node_limit:
+            type: int
+            required: true
+            description:
+              - Maximum concurrent replica rebuilds Longhorn should run per node.
+          guaranteed_instance_manager_cpu:
+            type: int
+            required: true
+            description:
+              - CPU percentage reserved for each Longhorn instance-manager pod.
+          v2_data_engine:
+            type: bool
+            required: true
+            description:
+              - Whether the experimental Longhorn v2 data engine should be enabled.
+          kubelet_root_dir:
+            type: str
+            required: true
+            description:
+              - Kubelet root directory Longhorn CSI should use on K3s.
+          csi_controller_replicas:
+            type: int
+            required: true
+            description:
+              - Replica count for Longhorn CSI controller sidecars.
+          csi_pod_anti_affinity_preset:
+            type: str
+            required: true
+            description:
+              - Anti-affinity preset for Longhorn CSI controller sidecars.

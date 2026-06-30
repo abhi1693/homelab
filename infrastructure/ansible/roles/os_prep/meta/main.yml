@@ -1,0 +1,10 @@
+---
+galaxy_info:
+  description: Prepare base operating system settings for home lab nodes.
+  min_ansible_version: "2.14"
+  platforms:
+    - name: Debian
+      versions:
+        - bookworm
+
+dependencies: []

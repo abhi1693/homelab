@@ -1,0 +1,75 @@
+---
+- name: Assert Fleet app reset is running on the bootstrap server
+  ansible.builtin.assert:
+    that:
+      - k3s_node.cluster_init | bool
+    fail_msg: fleet_apps reset must run on the initial K3s server where k3s_node.cluster_init=true.
+    success_msg: "Resetting Fleet app reconciliation from the bootstrap server"
+
+- name: Delete Fleet app GitRepo
+  ansible.builtin.command:
+    argv:
+      - /usr/local/bin/k3s
+      - kubectl
+      - -n
+      - "{{ fleet_apps.namespace }}"
+      - delete
+      - gitrepo
+      - "{{ fleet_apps.gitrepo_name }}"
+      - --ignore-not-found=true
+  environment:
+    KUBECONFIG: /etc/rancher/k3s/k3s.yaml
+  changed_when: true
+
+- name: Delete Fleet Git credential Secret
+  ansible.builtin.command:
+    argv:
+      - /usr/local/bin/k3s
+      - kubectl
+      - -n
+      - "{{ fleet_apps.namespace }}"
+      - delete
+      - secret
+      - "{{ fleet_apps.client_secret_name }}"
+      - --ignore-not-found=true
+  environment:
+    KUBECONFIG: /etc/rancher/k3s/k3s.yaml
+  changed_when: true
+  no_log: true
+  when: fleet_apps.client_secret_name | default('') | trim != ''
+
+- name: Delete Fleet ImageScan registry Secret
+  ansible.builtin.command:
+    argv:
+      - /usr/local/bin/k3s
+      - kubectl
+      - -n
+      - "{{ fleet_apps.namespace }}"
+      - delete
+      - secret
+      - "{{ fleet_apps_image_scan_registry_secret.name }}"
+      - --ignore-not-found=true
+  environment:
+    KUBECONFIG: /etc/rancher/k3s/k3s.yaml
+  changed_when: true
+  vars:
+    fleet_apps_image_scan_registry_secret: "{{ ((fleet_apps.image_scan | default({})).registry_secret | default({})) }}"
+  no_log: true
+  when: fleet_apps_image_scan_registry_secret.name | default('') | trim != ''
+
+- name: Remove Fleet app GitRepo manifest file
+  ansible.builtin.file:
+    path: /var/lib/rancher/k3s/server/manifests/fleet-apps-gitrepo.yaml
+    state: absent
+
+- name: Remove Fleet Git credential Secret manifest file
+  ansible.builtin.file:
+    path: /var/lib/rancher/k3s/server/manifests/fleet-apps-git-secret.yaml
+    state: absent
+  no_log: true
+
+- name: Remove Fleet ImageScan registry Secret manifest file
+  ansible.builtin.file:
+    path: /var/lib/rancher/k3s/server/manifests/fleet-apps-imagescan-registry-secret.yaml
+    state: absent
+  no_log: true

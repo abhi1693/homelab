@@ -1,0 +1,148 @@
+apiVersion: apps/v1
+kind: DaemonSet
+metadata:
+  name: rpi-thermal-governor
+  namespace: rack-ops
+  labels:
+    app.kubernetes.io/name: rpi-thermal-governor
+    app.kubernetes.io/part-of: rack-ops
+    home-lab.io/project-slug: home-automation
+spec:
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: rpi-thermal-governor
+      app.kubernetes.io/part-of: rack-ops
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: rpi-thermal-governor
+        app.kubernetes.io/part-of: rack-ops
+        home-lab.io/project-slug: home-automation
+    spec:
+      automountServiceAccountToken: false
+      imagePullSecrets:
+        - name: harbor-registry
+      affinity:
+        nodeAffinity:
+          requiredDuringSchedulingIgnoredDuringExecution:
+            nodeSelectorTerms:
+              - matchExpressions:
+                  - key: kubernetes.io/hostname
+                    operator: In
+                    values:
+                      - k8s-rpi1
+                      - k8s-rpi2
+                      - k8s-rpi3
+      tolerations:
+        - operator: Exists
+      containers:
+        - name: governor
+          image: registry.home/docker.io/library/busybox:1.38 # {"$imagescan": "rack-ops-busybox"}
+          imagePullPolicy: IfNotPresent
+          command:
+            - /bin/sh
+            - -ceu
+            - |
+              host_sys=/host-sys
+              cap_milli=$((CPU_CAP_CELSIUS * 1000))
+              restore_milli=$((CPU_RESTORE_CELSIUS * 1000))
+              capped=0
+
+              cpu_temp_milli() {
+                max_temp=0
+                for temp_file in "$host_sys"/class/thermal/thermal_zone*/temp; do
+                  [ -r "$temp_file" ] || continue
+                  temp="$(cat "$temp_file" 2>/dev/null || true)"
+                  case "$temp" in
+                    ''|*[!0-9]*) continue ;;
+                  esac
+                  [ "$temp" -gt "$max_temp" ] && max_temp="$temp"
+                done
+                echo "$max_temp"
+              }
+
+              policy_dirs() {
+                for policy in "$host_sys"/devices/system/cpu/cpufreq/policy*; do
+                  [ -d "$policy" ] && echo "$policy"
+                done
+              }
+
+              apply_cap() {
+                changed=0
+                for policy in $(policy_dirs); do
+                  max_file="$policy/scaling_max_freq"
+                  [ -w "$max_file" ] || continue
+                  current="$(cat "$max_file" 2>/dev/null || echo 0)"
+                  if [ "$current" != "$CAPPED_MAX_FREQ_KHZ" ]; then
+                    echo "$CAPPED_MAX_FREQ_KHZ" > "$max_file"
+                    changed=1
+                  fi
+                done
+                if [ "$changed" -eq 1 ]; then
+                  echo "capped CPU max frequency at ${CAPPED_MAX_FREQ_KHZ}KHz"
+                fi
+              }
+
+              restore_max() {
+                changed=0
+                for policy in $(policy_dirs); do
+                  max_file="$policy/scaling_max_freq"
+                  info_file="$policy/cpuinfo_max_freq"
+                  [ -w "$max_file" ] || continue
+                  [ -r "$info_file" ] || continue
+                  hardware_max="$(cat "$info_file" 2>/dev/null || echo 0)"
+                  case "$hardware_max" in
+                    ''|*[!0-9]*) continue ;;
+                  esac
+                  current="$(cat "$max_file" 2>/dev/null || echo 0)"
+                  if [ "$current" != "$hardware_max" ]; then
+                    echo "$hardware_max" > "$max_file"
+                    changed=1
+                  fi
+                done
+                if [ "$changed" -eq 1 ]; then
+                  echo "restored CPU max frequency to hardware maximum"
+                fi
+              }
+
+              while true; do
+                temp_milli="$(cpu_temp_milli)"
+                if [ "$temp_milli" -eq 0 ]; then
+                  echo "no readable host CPU thermal zone found under $host_sys"
+                elif [ "$temp_milli" -ge "$cap_milli" ]; then
+                  apply_cap
+                  capped=1
+                elif [ "$capped" -eq 1 ] && [ "$temp_milli" -le "$restore_milli" ]; then
+                  restore_max
+                  capped=0
+                fi
+                sleep "$POLL_SECONDS"
+              done
+          env:
+            - name: CPU_CAP_CELSIUS
+              value: "72"
+            - name: CPU_RESTORE_CELSIUS
+              value: "65"
+            - name: CAPPED_MAX_FREQ_KHZ
+              value: "1600000"
+            - name: POLL_SECONDS
+              value: "30"
+          resources:
+            requests:
+              cpu: 10m
+              memory: 32Mi
+            limits:
+              memory: 96Mi
+          securityContext:
+            privileged: true
+            readOnlyRootFilesystem: true
+            runAsUser: 0
+            runAsGroup: 0
+          volumeMounts:
+            - name: host-sys
+              mountPath: /host-sys
+      volumes:
+        - name: host-sys
+          hostPath:
+            path: /sys
+            type: Directory

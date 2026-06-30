@@ -1,0 +1,14 @@
+---
+global:
+  cattle:
+    psp:
+      enabled: false
+    systemDefaultRegistry: ""
+  imagePullSecrets: []
+
+image:
+  repository: rancher/kuberlr-kubectl
+  tag: v7.0.1
+
+nodeSelector: {}
+tolerations: []

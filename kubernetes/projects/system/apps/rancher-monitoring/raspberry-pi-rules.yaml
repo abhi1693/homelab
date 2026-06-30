@@ -1,0 +1,94 @@
+---
+apiVersion: monitoring.coreos.com/v1
+kind: PrometheusRule
+metadata:
+  name: raspberry-pi-node-health
+  namespace: cattle-monitoring-system
+  labels:
+    app.kubernetes.io/name: raspberry-pi-node-health
+    app.kubernetes.io/part-of: rancher-monitoring
+    home-lab.io/project-slug: system
+spec:
+  groups:
+    - name: raspberry-pi.node-health
+      rules:
+        - alert: RaspberryPiNodeExporterDown
+          expr: (up{job="node-exporter"} == 0) * on(instance) group_left(nodename) max by (instance, nodename) (node_uname_info{job="node-exporter", machine="aarch64"})
+          for: 5m
+          labels:
+            severity: critical
+          annotations:
+            summary: Raspberry Pi node exporter is down
+            description: Node exporter has been unreachable on {{ $labels.nodename }} for more than 5 minutes.
+        - alert: RaspberryPiHighCpuTemperature
+          expr: (max by (instance) (node_hwmon_temp_celsius{job="node-exporter", chip=~"thermal_thermal_zone.*"}) * on(instance) group_left(nodename) max by (instance, nodename) (node_uname_info{job="node-exporter", machine="aarch64"})) > 75
+          for: 10m
+          labels:
+            severity: warning
+          annotations:
+            summary: Raspberry Pi CPU temperature is high
+            description: CPU temperature on {{ $labels.nodename }} is {{ printf "%.1f" $value }}C for more than 10 minutes.
+        - alert: RaspberryPiCriticalCpuTemperature
+          expr: (max by (instance) (node_hwmon_temp_celsius{job="node-exporter", chip=~"thermal_thermal_zone.*"}) * on(instance) group_left(nodename) max by (instance, nodename) (node_uname_info{job="node-exporter", machine="aarch64"})) > 82
+          for: 5m
+          labels:
+            severity: critical
+          annotations:
+            summary: Raspberry Pi CPU temperature is critical
+            description: CPU temperature on {{ $labels.nodename }} is {{ printf "%.1f" $value }}C for more than 5 minutes.
+        - alert: RaspberryPiRootFilesystemHigh
+          expr: (100 * (1 - (node_filesystem_avail_bytes{job="node-exporter", mountpoint="/", fstype!=""} / node_filesystem_size_bytes{job="node-exporter", mountpoint="/", fstype!=""})) * on(instance) group_left(nodename) max by (instance, nodename) (node_uname_info{job="node-exporter", machine="aarch64"})) > 85
+          for: 15m
+          labels:
+            severity: warning
+          annotations:
+            summary: Raspberry Pi root filesystem usage is high
+            description: Root filesystem usage on {{ $labels.nodename }} is {{ printf "%.1f" $value }}%.
+        - alert: RaspberryPiRootFilesystemCritical
+          expr: (100 * (1 - (node_filesystem_avail_bytes{job="node-exporter", mountpoint="/", fstype!=""} / node_filesystem_size_bytes{job="node-exporter", mountpoint="/", fstype!=""})) * on(instance) group_left(nodename) max by (instance, nodename) (node_uname_info{job="node-exporter", machine="aarch64"})) > 92
+          for: 10m
+          labels:
+            severity: critical
+          annotations:
+            summary: Raspberry Pi root filesystem usage is critical
+            description: Root filesystem usage on {{ $labels.nodename }} is {{ printf "%.1f" $value }}%.
+        - alert: RaspberryPiMemoryPressure
+          expr: (100 * (1 - (node_memory_MemAvailable_bytes{job="node-exporter"} / node_memory_MemTotal_bytes{job="node-exporter"})) * on(instance) group_left(nodename) max by (instance, nodename) (node_uname_info{job="node-exporter", machine="aarch64"})) > 90
+          for: 15m
+          labels:
+            severity: warning
+          annotations:
+            summary: Raspberry Pi memory pressure is high
+            description: Memory usage on {{ $labels.nodename }} is {{ printf "%.1f" $value }}%.
+        - alert: RaspberryPiHighIOWait
+          expr: (100 * avg by (instance) (rate(node_cpu_seconds_total{job="node-exporter", mode="iowait"}[5m])) * on(instance) group_left(nodename) max by (instance, nodename) (node_uname_info{job="node-exporter", machine="aarch64"})) > 20
+          for: 15m
+          labels:
+            severity: warning
+          annotations:
+            summary: Raspberry Pi CPU iowait is high
+            description: CPU iowait on {{ $labels.nodename }} is {{ printf "%.1f" $value }}% for more than 15 minutes.
+        - alert: RaspberryPiThrottlingMetricsUnavailable
+          expr: (raspberry_pi_vcgencmd_get_throttled_success{job="node-exporter"} * on(instance) group_left(nodename) max by (instance, nodename) (node_uname_info{job="node-exporter", machine="aarch64"})) == 0
+          for: 5m
+          labels:
+            severity: warning
+          annotations:
+            summary: Raspberry Pi throttling metrics are unavailable
+            description: vcgencmd get_throttled metrics are not being collected successfully on {{ $labels.nodename }}.
+        - alert: RaspberryPiThrottlingActive
+          expr: (raspberry_pi_throttled_state{job="node-exporter", state="active"} * on(instance) group_left(nodename) max by (instance, nodename) (node_uname_info{job="node-exporter", machine="aarch64"})) == 1
+          for: 2m
+          labels:
+            severity: critical
+          annotations:
+            summary: Raspberry Pi throttling is active
+            description: Raspberry Pi firmware reports active {{ $labels.condition }} on {{ $labels.nodename }}.
+        - alert: RaspberryPiThrottlingOccurred
+          expr: (raspberry_pi_throttled_state{job="node-exporter", state="occurred"} * on(instance) group_left(nodename) max by (instance, nodename) (node_uname_info{job="node-exporter", machine="aarch64"})) == 1
+          for: 30m
+          labels:
+            severity: warning
+          annotations:
+            summary: Raspberry Pi throttling has occurred
+            description: Raspberry Pi firmware reports {{ $labels.condition }} has occurred on {{ $labels.nodename }} since the last reboot.

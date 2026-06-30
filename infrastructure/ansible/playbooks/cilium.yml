@@ -1,0 +1,29 @@
+---
+- name: Run cilium entrypoint
+  hosts: "{{ cilium_target_hosts | default('server-1') }}"
+  become: true
+  gather_facts: true
+
+  vars:
+    cilium_selected_entrypoint: "{{ cilium_entrypoint | default('main') }}"
+
+  pre_tasks:
+    - name: Assert cilium entrypoint is supported
+      ansible.builtin.assert:
+        that:
+          - cilium_selected_entrypoint in ['main', 'validation', 'reset']
+        fail_msg: "Unsupported cilium entrypoint {{ cilium_selected_entrypoint }}"
+        success_msg: "Running cilium entrypoint {{ cilium_selected_entrypoint }}"
+
+  tasks:
+    - name: Run cilium main entrypoint
+      ansible.builtin.include_role:
+        name: cilium
+      when: cilium_selected_entrypoint == 'main'
+
+    - name: Run cilium alternate entrypoint
+      ansible.builtin.include_role:
+        name: cilium
+        tasks_from: "{{ cilium_selected_entrypoint }}"
+        rolespec_validate: false
+      when: cilium_selected_entrypoint != 'main'

@@ -1,0 +1,17 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: ryokan
+  namespace: media
+  labels:
+    app.kubernetes.io/name: ryokan
+    app.kubernetes.io/part-of: media-stack
+spec:
+  type: ClusterIP
+  selector:
+    app.kubernetes.io/name: ryokan
+  ports:
+    - name: http
+      port: 8978
+      targetPort: http
+      protocol: TCP

@@ -1,0 +1,55 @@
+---
+apiVersion: fleet.cattle.io/v1alpha1
+kind: HelmOp
+metadata:
+  name: postgresql
+  labels:
+    app.kubernetes.io/name: postgresql
+    app.kubernetes.io/part-of: postgresql
+    home-lab.io/project-slug: database
+spec:
+  defaultNamespace: postgresql
+  namespaceLabels:
+    app.kubernetes.io/part-of: postgresql
+    field.cattle.io/projectId: p-database
+  namespaceAnnotations:
+    field.cattle.io/projectId: local:p-database
+  dependsOn:
+    - name: rancher-project-database
+    - name: database-helm-repositories
+  labels:
+    app.kubernetes.io/part-of: postgresql
+    home-lab.io/project-slug: database
+  targets:
+    - name: default
+      clusterGroup: default
+  targetRestrictions:
+    - name: default
+      clusterGroup: default
+  diff:
+    comparePatches:
+      - apiVersion: postgresql.cnpg.io/v1
+        kind: Cluster
+        name: postgresql
+        namespace: postgresql
+        jsonPointers:
+          - /spec/monitoring/customQueriesConfigMap
+  correctDrift:
+    enabled: true
+    force: true
+    keepFailHistory: true
+  downstreamResources:
+    - kind: ConfigMap
+      name: postgresql-values
+  helm:
+    releaseName: postgresql
+    repo: https://cloudnative-pg.github.io/charts
+    chart: cluster
+    version: 0.7.0
+    timeoutSeconds: 600
+    valuesFrom:
+      - configMapKeyRef:
+          name: postgresql-values
+          namespace: fleet-local
+          key: values.yaml
+    waitForJobs: true

@@ -1,0 +1,27 @@
+apiVersion: cilium.io/v2
+kind: CiliumLoadBalancerIPPool
+metadata:
+  name: {{ cilium.bgp.ip_pool_name }}
+spec:
+  blocks:
+    - start: {{ traefik.service.load_balancer_ip }}
+      stop: {{ traefik.service.load_balancer_ip }}
+  serviceSelector:
+    matchLabels:
+      io.kubernetes.service.namespace: {{ traefik.namespace }}
+      io.kubernetes.service.name: {{ traefik.service_name }}
+---
+apiVersion: cilium.io/v2
+kind: CiliumLoadBalancerIPPool
+metadata:
+  name: {{ cilium.bgp.app_ip_pool.name }}
+spec:
+  blocks:
+    - start: {{ cilium.bgp.app_ip_pool.start }}
+      stop: {{ cilium.bgp.app_ip_pool.stop }}
+  serviceSelector:
+    matchExpressions:
+      - key: io.kubernetes.service.namespace
+        operator: NotIn
+        values:
+          - {{ traefik.namespace }}

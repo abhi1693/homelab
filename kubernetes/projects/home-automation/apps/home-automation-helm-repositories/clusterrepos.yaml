@@ -1,0 +1,36 @@
+---
+apiVersion: catalog.cattle.io/v1
+kind: ClusterRepo
+metadata:
+  name: cloudflare-tunnel-ingress-controller
+  labels:
+    app.kubernetes.io/part-of: home-automation
+    app.kubernetes.io/component: helm-repository
+    home-lab.io/project-slug: home-automation
+spec:
+  enabled: true
+  url: https://helm.strrl.dev
+---
+apiVersion: catalog.cattle.io/v1
+kind: ClusterRepo
+metadata:
+  name: home-assistant
+  labels:
+    app.kubernetes.io/part-of: home-automation
+    app.kubernetes.io/component: helm-repository
+    home-lab.io/project-slug: home-automation
+spec:
+  enabled: true
+  url: http://pajikos.github.io/home-assistant-helm-chart/
+---
+apiVersion: catalog.cattle.io/v1
+kind: ClusterRepo
+metadata:
+  name: netbox-community
+  labels:
+    app.kubernetes.io/part-of: home-automation
+    app.kubernetes.io/component: helm-repository
+    home-lab.io/project-slug: home-automation
+spec:
+  enabled: true
+  url: oci://ghcr.io/netbox-community/netbox-chart/netbox

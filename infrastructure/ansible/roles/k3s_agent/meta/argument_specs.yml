@@ -1,0 +1,75 @@
+---
+argument_specs:
+  main:
+    short_description: Join a worker node to the existing K3s cluster as an agent.
+    options:
+      k3s:
+        type: dict
+        required: true
+        options:
+          version:
+            type: str
+            required: true
+            description:
+              - Exact K3s version to install on the worker node.
+          token:
+            type: str
+            required: true
+            no_log: true
+            description:
+              - Shared cluster token used for agent joins.
+          registration_vip:
+            type: str
+            required: true
+            description:
+              - Stable registration VIP that worker nodes use when joining the cluster.
+          tls_sans:
+            type: list
+            elements: str
+            required: false
+            description:
+              - API certificate SANs defined for server nodes and ignored by agents.
+      k3s_agent:
+        type: dict
+        required: true
+        options:
+          protect_kernel_defaults:
+            type: bool
+            required: true
+            description:
+              - Whether K3s should fail startup when required kubelet kernel defaults are not met.
+          kubelet_args:
+            type: list
+            elements: str
+            required: true
+            description:
+              - Additional kubelet arguments rendered as K3s kubelet-arg list items.
+          registry_mirror:
+            type: dict
+            required: true
+            options:
+              enabled:
+                type: bool
+                required: true
+                description:
+                  - Whether to render K3s containerd registry configuration.
+              embedded_registry:
+                type: bool
+                required: false
+                description:
+                  - Server-side embedded registry flag inherited from the shared cluster mirror config.
+              disable_default_registry_endpoint:
+                type: bool
+                required: true
+                description:
+                  - Whether to disable fallback to upstream registry endpoints for configured mirrors.
+              mirrors:
+                type: dict
+                required: true
+                description:
+                  - Mirror entries to render into /etc/rancher/k3s/registries.yaml.
+              configs:
+                type: dict
+                required: true
+                description:
+                  - Optional registry auth and TLS config to render into /etc/rancher/k3s/registries.yaml.

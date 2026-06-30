@@ -1,0 +1,46 @@
+---
+apiVersion: fleet.cattle.io/v1alpha1
+kind: HelmOp
+metadata:
+  name: valkey
+  labels:
+    app.kubernetes.io/name: valkey
+    app.kubernetes.io/part-of: valkey
+    home-lab.io/project-slug: database
+spec:
+  defaultNamespace: valkey
+  namespaceLabels:
+    app.kubernetes.io/part-of: valkey
+    field.cattle.io/projectId: p-database
+  namespaceAnnotations:
+    field.cattle.io/projectId: local:p-database
+  dependsOn:
+    - name: rancher-project-database
+    - name: database-helm-repositories
+  labels:
+    app.kubernetes.io/part-of: valkey
+    home-lab.io/project-slug: database
+  targets:
+    - name: default
+      clusterGroup: default
+  targetRestrictions:
+    - name: default
+      clusterGroup: default
+  correctDrift:
+    enabled: true
+    force: true
+    keepFailHistory: true
+  downstreamResources:
+    - kind: ConfigMap
+      name: valkey-values
+  helm:
+    releaseName: valkey
+    repo: oci://registry-1.docker.io/bitnamicharts/valkey
+    version: 6.1.11
+    timeoutSeconds: 600
+    valuesFrom:
+      - configMapKeyRef:
+          name: valkey-values
+          namespace: fleet-local
+          key: values.yaml
+    waitForJobs: true

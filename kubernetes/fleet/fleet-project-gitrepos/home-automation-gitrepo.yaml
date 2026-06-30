@@ -1,0 +1,34 @@
+---
+apiVersion: fleet.cattle.io/v1alpha1
+kind: GitRepo
+metadata:
+  name: home-lab-home-automation
+  namespace: fleet-local
+  labels:
+    app.kubernetes.io/name: home-lab-home-automation
+    app.kubernetes.io/part-of: fleet
+    home-lab.io/project-slug: home-automation
+spec:
+  repo: https://github.com/abhi1693/home-lab.git
+  branch: master
+  clientSecretName: home-lab-apps-github
+  pollingInterval: 1h0m0s
+  imageScanInterval: 1h0m0s
+  imageScanCommit:
+    authorName: home-lab-fleet
+    authorEmail: fleet@abhimanyu-saharan.com
+    messageTemplate: "Update image from Fleet ImageScan"
+  paths:
+    - kubernetes/projects/home-automation/apps/cloudflare-tunnel-ingress-controller
+    - kubernetes/projects/home-automation/apps/cloudflare-tunnel-ingress-controller-networkpolicy
+    - kubernetes/projects/home-automation/apps/cloudflare-tunnel-ingress-controller-secrets
+    - kubernetes/projects/home-automation/apps/home-assistant
+    - kubernetes/projects/home-automation/apps/home-automation-helm-repositories
+    - kubernetes/projects/home-automation/apps/rack-ops-controllers
+    - kubernetes/projects/home-automation/apps/netbox-secrets
+    - kubernetes/projects/home-automation/apps/netbox
+    - kubernetes/projects/home-automation/apps/ups-monitoring
+  correctDrift:
+    enabled: true
+    force: true
+    keepFailHistory: true

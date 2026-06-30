@@ -1,0 +1,19 @@
+apiVersion: cilium.io/v2
+kind: CiliumBGPPeerConfig
+metadata:
+  name: {{ cilium.bgp.peer_config_name }}
+spec:
+  timers:
+    holdTimeSeconds: {{ cilium.bgp.hold_time_seconds }}
+    keepAliveTimeSeconds: {{ cilium.bgp.keepalive_time_seconds }}
+  gracefulRestart:
+    enabled: {{ cilium.bgp.graceful_restart_enabled | lower }}
+    restartTimeSeconds: {{ cilium.bgp.graceful_restart_time_seconds }}
+  transport:
+    peerPort: 179
+  families:
+    - afi: ipv4
+      safi: unicast
+      advertisements:
+        matchLabels:
+          advertise: {{ cilium.bgp.advertisement_name }}

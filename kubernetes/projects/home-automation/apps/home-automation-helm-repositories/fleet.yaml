@@ -1,0 +1,10 @@
+---
+name: home-automation-helm-repositories
+defaultNamespace: default
+labels:
+  app.kubernetes.io/part-of: home-automation
+  home-lab.io/project-slug: home-automation
+dependsOn:
+  - name: rancher-project-home-automation
+helm:
+  takeOwnership: true

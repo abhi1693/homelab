@@ -1,0 +1,187 @@
+---
+- name: Assert K3s system add-on validation is running on the bootstrap server
+  ansible.builtin.assert:
+    that:
+      - k3s_node.cluster_init | bool
+    fail_msg: k3s_system_addons validation must run on the initial K3s server where k3s_node.cluster_init=true.
+    success_msg: "Validating HA K3s system add-ons from the bootstrap server"
+
+- name: Check custom system add-on manifest files
+  ansible.builtin.stat:
+    path: "{{ item }}"
+  loop:
+    - /var/lib/rancher/k3s/server/manifests/custom-coredns.yaml
+    - /var/lib/rancher/k3s/server/manifests/custom-metrics-server.yaml
+  register: k3s_system_addons_manifest_stats
+
+- name: Assert custom system add-on manifest files exist
+  ansible.builtin.assert:
+    that:
+      - item.stat.exists
+    fail_msg: "Expected custom system add-on manifest {{ item.stat.path }} to exist"
+    success_msg: "Custom system add-on manifest {{ item.stat.path }} exists"
+  loop: "{{ k3s_system_addons_manifest_stats.results }}"
+
+- name: Wait for CoreDNS rollout
+  ansible.builtin.command:
+    argv:
+      - /usr/local/bin/k3s
+      - kubectl
+      - -n
+      - kube-system
+      - rollout
+      - status
+      - deployment/coredns
+      - --timeout=300s
+  environment:
+    KUBECONFIG: /etc/rancher/k3s/k3s.yaml
+  changed_when: false
+
+- name: Wait for Metrics Server rollout
+  ansible.builtin.command:
+    argv:
+      - /usr/local/bin/k3s
+      - kubectl
+      - -n
+      - kube-system
+      - rollout
+      - status
+      - deployment/metrics-server
+      - --timeout=300s
+  environment:
+    KUBECONFIG: /etc/rancher/k3s/k3s.yaml
+  changed_when: false
+
+- name: Read CoreDNS replica count
+  ansible.builtin.command:
+    argv:
+      - /usr/local/bin/k3s
+      - kubectl
+      - -n
+      - kube-system
+      - get
+      - deployment
+      - coredns
+      - -o
+      - jsonpath={.spec.replicas}
+  environment:
+    KUBECONFIG: /etc/rancher/k3s/k3s.yaml
+  register: k3s_coredns_replica_count
+  changed_when: false
+
+- name: Read Metrics Server replica count
+  ansible.builtin.command:
+    argv:
+      - /usr/local/bin/k3s
+      - kubectl
+      - -n
+      - kube-system
+      - get
+      - deployment
+      - metrics-server
+      - -o
+      - jsonpath={.spec.replicas}
+  environment:
+    KUBECONFIG: /etc/rancher/k3s/k3s.yaml
+  register: k3s_metrics_server_replica_count
+  changed_when: false
+
+- name: Assert custom system add-on replica counts match inventory
+  ansible.builtin.assert:
+    that:
+      - k3s_coredns_replica_count.stdout | int == k3s_system_addons.coredns.replicas | int
+      - k3s_metrics_server_replica_count.stdout | int == k3s_system_addons.metrics_server.replicas | int
+    fail_msg: Expected CoreDNS and Metrics Server replica counts to match inventory.
+    success_msg: "CoreDNS and Metrics Server replica counts match inventory"
+
+- name: Read Metrics Server container arguments
+  ansible.builtin.command:
+    argv:
+      - /usr/local/bin/k3s
+      - kubectl
+      - -n
+      - kube-system
+      - get
+      - deployment
+      - metrics-server
+      - -o
+      - jsonpath={.spec.template.spec.containers[0].args}
+  environment:
+    KUBECONFIG: /etc/rancher/k3s/k3s.yaml
+  register: k3s_metrics_server_args
+  changed_when: false
+
+- name: Assert Metrics Server metric resolution matches inventory
+  ansible.builtin.assert:
+    that:
+      - "'--metric-resolution=' ~ k3s_system_addons.metrics_server.metric_resolution in k3s_metrics_server_args.stdout"
+    fail_msg: "Expected Metrics Server metric resolution {{ k3s_system_addons.metrics_server.metric_resolution }}"
+    success_msg: "Metrics Server metric resolution matches {{ k3s_system_addons.metrics_server.metric_resolution }}"
+
+- name: Count unique nodes hosting CoreDNS pods
+  ansible.builtin.shell: >
+    /usr/local/bin/k3s kubectl -n kube-system get pods -l k8s-app=kube-dns
+    -o custom-columns=NODE:.spec.nodeName --no-headers | awk 'NF' | sort -u | wc -l
+  environment:
+    KUBECONFIG: /etc/rancher/k3s/k3s.yaml
+  register: k3s_coredns_unique_nodes
+  changed_when: false
+
+- name: Count unique nodes hosting Metrics Server pods
+  ansible.builtin.shell: >
+    /usr/local/bin/k3s kubectl -n kube-system get pods -l k8s-app=metrics-server
+    -o custom-columns=NODE:.spec.nodeName --no-headers | awk 'NF' | sort -u | wc -l
+  environment:
+    KUBECONFIG: /etc/rancher/k3s/k3s.yaml
+  register: k3s_metrics_server_unique_nodes
+  changed_when: false
+
+- name: Assert HA system add-ons are spread across more than one node
+  ansible.builtin.assert:
+    that:
+      - k3s_coredns_unique_nodes.stdout | int >= 2
+      - k3s_metrics_server_unique_nodes.stdout | int >= 2
+    fail_msg: Expected CoreDNS and Metrics Server pods to be scheduled across at least two nodes.
+    success_msg: "CoreDNS and Metrics Server pods are spread across multiple nodes"
+
+- name: Check HA system add-on PodDisruptionBudgets
+  ansible.builtin.command:
+    argv:
+      - /usr/local/bin/k3s
+      - kubectl
+      - -n
+      - kube-system
+      - get
+      - pdb
+      - "{{ item }}"
+  environment:
+    KUBECONFIG: /etc/rancher/k3s/k3s.yaml
+  changed_when: false
+  loop:
+    - coredns
+    - metrics-server
+
+- name: Check Metrics API through kubectl top
+  ansible.builtin.command: /usr/local/bin/k3s kubectl top nodes
+  environment:
+    KUBECONFIG: /etc/rancher/k3s/k3s.yaml
+  register: k3s_system_addons_top_nodes
+  changed_when: false
+
+- name: Record expected K3s node names for Metrics API validation
+  ansible.builtin.set_fact:
+    k3s_system_addons_expected_node_names: >-
+      {{
+        groups['k3s_servers']
+        | map('extract', hostvars, 'node_identity')
+        | map(attribute='hostname')
+        | list
+      }}
+
+- name: Assert Metrics API is serving node metrics
+  ansible.builtin.assert:
+    that:
+      - item in k3s_system_addons_top_nodes.stdout
+    fail_msg: Expected kubectl top nodes to return metrics for all control-plane nodes.
+    success_msg: "Metrics API returns node metrics for all control-plane nodes"
+  loop: "{{ k3s_system_addons_expected_node_names }}"

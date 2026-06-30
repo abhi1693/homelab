@@ -1,0 +1,71 @@
+---
+apiVersion: monitoring.coreos.com/v1
+kind: PrometheusRule
+metadata:
+  name: ups-monitoring
+  namespace: ups
+  labels:
+    app.kubernetes.io/name: ups-monitoring
+    app.kubernetes.io/component: alerts
+    app.kubernetes.io/part-of: home-automation
+    home-lab.io/project-slug: home-automation
+spec:
+  groups:
+    - name: ups-monitoring.health
+      rules:
+        - alert: UpsExporterDown
+          expr: up{namespace="ups", job="ups-monitoring", endpoint="metrics"} == 0
+          for: 5m
+          labels:
+            severity: critical
+          annotations:
+            summary: UPS exporter is down
+            description: Prometheus has been unable to scrape the UPS exporter for more than 5 minutes.
+        - alert: UpsPeanutMetricsDown
+          expr: up{namespace="ups", job="ups-monitoring", endpoint="http"} == 0
+          for: 5m
+          labels:
+            severity: warning
+          annotations:
+            summary: PeaNUT metrics endpoint is down
+            description: Prometheus has been unable to scrape PeaNUT UPS metrics for more than 5 minutes.
+        - alert: UpsOnBattery
+          expr: network_ups_tools_ups_status{namespace="ups", job="ups-monitoring", flag="OB"} == 1
+          for: 1m
+          labels:
+            severity: warning
+          annotations:
+            summary: UPS is on battery
+            description: UPS {{ $labels.ups }} reports on-battery status.
+        - alert: UpsLowBattery
+          expr: network_ups_tools_ups_status{namespace="ups", job="ups-monitoring", flag="LB"} == 1
+          for: 1m
+          labels:
+            severity: critical
+          annotations:
+            summary: UPS battery is low
+            description: UPS {{ $labels.ups }} reports low battery.
+        - alert: UpsReplaceBattery
+          expr: network_ups_tools_ups_status{namespace="ups", job="ups-monitoring", flag="RB"} == 1
+          for: 5m
+          labels:
+            severity: warning
+          annotations:
+            summary: UPS battery replacement is needed
+            description: UPS {{ $labels.ups }} reports replace-battery status.
+        - alert: UpsBatteryChargeLow
+          expr: network_ups_tools_battery_charge{namespace="ups", job="ups-monitoring"} < 25
+          for: 5m
+          labels:
+            severity: warning
+          annotations:
+            summary: UPS battery charge is low
+            description: UPS {{ $labels.ups }} battery charge is {{ printf "%.0f" $value }}%.
+        - alert: UpsRuntimeLow
+          expr: network_ups_tools_battery_runtime{namespace="ups", job="ups-monitoring"} < 600
+          for: 5m
+          labels:
+            severity: warning
+          annotations:
+            summary: UPS runtime is low
+            description: UPS {{ $labels.ups }} runtime is below 10 minutes.

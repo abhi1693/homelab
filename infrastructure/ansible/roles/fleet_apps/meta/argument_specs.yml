@@ -1,0 +1,175 @@
+---
+argument_specs:
+  main:
+    short_description: Configure Rancher Fleet to reconcile Kubernetes app manifests from Git.
+    options:
+      k3s_node:
+        type: dict
+        required: true
+        options:
+          cluster_init:
+            type: bool
+            required: true
+            description:
+              - Whether the target node is the initial K3s control-plane node.
+      fleet_apps:
+        type: dict
+        required: true
+        options:
+          namespace:
+            type: str
+            required: true
+            description:
+              - Fleet namespace that should contain the GitRepo.
+          enabled:
+            type: bool
+            required: false
+            description:
+              - Whether the primary app GitRepo should exist.
+          gitrepo_name:
+            type: str
+            required: true
+            description:
+              - Name of the Fleet GitRepo resource.
+          repo:
+            type: str
+            required: true
+            description:
+              - Git repository URL Fleet should clone.
+          branch:
+            type: str
+            required: true
+            description:
+              - Git branch Fleet should follow.
+          client_secret_name:
+            type: str
+            required: false
+            description:
+              - Optional Kubernetes Secret name containing Fleet Git credentials.
+          git_auth:
+            type: dict
+            required: false
+            options:
+              username:
+                type: str
+                required: false
+                description:
+                  - Username stored in the Fleet Git basic-auth Secret.
+              password:
+                type: str
+                required: false
+                no_log: true
+                description:
+                  - Password or token stored in the Fleet Git basic-auth Secret.
+          image_scan:
+            type: dict
+            required: false
+            description:
+              - Optional Fleet ImageScan support settings.
+            options:
+              registry_secret:
+                type: dict
+                required: false
+                description:
+                  - Docker registry pull Secret created in the Fleet namespace for ImageScan.
+                options:
+                  enabled:
+                    type: bool
+                    required: false
+                  name:
+                    type: str
+                    required: false
+                  server:
+                    type: str
+                    required: false
+                  username:
+                    type: str
+                    required: false
+                  password:
+                    type: str
+                    required: false
+                    no_log: true
+          gitjob_image_pull_secret:
+            type: dict
+            required: false
+            description:
+              - Optional pull Secret attached to Fleet gitjob service accounts.
+            options:
+              enabled:
+                type: bool
+                required: false
+              name:
+                type: str
+                required: false
+          paths:
+            type: list
+            elements: str
+            required: false
+            description:
+              - Repository paths Fleet should scan as app bundles.
+          additional_gitrepos:
+            type: list
+            elements: dict
+            required: false
+            description:
+              - Additional Fleet GitRepo resources to bootstrap from the same role.
+            options:
+              name:
+                type: str
+                required: true
+              namespace:
+                type: str
+                required: false
+              repo:
+                type: str
+                required: false
+              branch:
+                type: str
+                required: false
+              client_secret_name:
+                type: str
+                required: false
+              polling_interval:
+                type: str
+                required: false
+              disable_polling:
+                type: bool
+                required: false
+              paths:
+                type: list
+                elements: str
+                required: true
+              labels:
+                type: dict
+                required: false
+              correct_drift:
+                type: dict
+                required: false
+                options:
+                  enabled:
+                    type: bool
+                    required: false
+                  force:
+                    type: bool
+                    required: false
+                  keep_fail_history:
+                    type: bool
+                    required: false
+          polling_interval:
+            type: str
+            required: true
+            description:
+              - How often Fleet should poll Git for app changes.
+          correct_drift:
+            type: dict
+            required: true
+            options:
+              enabled:
+                type: bool
+                required: true
+              force:
+                type: bool
+                required: true
+              keep_fail_history:
+                type: bool
+                required: true

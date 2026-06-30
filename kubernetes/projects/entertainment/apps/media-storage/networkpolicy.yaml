@@ -1,0 +1,16 @@
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: media-library-keeper-network-boundary
+  namespace: media
+  labels:
+    app.kubernetes.io/name: media-library-keeper
+    app.kubernetes.io/part-of: media-stack
+spec:
+  podSelector:
+    matchLabels:
+      app.kubernetes.io/name: media-library-keeper
+  policyTypes:
+    - Ingress
+    - Egress

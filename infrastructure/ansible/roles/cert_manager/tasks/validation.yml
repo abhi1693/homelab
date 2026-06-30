@@ -1,0 +1,203 @@
+---
+- name: Assert cert-manager validation is running on the bootstrap server
+  ansible.builtin.assert:
+    that:
+      - k3s_node.cluster_init | bool
+    fail_msg: cert_manager validation must run on the initial K3s server where k3s_node.cluster_init=true.
+    success_msg: "Validating cert-manager from the bootstrap K3s server"
+
+- name: Check cert-manager manifest files
+  ansible.builtin.stat:
+    path: "{{ item }}"
+  loop:
+    - /var/lib/rancher/k3s/server/manifests/cert-manager-helmchart.yaml
+    - /var/lib/rancher/k3s/server/manifests/cert-manager-cloudflare-secret.yaml
+    - /var/lib/rancher/k3s/server/manifests/cert-manager-clusterissuer.yaml
+  register: cert_manager_manifest_stats
+
+- name: Assert cert-manager manifest files exist
+  ansible.builtin.assert:
+    that:
+      - item.stat.exists
+    fail_msg: "Expected cert-manager manifest {{ item.stat.path }} to exist"
+    success_msg: "cert-manager manifest {{ item.stat.path }} exists"
+  loop: "{{ cert_manager_manifest_stats.results }}"
+
+- name: Read installed cert-manager HelmChart version
+  ansible.builtin.command:
+    argv:
+      - /usr/local/bin/k3s
+      - kubectl
+      - -n
+      - kube-system
+      - get
+      - helmchart
+      - cert-manager
+      - -o
+      - jsonpath={.spec.version}
+  environment:
+    KUBECONFIG: /etc/rancher/k3s/k3s.yaml
+  register: cert_manager_helmchart_version
+  changed_when: false
+
+- name: Assert installed cert-manager HelmChart version matches inventory
+  ansible.builtin.assert:
+    that:
+      - cert_manager_helmchart_version.stdout | trim == cert_manager.chart_version
+    fail_msg: "Expected cert-manager HelmChart version {{ cert_manager.chart_version }}"
+    success_msg: "Installed cert-manager HelmChart version matches {{ cert_manager.chart_version }}"
+
+- name: Wait for cert-manager deployments to roll out
+  ansible.builtin.command:
+    argv:
+      - /usr/local/bin/k3s
+      - kubectl
+      - -n
+      - "{{ cert_manager.namespace }}"
+      - rollout
+      - status
+      - "deployment/{{ item }}"
+      - --timeout=300s
+  environment:
+    KUBECONFIG: /etc/rancher/k3s/k3s.yaml
+  changed_when: false
+  loop:
+    - cert-manager
+    - cert-manager-webhook
+    - cert-manager-cainjector
+
+- name: Read cert-manager deployment replica counts
+  ansible.builtin.command:
+    argv:
+      - /usr/local/bin/k3s
+      - kubectl
+      - -n
+      - "{{ cert_manager.namespace }}"
+      - get
+      - deployment
+      - "{{ item.name }}"
+      - -o
+      - jsonpath={.spec.replicas}
+  environment:
+    KUBECONFIG: /etc/rancher/k3s/k3s.yaml
+  loop:
+    - name: cert-manager
+      expected: "{{ cert_manager.controller_replicas }}"
+    - name: cert-manager-webhook
+      expected: "{{ cert_manager.webhook_replicas }}"
+    - name: cert-manager-cainjector
+      expected: "{{ cert_manager.cainjector_replicas }}"
+  loop_control:
+    label: "{{ item.name }}"
+  register: cert_manager_replica_counts
+  changed_when: false
+
+- name: Assert cert-manager deployment replica counts match inventory
+  ansible.builtin.assert:
+    that:
+      - item.stdout | int == item.item.expected | int
+    fail_msg: "Expected {{ item.item.name }} to run {{ item.item.expected }} replicas"
+    success_msg: "{{ item.item.name }} replica count matches inventory"
+  loop: "{{ cert_manager_replica_counts.results }}"
+
+- name: Read cert-manager deployment priority classes
+  ansible.builtin.command:
+    argv:
+      - /usr/local/bin/k3s
+      - kubectl
+      - -n
+      - "{{ cert_manager.namespace }}"
+      - get
+      - deployment
+      - "{{ item }}"
+      - -o
+      - jsonpath={.spec.template.spec.priorityClassName}
+  environment:
+    KUBECONFIG: /etc/rancher/k3s/k3s.yaml
+  loop:
+    - cert-manager
+    - cert-manager-webhook
+    - cert-manager-cainjector
+  register: cert_manager_priority_classes
+  changed_when: false
+
+- name: Assert cert-manager deployments use the configured priority class
+  ansible.builtin.assert:
+    that:
+      - item.stdout | trim == cert_manager.priority_class_name
+    fail_msg: "Expected {{ item.item }} to use priority class {{ cert_manager.priority_class_name }}"
+    success_msg: "{{ item.item }} uses priority class {{ cert_manager.priority_class_name }}"
+  loop: "{{ cert_manager_priority_classes.results }}"
+
+- name: Count unique nodes hosting cert-manager pods
+  ansible.builtin.shell: >
+    /usr/local/bin/k3s kubectl -n {{ cert_manager.namespace }}
+    get pods -l app.kubernetes.io/instance=cert-manager,app.kubernetes.io/component={{ item.component }}
+    -o custom-columns=NODE:.spec.nodeName --no-headers | awk 'NF' | sort -u | wc -l
+  environment:
+    KUBECONFIG: /etc/rancher/k3s/k3s.yaml
+  loop:
+    - name: cert-manager
+      component: controller
+    - name: cert-manager-webhook
+      component: webhook
+    - name: cert-manager-cainjector
+      component: cainjector
+  loop_control:
+    label: "{{ item.name }}"
+  register: cert_manager_unique_nodes
+  changed_when: false
+
+- name: Assert cert-manager workloads are spread across multiple nodes
+  ansible.builtin.assert:
+    that:
+      - item.stdout | int >= 2
+    fail_msg: "Expected {{ item.item.name }} pods to be scheduled across at least two nodes"
+    success_msg: "{{ item.item.name }} pods are spread across multiple nodes"
+  loop: "{{ cert_manager_unique_nodes.results }}"
+
+- name: Check cert-manager PodDisruptionBudgets
+  ansible.builtin.command:
+    argv:
+      - /usr/local/bin/k3s
+      - kubectl
+      - -n
+      - "{{ cert_manager.namespace }}"
+      - get
+      - pdb
+      - "{{ item }}"
+  environment:
+    KUBECONFIG: /etc/rancher/k3s/k3s.yaml
+  changed_when: false
+  loop:
+    - cert-manager
+    - cert-manager-webhook
+    - cert-manager-cainjector
+
+- name: Check Cloudflare API token Secret exists
+  ansible.builtin.command:
+    argv:
+      - /usr/local/bin/k3s
+      - kubectl
+      - -n
+      - "{{ cert_manager.namespace }}"
+      - get
+      - secret
+      - "{{ cert_manager.cloudflare_api_token_secret_name }}"
+  environment:
+    KUBECONFIG: /etc/rancher/k3s/k3s.yaml
+  changed_when: false
+  no_log: true
+
+- name: Wait for ACME ClusterIssuer to become ready
+  ansible.builtin.command:
+    argv:
+      - /usr/local/bin/k3s
+      - kubectl
+      - wait
+      - --for=condition=Ready
+      - "clusterissuer/{{ cert_manager.cluster_issuer_name }}"
+      - --timeout=300s
+  environment:
+    KUBECONFIG: /etc/rancher/k3s/k3s.yaml
+  changed_when: false

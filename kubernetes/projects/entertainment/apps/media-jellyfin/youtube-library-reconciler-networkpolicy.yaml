@@ -1,0 +1,38 @@
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: jellyfin-youtube-library-reconciler-egress
+  namespace: media
+  labels:
+    app.kubernetes.io/name: jellyfin-youtube-library-reconciler
+    app.kubernetes.io/part-of: media-stack
+    home-lab.io/project-slug: entertainment
+spec:
+  podSelector:
+    matchLabels:
+      app.kubernetes.io/name: jellyfin-youtube-library-reconciler
+  policyTypes:
+    - Ingress
+    - Egress
+  egress:
+    - to:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: kube-system
+          podSelector:
+            matchLabels:
+              k8s-app: kube-dns
+      ports:
+        - protocol: UDP
+          port: 53
+        - protocol: TCP
+          port: 53
+    - to:
+        - podSelector:
+            matchLabels:
+              app.kubernetes.io/instance: jellyfin
+              app.kubernetes.io/name: jellyfin
+      ports:
+        - protocol: TCP
+          port: 8096

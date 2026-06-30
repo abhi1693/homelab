@@ -1,0 +1,53 @@
+---
+argument_specs:
+  main:
+    short_description: Deploy kube-vip for the K3s control-plane registration VIP.
+    options:
+      k3s:
+        type: dict
+        required: true
+        options:
+          version:
+            type: str
+            required: true
+          token:
+            type: str
+            required: true
+            no_log: true
+          registration_vip:
+            type: str
+            required: true
+            description:
+              - Stable virtual IP used for K3s API access and server registration.
+          tls_sans:
+            type: list
+            elements: str
+            required: true
+      k3s_node:
+        type: dict
+        required: true
+        options:
+          cluster_init:
+            type: bool
+            required: true
+            description:
+              - Whether the target node is the initial K3s control-plane node.
+      kube_vip:
+        type: dict
+        required: true
+        options:
+          version:
+            type: str
+            required: true
+            description:
+              - Exact kube-vip version to deploy.
+          interface:
+            type: str
+            required: true
+            description:
+              - Network interface that should advertise the control-plane VIP.
+          priority_class_name:
+            type: str
+            required: true
+            description:
+              - Priority class kube-vip should use to protect the control-plane VIP.

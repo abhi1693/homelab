@@ -1,0 +1,76 @@
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: external-dns-unifi-network-boundary
+  namespace: kube-public
+  labels:
+    app.kubernetes.io/name: external-dns-unifi
+    app.kubernetes.io/part-of: cluster-dns
+spec:
+  podSelector:
+    matchLabels:
+      app.kubernetes.io/instance: external-dns-unifi
+      app.kubernetes.io/name: external-dns
+  policyTypes:
+    - Ingress
+    - Egress
+  ingress: []
+  egress:
+    - to:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: kube-system
+          podSelector:
+            matchLabels:
+              k8s-app: kube-dns
+      ports:
+        - protocol: UDP
+          port: 53
+        - protocol: TCP
+          port: 53
+    - to:
+        - ipBlock:
+            cidr: 10.43.0.1/32
+      ports:
+        - protocol: TCP
+          port: 443
+    - to:
+        - ipBlock:
+            cidr: 192.168.3.108/32
+        - ipBlock:
+            cidr: 192.168.3.191/32
+        - ipBlock:
+            cidr: 192.168.3.243/32
+      ports:
+        - protocol: TCP
+          port: 6443
+    - to:
+        - ipBlock:
+            cidr: 192.168.3.1/32
+      ports:
+        - protocol: TCP
+          port: 443
+---
+apiVersion: cilium.io/v2
+kind: CiliumNetworkPolicy
+metadata:
+  name: external-dns-unifi-apiserver-access
+  namespace: kube-public
+  labels:
+    app.kubernetes.io/name: external-dns-unifi
+    app.kubernetes.io/part-of: cluster-dns
+spec:
+  endpointSelector:
+    matchLabels:
+      app.kubernetes.io/instance: external-dns-unifi
+      app.kubernetes.io/name: external-dns
+  egress:
+    - toEntities:
+        - kube-apiserver
+      toPorts:
+        - ports:
+            - port: "443"
+              protocol: TCP
+            - port: "6443"
+              protocol: TCP

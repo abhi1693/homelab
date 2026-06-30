@@ -1,0 +1,34 @@
+cloudnative-pg:
+  fullnameOverride: psql
+  replicaCount: 1
+  crds:
+    create: true
+  image:
+    repository: registry.home/ghcr.io/cloudnative-pg/cloudnative-pg
+    tag: 1.30.0 # {"$imagescan": "cnpg-operator:tag"}
+  config:
+    clusterWide: true
+    maxConcurrentReconciles: 10
+  nodeSelector:
+    kubernetes.io/arch: arm64
+  resources:
+    requests:
+      cpu: 10m
+      memory: 144Mi
+    limits:
+      memory: 208Mi
+  podAnnotations:
+    home-lab.io/webhook-ca-refresh: "2026-06-02"
+  monitoring:
+    podMonitorEnabled: true
+    grafanaDashboard:
+      create: false
+      namespace: cattle-dashboards
+grafanaDashboard:
+  create: true
+  namespace: cattle-dashboards
+  configMapName: cnpg-grafana-dashboard
+  labels:
+    app.kubernetes.io/name: cnpg-grafana-dashboard
+    app.kubernetes.io/part-of: cnpg-operator
+    home-lab.io/project-slug: database

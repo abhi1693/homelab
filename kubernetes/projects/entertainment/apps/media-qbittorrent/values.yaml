@@ -1,0 +1,373 @@
+TZ: Asia/Kolkata
+image:
+  repository: registry.home/oci.trueforge.org/containerforge/qbittorrent
+  pullPolicy: IfNotPresent
+  tag: "5.2.2" # {"$imagescan": "qbittorrent:tag"}
+imagePullSecret:
+  harbor-registry:
+    enabled: true
+    existingSecret: harbor-registry
+qbitConfigImage:
+  repository: registry.home/docker.io/curlimages/curl
+  pullPolicy: IfNotPresent
+  tag: 8.21.0 # {"$imagescan": "qbittorrent-curl:tag"}
+chartContext:
+  appUrl: https://qbittorrent.media.home
+global:
+  podCIDR: 10.42.0.0/16
+  svcCIDR: 10.43.0.0/16
+  fallbackDefaults:
+    storageClass: longhorn
+    pvcRetain: true
+podOptions:
+  defaultAffinity: false
+  nodeSelector:
+    kubernetes.io/arch: arm64
+    kubernetes.io/hostname: k8s-rpi2
+resources:
+  requests:
+    cpu: 85m
+    memory: 128Mi
+  limits:
+    memory: 192Mi
+service:
+  main:
+    ports:
+      main:
+        port: 8080
+  torrent:
+    enabled: true
+    type: LoadBalancer
+    ports:
+      torrent:
+        enabled: true
+        port: 53181
+        protocol: tcp
+      torrentudp:
+        enabled: true
+        port: 53181
+        protocol: udp
+ingress:
+  main:
+    enabled: true
+    ingressClassName: traefik
+    hosts:
+      - host: qbittorrent.media.home
+        paths:
+          - path: /
+            pathType: Prefix
+    tls:
+      - hosts:
+          - qbittorrent.media.home
+qbitportforward:
+  enabled: false
+workload:
+  main:
+    replicas: 1
+    podSpec:
+      automountServiceAccountToken: false
+      labels:
+        home-lab.io/topology-group: heavy-media
+      topologySpreadConstraints:
+        - maxSkew: 1
+          topologyKey: kubernetes.io/hostname
+          whenUnsatisfiable: DoNotSchedule
+          labelSelector:
+            matchLabels:
+              home-lab.io/topology-group: heavy-media
+          nodeAffinityPolicy: Honor
+          nodeTaintsPolicy: Honor
+      containers:
+        main:
+          # qBittorrent can leave Qt single-instance files in pod-level
+          # emptyDirs after an unclean restart. Init containers do not rerun for
+          # container restarts, so force Qt runtime state into a known
+          # pod-local directory and recreate it before every qBittorrent start.
+          command:
+            - /usr/bin/tini
+            - --
+            - /bin/sh
+            - -ec
+            - |
+              runtime_dir=/tmp/qbittorrent-runtime
+              find /tmp /var/run /dev/shm -maxdepth 1 \
+                \( -iname '*qbittorrent*' -o -iname 'qtsingleapp-*' \) \
+                -exec rm -rf {} + 2>/dev/null || true
+              mkdir -p "$runtime_dir"
+              chmod 700 "$runtime_dir"
+              rm -f /config/qBittorrent/lockfile
+              export XDG_RUNTIME_DIR="$runtime_dir"
+              exec /entrypoint.sh
+          env:
+            XDG_RUNTIME_DIR: /tmp/qbittorrent-runtime
+          lifecycle:
+            preStop:
+              type: exec
+              command:
+                - /bin/sh
+                - -ec
+                - |
+                  find /tmp /var/run /dev/shm -maxdepth 1 \
+                    \( -iname '*qbittorrent*' -o -iname 'qtsingleapp-*' \) \
+                    -exec rm -rf {} + 2>/dev/null || true
+                  rm -f /config/qBittorrent/lockfile
+      initContainers:
+        qbit-config:
+          enabled: true
+          type: init
+          imageSelector: qbitConfigImage
+          command:
+            - /bin/sh
+            - -ec
+            # Fleet templates values files before Helm; avoid braced shell variables here.
+            - |
+              mkdir -p /config/qBittorrent
+              if [ -f /config/qBittorrent/lockfile ]; then
+                echo "Removing stale qBittorrent lockfile"
+                rm -f /config/qBittorrent/lockfile
+              fi
+
+              conf=/config/qBittorrent/qBittorrent.conf
+
+              if [ ! -f "$conf" ]; then
+                echo "qBittorrent config does not exist yet; creating initial tuned config"
+                : > "$conf"
+              fi
+
+              set_config() {
+                section="$1"
+                raw_key="$2"
+                raw_value="$3"
+                tmp="$(mktemp)"
+                awk -v section="$section" -v raw_key="$raw_key" -v raw_value="$raw_value" '
+                  BEGIN {
+                    key=raw_key
+                    gsub(/@@/, sprintf("%c", 92), key)
+                    value=key "=" raw_value
+                  }
+                  $0 == "[" section "]" {
+                    in_section=1
+                    seen_section=1
+                    print
+                    next
+                  }
+                  /^\[/ {
+                    if (in_section && !found) {
+                      print value
+                      found=1
+                    }
+                    in_section=0
+                  }
+                  in_section && index($0, key "=") == 1 {
+                    print value
+                    found=1
+                    next
+                  }
+                  { print }
+                  END {
+                    if (!seen_section) {
+                      print "[" section "]"
+                      print value
+                    } else if (in_section && !found) {
+                      print value
+                    }
+                  }
+                ' "$conf" > "$tmp"
+                cat "$tmp" > "$conf"
+                rm -f "$tmp"
+              }
+
+              set_config 'BitTorrent' 'Session@@GlobalDLSpeedLimit' '8192'
+              set_config 'BitTorrent' 'Session@@GlobalUPSpeedLimit' '1024'
+              set_config 'BitTorrent' 'Session@@AlternativeGlobalDLSpeedLimit' '2048'
+              set_config 'BitTorrent' 'Session@@AlternativeGlobalUPSpeedLimit' '256'
+              set_config 'BitTorrent' 'Session@@AddTorrentStopped' 'true'
+              set_config 'BitTorrent' 'Session@@AddTorrentToTopOfQueue' 'false'
+              set_config 'BitTorrent' 'Session@@AnnounceToAllTrackers' 'true'
+              set_config 'BitTorrent' 'Session@@AnnounceToAllTiers' 'true'
+              set_config 'BitTorrent' 'Session@@AnonymousModeEnabled' 'false'
+              set_config 'BitTorrent' 'Session@@BTProtocol' 'Both'
+              set_config 'BitTorrent' 'Session@@DHTEnabled' 'true'
+              set_config 'BitTorrent' 'Session@@Encryption' '0'
+              set_config 'BitTorrent' 'Session@@IgnoreSlowTorrentsForQueueing' 'true'
+              set_config 'BitTorrent' 'Session@@Interface' ''
+              set_config 'BitTorrent' 'Session@@InterfaceAddress' ''
+              set_config 'BitTorrent' 'Session@@InterfaceName' ''
+              set_config 'BitTorrent' 'Session@@IPFilteringEnabled' 'false'
+              set_config 'BitTorrent' 'Session@@LSDEnabled' 'true'
+              set_config 'BitTorrent' 'Session@@GlobalMaxInactiveSeedingMinutes' '-1'
+              set_config 'BitTorrent' 'Session@@GlobalMaxRatio' '0'
+              set_config 'BitTorrent' 'Session@@GlobalMaxSeedingMinutes' '0'
+              set_config 'BitTorrent' 'Session@@ShareLimitAction' 'Stop'
+              set_config 'BitTorrent' 'Session@@MaxActiveCheckingTorrents' '1'
+              set_config 'BitTorrent' 'Session@@MaxActiveDownloads' '1'
+              set_config 'BitTorrent' 'Session@@MaxActiveTorrents' '1'
+              set_config 'BitTorrent' 'Session@@MaxActiveUploads' '1'
+              set_config 'BitTorrent' 'Session@@MaxConcurrentHTTPAnnounces' '50'
+              set_config 'BitTorrent' 'Session@@MaxConnections' '500'
+              set_config 'BitTorrent' 'Session@@MaxConnectionsPerTorrent' '100'
+              set_config 'BitTorrent' 'Session@@MaxUploads' '20'
+              set_config 'BitTorrent' 'Session@@MaxUploadsPerTorrent' '4'
+              set_config 'BitTorrent' 'Session@@PeXEnabled' 'true'
+              set_config 'BitTorrent' 'Session@@Port' '53181'
+              set_config 'BitTorrent' 'Session@@Preallocation' 'false'
+              set_config 'BitTorrent' 'Session@@ProxyPeerConnections' 'false'
+              set_config 'BitTorrent' 'Session@@QueueingSystemEnabled' 'true'
+              set_config 'BitTorrent' 'Session@@ReannounceWhenAddressChanged' 'true'
+              set_config 'BitTorrent' 'Session@@TorrentStopCondition' 'None'
+              set_config 'BitTorrent' 'Session@@TrackerFilteringEnabled' 'false'
+              set_config 'BitTorrent' 'Session@@UseRandomPort' 'false'
+              set_config 'BitTorrent' 'Session@@DefaultSavePath' '/downloads'
+              set_config 'BitTorrent' 'Session@@TempPath' '/downloads/temp'
+              set_config 'BitTorrent' 'Session@@TempPathEnabled' 'true'
+              set_config 'BitTorrent' 'Session@@uTPRateLimited' 'true'
+              set_config 'Network' 'PortForwardingEnabled' 'false'
+              set_config 'Network' 'Proxy@@HostnameLookupEnabled' 'true'
+              set_config 'Network' 'Proxy@@IP' ''
+              set_config 'Network' 'Proxy@@Port' '8080'
+              set_config 'Network' 'Proxy@@Profiles@@BitTorrent' 'false'
+              set_config 'Network' 'Proxy@@Profiles@@Misc' 'false'
+              set_config 'Network' 'Proxy@@Profiles@@RSS' 'false'
+              set_config 'Network' 'Proxy@@Type' 'None'
+              set_config 'Preferences' 'WebUI@@Address' '*'
+              set_config 'Preferences' 'WebUI@@AuthSubnetWhitelist' '10.42.0.0/16,10.43.0.0/16'
+              set_config 'Preferences' 'WebUI@@AuthSubnetWhitelistEnabled' 'false'
+              set_config 'Preferences' 'WebUI@@CSRFProtection' 'false'
+              set_config 'Preferences' 'WebUI@@HostHeaderValidation' 'false'
+              set_config 'Preferences' 'WebUI@@LocalHostAuth' 'true'
+              set_config 'Preferences' 'WebUI@@Password_PBKDF2' '"@ByteArray(sn4AEeEKPGmY2eX2+GunTA==:jQOZh2pSWbFfQQlWxtAlEBhocRbz3SZxwwc0tl2VF9o25wMpsmlFRyPqpIkP7iD0Iap2TdedzKVm04b2vQOFYA==)"'
+              set_config 'Preferences' 'WebUI@@Port' '8080'
+              set_config 'Preferences' 'WebUI@@ServerDomains' '*'
+              set_config 'Preferences' 'WebUI@@UseUPnP' 'false'
+              set_config 'Preferences' 'WebUI@@Username' 'asaharan'
+
+              if [ -d /downloads ]; then
+                mkdir -p /downloads/anime /downloads/movies /downloads/prowlarr /downloads/temp /downloads/tv
+              fi
+
+              cat > /config/qBittorrent/categories.json <<'EOF'
+              {
+                  "anime": {
+                      "save_path": "/downloads/anime"
+                  },
+                  "movies": {
+                      "save_path": "/downloads/movies"
+                  },
+                  "priority-anime": {
+                      "save_path": "/downloads/anime"
+                  },
+                  "priority-movies": {
+                      "save_path": "/downloads/movies"
+                  },
+                  "priority-tv": {
+                      "save_path": "/downloads/tv"
+                  },
+                  "prowlarr": {
+                      "save_path": "/downloads/prowlarr"
+                  },
+                  "tv": {
+                      "save_path": "/downloads/tv"
+                  }
+              }
+              EOF
+          resources:
+            requests:
+              cpu: 2m
+              memory: 32Mi
+            limits:
+              memory: 128Mi
+  qbitportforward:
+    enabled: false
+persistence:
+  config:
+    size: 256Mi
+    storageClass: longhorn
+    volumeName: pvc-ac497f73-e6b9-4433-b257-936fc5f745c7
+    targetSelector:
+      main:
+        main:
+          mountPath: /config
+        qbit-config:
+          mountPath: /config
+  downloads:
+    enabled: true
+    type: pvc
+    existingClaim: media-downloads
+    mountPath: /downloads
+networkPolicy:
+  ingress:
+    enabled: true
+    policyType: ingress
+    ingress:
+      - from:
+          - namespaceSelector:
+              matchLabels:
+                kubernetes.io/metadata.name: kube-system
+            podSelector:
+              matchLabels:
+                app.kubernetes.io/name: traefik
+          - podSelector:
+              matchLabels:
+                app.kubernetes.io/instance: sonarr
+                app.kubernetes.io/name: sonarr
+          - podSelector:
+              matchLabels:
+                app.kubernetes.io/instance: radarr
+                app.kubernetes.io/name: radarr
+          - podSelector:
+              matchLabels:
+                app.kubernetes.io/instance: prowlarr
+                app.kubernetes.io/name: prowlarr
+          - podSelector:
+              matchLabels:
+                app.kubernetes.io/name: ryokan
+          - podSelector:
+              matchLabels:
+                app.kubernetes.io/instance: qbittorrent-smart-queues
+                app.kubernetes.io/name: qbittorrent-smart-queues
+          - podSelector:
+              matchLabels:
+                app.kubernetes.io/name: qbittorrent-tracker-refresh
+          - namespaceSelector:
+              matchLabels:
+                kubernetes.io/metadata.name: rack-ops
+            podSelector:
+              matchLabels:
+                app.kubernetes.io/instance: qbittorrent-smart-queues
+                app.kubernetes.io/name: qbittorrent-smart-queues
+        ports:
+          - protocol: TCP
+            port: 8080
+      - from:
+          - ipBlock:
+              cidr: 0.0.0.0/0
+              except:
+                - 10.42.0.0/16
+                - 10.43.0.0/16
+        ports:
+          - protocol: TCP
+            port: 53181
+          - protocol: UDP
+            port: 53181
+  egress:
+    enabled: true
+    policyType: egress
+    egress:
+      - to:
+          - namespaceSelector:
+              matchLabels:
+                kubernetes.io/metadata.name: kube-system
+            podSelector:
+              matchLabels:
+                k8s-app: kube-dns
+        ports:
+          - protocol: UDP
+            port: 53
+          - protocol: TCP
+            port: 53
+      - to:
+          - ipBlock:
+              cidr: 0.0.0.0/0
+              except:
+                - 10.42.0.0/16
+                - 10.43.0.0/16

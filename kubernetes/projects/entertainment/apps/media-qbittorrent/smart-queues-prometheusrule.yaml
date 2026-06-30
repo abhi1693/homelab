@@ -1,0 +1,66 @@
+---
+apiVersion: monitoring.coreos.com/v1
+kind: PrometheusRule
+metadata:
+  name: qbittorrent-smart-queues
+  namespace: media
+  labels:
+    app.kubernetes.io/name: qbittorrent-smart-queues
+    app.kubernetes.io/component: alerts
+    app.kubernetes.io/part-of: media-stack
+    home-lab.io/project-slug: entertainment
+spec:
+  groups:
+    - name: media.qbittorrent-smart-queues
+      rules:
+        - alert: QbittorrentSmartQueuesDown
+          expr: |
+            up{namespace="media", job="qbittorrent-smart-queues"} == 0
+            or qbt_guard_status_up{namespace="media", job="qbittorrent-smart-queues"} == 0
+          for: 5m
+          labels:
+            severity: critical
+          annotations:
+            summary: qBittorrent Smart Queues is down
+            description: Prometheus cannot scrape Smart Queues or the controller is reporting unhealthy.
+        - alert: QbittorrentSmartQueuesDecisionStale
+          expr: |
+            max(qbt_guard_decision_age_seconds{namespace="media", job="qbittorrent-smart-queues"}) > 900
+            and on() max(qbt_guard_last_decision_info{namespace="media", job="qbittorrent-smart-queues", action!="sleep"}) > 0
+          for: 10m
+          labels:
+            severity: warning
+          annotations:
+            summary: qBittorrent Smart Queues decisions are stale
+            description: Smart Queues has not published a fresh non-idle queue decision for more than 15 minutes.
+        - alert: QbittorrentSmartQueuesLowEffectiveCap
+          expr: |
+            max(qbt_guard_effective_cap_bytes_per_sec{namespace="media", job="qbittorrent-smart-queues", type="download"}) < 262144
+            and max(qbt_guard_candidate_count{namespace="media", job="qbittorrent-smart-queues", type="eligible"}) > 0
+          for: 30m
+          labels:
+            severity: warning
+          annotations:
+            summary: qBittorrent Smart Queues is running with a very low cap
+            description: Smart Queues has eligible downloads, but the effective download cap stayed below 256 KiB/s for 30 minutes.
+        - alert: QbittorrentSmartQueuesStoragePressure
+          expr: |
+            max(qbt_guard_candidate_count{namespace="media", job="qbittorrent-smart-queues", type="storage_constrained"}) > 0
+            or max(qbt_guard_storage_bytes{namespace="media", job="qbittorrent-smart-queues", type="headroom"}) < 85899345920
+          for: 30m
+          labels:
+            severity: warning
+          annotations:
+            summary: qBittorrent Smart Queues download storage is constrained
+            description: Download storage headroom stayed below 80 GiB or Smart Queues entered constrained storage recovery.
+        - alert: QbittorrentSmartQueuesNoProductiveWorkers
+          expr: |
+            max(qbt_guard_candidate_count{namespace="media", job="qbittorrent-smart-queues", type="selection_pool"}) > 0
+            and max(qbt_guard_candidate_count{namespace="media", job="qbittorrent-smart-queues", type="productive"}) == 0
+            and sum(qbt_guard_torrent_download_speed_bytes_per_sec{namespace="media", job="qbittorrent-smart-queues", role="selected"}) < (max(qbt_guard_candidate_count{namespace="media", job="qbittorrent-smart-queues", type="productive_rate_floor_bytes_per_sec"}) / 2)
+          for: 30m
+          labels:
+            severity: warning
+          annotations:
+            summary: qBittorrent Smart Queues selected workers are effectively idle
+            description: Smart Queues has selectable torrents, no selected worker is meeting the productive threshold, and aggregate selected throughput is below half of one productive worker.

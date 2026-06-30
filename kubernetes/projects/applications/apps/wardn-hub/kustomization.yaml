@@ -1,0 +1,28 @@
+---
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+resources:
+  - registry-secrets.sops.yaml
+  - fix-rejected-webhook-secrets.sops.yaml
+  - mcp-registry-sync-secrets.sops.yaml
+  - review-webhook-secrets.sops.yaml
+  - secrets.sops.yaml
+  - scoring-secrets.sops.yaml
+  - pvc.yaml
+  - configmap.yaml
+  - api-rollout-waiter.yaml
+  - next-builder-job.yaml
+  - next-build-cleanup-cronjob.yaml
+  - mcp-registry-sync-cronjob.yaml
+  - codex-login-job.yaml
+  - deployment-api.yaml
+  - deployment-events-worker.yaml
+  - deployment-fix-rejected-webhook.yaml
+  - deployment-review-webhook.yaml
+  - deployment-scoring.yaml
+  - deployment-frontend.yaml
+  - service.yaml
+  - servicemonitor.yaml
+  - grafana-dashboard.yaml
+  - ingress.yaml
+  - networkpolicy.yaml

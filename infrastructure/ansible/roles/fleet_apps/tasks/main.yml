@@ -1,0 +1,302 @@
+---
+- name: Assert Fleet app reconciliation is being managed from the bootstrap server
+  ansible.builtin.assert:
+    that:
+      - k3s_node.cluster_init | bool
+    fail_msg: fleet_apps must be applied from the initial K3s server where k3s_node.cluster_init=true.
+    success_msg: "Configuring Fleet app reconciliation from the bootstrap server"
+
+- name: Assert Fleet app GitRepo inputs are configured
+  ansible.builtin.assert:
+    that:
+      - fleet_apps.namespace | trim != ''
+      - fleet_apps.repo | trim != ''
+      - "'://' in fleet_apps.repo"
+      - fleet_apps.branch | trim != ''
+      - not (fleet_apps.enabled | default(true) | bool) or (fleet_apps.gitrepo_name | trim != '')
+      - not (fleet_apps.enabled | default(true) | bool) or ((fleet_apps.paths | default([])) | length > 0)
+      - fleet_apps.polling_interval | trim != ''
+      - fleet_apps.correct_drift.enabled is boolean
+      - fleet_apps.correct_drift.force is boolean
+      - fleet_apps.correct_drift.keep_fail_history is boolean
+    fail_msg: Expected Fleet app GitRepo settings to be fully configured.
+    success_msg: "Fleet app GitRepo inputs are configured"
+
+- name: Assert additional Fleet GitRepo inputs are configured
+  ansible.builtin.assert:
+    that:
+      - item.name | trim != ''
+      - item.paths | length > 0
+      - (item.repo | default(fleet_apps.repo)) | trim != ''
+      - "'://' in (item.repo | default(fleet_apps.repo))"
+      - (item.branch | default(fleet_apps.branch)) | trim != ''
+      - (item.polling_interval | default(fleet_apps.polling_interval)) | trim != ''
+    fail_msg: "Expected additional Fleet GitRepo {{ item.name | default('<missing>') }} settings to be fully configured."
+    success_msg: "Additional Fleet GitRepo {{ item.name }} inputs are configured"
+  loop: "{{ fleet_apps.additional_gitrepos | default([]) }}"
+
+- name: Assert Fleet Git credentials are configured when a client secret is set
+  ansible.builtin.assert:
+    that:
+      - fleet_apps.git_auth.username | default('') | trim != ''
+      - fleet_apps.git_auth.password | default('') | trim != ''
+    fail_msg: Expected fleet_apps.git_auth username and password when client_secret_name is set.
+    success_msg: "Fleet Git credentials are configured"
+  no_log: true
+  when: fleet_apps.client_secret_name | default('') | trim != ''
+
+- name: Assert Fleet ImageScan registry credentials are configured when enabled
+  ansible.builtin.assert:
+    that:
+      - fleet_apps_image_scan_registry_secret.name | default('') | trim != ''
+      - fleet_apps_image_scan_registry_secret.server | default('') | trim != ''
+      - fleet_apps_image_scan_registry_secret.username | default('') | trim != ''
+      - fleet_apps_image_scan_registry_secret.password | default('') | trim != ''
+    fail_msg: Expected fleet_apps.image_scan.registry_secret to include name, server, username, and password when enabled.
+    success_msg: "Fleet ImageScan registry credentials are configured"
+  vars:
+    fleet_apps_image_scan_registry_secret: "{{ ((fleet_apps.image_scan | default({})).registry_secret | default({})) }}"
+  no_log: true
+  when: fleet_apps_image_scan_registry_secret.enabled | default(false) | bool
+
+- name: Wait for local K3s API before configuring Fleet apps
+  ansible.builtin.wait_for:
+    host: 127.0.0.1
+    port: 6443
+    timeout: 120
+
+- name: Assert local K3s API is ready before configuring Fleet apps
+  ansible.builtin.command: /usr/local/bin/k3s kubectl get --raw=/readyz
+  environment:
+    KUBECONFIG: /etc/rancher/k3s/k3s.yaml
+  register: fleet_apps_local_readyz
+  changed_when: false
+
+- name: Confirm local K3s API returned readyz ok
+  ansible.builtin.assert:
+    that:
+      - fleet_apps_local_readyz.stdout | trim == 'ok'
+    fail_msg: Expected local K3s API /readyz endpoint to return ok before configuring Fleet apps.
+    success_msg: "Local K3s API is ready for Fleet app reconciliation"
+
+- name: Wait for Rancher Fleet CRDs to exist
+  ansible.builtin.command:
+    argv:
+      - /usr/local/bin/k3s
+      - kubectl
+      - get
+      - crd
+      - "{{ item }}"
+  environment:
+    KUBECONFIG: /etc/rancher/k3s/k3s.yaml
+  register: fleet_apps_crd_check
+  changed_when: false
+  until: fleet_apps_crd_check.rc == 0
+  retries: 60
+  delay: 5
+  loop:
+    - gitrepos.fleet.cattle.io
+    - bundles.fleet.cattle.io
+    - bundledeployments.fleet.cattle.io
+    - imagescans.fleet.cattle.io
+
+- name: Wait for Fleet namespace to exist
+  ansible.builtin.command:
+    argv:
+      - /usr/local/bin/k3s
+      - kubectl
+      - get
+      - namespace
+      - "{{ fleet_apps.namespace }}"
+  environment:
+    KUBECONFIG: /etc/rancher/k3s/k3s.yaml
+  register: fleet_apps_namespace_check
+  changed_when: false
+  until: fleet_apps_namespace_check.rc == 0
+  retries: 60
+  delay: 5
+
+- name: Wait for Fleet controller rollout
+  ansible.builtin.command:
+    argv:
+      - /usr/local/bin/k3s
+      - kubectl
+      - -n
+      - cattle-fleet-system
+      - rollout
+      - status
+      - deployment/fleet-controller
+      - --timeout=300s
+  environment:
+    KUBECONFIG: /etc/rancher/k3s/k3s.yaml
+  changed_when: false
+
+- name: Ensure K3s manifests directory exists for Fleet app GitRepo
+  ansible.builtin.file:
+    path: /var/lib/rancher/k3s/server/manifests
+    state: directory
+    owner: root
+    group: root
+    mode: "0755"
+
+- name: Render Fleet Git credential Secret manifest
+  ansible.builtin.template:
+    src: git-basic-auth-secret.yaml.j2
+    dest: /var/lib/rancher/k3s/server/manifests/fleet-apps-git-secret.yaml
+    owner: root
+    group: root
+    mode: "0600"
+  no_log: true
+  when: fleet_apps.client_secret_name | default('') | trim != ''
+
+- name: Apply Fleet Git credential Secret manifest
+  ansible.builtin.command:
+    argv:
+      - /usr/local/bin/k3s
+      - kubectl
+      - apply
+      - -f
+      - /var/lib/rancher/k3s/server/manifests/fleet-apps-git-secret.yaml
+  environment:
+    KUBECONFIG: /etc/rancher/k3s/k3s.yaml
+  register: fleet_apps_git_secret_apply
+  changed_when: "'unchanged' not in fleet_apps_git_secret_apply.stdout"
+  no_log: true
+  when: fleet_apps.client_secret_name | default('') | trim != ''
+
+- name: Render Fleet ImageScan registry Secret manifest
+  ansible.builtin.template:
+    src: docker-registry-secret.yaml.j2
+    dest: /var/lib/rancher/k3s/server/manifests/fleet-apps-imagescan-registry-secret.yaml
+    owner: root
+    group: root
+    mode: "0600"
+  vars:
+    fleet_apps_image_scan_registry_secret: "{{ ((fleet_apps.image_scan | default({})).registry_secret | default({})) }}"
+  no_log: true
+  when: fleet_apps_image_scan_registry_secret.enabled | default(false) | bool
+
+- name: Apply Fleet ImageScan registry Secret manifest
+  ansible.builtin.command:
+    argv:
+      - /usr/local/bin/k3s
+      - kubectl
+      - apply
+      - -f
+      - /var/lib/rancher/k3s/server/manifests/fleet-apps-imagescan-registry-secret.yaml
+  environment:
+    KUBECONFIG: /etc/rancher/k3s/k3s.yaml
+  register: fleet_apps_imagescan_registry_secret_apply
+  changed_when: "'unchanged' not in fleet_apps_imagescan_registry_secret_apply.stdout"
+  vars:
+    fleet_apps_image_scan_registry_secret: "{{ ((fleet_apps.image_scan | default({})).registry_secret | default({})) }}"
+  no_log: true
+  when: fleet_apps_image_scan_registry_secret.enabled | default(false) | bool
+
+- name: Render Fleet app GitRepo manifest
+  ansible.builtin.template:
+    src: apps-gitrepo.yaml.j2
+    dest: /var/lib/rancher/k3s/server/manifests/fleet-apps-gitrepo.yaml
+    owner: root
+    group: root
+    mode: "0644"
+
+- name: List Fleet gitjob service accounts
+  ansible.builtin.command:
+    argv:
+      - /usr/local/bin/k3s
+      - kubectl
+      - -n
+      - "{{ fleet_apps.namespace }}"
+      - get
+      - serviceaccount
+      - -o
+      - jsonpath={.items[*].metadata.name}
+  environment:
+    KUBECONFIG: /etc/rancher/k3s/k3s.yaml
+  register: fleet_apps_gitjob_service_accounts
+  changed_when: false
+  vars:
+    fleet_apps_gitjob_image_pull_secret: "{{ fleet_apps.gitjob_image_pull_secret | default({}) }}"
+  when: fleet_apps_gitjob_image_pull_secret.enabled | default(false) | bool
+
+- name: Read Fleet gitjob service account image pull secrets
+  ansible.builtin.command:
+    argv:
+      - /usr/local/bin/k3s
+      - kubectl
+      - -n
+      - "{{ fleet_apps.namespace }}"
+      - get
+      - serviceaccount
+      - "{{ item }}"
+      - -o
+      - jsonpath={.imagePullSecrets[*].name}
+  environment:
+    KUBECONFIG: /etc/rancher/k3s/k3s.yaml
+  register: fleet_apps_gitjob_service_account_pull_secrets
+  changed_when: false
+  loop: "{{ fleet_apps_gitjob_service_accounts.stdout.split() | select('match', '^git-') | list }}"
+  vars:
+    fleet_apps_gitjob_image_pull_secret: "{{ fleet_apps.gitjob_image_pull_secret | default({}) }}"
+  when: fleet_apps_gitjob_image_pull_secret.enabled | default(false) | bool
+
+- name: Attach image pull secret to Fleet gitjob service accounts
+  ansible.builtin.command:
+    argv:
+      - /usr/local/bin/k3s
+      - kubectl
+      - -n
+      - "{{ fleet_apps.namespace }}"
+      - patch
+      - serviceaccount
+      - "{{ item.item }}"
+      - -p
+      - "{{ {'imagePullSecrets': [{'name': fleet_apps_gitjob_image_pull_secret.name}]} | to_json }}"
+  environment:
+    KUBECONFIG: /etc/rancher/k3s/k3s.yaml
+  register: fleet_apps_gitjob_service_account_patch
+  changed_when: "'patched' in fleet_apps_gitjob_service_account_patch.stdout"
+  loop: "{{ fleet_apps_gitjob_service_account_pull_secrets.results | default([]) }}"
+  vars:
+    fleet_apps_gitjob_image_pull_secret: "{{ fleet_apps.gitjob_image_pull_secret | default({}) }}"
+  when:
+    - fleet_apps_gitjob_image_pull_secret.enabled | default(false) | bool
+    - fleet_apps_gitjob_image_pull_secret.name | default('') | trim != ''
+    - fleet_apps_gitjob_image_pull_secret.name not in item.stdout.split()
+
+- name: Remove disabled primary Fleet app GitRepo
+  ansible.builtin.command:
+    argv:
+      - /usr/local/bin/k3s
+      - kubectl
+      - -n
+      - "{{ fleet_apps.namespace }}"
+      - delete
+      - gitrepo
+      - "{{ fleet_apps.gitrepo_name }}"
+      - --ignore-not-found=true
+  environment:
+    KUBECONFIG: /etc/rancher/k3s/k3s.yaml
+  register: fleet_apps_disabled_gitrepo_delete
+  changed_when: "'deleted' in fleet_apps_disabled_gitrepo_delete.stdout"
+  when: not (fleet_apps.enabled | default(true) | bool)
+
+- name: Wait for Fleet app GitRepo to exist
+  ansible.builtin.command:
+    argv:
+      - /usr/local/bin/k3s
+      - kubectl
+      - -n
+      - "{{ fleet_apps.namespace }}"
+      - get
+      - gitrepo
+      - "{{ fleet_apps.gitrepo_name }}"
+  environment:
+    KUBECONFIG: /etc/rancher/k3s/k3s.yaml
+  register: fleet_apps_gitrepo_check
+  changed_when: false
+  until: fleet_apps_gitrepo_check.rc == 0
+  retries: 60
+  delay: 5
+  when: fleet_apps.enabled | default(true) | bool

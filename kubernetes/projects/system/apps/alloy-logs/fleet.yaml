@@ -1,0 +1,11 @@
+---
+name: alloy-logs-helmop
+defaultNamespace: fleet-local
+labels:
+  app.kubernetes.io/name: alloy-logs
+  app.kubernetes.io/part-of: rancher-monitoring
+  home-lab.io/project-slug: system
+dependsOn:
+  - name: system-helm-repositories
+  - name: loki-helmop
+

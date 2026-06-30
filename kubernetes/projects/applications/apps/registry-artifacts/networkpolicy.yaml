@@ -1,0 +1,243 @@
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: registry-artifacts-ingress
+  namespace: registry-artifacts
+  labels:
+    app.kubernetes.io/name: registry-artifacts
+    app.kubernetes.io/part-of: harbor
+spec:
+  podSelector:
+    matchLabels:
+      app.kubernetes.io/name: registry-artifacts
+  policyTypes:
+    - Ingress
+  ingress:
+    - from:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: kube-system
+          podSelector:
+            matchLabels:
+              app.kubernetes.io/name: traefik
+      ports:
+        - protocol: TCP
+          port: 8080
+    - from:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: harbor
+      ports:
+        - protocol: TCP
+          port: 8080
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: registry-artifacts-dns-egress
+  namespace: registry-artifacts
+  labels:
+    app.kubernetes.io/name: registry-artifacts
+    app.kubernetes.io/part-of: harbor
+spec:
+  podSelector:
+    matchLabels:
+      app.kubernetes.io/name: registry-artifacts
+  policyTypes:
+    - Egress
+  egress:
+    - to:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: kube-system
+          podSelector:
+            matchLabels:
+              k8s-app: kube-dns
+      ports:
+        - protocol: UDP
+          port: 53
+        - protocol: TCP
+          port: 53
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: registry-artifacts-harbor-egress
+  namespace: registry-artifacts
+  labels:
+    app.kubernetes.io/name: registry-artifacts
+    app.kubernetes.io/part-of: harbor
+spec:
+  podSelector:
+    matchLabels:
+      app.kubernetes.io/name: registry-artifacts
+  policyTypes:
+    - Egress
+  egress:
+    - to:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: harbor
+          podSelector:
+            matchLabels:
+              app.kubernetes.io/name: harbor
+              app.kubernetes.io/component: core
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: harbor
+          podSelector:
+            matchLabels:
+              app.kubernetes.io/name: harbor
+              app.kubernetes.io/component: registry
+      ports:
+        - protocol: TCP
+          port: 80
+        - protocol: TCP
+          port: 8080
+        - protocol: TCP
+          port: 5000
+    - to:
+        - ipBlock:
+            cidr: 10.43.0.0/16
+      ports:
+        - protocol: TCP
+          port: 80
+        - protocol: TCP
+          port: 5000
+        - protocol: TCP
+          port: 8080
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: registry-artifacts-traefik-egress
+  namespace: registry-artifacts
+  labels:
+    app.kubernetes.io/name: registry-artifacts
+    app.kubernetes.io/part-of: harbor
+spec:
+  podSelector:
+    matchLabels:
+      app.kubernetes.io/name: registry-artifacts
+  policyTypes:
+    - Egress
+  egress:
+    - to:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: kube-system
+          podSelector:
+            matchLabels:
+              app.kubernetes.io/name: traefik
+      ports:
+        - protocol: TCP
+          port: 80
+        - protocol: TCP
+          port: 443
+        - protocol: TCP
+          port: 8000
+        - protocol: TCP
+          port: 8443
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: registry-artifacts-kubernetes-api-egress
+  namespace: registry-artifacts
+  labels:
+    app.kubernetes.io/name: registry-artifacts
+    app.kubernetes.io/part-of: harbor
+spec:
+  podSelector:
+    matchLabels:
+      app.kubernetes.io/name: registry-artifacts
+  policyTypes:
+    - Egress
+  egress:
+    - to:
+        - ipBlock:
+            cidr: 10.43.0.1/32
+        - ipBlock:
+            cidr: 192.168.3.108/32
+        - ipBlock:
+            cidr: 192.168.3.191/32
+        - ipBlock:
+            cidr: 192.168.3.243/32
+      ports:
+        - protocol: TCP
+          port: 443
+        - protocol: TCP
+          port: 6443
+---
+apiVersion: cilium.io/v2
+kind: CiliumNetworkPolicy
+metadata:
+  name: registry-artifacts-apiserver-access
+  namespace: registry-artifacts
+  labels:
+    app.kubernetes.io/name: registry-artifacts
+    app.kubernetes.io/part-of: harbor
+spec:
+  endpointSelector:
+    matchLabels:
+      app.kubernetes.io/name: registry-artifacts
+  egress:
+    - toEntities:
+        - kube-apiserver
+      toPorts:
+        - ports:
+            - port: "443"
+              protocol: TCP
+            - port: "6443"
+              protocol: TCP
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: registry-artifacts-postgresql-egress
+  namespace: registry-artifacts
+  labels:
+    app.kubernetes.io/name: registry-artifacts
+    app.kubernetes.io/part-of: harbor
+spec:
+  podSelector:
+    matchLabels:
+      app.kubernetes.io/name: registry-artifacts
+  policyTypes:
+    - Egress
+  egress:
+    - to:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: postgresql
+          podSelector:
+            matchLabels:
+              cnpg.io/poolerName: postgresql-pooler-registry-artifacts-rw
+      ports:
+        - protocol: TCP
+          port: 5432
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: registry-artifacts-public-egress
+  namespace: registry-artifacts
+  labels:
+    app.kubernetes.io/name: registry-artifacts
+    app.kubernetes.io/part-of: harbor
+spec:
+  podSelector:
+    matchLabels:
+      app.kubernetes.io/name: registry-artifacts
+  policyTypes:
+    - Egress
+  egress:
+    - to:
+        - ipBlock:
+            cidr: 0.0.0.0/0
+      ports:
+        - protocol: TCP
+          port: 80
+        - protocol: TCP
+          port: 443

@@ -1,0 +1,46 @@
+---
+- name: Gather package facts
+  ansible.builtin.package_facts:
+    manager: auto
+  when: os_prep.common_packages | length > 0
+
+- name: Read current timezone
+  ansible.builtin.command: timedatectl show --property=Timezone --value
+  register: os_prep_validation_timezone
+  changed_when: false
+
+- name: Check if reboot is still required
+  ansible.builtin.stat:
+    path: /var/run/reboot-required
+  register: os_prep_reboot_required
+
+- name: Assert configured hostname is applied
+  ansible.builtin.assert:
+    that:
+      - ansible_facts.nodename == node_identity.hostname
+    fail_msg: "Expected hostname {{ node_identity.hostname }}, got {{ ansible_facts.nodename }}"
+    success_msg: "Hostname matches expected value {{ node_identity.hostname }}"
+  when: node_identity.hostname is defined
+
+- name: Assert configured timezone is applied
+  ansible.builtin.assert:
+    that:
+      - os_prep_validation_timezone.stdout == os_prep.timezone
+    fail_msg: "Expected timezone {{ os_prep.timezone }}, got {{ os_prep_validation_timezone.stdout }}"
+    success_msg: "Timezone matches expected value {{ os_prep.timezone }}"
+
+- name: Assert common OS packages are installed
+  ansible.builtin.assert:
+    that:
+      - item in ansible_facts.packages
+    fail_msg: "Expected package {{ item }} to be installed"
+    success_msg: "Package {{ item }} is installed"
+  loop: "{{ os_prep.common_packages }}"
+  when: os_prep.common_packages | length > 0
+
+- name: Assert no reboot is pending
+  ansible.builtin.assert:
+    that:
+      - not os_prep_reboot_required.stat.exists
+    fail_msg: "Host still reports a pending reboot"
+    success_msg: "No pending reboot detected"

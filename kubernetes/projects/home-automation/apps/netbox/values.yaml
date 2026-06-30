@@ -1,0 +1,250 @@
+---
+fullnameOverride: netbox
+commonLabels:
+  app.kubernetes.io/part-of: netbox
+image:
+  registry: registry.home
+  repository: home-lab/netbox
+  tag: 4.6.3-20260628 # {"$imagescan": "netbox:tag"}
+  pullPolicy: IfNotPresent
+  pullSecrets:
+    - harbor-registry
+allowedHosts:
+  - netbox.home
+csrf:
+  trustedOrigins:
+    - http://netbox.home
+loginRequired: true
+timeZone: Asia/Kolkata
+replicaCount: 1
+pdb:
+  enabled: false
+  minAvailable: 1
+persistence:
+  enabled: true
+  existingClaim: netbox-media-v2
+  storageClass: longhorn
+  accessMode: ReadWriteMany
+  size: 2Gi
+  annotations:
+    helm.sh/resource-policy: keep
+postgresql:
+  enabled: false
+externalDatabase:
+  host: postgresql-pooler-netbox-rw.postgresql.svc.cluster.local
+  port: 5432
+  database: netbox
+  username: netbox
+  existingSecretName: netbox-postgresql
+  existingSecretKey: password
+  connMaxAge: 0
+  options:
+    sslmode: disable
+    target_session_attrs: read-write
+valkey:
+  enabled: false
+tasksDatabase:
+  database: 1
+  sentinels:
+    - valkey.valkey.svc.cluster.local:26379
+  sentinelService: valkey
+  sentinelTimeout: 300
+cachingDatabase:
+  database: 2
+  sentinels:
+    - valkey.valkey.svc.cluster.local:26379
+  sentinelService: valkey
+  sentinelTimeout: 300
+nodeSelector:
+  kubernetes.io/arch: arm64
+affinity:
+  podAntiAffinity:
+    requiredDuringSchedulingIgnoredDuringExecution:
+      - labelSelector:
+          matchLabels:
+            app.kubernetes.io/name: netbox
+            app.kubernetes.io/component: netbox
+        topologyKey: kubernetes.io/hostname
+topologySpreadConstraints:
+  - maxSkew: 1
+    topologyKey: kubernetes.io/hostname
+    whenUnsatisfiable: DoNotSchedule
+    labelSelector:
+      matchLabels:
+        app.kubernetes.io/name: netbox
+        app.kubernetes.io/component: netbox
+resources:
+  requests:
+    cpu: 50m
+    memory: 1536Mi
+  limits:
+    memory: 2304Mi
+livenessProbe:
+  timeoutSeconds: 5
+readinessProbe:
+  timeoutSeconds: 5
+startupProbe:
+  timeoutSeconds: 5
+service:
+  type: ClusterIP
+ingress:
+  enabled: true
+  className: traefik
+  pathType: Prefix
+  hosts:
+    - host: netbox.home
+      paths:
+        - /
+  tls: []
+metrics:
+  enabled: false
+plugins:
+  - netbox_metatype_importer
+  - netbox_topology_views
+  - netbox_dns
+  - netbox_lifecycle
+  - netbox_bgp
+pluginsConfig:
+  netbox_metatype_importer:
+    branch: master
+    github_token: ""
+    repo: devicetype-library
+    repo_owner: netbox-community
+extraConfig:
+  - secret:
+      secretName: netbox-metatype-importer
+      optional: true
+housekeeping:
+  enabled: true
+  timezone: Asia/Kolkata
+  nodeSelector:
+    kubernetes.io/arch: arm64
+  resources:
+    requests:
+      cpu: 25m
+      memory: 256Mi
+    limits:
+      cpu: 500m
+      memory: 512Mi
+worker:
+  enabled: true
+  replicaCount: 1
+  pdb:
+    enabled: false
+    minAvailable: 1
+  nodeSelector:
+    kubernetes.io/arch: arm64
+  affinity:
+    podAntiAffinity:
+      requiredDuringSchedulingIgnoredDuringExecution:
+        - labelSelector:
+            matchLabels:
+              app.kubernetes.io/name: netbox
+              app.kubernetes.io/component: worker
+          topologyKey: kubernetes.io/hostname
+  topologySpreadConstraints:
+    - maxSkew: 1
+      topologyKey: kubernetes.io/hostname
+      whenUnsatisfiable: DoNotSchedule
+      labelSelector:
+        matchLabels:
+          app.kubernetes.io/name: netbox
+          app.kubernetes.io/component: worker
+  waitForBackend:
+    enabled: false
+  resources:
+    requests:
+      cpu: 50m
+      memory: 336Mi
+    limits:
+      memory: 512Mi
+extraDeploy:
+  - apiVersion: v1
+    kind: PersistentVolumeClaim
+    metadata:
+      name: netbox-media-v2
+      namespace: netbox
+      annotations:
+        helm.sh/resource-policy: keep
+      labels:
+        app.kubernetes.io/instance: netbox
+        app.kubernetes.io/name: netbox
+        app.kubernetes.io/part-of: netbox
+    spec:
+      accessModes:
+        - ReadWriteMany
+      resources:
+        requests:
+          storage: 2Gi
+      storageClassName: longhorn
+      volumeMode: Filesystem
+      volumeName: pvc-cd2d6fe9-bc90-45ea-9c47-807ff682c6af
+  - apiVersion: networking.k8s.io/v1
+    kind: NetworkPolicy
+    metadata:
+      name: netbox-network-boundary
+      namespace: netbox
+      labels:
+        app.kubernetes.io/name: netbox
+        app.kubernetes.io/part-of: netbox
+    spec:
+      podSelector:
+        matchLabels:
+          app.kubernetes.io/instance: netbox
+          app.kubernetes.io/name: netbox
+      policyTypes:
+        - Ingress
+        - Egress
+      ingress:
+        - from:
+            - namespaceSelector:
+                matchLabels:
+                  kubernetes.io/metadata.name: kube-system
+              podSelector:
+                matchLabels:
+                  app.kubernetes.io/name: traefik
+          ports:
+            - protocol: TCP
+              port: 8080
+      egress:
+        - to:
+            - namespaceSelector:
+                matchLabels:
+                  kubernetes.io/metadata.name: kube-system
+              podSelector:
+                matchLabels:
+                  k8s-app: kube-dns
+          ports:
+            - protocol: UDP
+              port: 53
+            - protocol: TCP
+              port: 53
+        - to:
+            - namespaceSelector:
+                matchLabels:
+                  kubernetes.io/metadata.name: postgresql
+              podSelector:
+                matchLabels:
+                  cnpg.io/poolerName: postgresql-pooler-netbox-rw
+          ports:
+            - protocol: TCP
+              port: 5432
+        - to:
+            - namespaceSelector:
+                matchLabels:
+                  kubernetes.io/metadata.name: valkey
+              podSelector:
+                matchLabels:
+                  app.kubernetes.io/instance: valkey
+                  app.kubernetes.io/name: valkey
+          ports:
+            - protocol: TCP
+              port: 6379
+            - protocol: TCP
+              port: 26379
+        - to:
+            - ipBlock:
+                cidr: 0.0.0.0/0
+                except:
+                  - 10.42.0.0/16
+                  - 10.43.0.0/16

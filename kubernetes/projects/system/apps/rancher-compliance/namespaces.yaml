@@ -1,0 +1,12 @@
+---
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: compliance-operator-system
+  labels:
+    app.kubernetes.io/name: rancher-compliance
+    app.kubernetes.io/part-of: rancher-compliance
+    field.cattle.io/projectId: p-zl69x
+    home-lab.io/project-slug: system
+  annotations:
+    field.cattle.io/projectId: local:p-zl69x

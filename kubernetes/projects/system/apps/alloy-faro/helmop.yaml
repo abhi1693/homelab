@@ -1,0 +1,46 @@
+---
+apiVersion: fleet.cattle.io/v1alpha1
+kind: HelmOp
+metadata:
+  name: alloy-faro
+  namespace: fleet-local
+  labels:
+    app.kubernetes.io/name: alloy-faro
+    app.kubernetes.io/part-of: rancher-monitoring
+    home-lab.io/project-slug: system
+spec:
+  defaultNamespace: cattle-monitoring-system
+  dependsOn:
+    - name: system-helm-repositories
+    - name: loki-helmop
+    - name: tempo
+  labels:
+    app.kubernetes.io/name: alloy-faro
+    app.kubernetes.io/part-of: rancher-monitoring
+    home-lab.io/project-slug: system
+  targets:
+    - name: default
+      clusterGroup: default
+  targetRestrictions:
+    - name: default
+      clusterGroup: default
+  correctDrift:
+    enabled: true
+    force: true
+    keepFailHistory: true
+  downstreamResources:
+    - kind: ConfigMap
+      name: alloy-faro-values
+  helm:
+    releaseName: alloy-faro
+    repo: https://grafana.github.io/helm-charts
+    chart: alloy
+    version: 1.10.0
+    timeoutSeconds: 600
+    takeOwnership: true
+    valuesFrom:
+      - configMapKeyRef:
+          name: alloy-faro-values
+          namespace: fleet-local
+          key: values.yaml
+    waitForJobs: true

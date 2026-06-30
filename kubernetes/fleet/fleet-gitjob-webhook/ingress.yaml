@@ -1,0 +1,22 @@
+---
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: fleet-gitjob-webhook
+  namespace: cattle-fleet-system
+  labels:
+    app.kubernetes.io/name: fleet-gitjob-webhook
+    app.kubernetes.io/part-of: fleet
+spec:
+  ingressClassName: cloudflare-tunnel
+  rules:
+    - host: fleet.abhimanyu-saharan.com
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: gitjob
+                port:
+                  number: 80

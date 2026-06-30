@@ -1,0 +1,23 @@
+---
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: personal-blog
+  namespace: personal-blog
+  labels:
+    app.kubernetes.io/name: personal-blog
+    app.kubernetes.io/component: web
+    app.kubernetes.io/part-of: personal-blog
+spec:
+  ingressClassName: cloudflare-tunnel
+  rules:
+    - host: blog.abhimanyu-saharan.com
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: personal-blog
+                port:
+                  name: http

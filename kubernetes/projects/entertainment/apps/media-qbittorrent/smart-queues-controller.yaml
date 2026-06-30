@@ -1,0 +1,511 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: qbittorrent-smart-queues
+  namespace: media
+  labels:
+    app.kubernetes.io/instance: qbittorrent-smart-queues
+    app.kubernetes.io/name: qbittorrent-smart-queues
+    app.kubernetes.io/part-of: media-stack
+    home-lab.io/project-slug: entertainment
+spec:
+  replicas: 1
+  revisionHistoryLimit: 2
+  strategy:
+    type: Recreate
+  selector:
+    matchLabels:
+      app.kubernetes.io/instance: qbittorrent-smart-queues
+      app.kubernetes.io/name: qbittorrent-smart-queues
+      app.kubernetes.io/part-of: rack-ops
+      home-lab.io/project-slug: home-automation
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/instance: qbittorrent-smart-queues
+        app.kubernetes.io/name: qbittorrent-smart-queues
+        app.kubernetes.io/part-of: rack-ops
+        home-lab.io/project-slug: home-automation
+      annotations:
+        home-lab.io/rpi-cooling-power-webhooks-revision: "2026-06-02"
+    spec:
+      serviceAccountName: qbittorrent-smart-queues
+      automountServiceAccountToken: true
+      imagePullSecrets:
+        - name: harbor-registry
+      restartPolicy: Always
+      terminationGracePeriodSeconds: 60
+      tolerations:
+        - key: node.kubernetes.io/not-ready
+          operator: Exists
+          effect: NoExecute
+          tolerationSeconds: 30
+        - key: node.kubernetes.io/unreachable
+          operator: Exists
+          effect: NoExecute
+          tolerationSeconds: 30
+      securityContext:
+        fsGroup: 65532
+        runAsGroup: 65532
+        runAsNonRoot: true
+        runAsUser: 65532
+        seccompProfile:
+          type: RuntimeDefault
+      containers:
+        - name: qbittorrent-smart-queues
+          image: registry.home/ghcr.io/abhi1693/qbittorrent-smart-queues:0.1.61 # {"$imagescan": "qbittorrent-smart-queues"}
+          imagePullPolicy: IfNotPresent
+          ports:
+            - name: metrics
+              containerPort: 8081
+              protocol: TCP
+          startupProbe:
+            httpGet:
+              path: /healthz
+              port: metrics
+            periodSeconds: 5
+            failureThreshold: 12
+          readinessProbe:
+            httpGet:
+              path: /healthz
+              port: metrics
+            periodSeconds: 10
+            timeoutSeconds: 2
+            failureThreshold: 3
+          livenessProbe:
+            httpGet:
+              path: /healthz
+              port: metrics
+            periodSeconds: 30
+            timeoutSeconds: 3
+            failureThreshold: 3
+          env:
+            - name: PYTHONDONTWRITEBYTECODE
+              value: "1"
+            - name: PYTHONUNBUFFERED
+              value: "1"
+            - name: QBT_STOP_DOWNLOADS_ON_SHUTDOWN
+              value: "true"
+            - name: QBT_DECISION_SUMMARY_REPEAT_SECONDS
+              value: "900"
+            - name: QBT_GUARD_POLL_SECONDS
+              value: "30"
+            - name: QBT_GUARD_ERROR_POLL_SECONDS
+              value: "60"
+            - name: UDM_URL
+              value: https://192.168.3.1
+            - name: UDM_SITE
+              value: default
+            - name: UDM_API_BASE_PATH
+              value: /proxy/network
+            - name: UDM_VERIFY_TLS
+              value: "false"
+            - name: UDM_MONTHLY_DOWNLOAD_QUOTA_BYTES
+              value: "2500000000000"
+            - name: UDM_MONTHLY_DOWNLOAD_GUARDRAIL_BYTES
+              value: "2500000000000"
+            - name: UDM_MONTHLY_CAP_FRACTION
+              value: "1.0"
+            - name: UDM_STATS_INTERVAL
+              value: split-daily-hourly
+            - name: UDM_HISTORY_STATS_INTERVAL
+              value: daily
+            - name: UDM_CURRENT_STATS_INTERVAL
+              value: hourly
+            - name: UDM_DOWNLOAD_ATTRS
+              value: |-
+                wan-rx_bytes
+                wan2-rx_bytes
+            - name: UDM_INCLUDE_UPLOAD
+              value: "false"
+            - name: UDM_FAIL_CLOSED
+              value: "false"
+            - name: QBT_URLS
+              value: |-
+                http://qbittorrent.media.svc.cluster.local:8080
+            - name: QBT_TIMEOUT
+              value: "30"
+            - name: QBT_REQUEST_ATTEMPTS
+              value: "3"
+            - name: QBT_REQUEST_RETRY_DELAY
+              value: "2"
+            - name: QBT_DELETE_FILES
+              value: "true"
+            - name: QBT_STALE_TORRENT_MAINTENANCE_ENABLED
+              value: "true"
+            - name: QBT_STALE_TORRENT_DAYS
+              value: "14"
+            - name: QBT_STALE_TORRENT_TAG_PREFIX
+              value: stale-stalled
+            - name: QBT_STALE_TORRENT_REANNOUNCE_ENABLED
+              value: "true"
+            - name: QBT_STALE_TORRENT_PARK_RUNNING_ENABLED
+              value: "true"
+            - name: QBT_STALE_TORRENT_REMOVE_IMPORTED_COMPLETED
+              value: "true"
+            - name: QBT_STALE_TORRENT_FAIL_PERMANENT_IMPORT_FAILURES
+              value: "true"
+            - name: QBT_DOWNLOAD_STORAGE_GUARD_ENABLED
+              value: "true"
+            - name: QBT_DOWNLOAD_STORAGE_PATH
+              value: /downloads
+            - name: QBT_DOWNLOAD_STORAGE_MIN_FREE_BYTES
+              value: "32212254720"
+            - name: QBT_DOWNLOAD_STORAGE_MIN_FREE_FRACTION
+              value: "0.10"
+            - name: QBT_DOWNLOAD_STORAGE_REQUIRE_TORRENT_FIT
+              value: "true"
+            - name: QBT_DOWNLOAD_STORAGE_PRESSURE_MIN_BLOCKED
+              value: "10"
+            - name: QBT_DOWNLOAD_STORAGE_PRESSURE_BLOCKED_FRACTION
+              value: "0.50"
+            - name: QBT_DOWNLOAD_STORAGE_RECOVERY_MAX_ACTIVE
+              value: "5"
+            - name: QBT_DOWNLOAD_STORAGE_RECOVERY_STALL_SAMPLES
+              value: "2"
+            - name: QBT_DOWNLOAD_STORAGE_RECOVERY_MAX_PARKED_STALLED
+              value: "0"
+            - name: QBT_DOWNLOAD_STORAGE_RECOVERY_MIN_RATE_BYTES_PER_SEC
+              value: "65536"
+            - name: QBT_SINGLE_DOWNLOAD_NORMAL_MAX_ACTIVE_DOWNLOADS
+              value: "1"
+            - name: QBT_SINGLE_DOWNLOAD_MAX_ACTIVE_DOWNLOADS_PER_CATEGORY
+              value: "3"
+            - name: QBT_SINGLE_DOWNLOAD_PARK_STALLED_ENABLED
+              value: "true"
+            - name: QBT_SINGLE_DOWNLOAD_PARK_STALLED_SAMPLES
+              value: "2"
+            - name: QBT_SINGLE_DOWNLOAD_MAX_PARKED_STALLED
+              value: "5"
+            - name: QBT_DOWNLOAD_STORAGE_FAIL_CLOSED
+              value: "true"
+            - name: QBT_FULL_GUARD_THERMAL_CHECK_ENABLED
+              value: "false"
+            - name: PROMETHEUS_URL
+              value: http://rancher-monitoring-prometheus.cattle-monitoring-system.svc.cluster.local:9090
+            - name: QBT_NVME_THERMAL_QUERY
+              value: >-
+                max by (nodename) ( node_hwmon_temp_celsius{job="node-exporter", chip=~"nvme_.*"} * on(instance, chip, sensor) group_left(label) max by (instance, chip, sensor, label) (node_hwmon_sensor_label{job="node-exporter", chip=~"nvme_.*", label="Composite"}) * on(instance) group_left(nodename) max by (instance, nodename) (node_uname_info{job="node-exporter", machine="aarch64", nodename=~"k8s-rpi[123]"}) )
+            - name: QBT_NVME_THERMAL_STOP_ENABLED
+              value: "true"
+            - name: QBT_NVME_THERMAL_STOP_CELSIUS
+              value: "80"
+            - name: QBT_NVME_THERMAL_FAIL_CLOSED
+              value: "true"
+            - name: QBT_NVME_THERMAL_TIMEOUT
+              value: "5"
+            - name: QBT_RPI_COOLING_ENABLED
+              value: "true"
+            - name: QBT_RPI_COOLING_NODES
+              value: |-
+                k8s-rpi1
+                k8s-rpi2
+                k8s-rpi3
+            - name: QBT_RPI_COOLING_QBT_TOPOLOGY_ENABLED
+              value: "true"
+            - name: QBT_RPI_COOLING_QBT_TOPOLOGY_FAIL_CLOSED
+              value: "false"
+            - name: QBT_RPI_COOLING_QBT_NAMESPACE
+              value: media
+            - name: QBT_RPI_COOLING_QBT_SELECTOR
+              value: app.kubernetes.io/instance=qbittorrent,app.kubernetes.io/name=qbittorrent
+            - name: QBT_RPI_COOLING_QBT_VOLUME_CLAIMS
+              value: media-downloads
+            - name: QBT_RPI_COOLING_CPU_THROTTLE_CELSIUS
+              value: "76"
+            - name: QBT_RPI_COOLING_NVME_THROTTLE_CELSIUS
+              value: "70"
+            - name: QBT_RPI_COOLING_CPU_PAUSE_CELSIUS
+              value: "80"
+            - name: QBT_RPI_COOLING_NVME_PAUSE_CELSIUS
+              value: "76"
+            - name: QBT_RPI_COOLING_CPU_RESUME_CELSIUS
+              value: "70"
+            - name: QBT_RPI_COOLING_NVME_RESUME_CELSIUS
+              value: "65"
+            - name: QBT_RPI_COOLING_RESUME_HOLD_SECONDS
+              value: "900"
+            - name: QBT_RPI_COOLING_THROTTLE_DOWNLOAD_LIMIT_BYTES_PER_SEC
+              value: "2097152"
+            - name: QBT_RPI_COOLING_THROTTLE_UPLOAD_LIMIT_BYTES_PER_SEC
+              value: "131072"
+            - name: QBT_RPI_COOLING_BATCH_SUSPEND_ENABLED
+              value: "true"
+            - name: QBT_RPI_COOLING_BATCH_SUSPEND_TARGETS
+              value: |-
+                media/do-squid-firewall
+                media/jellyfin-youtube-library-reconciler
+                indexly/indexly-poll-sitemaps
+                indexly/indexly-sync-subscriptions
+                git-rank/git-rank-sync-daily
+                git-rank/git-rank-weekly
+                git-rank/git-rank-monthly
+                git-rank/git-rank-maintenance
+                personal-blog/personal-blog-newsletter
+            - name: QBT_RPI_COOLING_SHUTDOWN_ENABLED
+              value: "false"
+            - name: QBT_RPI_COOLING_LAST_RESORT_SHUTDOWN_ENABLED
+              value: "false"
+            - name: QBT_RPI_COOLING_LAST_RESORT_MIN_ACTIVE_SECONDS
+              value: "1800"
+            - name: QBT_RPI_COOLING_CPU_SHUTDOWN_CELSIUS
+              value: "88"
+            - name: QBT_RPI_COOLING_NVME_SHUTDOWN_CELSIUS
+              value: "84"
+            - name: QBT_RPI_COOLING_REQUIRE_ALL_NODES_READY
+              value: "true"
+            - name: QBT_RPI_COOLING_REQUIRE_ALL_TEMPERATURES
+              value: "true"
+            - name: QBT_RPI_COOLING_SHUTDOWN_TIMEOUT_SECONDS
+              value: "300"
+            - name: QBT_RPI_COOLING_COOLDOWN_SECONDS
+              value: "1200"
+            - name: QBT_RPI_COOLING_STATE_PATH
+              value: /state/rpi-cooling.json
+            - name: QBT_RPI_COOLING_SHUTDOWN_URL_TEMPLATE
+              value: http://rpi-shutdown-{node}.rack-ops.svc.cluster.local:8000/shutdown
+            - name: QBT_RPI_COOLING_CPU_QUERY
+              value: >-
+                max by (nodename) ( node_hwmon_temp_celsius{job="node-exporter", chip=~"thermal_thermal_zone.*"} * on(instance) group_left(nodename) max by (instance, nodename) (node_uname_info{job="node-exporter", machine="aarch64", nodename=~"k8s-rpi[123]"}) )
+            - name: QBT_RPI_COOLING_NVME_QUERY
+              value: >-
+                max by (nodename) ( node_hwmon_temp_celsius{job="node-exporter", chip=~"nvme_.*"} * on(instance, chip, sensor) group_left(label) max by (instance, chip, sensor, label) (node_hwmon_sensor_label{job="node-exporter", chip=~"nvme_.*", label="Composite"}) * on(instance) group_left(nodename) max by (instance, nodename) (node_uname_info{job="node-exporter", machine="aarch64", nodename=~"k8s-rpi[123]"}) )
+            - name: QBT_RATE_HEADROOM_FRACTION
+              value: "0.95"
+            - name: QBT_QUOTA_BURST_ENABLED
+              value: "true"
+            - name: QBT_ISP_USABLE_BURST_DOWNLOAD_LIMIT_BYTES_PER_SEC
+              value: "10485760"
+            - name: QBT_QUOTA_BURST_MIN_MONTHLY_REMAINING_FRACTION
+              value: "0.10"
+            - name: QBT_QUOTA_BURST_MIN_DAILY_REMAINING_FRACTION
+              value: "0.20"
+            - name: QBT_SINGLE_DOWNLOAD_CATEGORIES
+              value: |-
+                tv
+                movies
+                anime
+                priority-tv
+                priority-movies
+                priority-anime
+            - name: QBT_SINGLE_DOWNLOAD_SELECTION_STRATEGY
+              value: balanced
+            - name: QBT_SINGLE_DOWNLOAD_PRIORITY_TAGS
+              value: |-
+                priority
+            - name: QBT_SINGLE_DOWNLOAD_PRIORITY_CATEGORIES
+              value: |-
+                priority-tv
+                priority-movies
+                priority-anime
+            - name: QBT_SINGLE_DOWNLOAD_TV_ORDER_CATEGORIES
+              value: |-
+                tv
+                priority-tv
+            - name: QBT_SINGLE_DOWNLOAD_MOVIE_ORDER_CATEGORIES
+              value: |-
+                movies
+                priority-movies
+            - name: QBT_TV_QUEUE_SONARR_ENABLED
+              value: "true"
+            - name: QBT_TV_QUEUE_SONARR_URLS
+              value: http://sonarr.media.svc.cluster.local:8989
+            - name: QBT_TV_QUEUE_TIMEOUT
+              value: "10"
+            - name: QBT_TV_QUEUE_PAGE_SIZE
+              value: "1000"
+            - name: QBT_TV_WATCH_JELLYFIN_ENABLED
+              value: "true"
+            - name: QBT_TV_WATCH_JELLYFIN_URLS
+              value: http://jellyfin.media.svc.cluster.local:8096
+            - name: QBT_TV_WATCH_ACTIVE_WITHIN_SECONDS
+              value: "7200"
+            - name: QBT_TV_WATCH_TIMEOUT
+              value: "10"
+            - name: QBT_MOVIE_QUEUE_RADARR_ENABLED
+              value: "true"
+            - name: QBT_MOVIE_QUEUE_RADARR_URLS
+              value: http://radarr.media.svc.cluster.local:7878
+            - name: QBT_MOVIE_QUEUE_TIMEOUT
+              value: "10"
+            - name: QBT_MOVIE_QUEUE_PAGE_SIZE
+              value: "1000"
+            - name: QBT_SINGLE_DOWNLOAD_TV_FILE_PRIORITY_ENABLED
+              value: "true"
+            - name: QBT_SINGLE_DOWNLOAD_TV_FILE_PRIORITY_LOOKAHEAD_EPISODES
+              value: "2"
+            - name: QBT_SINGLE_DOWNLOAD_MIN_PROGRESS
+              value: "0.0"
+            - name: QBT_SINGLE_DOWNLOAD_MAX_REMAINING_BYTES
+              value: "0"
+            - name: QBT_ISP_USABLE_DOWNLOAD_LIMIT_BYTES_PER_SEC
+              value: "10485760"
+            - name: QBT_UNCAPPED_DOWNLOAD_WINDOW_ENABLED
+              value: "true"
+            - name: QBT_UNCAPPED_DOWNLOAD_WINDOW_TIMEZONE
+              value: Asia/Kolkata
+            - name: QBT_UNCAPPED_DOWNLOAD_WINDOW_START_LOCAL
+              value: "22:00"
+            - name: QBT_UNCAPPED_DOWNLOAD_WINDOW_END_LOCAL
+              value: "05:00"
+            - name: QBT_UNCAPPED_DOWNLOAD_WINDOW_MAX_ACTIVE_DOWNLOADS
+              value: "5"
+            - name: QBT_SINGLE_DOWNLOAD_UPLOAD_LIMIT_BYTES_PER_SEC
+              value: "524288"
+            - name: QBT_SINGLE_DOWNLOAD_STALL_CHECK_SECONDS
+              value: "300"
+            - name: QBT_SINGLE_DOWNLOAD_MIN_PROGRESS_BYTES
+              value: "19660800" # 65536 B/s for the 300s stall-check window
+            - name: QBT_SINGLE_DOWNLOAD_ADAPTIVE_PROGRESS_ENABLED
+              value: "true"
+            - name: QBT_SINGLE_DOWNLOAD_PROGRESS_CAP_FRACTION
+              value: "0.80"
+            - name: QBT_SINGLE_DOWNLOAD_PROGRESS_SIZE_FRACTION
+              value: "0.0002"
+            - name: QBT_SINGLE_DOWNLOAD_PROGRESS_MAX_BYTES
+              value: "67108864"
+            - name: QBT_SINGLE_DOWNLOAD_PROGRESS_AGE_RELIEF_DAYS
+              value: "30"
+            - name: QBT_SINGLE_DOWNLOAD_PROGRESS_AGE_RELIEF_FRACTION
+              value: "0.75"
+            - name: QBT_SINGLE_DOWNLOAD_MAX_ATTEMPTS_PER_RUN
+              value: "3"
+            - name: QBT_SINGLE_DOWNLOAD_MAX_RUN_SECONDS
+              value: "180"
+            - name: QBT_SINGLE_DOWNLOAD_STALL_COOLDOWN_SECONDS
+              value: "3600"
+            - name: QBT_SINGLE_DOWNLOAD_STALL_COOLDOWN_NO_PROGRESS_SECONDS
+              value: "3600"
+            - name: QBT_SINGLE_DOWNLOAD_STALL_COOLDOWN_METADATA_SECONDS
+              value: "1800"
+            - name: QBT_SINGLE_DOWNLOAD_STALL_COOLDOWN_TRACKER_DEAD_SECONDS
+              value: "21600"
+            - name: QBT_SINGLE_DOWNLOAD_STALL_COOLDOWN_IMPORT_FAILED_SECONDS
+              value: "86400"
+            - name: QBT_SINGLE_DOWNLOAD_STALL_COOLDOWN_MANUAL_HOLD_SECONDS
+              value: "604800"
+            - name: QBT_SINGLE_DOWNLOAD_STALL_TAG_PREFIX
+              value: quota-stalled
+            - name: QBT_SINGLE_DOWNLOAD_SLOW_MIN_RATE_BYTES_PER_SEC
+              value: "65536"
+            - name: QBT_SINGLE_DOWNLOAD_PRODUCTIVE_CAP_FRACTION
+              value: "0.80"
+            - name: QBT_SINGLE_DOWNLOAD_HEALTHY_MIN_SEEDS
+              value: "3"
+            - name: QBT_SINGLE_DOWNLOAD_HEALTHY_MIN_AVAILABILITY
+              value: "1.05"
+            - name: QBT_TORRENT_HEALTH_SCORING_ENABLED
+              value: "true"
+            - name: QBT_TORRENT_HEALTH_STATE_PATH
+              value: /state/torrent-health.json
+            - name: QBT_TORRENT_HEALTH_EWMA_ALPHA
+              value: "0.35"
+            - name: QBT_TORRENT_HEALTH_STALE_DAYS
+              value: "90"
+            - name: QBT_TRACKER_HEALTH_SCORING_ENABLED
+              value: "true"
+            - name: QBT_TRACKER_HEALTH_MAX_CANDIDATES_PER_PASS
+              value: "50"
+            - name: QBT_TRACKER_HEALTH_MIN_REFRESH_SECONDS
+              value: "300"
+            - name: QBT_TRACKER_HEALTH_SCORE_MAX_AGE_SECONDS
+              value: "21600"
+            - name: QBT_STATUS_HTTP_ENABLED
+              value: "true"
+            - name: QBT_STATUS_HTTP_HOST
+              value: "0.0.0.0"
+            - name: QBT_STATUS_HTTP_PORT
+              value: "8081"
+            - name: QBT_FALLBACK_AGGREGATE_DOWNLOAD_LIMIT_BYTES_PER_SEC
+              value: "8388608"
+            - name: QBT_STOP_DOWNLOAD_LIMIT_BYTES_PER_SEC
+              value: "1"
+            - name: QBT_STOP_UPLOAD_LIMIT_BYTES_PER_SEC
+              value: "1"
+          envFrom:
+            - secretRef:
+                name: media-qbittorrent-cleanup
+                optional: false
+            - secretRef:
+                name: media-qbittorrent-quota-guard
+                optional: true
+            - secretRef:
+                name: media-qbittorrent-smart-queues
+                optional: true
+            - secretRef:
+                name: media-jellyfin-arr-api-keys
+                optional: true
+          resources:
+            requests:
+              cpu: 50m
+              memory: 80Mi
+            limits:
+              memory: 144Mi
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop:
+                - ALL
+            readOnlyRootFilesystem: true
+          volumeMounts:
+            - name: media-downloads
+              mountPath: /downloads
+              readOnly: true
+            - name: smart-queues-state
+              mountPath: /state
+      volumes:
+        - name: media-downloads
+          persistentVolumeClaim:
+            claimName: media-downloads
+            readOnly: true
+        - name: smart-queues-state
+          persistentVolumeClaim:
+            claimName: qbittorrent-smart-queues-state
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: qbittorrent-smart-queues
+  namespace: media
+  labels:
+    app.kubernetes.io/instance: qbittorrent-smart-queues
+    app.kubernetes.io/name: qbittorrent-smart-queues
+    app.kubernetes.io/part-of: media-stack
+    home-lab.io/project-slug: entertainment
+spec:
+  type: ClusterIP
+  selector:
+    app.kubernetes.io/instance: qbittorrent-smart-queues
+    app.kubernetes.io/name: qbittorrent-smart-queues
+  ports:
+    - name: metrics
+      port: 8081
+      targetPort: metrics
+      protocol: TCP
+---
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: qbittorrent-smart-queues-metrics
+  namespace: media
+  labels:
+    app.kubernetes.io/instance: qbittorrent-smart-queues
+    app.kubernetes.io/name: qbittorrent-smart-queues
+    app.kubernetes.io/part-of: media-stack
+    home-lab.io/project-slug: entertainment
+spec:
+  ingressClassName: traefik
+  rules:
+    - host: qbittorrent.media.home
+      http:
+        paths:
+          - path: /metrics
+            pathType: Prefix
+            backend:
+              service:
+                name: qbittorrent-smart-queues
+                port:
+                  number: 8081
+  tls:
+    - hosts:
+        - qbittorrent.media.home

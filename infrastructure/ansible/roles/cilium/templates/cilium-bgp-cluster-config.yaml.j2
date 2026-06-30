@@ -1,0 +1,19 @@
+apiVersion: cilium.io/v2
+kind: CiliumBGPClusterConfig
+metadata:
+  name: {{ cilium.bgp.cluster_config_name }}
+spec:
+  nodeSelector:
+    matchExpressions:
+      - key: node-role.kubernetes.io/control-plane
+        operator: Exists
+  bgpInstances:
+    - name: "{{ cilium.bgp.local_asn }}"
+      localASN: {{ cilium.bgp.local_asn }}
+      localPort: {{ cilium.bgp.local_port }}
+      peers:
+        - name: "{{ cilium.bgp.peer_asn }}"
+          peerASN: {{ cilium.bgp.peer_asn }}
+          peerAddress: "{{ cilium.bgp.peer_address }}"
+          peerConfigRef:
+            name: {{ cilium.bgp.peer_config_name }}

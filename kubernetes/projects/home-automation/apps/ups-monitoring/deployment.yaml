@@ -1,0 +1,266 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: ups-monitoring
+  namespace: ups
+  labels:
+    app.kubernetes.io/name: ups-monitoring
+    app.kubernetes.io/part-of: home-automation
+spec:
+  replicas: 1
+  strategy:
+    type: Recreate
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: ups-monitoring
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: ups-monitoring
+        app.kubernetes.io/part-of: home-automation
+    spec:
+      automountServiceAccountToken: false
+      nodeSelector:
+        kubernetes.io/arch: arm64
+        kubernetes.io/hostname: k8s-rpi1
+      securityContext:
+        fsGroup: 1000
+        fsGroupChangePolicy: OnRootMismatch
+      initContainers:
+        - name: prepare-runtime-config
+          image: registry.home/docker.io/library/busybox:1.38 # {"$imagescan": "ups-busybox"}
+          imagePullPolicy: IfNotPresent
+          command:
+            - /bin/sh
+            - -ec
+          args:
+            - |-
+              umask 077
+              head -c 48 /dev/urandom | base64 > /nut-secrets/nut-upsd-password
+              nut_password="$(cat /nut-secrets/nut-upsd-password)"
+              cat > /nut-local/upsmon.conf <<EOF
+              MONITOR ups@localhost 1 upsmon ${nut_password} primary
+              MINSUPPLIES 1
+              SHUTDOWNCMD "/bin/true"
+              POLLFREQ 5
+              POLLFREQALERT 5
+              HOSTSYNC 15
+              DEADTIME 15
+              POWERDOWNFLAG "/tmp/killpower"
+              RBWARNTIME 43200
+              NOCOMMWARNTIME 300
+              FINALDELAY 5
+              RUN_AS_USER nut
+              EOF
+              cp /peanut-config-seed/settings.yml /peanut-config/settings.yml
+              chmod 0640 /nut-local/upsmon.conf
+              chmod 0640 /peanut-config/settings.yml
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop:
+                - ALL
+            runAsGroup: 1000
+            runAsNonRoot: true
+            runAsUser: 1000
+          volumeMounts:
+            - name: nut-runtime-secret
+              mountPath: /nut-secrets
+            - name: nut-local-config
+              mountPath: /nut-local
+            - name: peanut-config
+              mountPath: /peanut-config
+            - name: peanut-config-seed
+              mountPath: /peanut-config-seed
+              readOnly: true
+      containers:
+        - name: nut-upsd
+          image: registry.home/docker.io/instantlinux/nut-upsd:2.8.3-r4 # {"$imagescan": "nut-upsd"}
+          imagePullPolicy: IfNotPresent
+          env:
+            - name: NAME
+              value: ups
+            - name: DESCRIPTION
+              value: APC Back-UPS Pro 1500
+            - name: DRIVER
+              value: usbhid-ups
+            - name: PORT
+              value: auto
+            - name: SERIAL
+              value: 0B2428G26638
+            - name: API_USER
+              value: upsmon
+            - name: SECRETNAME
+              value: nut-upsd-password
+            - name: SERVER
+              value: primary
+            - name: NUT_QUIET_INIT_SSL
+              value: "true"
+            - name: NUT_QUIET_INIT_UPSNOTIFY
+              value: "true"
+          ports:
+            - name: nut
+              containerPort: 3493
+              protocol: TCP
+          startupProbe:
+            exec:
+              command:
+                - /bin/sh
+                - -c
+                - upsc ups@127.0.0.1 >/dev/null 2>&1
+            periodSeconds: 10
+            timeoutSeconds: 5
+            failureThreshold: 30
+          readinessProbe:
+            exec:
+              command:
+                - /bin/sh
+                - -c
+                - upsc ups@127.0.0.1 >/dev/null 2>&1
+            periodSeconds: 30
+            timeoutSeconds: 5
+            failureThreshold: 3
+          livenessProbe:
+            exec:
+              command:
+                - /bin/sh
+                - -c
+                - upsc ups@127.0.0.1 >/dev/null 2>&1
+            periodSeconds: 60
+            timeoutSeconds: 5
+            failureThreshold: 3
+          resources:
+            requests:
+              cpu: 10m
+              memory: 32Mi
+            limits:
+              memory: 96Mi
+          securityContext:
+            privileged: true
+            runAsUser: 0
+          volumeMounts:
+            - name: usb-bus
+              mountPath: /dev/bus/usb
+            - name: nut-runtime-secret
+              mountPath: /run/secrets
+              readOnly: true
+            - name: nut-local-config
+              mountPath: /etc/nut/local
+        - name: peanut
+          image: registry.home/docker.io/brandawg93/peanut:6.0.0 # {"$imagescan": "peanut"}
+          imagePullPolicy: IfNotPresent
+          env:
+            - name: WEB_HOST
+              value: 0.0.0.0
+            - name: WEB_PORT
+              value: "8080"
+            - name: AUTH_DISABLED
+              value: "true"
+            - name: SETTINGS_FILE
+              value: /config/settings.yml
+          ports:
+            - name: http
+              containerPort: 8080
+              protocol: TCP
+          startupProbe:
+            httpGet:
+              path: /api/ping
+              port: http
+            periodSeconds: 10
+            timeoutSeconds: 3
+            failureThreshold: 30
+          readinessProbe:
+            httpGet:
+              path: /api/ping
+              port: http
+            periodSeconds: 30
+            timeoutSeconds: 3
+            failureThreshold: 3
+          livenessProbe:
+            httpGet:
+              path: /api/ping
+              port: http
+            periodSeconds: 60
+            timeoutSeconds: 5
+            failureThreshold: 3
+          resources:
+            requests:
+              cpu: 10m
+              memory: 144Mi
+            limits:
+              memory: 208Mi
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop:
+                - ALL
+            runAsGroup: 1000
+            runAsNonRoot: true
+            runAsUser: 1000
+          volumeMounts:
+            - name: peanut-config
+              mountPath: /config
+        - name: nut-exporter
+          image: registry.home/ghcr.io/druggeri/nut_exporter:3.3 # {"$imagescan": "nut-exporter"}
+          imagePullPolicy: IfNotPresent
+          args:
+            - --nut.server=127.0.0.1
+            - --nut.serverport=3493
+            - --nut.vars_enable=battery.charge,battery.charge.low,battery.charge.warning,battery.runtime,battery.runtime.low,battery.voltage,battery.voltage.nominal,battery.voltage.low,battery.voltage.high,driver.debug,driver.flag.allow_killpower,driver.parameter.interrupt_pipe_no_events_tolerance,driver.parameter.pollfreq,driver.parameter.pollinterval,driver.version.internal,input.frequency,input.transfer.high,input.transfer.low,input.voltage,input.voltage.nominal,output.voltage,ups.delay.shutdown,ups.load,ups.power,ups.productid,ups.realpower,ups.realpower.nominal,ups.status,ups.temperature,ups.timer.reboot,ups.timer.shutdown
+            - --web.listen-address=:9199
+            - --web.telemetry-path=/ups_metrics
+            - --web.exporter-telemetry-path=/metrics
+          ports:
+            - name: metrics
+              containerPort: 9199
+              protocol: TCP
+          startupProbe:
+            httpGet:
+              path: /metrics
+              port: metrics
+            periodSeconds: 10
+            timeoutSeconds: 3
+            failureThreshold: 30
+          readinessProbe:
+            httpGet:
+              path: /metrics
+              port: metrics
+            periodSeconds: 30
+            timeoutSeconds: 3
+            failureThreshold: 3
+          livenessProbe:
+            httpGet:
+              path: /metrics
+              port: metrics
+            periodSeconds: 60
+            timeoutSeconds: 5
+            failureThreshold: 3
+          resources:
+            requests:
+              cpu: 10m
+              memory: 32Mi
+            limits:
+              memory: 96Mi
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop:
+                - ALL
+            readOnlyRootFilesystem: true
+            runAsNonRoot: true
+            runAsUser: 65534
+      volumes:
+        - name: usb-bus
+          hostPath:
+            path: /dev/bus/usb
+            type: Directory
+        - name: nut-runtime-secret
+          emptyDir:
+            medium: Memory
+        - name: nut-local-config
+          emptyDir: {}
+        - name: peanut-config
+          emptyDir: {}
+        - name: peanut-config-seed
+          configMap:
+            name: ups-monitoring

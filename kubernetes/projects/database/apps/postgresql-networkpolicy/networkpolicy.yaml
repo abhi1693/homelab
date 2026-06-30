@@ -1,0 +1,739 @@
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: postgresql-instances-access
+  namespace: postgresql
+  labels:
+    app.kubernetes.io/name: postgresql
+    app.kubernetes.io/part-of: postgresql
+spec:
+  podSelector:
+    matchLabels:
+      cnpg.io/cluster: postgresql
+      cnpg.io/podRole: instance
+  policyTypes:
+    - Ingress
+  ingress:
+    - from:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: cnpg-system
+          podSelector:
+            matchLabels:
+              app.kubernetes.io/name: cloudnative-pg
+      ports:
+        - protocol: TCP
+          port: 5432
+        - protocol: TCP
+          port: 8000
+    - from:
+        - podSelector:
+            matchLabels:
+              cnpg.io/cluster: postgresql
+      ports:
+        - protocol: TCP
+          port: 5432
+        - protocol: TCP
+          port: 8000
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: postgresql-monitoring-access
+  namespace: postgresql
+  labels:
+    app.kubernetes.io/name: postgresql
+    app.kubernetes.io/part-of: postgresql
+spec:
+  podSelector:
+    matchLabels:
+      cnpg.io/cluster: postgresql
+    matchExpressions:
+      - key: cnpg.io/podRole
+        operator: In
+        values:
+          - instance
+          - pooler
+  policyTypes:
+    - Ingress
+  ingress:
+    - from:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: cattle-monitoring-system
+          podSelector:
+            matchLabels:
+              app.kubernetes.io/name: prometheus
+              prometheus: rancher-monitoring-prometheus
+      ports:
+        - protocol: TCP
+          port: 9127
+        - protocol: TCP
+          port: 9187
+---
+apiVersion: cilium.io/v2
+kind: CiliumNetworkPolicy
+metadata:
+  name: postgresql-instance-manager-apiserver-access
+  namespace: postgresql
+  labels:
+    app.kubernetes.io/name: postgresql
+    app.kubernetes.io/part-of: postgresql
+spec:
+  endpointSelector:
+    matchLabels:
+      cnpg.io/cluster: postgresql
+      cnpg.io/podRole: instance
+  ingress:
+    - fromEntities:
+        - host
+        - kube-apiserver
+        - remote-node
+      toPorts:
+        - ports:
+            - port: "8000"
+              protocol: TCP
+---
+apiVersion: cilium.io/v2
+kind: CiliumNetworkPolicy
+metadata:
+  name: postgresql-pooler-apiserver-access
+  namespace: postgresql
+  labels:
+    app.kubernetes.io/name: postgresql-pooler
+    app.kubernetes.io/part-of: postgresql
+spec:
+  endpointSelector:
+    matchExpressions:
+      - key: cnpg.io/poolerName
+        operator: In
+        values:
+          - postgresql-pooler-dispatcharr-rw
+          - postgresql-pooler-firefly-iii-rw
+          - postgresql-pooler-git-rank-rw
+          - postgresql-pooler-harbor-rw
+          - postgresql-pooler-jellyfin-rw
+          - postgresql-pooler-netbox-rw
+          - postgresql-pooler-registry-artifacts-rw
+          - postgresql-pooler-shipyardhq-rw
+          - postgresql-pooler-wardn-hub-rw
+  egress:
+    - toEntities:
+        - kube-apiserver
+      toPorts:
+        - ports:
+            - port: "443"
+              protocol: TCP
+            - port: "6443"
+              protocol: TCP
+---
+apiVersion: cilium.io/v2
+kind: CiliumNetworkPolicy
+metadata:
+  name: postgresql-pooler-rw-service-egress
+  namespace: postgresql
+  labels:
+    app.kubernetes.io/name: postgresql-pooler
+    app.kubernetes.io/part-of: postgresql
+spec:
+  endpointSelector:
+    matchLabels:
+      cnpg.io/cluster: postgresql
+      cnpg.io/podRole: pooler
+  egress:
+    - toServices:
+        - k8sService:
+            serviceName: postgresql-rw
+            namespace: postgresql
+      toPorts:
+        - ports:
+            - port: "5432"
+              protocol: TCP
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: postgresql-firefly-iii-pooler-access
+  namespace: postgresql
+  labels:
+    app.kubernetes.io/name: postgresql-pooler
+    app.kubernetes.io/part-of: postgresql
+    home-lab.io/client: firefly-iii
+spec:
+  podSelector:
+    matchLabels:
+      cnpg.io/poolerName: postgresql-pooler-firefly-iii-rw
+  policyTypes:
+    - Ingress
+    - Egress
+  ingress:
+    - from:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: finance
+          podSelector:
+            matchLabels:
+              app.kubernetes.io/name: firefly-iii
+              app.kubernetes.io/component: web
+      ports:
+        - protocol: TCP
+          port: 5432
+  egress:
+    - to:
+        - ipBlock:
+            cidr: 10.43.0.1/32
+      ports:
+        - protocol: TCP
+          port: 443
+    - to:
+        - ipBlock:
+            cidr: 192.168.3.108/32
+        - ipBlock:
+            cidr: 192.168.3.191/32
+        - ipBlock:
+            cidr: 192.168.3.243/32
+      ports:
+        - protocol: TCP
+          port: 6443
+    - to:
+        - podSelector:
+            matchLabels:
+              cnpg.io/cluster: postgresql
+              cnpg.io/podRole: instance
+      ports:
+        - protocol: TCP
+          port: 5432
+    - to:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: kube-system
+          podSelector:
+            matchLabels:
+              k8s-app: kube-dns
+      ports:
+        - protocol: UDP
+          port: 53
+        - protocol: TCP
+          port: 53
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: postgresql-netbox-pooler-access
+  namespace: postgresql
+  labels:
+    app.kubernetes.io/name: postgresql-pooler
+    app.kubernetes.io/part-of: postgresql
+    home-lab.io/client: netbox
+spec:
+  podSelector:
+    matchLabels:
+      cnpg.io/poolerName: postgresql-pooler-netbox-rw
+  policyTypes:
+    - Ingress
+    - Egress
+  ingress:
+    - from:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: netbox
+          podSelector:
+            matchLabels:
+              app.kubernetes.io/instance: netbox
+              app.kubernetes.io/name: netbox
+      ports:
+        - protocol: TCP
+          port: 5432
+  egress:
+    - to:
+        - ipBlock:
+            cidr: 10.43.0.1/32
+      ports:
+        - protocol: TCP
+          port: 443
+    - to:
+        - ipBlock:
+            cidr: 192.168.3.108/32
+        - ipBlock:
+            cidr: 192.168.3.191/32
+        - ipBlock:
+            cidr: 192.168.3.243/32
+      ports:
+        - protocol: TCP
+          port: 6443
+    - to:
+        - podSelector:
+            matchLabels:
+              cnpg.io/cluster: postgresql
+              cnpg.io/podRole: instance
+      ports:
+        - protocol: TCP
+          port: 5432
+    - to:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: kube-system
+          podSelector:
+            matchLabels:
+              k8s-app: kube-dns
+      ports:
+        - protocol: UDP
+          port: 53
+        - protocol: TCP
+          port: 53
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: postgresql-registry-artifacts-pooler-access
+  namespace: postgresql
+  labels:
+    app.kubernetes.io/name: postgresql-pooler
+    app.kubernetes.io/part-of: postgresql
+    home-lab.io/client: registry-artifacts
+spec:
+  podSelector:
+    matchLabels:
+      cnpg.io/poolerName: postgresql-pooler-registry-artifacts-rw
+  policyTypes:
+    - Ingress
+    - Egress
+  ingress:
+    - from:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: registry-artifacts
+          podSelector:
+            matchLabels:
+              registry-artifacts-psql-client: "true"
+      ports:
+        - protocol: TCP
+          port: 5432
+  egress:
+    - to:
+        - ipBlock:
+            cidr: 10.43.0.1/32
+      ports:
+        - protocol: TCP
+          port: 443
+    - to:
+        - ipBlock:
+            cidr: 192.168.3.108/32
+        - ipBlock:
+            cidr: 192.168.3.191/32
+        - ipBlock:
+            cidr: 192.168.3.243/32
+      ports:
+        - protocol: TCP
+          port: 6443
+    - to:
+        - podSelector:
+            matchLabels:
+              cnpg.io/cluster: postgresql
+              cnpg.io/podRole: instance
+      ports:
+        - protocol: TCP
+          port: 5432
+    - to:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: kube-system
+          podSelector:
+            matchLabels:
+              k8s-app: kube-dns
+      ports:
+        - protocol: UDP
+          port: 53
+        - protocol: TCP
+          port: 53
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: postgresql-wardn-hub-pooler-access
+  namespace: postgresql
+  labels:
+    app.kubernetes.io/name: postgresql-pooler
+    app.kubernetes.io/part-of: postgresql
+    home-lab.io/client: wardn-hub
+spec:
+  podSelector:
+    matchLabels:
+      cnpg.io/poolerName: postgresql-pooler-wardn-hub-rw
+  policyTypes:
+    - Ingress
+    - Egress
+  ingress:
+    - from:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: wardn
+          podSelector:
+            matchLabels:
+              wardn-hub-psql-client: "true"
+      ports:
+        - protocol: TCP
+          port: 5432
+  egress:
+    - to:
+        - ipBlock:
+            cidr: 10.43.0.1/32
+      ports:
+        - protocol: TCP
+          port: 443
+    - to:
+        - ipBlock:
+            cidr: 192.168.3.108/32
+        - ipBlock:
+            cidr: 192.168.3.191/32
+        - ipBlock:
+            cidr: 192.168.3.243/32
+      ports:
+        - protocol: TCP
+          port: 6443
+    - to:
+        - podSelector:
+            matchLabels:
+              cnpg.io/cluster: postgresql
+              cnpg.io/podRole: instance
+      ports:
+        - protocol: TCP
+          port: 5432
+    - to:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: kube-system
+          podSelector:
+            matchLabels:
+              k8s-app: kube-dns
+      ports:
+        - protocol: UDP
+          port: 53
+        - protocol: TCP
+          port: 53
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: postgresql-shipyardhq-pooler-access
+  namespace: postgresql
+  labels:
+    app.kubernetes.io/name: postgresql-pooler
+    app.kubernetes.io/part-of: postgresql
+    home-lab.io/client: shipyardhq
+spec:
+  podSelector:
+    matchLabels:
+      cnpg.io/poolerName: postgresql-pooler-shipyardhq-rw
+  policyTypes:
+    - Ingress
+    - Egress
+  ingress:
+    - from:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: shipyardhq
+          podSelector:
+            matchLabels:
+              shipyardhq-psql-client: "true"
+      ports:
+        - protocol: TCP
+          port: 5432
+  egress:
+    - to:
+        - ipBlock:
+            cidr: 10.43.0.1/32
+      ports:
+        - protocol: TCP
+          port: 443
+    - to:
+        - ipBlock:
+            cidr: 192.168.3.108/32
+        - ipBlock:
+            cidr: 192.168.3.191/32
+        - ipBlock:
+            cidr: 192.168.3.243/32
+      ports:
+        - protocol: TCP
+          port: 6443
+    - to:
+        - podSelector:
+            matchLabels:
+              cnpg.io/cluster: postgresql
+              cnpg.io/podRole: instance
+      ports:
+        - protocol: TCP
+          port: 5432
+    - to:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: kube-system
+          podSelector:
+            matchLabels:
+              k8s-app: kube-dns
+      ports:
+        - protocol: UDP
+          port: 53
+        - protocol: TCP
+          port: 53
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: postgresql-harbor-pooler-access
+  namespace: postgresql
+  labels:
+    app.kubernetes.io/name: postgresql-pooler
+    app.kubernetes.io/part-of: postgresql
+    home-lab.io/client: harbor
+spec:
+  podSelector:
+    matchLabels:
+      cnpg.io/poolerName: postgresql-pooler-harbor-rw
+  policyTypes:
+    - Ingress
+    - Egress
+  ingress:
+    - from:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: harbor
+          podSelector:
+            matchLabels:
+              app: harbor
+      ports:
+        - protocol: TCP
+          port: 5432
+  egress:
+    - to:
+        - ipBlock:
+            cidr: 10.43.0.1/32
+      ports:
+        - protocol: TCP
+          port: 443
+    - to:
+        - ipBlock:
+            cidr: 192.168.3.108/32
+        - ipBlock:
+            cidr: 192.168.3.191/32
+        - ipBlock:
+            cidr: 192.168.3.243/32
+      ports:
+        - protocol: TCP
+          port: 6443
+    - to:
+        - podSelector:
+            matchLabels:
+              cnpg.io/cluster: postgresql
+              cnpg.io/podRole: instance
+      ports:
+        - protocol: TCP
+          port: 5432
+    - to:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: kube-system
+          podSelector:
+            matchLabels:
+              k8s-app: kube-dns
+      ports:
+        - protocol: UDP
+          port: 53
+        - protocol: TCP
+          port: 53
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: postgresql-jellyfin-pooler-access
+  namespace: postgresql
+  labels:
+    app.kubernetes.io/name: postgresql-pooler
+    app.kubernetes.io/part-of: postgresql
+    home-lab.io/client: jellyfin
+spec:
+  podSelector:
+    matchLabels:
+      cnpg.io/poolerName: postgresql-pooler-jellyfin-rw
+  policyTypes:
+    - Ingress
+    - Egress
+  ingress:
+    - from:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: media
+          podSelector:
+            matchLabels:
+              app.kubernetes.io/instance: jellyfin
+              app.kubernetes.io/name: jellyfin
+      ports:
+        - protocol: TCP
+          port: 5432
+  egress:
+    - to:
+        - ipBlock:
+            cidr: 10.43.0.1/32
+      ports:
+        - protocol: TCP
+          port: 443
+    - to:
+        - ipBlock:
+            cidr: 192.168.3.108/32
+        - ipBlock:
+            cidr: 192.168.3.191/32
+        - ipBlock:
+            cidr: 192.168.3.243/32
+      ports:
+        - protocol: TCP
+          port: 6443
+    - to:
+        - podSelector:
+            matchLabels:
+              cnpg.io/cluster: postgresql
+              cnpg.io/podRole: instance
+      ports:
+        - protocol: TCP
+          port: 5432
+    - to:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: kube-system
+          podSelector:
+            matchLabels:
+              k8s-app: kube-dns
+      ports:
+        - protocol: UDP
+          port: 53
+        - protocol: TCP
+          port: 53
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: postgresql-dispatcharr-pooler-access
+  namespace: postgresql
+  labels:
+    app.kubernetes.io/name: postgresql-pooler
+    app.kubernetes.io/part-of: postgresql
+    home-lab.io/client: dispatcharr
+spec:
+  podSelector:
+    matchLabels:
+      cnpg.io/poolerName: postgresql-pooler-dispatcharr-rw
+  policyTypes:
+    - Ingress
+    - Egress
+  ingress:
+    - from:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: media
+          podSelector:
+            matchLabels:
+              app.kubernetes.io/name: dispatcharr
+      ports:
+        - protocol: TCP
+          port: 5432
+  egress:
+    - to:
+        - ipBlock:
+            cidr: 10.43.0.1/32
+      ports:
+        - protocol: TCP
+          port: 443
+    - to:
+        - ipBlock:
+            cidr: 192.168.3.108/32
+        - ipBlock:
+            cidr: 192.168.3.191/32
+        - ipBlock:
+            cidr: 192.168.3.243/32
+      ports:
+        - protocol: TCP
+          port: 6443
+    - to:
+        - podSelector:
+            matchLabels:
+              cnpg.io/cluster: postgresql
+              cnpg.io/podRole: instance
+      ports:
+        - protocol: TCP
+          port: 5432
+    - to:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: kube-system
+          podSelector:
+            matchLabels:
+              k8s-app: kube-dns
+      ports:
+        - protocol: UDP
+          port: 53
+        - protocol: TCP
+          port: 53
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: postgresql-git-rank-pooler-access
+  namespace: postgresql
+  labels:
+    app.kubernetes.io/name: postgresql-pooler
+    app.kubernetes.io/part-of: postgresql
+    home-lab.io/client: git-rank
+spec:
+  podSelector:
+    matchLabels:
+      cnpg.io/poolerName: postgresql-pooler-git-rank-rw
+  policyTypes:
+    - Ingress
+    - Egress
+  ingress:
+    - from:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: git-rank
+          podSelector:
+            matchLabels:
+              git-rank-psql-client: "true"
+      ports:
+        - protocol: TCP
+          port: 5432
+  egress:
+    - to:
+        - ipBlock:
+            cidr: 10.43.0.1/32
+      ports:
+        - protocol: TCP
+          port: 443
+    - to:
+        - ipBlock:
+            cidr: 192.168.3.108/32
+        - ipBlock:
+            cidr: 192.168.3.191/32
+        - ipBlock:
+            cidr: 192.168.3.243/32
+      ports:
+        - protocol: TCP
+          port: 6443
+    - to:
+        - podSelector:
+            matchLabels:
+              cnpg.io/cluster: postgresql
+              cnpg.io/podRole: instance
+      ports:
+        - protocol: TCP
+          port: 5432
+    - to:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: kube-system
+          podSelector:
+            matchLabels:
+              k8s-app: kube-dns
+      ports:
+        - protocol: UDP
+          port: 53
+        - protocol: TCP
+          port: 53

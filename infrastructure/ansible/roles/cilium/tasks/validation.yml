@@ -1,0 +1,545 @@
+---
+- name: Assert Cilium validation is running on the bootstrap server
+  ansible.builtin.assert:
+    that:
+      - k3s_node.cluster_init | bool
+    fail_msg: cilium validation must run on the initial K3s server where k3s_node.cluster_init=true.
+    success_msg: "Validating Cilium from the bootstrap K3s server"
+
+- name: Record whether Cilium BGP exposure is fully configured
+  ansible.builtin.set_fact:
+    cilium_bgp_exposure_configured: >-
+      {{
+        cilium.bgp.enabled | bool
+        and cilium.bgp.local_asn | int > 0
+        and cilium.bgp.peer_asn | int > 0
+        and cilium.bgp.peer_address | trim != ''
+        and cilium.bgp.local_port | int > 0
+        and cilium.bgp.cluster_config_name | trim != ''
+        and cilium.bgp.peer_config_name | trim != ''
+        and cilium.bgp.advertisement_name | trim != ''
+        and cilium.bgp.ip_pool_name | trim != ''
+        and cilium.bgp.app_ip_pool.name | trim != ''
+        and cilium.bgp.app_ip_pool.start | trim != ''
+        and cilium.bgp.app_ip_pool.stop | trim != ''
+        and cilium.bgp.keepalive_time_seconds | int > 0
+        and cilium.bgp.hold_time_seconds | int > 0
+        and cilium.bgp.graceful_restart_enabled is boolean
+        and cilium.bgp.graceful_restart_time_seconds | int > 0
+        and traefik.service.load_balancer_ip | trim != ''
+      }}
+
+- name: Check Cilium and bundled Traefik manifest files
+  ansible.builtin.stat:
+    path: "{{ item }}"
+  loop:
+    - /usr/local/bin/cilium
+    - /var/lib/rancher/k3s/server/manifests/traefik-config.yaml
+  register: cilium_core_file_stats
+
+- name: Assert Cilium CLI and bundled Traefik manifest files exist
+  ansible.builtin.assert:
+    that:
+      - item.stat.exists
+    fail_msg: "Expected {{ item.stat.path }} to exist"
+    success_msg: "{{ item.stat.path }} exists"
+  loop: "{{ cilium_core_file_stats.results }}"
+
+- name: Check Cilium exposure manifest files
+  ansible.builtin.stat:
+    path: "{{ item }}"
+  loop:
+    - /var/lib/rancher/k3s/server/manifests/cilium-lb-ip-pool.yaml
+    - /var/lib/rancher/k3s/server/manifests/cilium-bgp-peer-config.yaml
+    - /var/lib/rancher/k3s/server/manifests/cilium-bgp-cluster-config.yaml
+    - /var/lib/rancher/k3s/server/manifests/cilium-bgp-advertisement.yaml
+  register: cilium_bgp_manifest_stats
+  when: cilium_bgp_exposure_configured | bool
+
+- name: Assert Cilium exposure manifest files exist
+  ansible.builtin.assert:
+    that:
+      - item.stat.exists
+    fail_msg: "Expected Cilium exposure manifest {{ item.stat.path }} to exist"
+    success_msg: "Cilium exposure manifest {{ item.stat.path }} exists"
+  loop: "{{ cilium_bgp_manifest_stats.results }}"
+  when: cilium_bgp_exposure_configured | bool
+
+- name: Read installed Cilium CLI version
+  ansible.builtin.command: /usr/local/bin/cilium version --client
+  register: cilium_cli_version_output
+  changed_when: false
+
+- name: Assert installed Cilium CLI version matches inventory
+  ansible.builtin.assert:
+    that:
+      - cilium.cli_version in cilium_cli_version_output.stdout
+    fail_msg: "Expected installed Cilium CLI version {{ cilium.cli_version }}"
+    success_msg: "Installed Cilium CLI version matches {{ cilium.cli_version }}"
+
+- name: Wait for Cilium to report healthy status
+  ansible.builtin.command:
+    argv:
+      - /usr/local/bin/cilium
+      - status
+      - --wait
+  environment:
+    KUBECONFIG: /etc/rancher/k3s/k3s.yaml
+  register: cilium_status
+  changed_when: false
+
+- name: Wait for Cilium DaemonSet rollout
+  ansible.builtin.command:
+    argv:
+      - /usr/local/bin/k3s
+      - kubectl
+      - -n
+      - kube-system
+      - rollout
+      - status
+      - daemonset/cilium
+      - --timeout=300s
+  register: cilium_daemonset_rollout
+  changed_when: false
+
+- name: Wait for Cilium operator rollout
+  ansible.builtin.command:
+    argv:
+      - /usr/local/bin/k3s
+      - kubectl
+      - -n
+      - kube-system
+      - rollout
+      - status
+      - deployment/cilium-operator
+      - --timeout=300s
+  register: cilium_operator_rollout
+  changed_when: false
+
+- name: Wait for Hubble Relay rollout
+  ansible.builtin.command:
+    argv:
+      - /usr/local/bin/k3s
+      - kubectl
+      - -n
+      - kube-system
+      - rollout
+      - status
+      - deployment/hubble-relay
+      - --timeout=300s
+  environment:
+    KUBECONFIG: /etc/rancher/k3s/k3s.yaml
+  when:
+    - cilium.hubble.enabled | bool
+    - cilium.hubble.relay.enabled | bool
+  changed_when: false
+
+- name: Wait for Hubble UI rollout
+  ansible.builtin.command:
+    argv:
+      - /usr/local/bin/k3s
+      - kubectl
+      - -n
+      - kube-system
+      - rollout
+      - status
+      - deployment/hubble-ui
+      - --timeout=300s
+  environment:
+    KUBECONFIG: /etc/rancher/k3s/k3s.yaml
+  when:
+    - cilium.hubble.enabled | bool
+    - cilium.hubble.ui.enabled | bool
+  changed_when: false
+
+- name: Read Hubble UI ingress class
+  ansible.builtin.command:
+    argv:
+      - /usr/local/bin/k3s
+      - kubectl
+      - -n
+      - kube-system
+      - get
+      - ingress
+      - hubble-ui
+      - -o
+      - jsonpath={.spec.ingressClassName}
+  environment:
+    KUBECONFIG: /etc/rancher/k3s/k3s.yaml
+  register: hubble_ui_ingress_class
+  changed_when: false
+  when:
+    - cilium.hubble.enabled | bool
+    - cilium.hubble.ui.enabled | bool
+    - cilium.hubble.ui.ingress.enabled | bool
+
+- name: Assert Hubble UI ingress class matches inventory
+  ansible.builtin.assert:
+    that:
+      - hubble_ui_ingress_class.stdout | trim == cilium.hubble.ui.ingress.class_name
+    fail_msg: "Expected Hubble UI ingressClassName {{ cilium.hubble.ui.ingress.class_name }}"
+    success_msg: "Hubble UI ingressClassName matches {{ cilium.hubble.ui.ingress.class_name }}"
+  when:
+    - cilium.hubble.enabled | bool
+    - cilium.hubble.ui.enabled | bool
+    - cilium.hubble.ui.ingress.enabled | bool
+
+- name: Read Hubble UI ingress hosts
+  ansible.builtin.command:
+    argv:
+      - /usr/local/bin/k3s
+      - kubectl
+      - -n
+      - kube-system
+      - get
+      - ingress
+      - hubble-ui
+      - -o
+      - jsonpath={.spec.rules[*].host}
+  environment:
+    KUBECONFIG: /etc/rancher/k3s/k3s.yaml
+  register: hubble_ui_ingress_hosts
+  changed_when: false
+  when:
+    - cilium.hubble.enabled | bool
+    - cilium.hubble.ui.enabled | bool
+    - cilium.hubble.ui.ingress.enabled | bool
+
+- name: Assert Hubble UI ingress hosts match inventory
+  ansible.builtin.assert:
+    that:
+      - cilium.hubble.ui.ingress.hosts | difference(hubble_ui_ingress_hosts.stdout.split()) | length == 0
+    fail_msg: "Expected Hubble UI ingress hosts {{ cilium.hubble.ui.ingress.hosts | join(', ') }}"
+    success_msg: "Hubble UI ingress hosts match inventory"
+  when:
+    - cilium.hubble.enabled | bool
+    - cilium.hubble.ui.enabled | bool
+    - cilium.hubble.ui.ingress.enabled | bool
+
+- name: Count unique nodes hosting Cilium operator pods
+  ansible.builtin.shell: >
+    /usr/local/bin/k3s kubectl -n kube-system get pods -l io.cilium/app=operator
+    -o custom-columns=NODE:.spec.nodeName --no-headers | awk 'NF' | sort -u | wc -l
+  environment:
+    KUBECONFIG: /etc/rancher/k3s/k3s.yaml
+  register: cilium_operator_unique_nodes
+  changed_when: false
+  when: cilium.operator_replicas | int > 1
+
+- name: Assert Cilium operator pods are spread across multiple nodes
+  ansible.builtin.assert:
+    that:
+      - cilium_operator_unique_nodes.stdout | int >= 2
+    fail_msg: Expected Cilium operator pods to be scheduled across at least two nodes.
+    success_msg: "Cilium operator pods are spread across multiple nodes"
+  when: cilium.operator_replicas | int > 1
+
+- name: Check bundled Traefik HelmChartConfig
+  ansible.builtin.command:
+    argv:
+      - /usr/local/bin/k3s
+      - kubectl
+      - -n
+      - kube-system
+      - get
+      - helmchartconfig
+      - traefik
+  environment:
+    KUBECONFIG: /etc/rancher/k3s/k3s.yaml
+  changed_when: false
+
+- name: Wait for bundled Traefik deployment rollout
+  ansible.builtin.command:
+    argv:
+      - /usr/local/bin/k3s
+      - kubectl
+      - -n
+      - "{{ traefik.namespace }}"
+      - rollout
+      - status
+      - "deployment/{{ traefik.service_name }}"
+      - --timeout=30s
+  environment:
+    KUBECONFIG: /etc/rancher/k3s/k3s.yaml
+  register: cilium_traefik_rollout
+  changed_when: false
+  failed_when: false
+  until: cilium_traefik_rollout.rc == 0
+  retries: 30
+  delay: 10
+
+- name: Read bundled Traefik deployment replica count
+  ansible.builtin.command:
+    argv:
+      - /usr/local/bin/k3s
+      - kubectl
+      - -n
+      - "{{ traefik.namespace }}"
+      - get
+      - deployment
+      - "{{ traefik.service_name }}"
+      - -o
+      - jsonpath={.spec.replicas}
+  environment:
+    KUBECONFIG: /etc/rancher/k3s/k3s.yaml
+  register: traefik_replica_count
+  changed_when: false
+
+- name: Assert bundled Traefik replica count matches inventory
+  ansible.builtin.assert:
+    that:
+      - traefik_replica_count.stdout | int == traefik.replicas | int
+    fail_msg: "Expected Traefik to run {{ traefik.replicas }} replicas"
+    success_msg: "Traefik replica count matches {{ traefik.replicas }}"
+
+- name: Read bundled Traefik deployment priority class
+  ansible.builtin.command:
+    argv:
+      - /usr/local/bin/k3s
+      - kubectl
+      - -n
+      - "{{ traefik.namespace }}"
+      - get
+      - deployment
+      - "{{ traefik.service_name }}"
+      - -o
+      - jsonpath={.spec.template.spec.priorityClassName}
+  environment:
+    KUBECONFIG: /etc/rancher/k3s/k3s.yaml
+  register: traefik_priority_class
+  changed_when: false
+
+- name: Assert bundled Traefik uses the configured priority class
+  ansible.builtin.assert:
+    that:
+      - traefik_priority_class.stdout | trim == traefik.priority_class_name
+    fail_msg: "Expected Traefik to use priority class {{ traefik.priority_class_name }}"
+    success_msg: "Traefik uses priority class {{ traefik.priority_class_name }}"
+
+- name: Count unique nodes hosting bundled Traefik pods
+  ansible.builtin.shell: >
+    /usr/local/bin/k3s kubectl -n {{ traefik.namespace }}
+    get pods -l app.kubernetes.io/name=traefik
+    -o custom-columns=NODE:.spec.nodeName --no-headers | awk 'NF' | sort -u | wc -l
+  environment:
+    KUBECONFIG: /etc/rancher/k3s/k3s.yaml
+  register: traefik_unique_nodes
+  changed_when: false
+
+- name: Assert bundled Traefik pods are spread across multiple nodes
+  ansible.builtin.assert:
+    that:
+      - traefik_unique_nodes.stdout | int >= 2
+    fail_msg: Expected Traefik pods to be scheduled across at least two nodes.
+    success_msg: "Traefik pods are spread across multiple nodes"
+
+- name: Check Traefik IngressClass
+  ansible.builtin.command:
+    argv:
+      - /usr/local/bin/k3s
+      - kubectl
+      - get
+      - ingressclass
+      - "{{ traefik.ingress_class_name }}"
+  environment:
+    KUBECONFIG: /etc/rancher/k3s/k3s.yaml
+  changed_when: false
+
+- name: Read bundled Traefik service type
+  ansible.builtin.command:
+    argv:
+      - /usr/local/bin/k3s
+      - kubectl
+      - -n
+      - "{{ traefik.namespace }}"
+      - get
+      - "service/{{ traefik.service_name }}"
+      - -o
+      - jsonpath={.spec.type}
+  environment:
+    KUBECONFIG: /etc/rancher/k3s/k3s.yaml
+  register: traefik_service_type
+  changed_when: false
+
+- name: Assert bundled Traefik service type is LoadBalancer
+  ansible.builtin.assert:
+    that:
+      - traefik_service_type.stdout | trim == 'LoadBalancer'
+    fail_msg: Expected Traefik service type LoadBalancer.
+    success_msg: "Traefik service type is LoadBalancer"
+
+- name: Read bundled Traefik service load balancer class
+  ansible.builtin.command:
+    argv:
+      - /usr/local/bin/k3s
+      - kubectl
+      - -n
+      - "{{ traefik.namespace }}"
+      - get
+      - "service/{{ traefik.service_name }}"
+      - -o
+      - jsonpath={.spec.loadBalancerClass}
+  environment:
+    KUBECONFIG: /etc/rancher/k3s/k3s.yaml
+  register: traefik_load_balancer_class
+  changed_when: false
+
+- name: Assert bundled Traefik service uses the configured Cilium load balancer class
+  ansible.builtin.assert:
+    that:
+      - traefik_load_balancer_class.stdout | trim == traefik.service.load_balancer_class
+    fail_msg: "Expected Traefik service to use loadBalancerClass {{ traefik.service.load_balancer_class }}"
+    success_msg: "Traefik service uses loadBalancerClass {{ traefik.service.load_balancer_class }}"
+
+- name: Read bundled Traefik service external traffic policy
+  ansible.builtin.command:
+    argv:
+      - /usr/local/bin/k3s
+      - kubectl
+      - -n
+      - "{{ traefik.namespace }}"
+      - get
+      - "service/{{ traefik.service_name }}"
+      - -o
+      - jsonpath={.spec.externalTrafficPolicy}
+  environment:
+    KUBECONFIG: /etc/rancher/k3s/k3s.yaml
+  register: traefik_external_traffic_policy
+  changed_when: false
+
+- name: Assert bundled Traefik external traffic policy matches inventory
+  ansible.builtin.assert:
+    that:
+      - traefik_external_traffic_policy.stdout | trim == traefik.service.external_traffic_policy
+    fail_msg: "Expected Traefik externalTrafficPolicy {{ traefik.service.external_traffic_policy }}"
+    success_msg: "Traefik externalTrafficPolicy matches {{ traefik.service.external_traffic_policy }}"
+
+- name: Check Cilium BGP exposure resources
+  ansible.builtin.command:
+    argv:
+      - /usr/local/bin/k3s
+      - kubectl
+      - get
+      - "{{ item.kind }}"
+      - "{{ item.name }}"
+  environment:
+    KUBECONFIG: /etc/rancher/k3s/k3s.yaml
+  changed_when: false
+  loop:
+    - kind: CiliumLoadBalancerIPPool
+      name: "{{ cilium.bgp.ip_pool_name }}"
+    - kind: CiliumLoadBalancerIPPool
+      name: "{{ cilium.bgp.app_ip_pool.name }}"
+    - kind: CiliumBGPPeerConfig
+      name: "{{ cilium.bgp.peer_config_name }}"
+    - kind: CiliumBGPClusterConfig
+      name: "{{ cilium.bgp.cluster_config_name }}"
+    - kind: CiliumBGPAdvertisement
+      name: "{{ cilium.bgp.advertisement_name }}"
+  when: cilium_bgp_exposure_configured | bool
+
+- name: Read bundled Traefik service external IP
+  ansible.builtin.command:
+    argv:
+      - /usr/local/bin/k3s
+      - kubectl
+      - -n
+      - "{{ traefik.namespace }}"
+      - get
+      - "service/{{ traefik.service_name }}"
+      - -o
+      - jsonpath={.status.loadBalancer.ingress[0].ip}
+  environment:
+    KUBECONFIG: /etc/rancher/k3s/k3s.yaml
+  register: cilium_traefik_lb_ip
+  changed_when: false
+  when: cilium_bgp_exposure_configured | bool
+
+- name: Assert bundled Traefik service received the configured external IP
+  ansible.builtin.assert:
+    that:
+      - cilium_traefik_lb_ip.stdout | trim == traefik.service.load_balancer_ip
+    fail_msg: "Expected Traefik service external IP {{ traefik.service.load_balancer_ip }}"
+    success_msg: "Traefik service external IP matches {{ traefik.service.load_balancer_ip }}"
+  when: cilium_bgp_exposure_configured | bool
+
+- name: Read Cilium BGP peer status
+  ansible.builtin.command:
+    argv:
+      - /usr/local/bin/cilium
+      - bgp
+      - peers
+  environment:
+    KUBECONFIG: /etc/rancher/k3s/k3s.yaml
+  register: cilium_bgp_peers
+  changed_when: false
+  when: cilium_bgp_exposure_configured | bool
+
+- name: Check upstream BGP TCP reachability from the bootstrap node
+  ansible.builtin.wait_for:
+    host: "{{ cilium.bgp.peer_address }}"
+    port: 179
+    timeout: 5
+  register: cilium_bgp_peer_port_check
+  failed_when: false
+  changed_when: false
+  when: cilium_bgp_exposure_configured | bool
+
+- name: Assert at least one Cilium BGP peer is established
+  ansible.builtin.assert:
+    that:
+      - "'established' in (cilium_bgp_peers.stdout | lower)"
+    fail_msg: >-
+      No Cilium BGP peer reached established state.
+      Current peer status:
+      {{ cilium_bgp_peers.stdout | trim }}
+      Check that the UDM BGP config is applied for peer {{ cilium.bgp.peer_address }}
+      and that TCP 179 is allowed from the cluster nodes.
+    success_msg: "Cilium reports an established BGP peer"
+  when: cilium_bgp_exposure_configured | bool
+
+- name: Wait for kube-system addon pods to become ready after Cilium install
+  ansible.builtin.command:
+    argv:
+      - /usr/local/bin/k3s
+      - kubectl
+      - -n
+      - kube-system
+      - wait
+      - --for=condition=Ready
+      - pod
+      - --selector={{ item.selector }}
+      - --timeout=300s
+  environment:
+    KUBECONFIG: /etc/rancher/k3s/k3s.yaml
+  loop:
+    - name: coredns
+      selector: k8s-app=kube-dns
+    - name: metrics-server
+      selector: k8s-app=metrics-server
+  loop_control:
+    label: "{{ item.name }}"
+  register: cilium_core_pod_readiness
+  changed_when: false
+
+- name: Check K3s API readiness through the kube-vip endpoint after Cilium install
+  ansible.builtin.command:
+    argv:
+      - /usr/local/bin/k3s
+      - kubectl
+      - --kubeconfig
+      - /etc/rancher/k3s/k3s.yaml
+      - --server=https://{{ k3s.registration_vip }}:{{ cilium.k8s_service_port }}
+      - get
+      - --raw=/readyz
+  register: cilium_vip_readyz
+  changed_when: false
+
+- name: Assert K3s API stays reachable through kube-vip after Cilium install
+  ansible.builtin.assert:
+    that:
+      - cilium_vip_readyz.stdout | trim == 'ok'
+    fail_msg: >-
+      Expected K3s API /readyz endpoint to return ok through
+      https://{{ k3s.registration_vip }}:{{ cilium.k8s_service_port }}
+    success_msg: "K3s API is reachable through kube-vip after Cilium installation"

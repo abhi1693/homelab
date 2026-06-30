@@ -1,0 +1,20 @@
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: profilarr-config
+  namespace: media
+  annotations:
+    helm.sh/resource-policy: keep
+    home-lab.io/storage-binding: dynamic
+  labels:
+    app.kubernetes.io/name: profilarr
+    app.kubernetes.io/part-of: media-stack
+spec:
+  accessModes:
+    - ReadWriteOnce
+  storageClassName: longhorn
+  volumeName: pvc-d5914c66-3b56-4ad7-8519-57dfbef983da
+  resources:
+    requests:
+      storage: 256Mi

@@ -1,0 +1,65 @@
+---
+name: harbor-helmop
+defaultNamespace: fleet-local
+labels:
+  app.kubernetes.io/part-of: harbor
+  home-lab.io/project-slug: applications
+helm:
+  takeOwnership: true
+imageScans:
+  - image: registry.home/ghcr.io/abhi1693/harbor-portal
+    tagName: harbor-portal
+    interval: 10m0s
+    secretRef:
+      name: harbor-registry
+    policy:
+      semver:
+        range: ">=2.0.0 <3.0.0"
+  - image: registry.home/ghcr.io/abhi1693/harbor-core
+    tagName: harbor-core
+    interval: 10m0s
+    secretRef:
+      name: harbor-registry
+    policy:
+      semver:
+        range: ">=2.0.0 <3.0.0"
+  - image: registry.home/ghcr.io/abhi1693/harbor-jobservice
+    tagName: harbor-jobservice
+    interval: 10m0s
+    secretRef:
+      name: harbor-registry
+    policy:
+      semver:
+        range: ">=2.0.0 <3.0.0"
+  - image: registry.home/ghcr.io/abhi1693/registry-photon
+    tagName: registry-photon
+    interval: 10m0s
+    secretRef:
+      name: harbor-registry
+    policy:
+      semver:
+        range: ">=2.0.0 <3.0.0"
+  - image: registry.home/ghcr.io/abhi1693/harbor-registryctl
+    tagName: harbor-registryctl
+    interval: 10m0s
+    secretRef:
+      name: harbor-registry
+    policy:
+      semver:
+        range: ">=2.0.0 <3.0.0"
+  - image: registry.home/ghcr.io/abhi1693/trivy-adapter-photon
+    tagName: trivy-adapter-photon
+    interval: 10m0s
+    secretRef:
+      name: harbor-registry
+    policy:
+      semver:
+        range: ">=2.0.0 <3.0.0"
+  - image: registry.home/ghcr.io/octohelm/harbor/harbor-exporter
+    tagName: harbor-exporter
+    interval: 10m0s
+    secretRef:
+      name: harbor-registry
+    policy:
+      semver:
+        range: ">=2.0.0 <3.0.0"

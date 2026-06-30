@@ -1,0 +1,4 @@
+---
+galaxy_info:
+  role_name: k3s_agent
+  description: Join worker nodes to the K3s cluster as agents.

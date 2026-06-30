@@ -1,0 +1,60 @@
+{% if fleet_apps.enabled | default(true) | bool %}
+apiVersion: fleet.cattle.io/v1alpha1
+kind: GitRepo
+metadata:
+  name: {{ fleet_apps.gitrepo_name }}
+  namespace: {{ fleet_apps.namespace }}
+spec:
+  repo: {{ fleet_apps.repo | to_json }}
+  branch: {{ fleet_apps.branch | to_json }}
+{% if fleet_apps.client_secret_name | default('') | trim != '' %}
+  clientSecretName: {{ fleet_apps.client_secret_name | to_json }}
+{% endif %}
+{% if fleet_apps.disable_polling | default(false) | bool %}
+  disablePolling: true
+{% else %}
+  pollingInterval: {{ fleet_apps.polling_interval | to_json }}
+{% endif %}
+  paths:
+{% for path in fleet_apps.paths %}
+    - {{ path | to_json }}
+{% endfor %}
+  correctDrift:
+    enabled: {{ fleet_apps.correct_drift.enabled | bool | lower }}
+    force: {{ fleet_apps.correct_drift.force | bool | lower }}
+    keepFailHistory: {{ fleet_apps.correct_drift.keep_fail_history | bool | lower }}
+{% endif %}
+{% for gitrepo in fleet_apps.additional_gitrepos | default([]) %}
+{% set gitrepo_correct_drift = gitrepo.correct_drift | default({}) %}
+---
+apiVersion: fleet.cattle.io/v1alpha1
+kind: GitRepo
+metadata:
+  name: {{ gitrepo.name }}
+  namespace: {{ gitrepo.namespace | default(fleet_apps.namespace) }}
+{% if gitrepo.labels | default({}) | length > 0 %}
+  labels:
+{% for key, value in gitrepo.labels | dictsort %}
+    {{ key }}: {{ value | to_json }}
+{% endfor %}
+{% endif %}
+spec:
+  repo: {{ gitrepo.repo | default(fleet_apps.repo) | to_json }}
+  branch: {{ gitrepo.branch | default(fleet_apps.branch) | to_json }}
+{% if gitrepo.client_secret_name | default(fleet_apps.client_secret_name | default('')) | trim != '' %}
+  clientSecretName: {{ gitrepo.client_secret_name | default(fleet_apps.client_secret_name) | to_json }}
+{% endif %}
+{% if gitrepo.disable_polling | default(false) | bool %}
+  disablePolling: true
+{% else %}
+  pollingInterval: {{ gitrepo.polling_interval | default(fleet_apps.polling_interval) | to_json }}
+{% endif %}
+  paths:
+{% for path in gitrepo.paths %}
+    - {{ path | to_json }}
+{% endfor %}
+  correctDrift:
+    enabled: {{ gitrepo_correct_drift.enabled | default(fleet_apps.correct_drift.enabled) | bool | lower }}
+    force: {{ gitrepo_correct_drift.force | default(fleet_apps.correct_drift.force) | bool | lower }}
+    keepFailHistory: {{ gitrepo_correct_drift.keep_fail_history | default(fleet_apps.correct_drift.keep_fail_history) | bool | lower }}
+{% endfor %}

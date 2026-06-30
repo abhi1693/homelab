@@ -1,0 +1,19 @@
+---
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+namespace: fleet-local
+resources:
+  - helmop.yaml
+  - networkpolicy.yaml
+configMapGenerator:
+  - name: loki-values
+    files:
+      - values.yaml
+generatorOptions:
+  labels:
+    app.kubernetes.io/name: loki
+    app.kubernetes.io/part-of: rancher-monitoring
+    home-lab.io/project-slug: system
+configurations:
+  - kustomizeconfig.yaml
+

@@ -1,0 +1,120 @@
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: wardn-hub-api
+  namespace: wardn
+  labels:
+    app.kubernetes.io/name: wardn-hub-api
+    app.kubernetes.io/component: api
+    app.kubernetes.io/part-of: wardn-hub
+spec:
+  type: ClusterIP
+  selector:
+    app.kubernetes.io/name: wardn-hub-api
+    app.kubernetes.io/component: api
+  ports:
+    - name: http
+      port: 8080
+      targetPort: http
+      protocol: TCP
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: wardn-hub-frontend
+  namespace: wardn
+  labels:
+    app.kubernetes.io/name: wardn-hub-frontend
+    app.kubernetes.io/component: frontend
+    app.kubernetes.io/part-of: wardn-hub
+spec:
+  type: ClusterIP
+  selector:
+    app.kubernetes.io/name: wardn-hub-frontend
+    app.kubernetes.io/component: frontend
+  ports:
+    - name: http
+      port: 3000
+      targetPort: http
+      protocol: TCP
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: wardn-hub-scoring
+  namespace: wardn
+  labels:
+    app.kubernetes.io/name: wardn-hub-scoring
+    app.kubernetes.io/component: scoring
+    app.kubernetes.io/part-of: wardn-hub
+spec:
+  type: ClusterIP
+  selector:
+    app.kubernetes.io/name: wardn-hub-scoring
+    app.kubernetes.io/component: scoring
+  ports:
+    - name: http
+      port: 8080
+      targetPort: http
+      protocol: TCP
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: wardn-hub-fix-rejected-webhook
+  namespace: wardn
+  labels:
+    app.kubernetes.io/name: wardn-hub-fix-rejected-webhook
+    app.kubernetes.io/component: fix-rejected-webhook
+    app.kubernetes.io/part-of: wardn-hub
+spec:
+  type: ClusterIP
+  selector:
+    app.kubernetes.io/name: wardn-hub-fix-rejected-webhook
+    app.kubernetes.io/component: fix-rejected-webhook
+  ports:
+    - name: http
+      port: 8091
+      targetPort: http
+      protocol: TCP
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: wardn-hub-review-webhook
+  namespace: wardn
+  labels:
+    app.kubernetes.io/name: wardn-hub-review-webhook
+    app.kubernetes.io/component: review-webhook
+    app.kubernetes.io/part-of: wardn-hub
+spec:
+  type: ClusterIP
+  selector:
+    app.kubernetes.io/name: wardn-hub-review-webhook
+    app.kubernetes.io/component: review-webhook
+  ports:
+    - name: http
+      port: 8090
+      targetPort: http
+      protocol: TCP
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: wardn-hub-events-worker
+  namespace: wardn
+  labels:
+    app.kubernetes.io/name: wardn-hub-events-worker
+    app.kubernetes.io/component: events-worker
+    app.kubernetes.io/part-of: wardn-hub
+spec:
+  type: ClusterIP
+  selector:
+    app.kubernetes.io/name: wardn-hub-events-worker
+    app.kubernetes.io/component: events-worker
+  ports:
+    - name: metrics
+      port: 8092
+      targetPort: metrics
+      protocol: TCP

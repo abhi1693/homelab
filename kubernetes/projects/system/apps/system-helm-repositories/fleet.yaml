@@ -1,0 +1,8 @@
+---
+name: system-helm-repositories
+defaultNamespace: default
+labels:
+  app.kubernetes.io/part-of: system
+  home-lab.io/project-slug: system
+helm:
+  takeOwnership: true

@@ -1,0 +1,14 @@
+apiVersion: traefik.io/v1alpha1
+kind: Middleware
+metadata:
+  name: media-edge-basic-auth
+  namespace: media
+  annotations:
+    home-lab.io/reconcile-token: "20260628T1015Z"
+  labels:
+    app.kubernetes.io/name: media-edge-basic-auth
+    app.kubernetes.io/part-of: media-stack
+spec:
+  basicAuth:
+    secret: media-storage
+    removeHeader: true

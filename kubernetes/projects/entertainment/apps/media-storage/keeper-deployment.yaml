@@ -1,0 +1,106 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: media-library-keeper
+  namespace: media
+  labels:
+    app.kubernetes.io/name: media-library-keeper
+    app.kubernetes.io/part-of: media-stack
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: media-library-keeper
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: media-library-keeper
+        app.kubernetes.io/part-of: media-stack
+    spec:
+      automountServiceAccountToken: false
+      securityContext:
+        fsGroup: 568
+        fsGroupChangePolicy: OnRootMismatch
+        seccompProfile:
+          type: RuntimeDefault
+      initContainers:
+        - name: prepare-media-library
+          image: registry.home/docker.io/library/busybox:1.38 # {"$imagescan": "media-storage-busybox"}
+          command:
+            - /bin/sh
+            - -c
+          args:
+            - |-
+              set -e
+              mkdir -p /media/tv /media/anime /media/movies
+              mkdir -p \
+                /downloads/anime \
+                /downloads/movies \
+                /downloads/prowlarr \
+                /downloads/temp/anime \
+                /downloads/temp/movies \
+                /downloads/temp/prowlarr \
+                /downloads/temp/tv \
+                /downloads/tv
+              for path in /media /media/tv /media/anime /media/movies; do
+                chown 568:568 "$path" 2>/dev/null || true
+                chmod g+rwX "$path" 2>/dev/null || true
+              done
+              for path in \
+                /downloads \
+                /downloads/anime \
+                /downloads/movies \
+                /downloads/prowlarr \
+                /downloads/temp \
+                /downloads/temp/anime \
+                /downloads/temp/movies \
+                /downloads/temp/prowlarr \
+                /downloads/temp/tv \
+                /downloads/tv; do
+                chown 568:568 "$path" 2>/dev/null || true
+                chmod g+rwX "$path" 2>/dev/null || true
+              done
+          volumeMounts:
+            - name: media-library
+              mountPath: /media
+            - name: media-downloads
+              mountPath: /downloads
+          resources:
+            requests:
+              cpu: 5m
+              memory: 16Mi
+            limits:
+              memory: 64Mi
+      containers:
+        - name: keeper
+          image: registry.home/docker.io/library/busybox:1.38 # {"$imagescan": "media-storage-busybox"}
+          command:
+            - /bin/sh
+            - -c
+          args:
+            - sleep infinity
+          resources:
+            requests:
+              cpu: 10m
+              memory: 32Mi
+            limits:
+              memory: 96Mi
+          securityContext:
+            runAsUser: 568
+            runAsGroup: 568
+            runAsNonRoot: true
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities:
+              drop:
+                - ALL
+          volumeMounts:
+            - name: media-library
+              mountPath: /media
+      volumes:
+        - name: media-library
+          persistentVolumeClaim:
+            claimName: media-library-nas
+        - name: media-downloads
+          persistentVolumeClaim:
+            claimName: media-downloads

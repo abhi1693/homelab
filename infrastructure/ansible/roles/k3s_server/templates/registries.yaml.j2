@@ -1,0 +1,23 @@
+mirrors:
+{% for registry, mirror in k3s_server.registry_mirror.mirrors | dictsort %}
+  "{{ registry }}":
+{% set endpoints = mirror.endpoint | default(mirror.endpoints | default([])) %}
+{% set rewrites = mirror.rewrite | default({}) %}
+{% if endpoints | length > 0 %}
+    endpoint:
+{% for endpoint in endpoints %}
+      - "{{ endpoint }}"
+{% endfor %}
+{% endif %}
+{% if rewrites | length > 0 %}
+    rewrite:
+{% for pattern, replacement in rewrites | dictsort %}
+      "{{ pattern }}": "{{ replacement }}"
+{% endfor %}
+{% endif %}
+{% endfor %}
+{% set registry_configs = k3s_server.registry_mirror.configs | default({}) %}
+{% if registry_configs | length > 0 %}
+configs:
+{{ registry_configs | to_nice_yaml(indent=2) | indent(2, true) }}
+{% endif %}

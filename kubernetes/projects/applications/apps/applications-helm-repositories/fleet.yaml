@@ -1,0 +1,10 @@
+---
+name: applications-helm-repositories
+defaultNamespace: default
+labels:
+  app.kubernetes.io/part-of: applications
+  home-lab.io/project-slug: applications
+dependsOn:
+  - name: rancher-project-applications
+helm:
+  takeOwnership: true

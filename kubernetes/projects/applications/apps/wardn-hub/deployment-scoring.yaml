@@ -1,0 +1,144 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: wardn-hub-scoring
+  namespace: wardn
+  labels:
+    app.kubernetes.io/name: wardn-hub-scoring
+    app.kubernetes.io/component: scoring
+    app.kubernetes.io/part-of: wardn-hub
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: wardn-hub-scoring
+      app.kubernetes.io/component: scoring
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxSurge: 1
+      maxUnavailable: 0
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: wardn-hub-scoring
+        app.kubernetes.io/component: scoring
+        app.kubernetes.io/part-of: wardn-hub
+        wardn-hub-api-client: "true"
+        wardn-hub-api-rollout-waiter: "true"
+    spec:
+      automountServiceAccountToken: false
+      serviceAccountName: wardn-hub-api-rollout-waiter
+      imagePullSecrets:
+        - name: harbor-registry
+      nodeSelector:
+        kubernetes.io/arch: arm64
+      initContainers:
+        - name: wait-for-api-rollout
+          image: registry.home/ghcr.io/abhi1693/wardn-hub/backend:0.2.59 # {"$imagescan": "wardn-hub-backend"}
+          imagePullPolicy: IfNotPresent
+          command:
+            - python
+            - /opt/wardn/wait-for-api-rollout.py
+          resources:
+            requests:
+              cpu: 25m
+              memory: 128Mi
+            limits:
+              cpu: 250m
+              memory: 256Mi
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop:
+                - ALL
+            runAsGroup: 999
+            runAsNonRoot: true
+            runAsUser: 999
+          volumeMounts:
+            - name: api-rollout-script
+              mountPath: /opt/wardn/wait-for-api-rollout.py
+              subPath: wait-for-api-rollout.py
+              readOnly: true
+            - name: api-rollout-token
+              mountPath: /var/run/secrets/wardn-hub-api-rollout
+              readOnly: true
+      containers:
+        - name: scoring
+          image: registry.home/ghcr.io/abhi1693/wardn-hub-scoring:0.1.3 # {"$imagescan": "wardn-hub-scoring"}
+          imagePullPolicy: IfNotPresent
+          env:
+            - name: WARDN_HUB_SCORING_DRY_RUN
+              value: "false"
+            - name: WARDN_HUB_SCORING_LOG_LEVEL
+              value: INFO
+            - name: WARDN_HUB_SCORING_WARDN_BASE_URL
+              value: http://wardn-hub-api.wardn.svc.cluster.local:8080
+            - name: WARDN_HUB_SCORING_REQUEST_TIMEOUT_SECONDS
+              value: "20"
+            - name: WARDN_HUB_SCORING_WARDN_API_TOKEN
+              valueFrom:
+                secretKeyRef:
+                  name: wardn-hub-scoring-secrets
+                  key: wardn-api-token
+            - name: WARDN_HUB_SCORING_WEBHOOK_SECRET
+              valueFrom:
+                secretKeyRef:
+                  name: wardn-hub-scoring-secrets
+                  key: webhook-secret
+          ports:
+            - name: http
+              containerPort: 8080
+              protocol: TCP
+          resources:
+            requests:
+              cpu: 10m
+              memory: 80Mi
+            limits:
+              memory: 144Mi
+          startupProbe:
+            httpGet:
+              path: /health/ready
+              port: http
+            periodSeconds: 5
+            timeoutSeconds: 3
+            failureThreshold: 24
+          readinessProbe:
+            httpGet:
+              path: /health/ready
+              port: http
+            periodSeconds: 10
+            timeoutSeconds: 3
+            failureThreshold: 6
+          livenessProbe:
+            httpGet:
+              path: /health/live
+              port: http
+            periodSeconds: 30
+            timeoutSeconds: 5
+            failureThreshold: 4
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop:
+                - ALL
+            runAsGroup: 65532
+            runAsNonRoot: true
+            runAsUser: 65532
+      volumes:
+        - name: api-rollout-script
+          configMap:
+            name: wardn-hub-api-rollout-waiter
+            defaultMode: 0444
+        - name: api-rollout-token
+          projected:
+            defaultMode: 0444
+            sources:
+              - serviceAccountToken:
+                  path: token
+                  expirationSeconds: 600
+              - configMap:
+                  name: kube-root-ca.crt
+                  items:
+                    - key: ca.crt
+                      path: ca.crt

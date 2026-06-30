@@ -1,0 +1,6 @@
+---
+name: rancher-project-database
+defaultNamespace: local
+labels:
+  app.kubernetes.io/name: database
+  app.kubernetes.io/part-of: rancher-projects

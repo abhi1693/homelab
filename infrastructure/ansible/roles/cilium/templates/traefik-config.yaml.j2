@@ -1,0 +1,49 @@
+apiVersion: helm.cattle.io/v1
+kind: HelmChartConfig
+metadata:
+  name: traefik
+  namespace: kube-system
+  annotations:
+    home-lab.asaharan.dev/load-balancer-class: {{ traefik.service.load_balancer_class }}
+spec:
+  valuesContent: |-
+    deployment:
+      replicas: {{ traefik.replicas }}
+    podDisruptionBudget:
+      enabled: true
+      minAvailable: 1
+    ingressClass:
+      enabled: true
+      isDefaultClass: false
+      name: {{ traefik.ingress_class_name }}
+    providers:
+      kubernetesCRD:
+        ingressClass: {{ traefik.ingress_class_name }}
+      kubernetesIngress:
+        ingressClass: {{ traefik.ingress_class_name }}
+    api:
+      dashboard: false
+    ports:
+      traefik:
+        expose:
+          default: false
+    service:
+      spec:
+        type: LoadBalancer
+        loadBalancerClass: {{ traefik.service.load_balancer_class }}
+        externalTrafficPolicy: {{ traefik.service.external_traffic_policy }}
+    priorityClassName: {{ traefik.priority_class_name }}
+    affinity:
+      podAntiAffinity:
+        requiredDuringSchedulingIgnoredDuringExecution:
+          - labelSelector:
+              matchLabels:
+                app.kubernetes.io/name: traefik
+            topologyKey: kubernetes.io/hostname
+    topologySpreadConstraints:
+      - maxSkew: 1
+        topologyKey: kubernetes.io/hostname
+        whenUnsatisfiable: DoNotSchedule
+        labelSelector:
+          matchLabels:
+            app.kubernetes.io/name: traefik

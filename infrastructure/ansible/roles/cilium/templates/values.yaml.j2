@@ -1,0 +1,45 @@
+k8sServiceHost: {{ k3s.registration_vip }}
+k8sServicePort: {{ cilium.k8s_service_port }}
+bgpControlPlane:
+  enabled: {{ cilium.bgp.enabled | lower }}
+hubble:
+  enabled: {{ cilium.hubble.enabled | lower }}
+  relay:
+    enabled: {{ cilium.hubble.relay.enabled | lower }}
+  ui:
+    enabled: {{ cilium.hubble.ui.enabled | lower }}
+    replicas: {{ cilium.hubble.ui.replicas }}
+    ingress:
+      enabled: {{ cilium.hubble.ui.ingress.enabled | lower }}
+      className: {{ cilium.hubble.ui.ingress.class_name | to_json }}
+      hosts:
+{% for host in cilium.hubble.ui.ingress.hosts %}
+        - {{ host | to_json }}
+{% endfor %}
+      tls: {{ cilium.hubble.ui.ingress.tls | to_json }}
+securityContext:
+  capabilities:
+    ciliumAgent:
+{% for capability in cilium.agent_capabilities %}
+      - {{ capability }}
+{% endfor %}
+ipam:
+  operator:
+    clusterPoolIPv4PodCIDRList:
+      - {{ cilium.cluster_pool_ipv4_pod_cidr_list | to_json }}
+operator:
+  replicas: {{ cilium.operator_replicas }}
+  affinity:
+    podAntiAffinity:
+      requiredDuringSchedulingIgnoredDuringExecution:
+        - topologyKey: kubernetes.io/hostname
+          labelSelector:
+            matchLabels:
+              io.cilium/app: operator
+  topologySpreadConstraints:
+    - maxSkew: 1
+      topologyKey: kubernetes.io/hostname
+      whenUnsatisfiable: DoNotSchedule
+      labelSelector:
+        matchLabels:
+          io.cilium/app: operator

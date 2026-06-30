@@ -1,0 +1,76 @@
+---
+apiVersion: monitoring.coreos.com/v1
+kind: PrometheusRule
+metadata:
+  name: longhorn-storage-health
+  namespace: cattle-monitoring-system
+  labels:
+    app.kubernetes.io/name: longhorn-storage-health
+    app.kubernetes.io/part-of: rancher-monitoring
+    home-lab.io/project-slug: system
+spec:
+  groups:
+    - name: longhorn.storage-health
+      rules:
+        - alert: LonghornVolumeDegraded
+          expr: longhorn_volume_robustness{state="degraded"} == 1
+          for: 5m
+          labels:
+            severity: warning
+          annotations:
+            summary: Longhorn volume is degraded
+            description: Longhorn volume {{ $labels.volume }} for PVC {{ $labels.pvc_namespace }}/{{ $labels.pvc }} has been degraded for more than 5 minutes.
+        - alert: LonghornVolumeFaulted
+          expr: longhorn_volume_robustness{state="faulted"} == 1
+          for: 2m
+          labels:
+            severity: critical
+          annotations:
+            summary: Longhorn volume is faulted
+            description: Longhorn volume {{ $labels.volume }} for PVC {{ $labels.pvc_namespace }}/{{ $labels.pvc }} is faulted.
+        - alert: LonghornDiskUnschedulable
+          expr: longhorn_disk_status{condition="schedulable"} == 0
+          for: 10m
+          labels:
+            severity: warning
+          annotations:
+            summary: Longhorn disk is unschedulable
+            description: Longhorn disk {{ $labels.disk }} on {{ $labels.node }} has been unschedulable for more than 10 minutes.
+        - alert: LonghornDiskNotReady
+          expr: longhorn_disk_status{condition="ready"} == 0
+          for: 5m
+          labels:
+            severity: critical
+          annotations:
+            summary: Longhorn disk is not ready
+            description: Longhorn disk {{ $labels.disk }} on {{ $labels.node }} has been not ready for more than 5 minutes.
+        - alert: LonghornDiskAvailableSpaceLow
+          expr: |-
+            100 *
+            (
+              longhorn_disk_capacity_bytes
+              - longhorn_disk_reservation_bytes
+              - longhorn_disk_usage_bytes
+            )
+            / longhorn_disk_capacity_bytes < 15
+          for: 15m
+          labels:
+            severity: warning
+          annotations:
+            summary: Longhorn disk available space is low
+            description: Longhorn disk {{ $labels.disk }} on {{ $labels.node }} has {{ printf "%.1f" $value }}% schedulable space remaining.
+        - alert: LonghornDiskAvailableSpaceCritical
+          expr: |-
+            100 *
+            (
+              longhorn_disk_capacity_bytes
+              - longhorn_disk_reservation_bytes
+              - longhorn_disk_usage_bytes
+            )
+            / longhorn_disk_capacity_bytes < 10
+          for: 10m
+          labels:
+            severity: critical
+          annotations:
+            summary: Longhorn disk available space is critical
+            description: Longhorn disk {{ $labels.disk }} on {{ $labels.node }} has {{ printf "%.1f" $value }}% schedulable space remaining.

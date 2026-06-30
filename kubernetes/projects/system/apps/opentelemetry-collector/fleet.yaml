@@ -1,0 +1,10 @@
+---
+name: opentelemetry-collector
+defaultNamespace: cattle-monitoring-system
+labels:
+  app.kubernetes.io/name: opentelemetry-collector
+  app.kubernetes.io/part-of: rancher-monitoring
+  home-lab.io/project-slug: system
+dependsOn:
+  - name: rancher-monitoring-helmop
+  - name: tempo

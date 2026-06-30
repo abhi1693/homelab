@@ -1,0 +1,28 @@
+---
+- name: Gather service facts for smartctl_exporter reset
+  ansible.builtin.service_facts:
+
+- name: Stop and disable smartctl_exporter service when present
+  ansible.builtin.systemd_service:
+    name: "{{ smartctl_exporter.service_name }}"
+    enabled: false
+    state: stopped
+  when: smartctl_exporter.service_name in ansible_facts.services
+
+- name: Remove managed smartctl_exporter systemd override
+  ansible.builtin.file:
+    path: "/etc/systemd/system/{{ smartctl_exporter.service_name }}.d/10-home-lab.conf"
+    state: absent
+
+- name: Remove smartctl_exporter drop-in directory when empty
+  ansible.builtin.command:
+    argv:
+      - rmdir
+      - "/etc/systemd/system/{{ smartctl_exporter.service_name }}.d"
+  register: smartctl_exporter_dropin_rmdir
+  changed_when: smartctl_exporter_dropin_rmdir.rc == 0
+  failed_when: false
+
+- name: Reload systemd after smartctl_exporter reset
+  ansible.builtin.systemd_service:
+    daemon_reload: true

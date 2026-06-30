@@ -1,0 +1,17 @@
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: shipyardhq-next-build-cache
+  namespace: shipyardhq
+  labels:
+    app.kubernetes.io/name: shipyardhq
+    app.kubernetes.io/component: web
+    app.kubernetes.io/part-of: shipyardhq
+spec:
+  accessModes:
+    - ReadWriteMany
+  storageClassName: longhorn
+  resources:
+    requests:
+      storage: 8Gi

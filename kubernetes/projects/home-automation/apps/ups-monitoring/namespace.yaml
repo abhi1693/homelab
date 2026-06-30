@@ -1,0 +1,18 @@
+---
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: ups
+  labels:
+    app.kubernetes.io/managed-by: Helm
+    app.kubernetes.io/name: ups-monitoring
+    app.kubernetes.io/part-of: home-automation
+    field.cattle.io/projectId: p-qqtgt
+    kubernetes.io/metadata.name: ups
+    pod-security.kubernetes.io/audit: restricted
+    pod-security.kubernetes.io/warn: restricted
+  annotations:
+    field.cattle.io/projectId: local:p-qqtgt
+    helm.sh/resource-policy: keep
+    meta.helm.sh/release-name: ups-monitoring
+    meta.helm.sh/release-namespace: default

@@ -1,0 +1,297 @@
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: git-rank-sync-daily
+  namespace: git-rank
+  labels:
+    app.kubernetes.io/name: git-rank-sync-daily
+    app.kubernetes.io/component: scheduler
+    app.kubernetes.io/part-of: git-rank
+spec:
+  schedule: "0 0 * * *"
+  concurrencyPolicy: Forbid
+  startingDeadlineSeconds: 600
+  successfulJobsHistoryLimit: 3
+  failedJobsHistoryLimit: 0
+  jobTemplate:
+    spec:
+      activeDeadlineSeconds: 1800
+      backoffLimit: 3
+      ttlSecondsAfterFinished: 3600
+      template:
+        metadata:
+          labels:
+            app.kubernetes.io/name: git-rank-sync-daily
+            app.kubernetes.io/component: scheduler
+            app.kubernetes.io/part-of: git-rank
+            git-rank-psql-client: "true"
+            git-rank-valkey-client: "true"
+        spec:
+          restartPolicy: OnFailure
+          automountServiceAccountToken: false
+          imagePullSecrets:
+            - name: harbor-registry
+          nodeSelector:
+            kubernetes.io/arch: arm64
+          containers:
+            - name: trigger
+              image: registry.home/git-rank/backend:1.2.24 # {"$imagescan": "git-rank-backend"}
+              imagePullPolicy: IfNotPresent
+              command:
+                - python
+                - scripts/trigger-jobs.py
+                - sync_fanout
+                - leaderboard_daily
+              envFrom:
+                - secretRef:
+                    name: git-rank
+                - configMapRef:
+                    name: git-rank
+              env:
+                - name: POSTGRES_USER
+                  valueFrom:
+                    secretKeyRef:
+                      name: git-rank-postgresql
+                      key: username
+                - name: POSTGRES_PASSWORD
+                  valueFrom:
+                    secretKeyRef:
+                      name: git-rank-postgresql
+                      key: password
+                - name: POSTGRES_DB
+                  valueFrom:
+                    secretKeyRef:
+                      name: git-rank-postgresql
+                      key: dbname
+                - name: DATABASE_URL
+                  value: postgresql://$(POSTGRES_USER):$(POSTGRES_PASSWORD)@postgresql-pooler-git-rank-rw.postgresql.svc.cluster.local:5432/$(POSTGRES_DB)?sslmode=disable
+              resources:
+                requests:
+                  cpu: 100m
+                  memory: 256Mi
+                limits:
+                  cpu: 500m
+                  memory: 512Mi
+---
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: git-rank-weekly
+  namespace: git-rank
+  labels:
+    app.kubernetes.io/name: git-rank-weekly
+    app.kubernetes.io/component: scheduler
+    app.kubernetes.io/part-of: git-rank
+spec:
+  schedule: "0 0 * * 1"
+  concurrencyPolicy: Forbid
+  startingDeadlineSeconds: 600
+  successfulJobsHistoryLimit: 3
+  failedJobsHistoryLimit: 0
+  jobTemplate:
+    spec:
+      activeDeadlineSeconds: 1800
+      backoffLimit: 3
+      ttlSecondsAfterFinished: 3600
+      template:
+        metadata:
+          labels:
+            app.kubernetes.io/name: git-rank-weekly
+            app.kubernetes.io/component: scheduler
+            app.kubernetes.io/part-of: git-rank
+            git-rank-psql-client: "true"
+            git-rank-valkey-client: "true"
+        spec:
+          restartPolicy: OnFailure
+          automountServiceAccountToken: false
+          imagePullSecrets:
+            - name: harbor-registry
+          nodeSelector:
+            kubernetes.io/arch: arm64
+          containers:
+            - name: trigger
+              image: registry.home/git-rank/backend:1.2.24 # {"$imagescan": "git-rank-backend"}
+              imagePullPolicy: IfNotPresent
+              command:
+                - python
+                - scripts/trigger-jobs.py
+                - leaderboard_weekly
+              envFrom:
+                - secretRef:
+                    name: git-rank
+                - configMapRef:
+                    name: git-rank
+              env:
+                - name: POSTGRES_USER
+                  valueFrom:
+                    secretKeyRef:
+                      name: git-rank-postgresql
+                      key: username
+                - name: POSTGRES_PASSWORD
+                  valueFrom:
+                    secretKeyRef:
+                      name: git-rank-postgresql
+                      key: password
+                - name: POSTGRES_DB
+                  valueFrom:
+                    secretKeyRef:
+                      name: git-rank-postgresql
+                      key: dbname
+                - name: DATABASE_URL
+                  value: postgresql://$(POSTGRES_USER):$(POSTGRES_PASSWORD)@postgresql-pooler-git-rank-rw.postgresql.svc.cluster.local:5432/$(POSTGRES_DB)?sslmode=disable
+              resources:
+                requests:
+                  cpu: 100m
+                  memory: 256Mi
+                limits:
+                  cpu: 500m
+                  memory: 512Mi
+---
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: git-rank-monthly
+  namespace: git-rank
+  labels:
+    app.kubernetes.io/name: git-rank-monthly
+    app.kubernetes.io/component: scheduler
+    app.kubernetes.io/part-of: git-rank
+spec:
+  schedule: "0 0 1 * *"
+  concurrencyPolicy: Forbid
+  startingDeadlineSeconds: 600
+  successfulJobsHistoryLimit: 3
+  failedJobsHistoryLimit: 0
+  jobTemplate:
+    spec:
+      activeDeadlineSeconds: 1800
+      backoffLimit: 3
+      ttlSecondsAfterFinished: 3600
+      template:
+        metadata:
+          labels:
+            app.kubernetes.io/name: git-rank-monthly
+            app.kubernetes.io/component: scheduler
+            app.kubernetes.io/part-of: git-rank
+            git-rank-psql-client: "true"
+            git-rank-valkey-client: "true"
+        spec:
+          restartPolicy: OnFailure
+          automountServiceAccountToken: false
+          imagePullSecrets:
+            - name: harbor-registry
+          nodeSelector:
+            kubernetes.io/arch: arm64
+          containers:
+            - name: trigger
+              image: registry.home/git-rank/backend:1.2.24 # {"$imagescan": "git-rank-backend"}
+              imagePullPolicy: IfNotPresent
+              command:
+                - python
+                - scripts/trigger-jobs.py
+                - leaderboard_monthly
+              envFrom:
+                - secretRef:
+                    name: git-rank
+                - configMapRef:
+                    name: git-rank
+              env:
+                - name: POSTGRES_USER
+                  valueFrom:
+                    secretKeyRef:
+                      name: git-rank-postgresql
+                      key: username
+                - name: POSTGRES_PASSWORD
+                  valueFrom:
+                    secretKeyRef:
+                      name: git-rank-postgresql
+                      key: password
+                - name: POSTGRES_DB
+                  valueFrom:
+                    secretKeyRef:
+                      name: git-rank-postgresql
+                      key: dbname
+                - name: DATABASE_URL
+                  value: postgresql://$(POSTGRES_USER):$(POSTGRES_PASSWORD)@postgresql-pooler-git-rank-rw.postgresql.svc.cluster.local:5432/$(POSTGRES_DB)?sslmode=disable
+              resources:
+                requests:
+                  cpu: 100m
+                  memory: 256Mi
+                limits:
+                  cpu: 500m
+                  memory: 512Mi
+---
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: git-rank-maintenance
+  namespace: git-rank
+  labels:
+    app.kubernetes.io/name: git-rank-maintenance
+    app.kubernetes.io/component: scheduler
+    app.kubernetes.io/part-of: git-rank
+spec:
+  schedule: "17 */12 * * *"
+  concurrencyPolicy: Forbid
+  startingDeadlineSeconds: 600
+  successfulJobsHistoryLimit: 3
+  failedJobsHistoryLimit: 0
+  jobTemplate:
+    spec:
+      activeDeadlineSeconds: 1800
+      backoffLimit: 3
+      ttlSecondsAfterFinished: 3600
+      template:
+        metadata:
+          labels:
+            app.kubernetes.io/name: git-rank-maintenance
+            app.kubernetes.io/component: scheduler
+            app.kubernetes.io/part-of: git-rank
+            git-rank-psql-client: "true"
+            git-rank-valkey-client: "true"
+        spec:
+          restartPolicy: OnFailure
+          automountServiceAccountToken: false
+          imagePullSecrets:
+            - name: harbor-registry
+          nodeSelector:
+            kubernetes.io/arch: arm64
+          containers:
+            - name: trigger
+              image: registry.home/git-rank/backend:1.2.24 # {"$imagescan": "git-rank-backend"}
+              imagePullPolicy: IfNotPresent
+              command:
+                - python
+                - scripts/trigger-jobs.py
+                - org_membership_refresh
+                - registry_cleanup
+              envFrom:
+                - secretRef:
+                    name: git-rank
+                - configMapRef:
+                    name: git-rank
+              env:
+                - name: POSTGRES_USER
+                  valueFrom:
+                    secretKeyRef:
+                      name: git-rank-postgresql
+                      key: username
+                - name: POSTGRES_PASSWORD
+                  valueFrom:
+                    secretKeyRef:
+                      name: git-rank-postgresql
+                      key: password
+                - name: POSTGRES_DB
+                  valueFrom:
+                    secretKeyRef:
+                      name: git-rank-postgresql
+                      key: dbname
+                - name: DATABASE_URL
+                  value: postgresql://$(POSTGRES_USER):$(POSTGRES_PASSWORD)@postgresql-pooler-git-rank-rw.postgresql.svc.cluster.local:5432/$(POSTGRES_DB)?sslmode=disable
+              resources:
+                requests:
+                  cpu: 100m
+                  memory: 256Mi
+                limits:
+                  cpu: 500m
+                  memory: 512Mi

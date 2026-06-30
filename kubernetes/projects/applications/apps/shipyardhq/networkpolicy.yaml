@@ -1,0 +1,406 @@
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: shipyardhq-default-deny
+  namespace: shipyardhq
+  labels:
+    app.kubernetes.io/name: shipyardhq
+    app.kubernetes.io/part-of: shipyardhq
+spec:
+  podSelector: {}
+  policyTypes:
+    - Ingress
+    - Egress
+  ingress: []
+  egress: []
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: shipyardhq-web-ingress
+  namespace: shipyardhq
+  labels:
+    app.kubernetes.io/name: shipyardhq
+    app.kubernetes.io/part-of: shipyardhq
+spec:
+  podSelector:
+    matchLabels:
+      app.kubernetes.io/name: shipyardhq
+      app.kubernetes.io/component: web
+  policyTypes:
+    - Ingress
+  ingress:
+    - from:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: cloudflare
+          podSelector:
+            matchLabels:
+              app: controlled-cloudflared-connector
+              strrl.dev/cloudflare-tunnel-ingress-controller: controlled-cloudflared-connector
+      ports:
+        - protocol: TCP
+          port: 3000
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: shipyardhq-imgproxy-ingress
+  namespace: shipyardhq
+  labels:
+    app.kubernetes.io/name: shipyardhq-imgproxy
+    app.kubernetes.io/part-of: shipyardhq
+spec:
+  podSelector:
+    matchLabels:
+      app.kubernetes.io/name: shipyardhq-imgproxy
+      app.kubernetes.io/component: image-proxy
+  policyTypes:
+    - Ingress
+  ingress:
+    - from:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: cloudflare
+          podSelector:
+            matchLabels:
+              app: controlled-cloudflared-connector
+              strrl.dev/cloudflare-tunnel-ingress-controller: controlled-cloudflared-connector
+      ports:
+        - protocol: TCP
+          port: 8080
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: shipyardhq-imgproxy-metrics-ingress
+  namespace: shipyardhq
+  labels:
+    app.kubernetes.io/name: shipyardhq-imgproxy
+    app.kubernetes.io/part-of: shipyardhq
+spec:
+  podSelector:
+    matchLabels:
+      app.kubernetes.io/name: shipyardhq-imgproxy
+      app.kubernetes.io/component: image-proxy
+  policyTypes:
+    - Ingress
+  ingress:
+    - from:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: cattle-monitoring-system
+      ports:
+        - protocol: TCP
+          port: 9090
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: shipyardhq-dns-egress
+  namespace: shipyardhq
+  labels:
+    app.kubernetes.io/name: shipyardhq
+    app.kubernetes.io/part-of: shipyardhq
+spec:
+  podSelector: {}
+  policyTypes:
+    - Egress
+  egress:
+    - to:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: kube-system
+          podSelector:
+            matchLabels:
+              k8s-app: kube-dns
+      ports:
+        - protocol: UDP
+          port: 53
+        - protocol: TCP
+          port: 53
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: shipyardhq-valkey-egress
+  namespace: shipyardhq
+  labels:
+    app.kubernetes.io/name: shipyardhq
+    app.kubernetes.io/part-of: shipyardhq
+spec:
+  podSelector:
+    matchExpressions:
+      - key: app.kubernetes.io/name
+        operator: In
+        values:
+          - shipyardhq
+      - key: app.kubernetes.io/component
+        operator: In
+        values:
+          - cron
+          - next-builder
+          - web
+          - worker
+  policyTypes:
+    - Egress
+  egress:
+    - to:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: valkey
+          podSelector:
+            matchLabels:
+              app.kubernetes.io/instance: valkey
+              app.kubernetes.io/name: valkey
+      ports:
+        - protocol: TCP
+          port: 6379
+        - protocol: TCP
+          port: 26379
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: shipyardhq-otel-collector-egress
+  namespace: shipyardhq
+  labels:
+    app.kubernetes.io/name: shipyardhq
+    app.kubernetes.io/part-of: shipyardhq
+spec:
+  podSelector:
+    matchExpressions:
+      - key: app.kubernetes.io/name
+        operator: In
+        values:
+          - shipyardhq
+      - key: app.kubernetes.io/component
+        operator: In
+        values:
+          - web
+          - worker
+  policyTypes:
+    - Egress
+  egress:
+    - to:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: cattle-monitoring-system
+          podSelector:
+            matchLabels:
+              app.kubernetes.io/name: opentelemetry-collector
+              app.kubernetes.io/component: telemetry-pipeline
+      ports:
+        - protocol: TCP
+          port: 4318
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: shipyardhq-pyroscope-egress
+  namespace: shipyardhq
+  labels:
+    app.kubernetes.io/name: shipyardhq
+    app.kubernetes.io/part-of: shipyardhq
+spec:
+  podSelector:
+    matchExpressions:
+      - key: app.kubernetes.io/name
+        operator: In
+        values:
+          - shipyardhq
+      - key: app.kubernetes.io/component
+        operator: In
+        values:
+          - web
+          - worker
+  policyTypes:
+    - Egress
+  egress:
+    - to:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: cattle-monitoring-system
+          podSelector:
+            matchLabels:
+              app.kubernetes.io/name: pyroscope
+              app.kubernetes.io/component: profiling-backend
+      ports:
+        - protocol: TCP
+          port: 4040
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: shipyardhq-postgresql-egress
+  namespace: shipyardhq
+  labels:
+    app.kubernetes.io/name: shipyardhq
+    app.kubernetes.io/part-of: shipyardhq
+spec:
+  podSelector:
+    matchLabels:
+      shipyardhq-psql-client: "true"
+  policyTypes:
+    - Egress
+  egress:
+    - to:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: postgresql
+          podSelector:
+            matchLabels:
+              cnpg.io/poolerName: postgresql-pooler-shipyardhq-rw
+      ports:
+        - protocol: TCP
+          port: 5432
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: shipyardhq-kubernetes-api-egress
+  namespace: shipyardhq
+  labels:
+    app.kubernetes.io/name: shipyardhq
+    app.kubernetes.io/part-of: shipyardhq
+spec:
+  podSelector:
+    matchLabels:
+      shipyardhq-rollout-waiter: "true"
+  policyTypes:
+    - Egress
+  egress:
+    - to:
+        - ipBlock:
+            cidr: 10.43.0.1/32
+      ports:
+        - protocol: TCP
+          port: 443
+        - protocol: TCP
+          port: 6443
+---
+apiVersion: cilium.io/v2
+kind: CiliumNetworkPolicy
+metadata:
+  name: shipyardhq-apiserver-access
+  namespace: shipyardhq
+  labels:
+    app.kubernetes.io/name: shipyardhq
+    app.kubernetes.io/part-of: shipyardhq
+spec:
+  endpointSelector:
+    matchLabels:
+      shipyardhq-rollout-waiter: "true"
+  egress:
+    - toEntities:
+        - kube-apiserver
+      toPorts:
+        - ports:
+            - port: "443"
+              protocol: TCP
+            - port: "6443"
+              protocol: TCP
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: shipyardhq-imgproxy-egress
+  namespace: shipyardhq
+  labels:
+    app.kubernetes.io/name: shipyardhq
+    app.kubernetes.io/part-of: shipyardhq
+spec:
+  podSelector:
+    matchExpressions:
+      - key: app.kubernetes.io/name
+        operator: In
+        values:
+          - shipyardhq
+      - key: app.kubernetes.io/component
+        operator: In
+        values:
+          - cron
+          - next-builder
+          - web
+          - worker
+  policyTypes:
+    - Egress
+  egress:
+    - to:
+        - podSelector:
+            matchLabels:
+              app.kubernetes.io/name: shipyardhq-imgproxy
+              app.kubernetes.io/component: image-proxy
+      ports:
+        - protocol: TCP
+          port: 8080
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: shipyardhq-public-egress
+  namespace: shipyardhq
+  labels:
+    app.kubernetes.io/name: shipyardhq
+    app.kubernetes.io/part-of: shipyardhq
+spec:
+  podSelector:
+    matchExpressions:
+      - key: app.kubernetes.io/name
+        operator: In
+        values:
+          - shipyardhq
+      - key: app.kubernetes.io/component
+        operator: In
+        values:
+          - cron
+          - next-builder
+          - web
+          - worker
+  policyTypes:
+    - Egress
+  egress:
+    - to:
+        - ipBlock:
+            cidr: 0.0.0.0/0
+            except:
+              - 10.0.0.0/8
+              - 100.64.0.0/10
+              - 172.16.0.0/12
+              - 192.168.0.0/16
+      ports:
+        - protocol: TCP
+          port: 80
+        - protocol: TCP
+          port: 443
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: shipyardhq-imgproxy-public-egress
+  namespace: shipyardhq
+  labels:
+    app.kubernetes.io/name: shipyardhq-imgproxy
+    app.kubernetes.io/part-of: shipyardhq
+spec:
+  podSelector:
+    matchLabels:
+      app.kubernetes.io/name: shipyardhq-imgproxy
+      app.kubernetes.io/component: image-proxy
+  policyTypes:
+    - Egress
+  egress:
+    - to:
+        - ipBlock:
+            cidr: 0.0.0.0/0
+            except:
+              - 10.0.0.0/8
+              - 100.64.0.0/10
+              - 172.16.0.0/12
+              - 192.168.0.0/16
+      ports:
+        - protocol: TCP
+          port: 80
+        - protocol: TCP
+          port: 443

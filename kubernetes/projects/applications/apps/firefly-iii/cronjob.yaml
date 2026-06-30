@@ -1,0 +1,63 @@
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: firefly-iii-cron
+  namespace: finance
+  labels:
+    app.kubernetes.io/name: firefly-iii
+    app.kubernetes.io/component: cron
+    app.kubernetes.io/part-of: firefly-iii
+    home-lab.io/project-slug: applications
+spec:
+  schedule: "0 3 * * *"
+  concurrencyPolicy: Forbid
+  successfulJobsHistoryLimit: 3
+  failedJobsHistoryLimit: 1
+  jobTemplate:
+    spec:
+      backoffLimit: 2
+      template:
+        metadata:
+          labels:
+            app.kubernetes.io/name: firefly-iii
+            app.kubernetes.io/component: cron
+            app.kubernetes.io/part-of: firefly-iii
+            home-lab.io/project-slug: applications
+        spec:
+          restartPolicy: OnFailure
+          automountServiceAccountToken: false
+          securityContext:
+            seccompProfile:
+              type: RuntimeDefault
+          nodeSelector:
+            kubernetes.io/arch: arm64
+          containers:
+            - name: curl
+              image: registry.home/docker.io/curlimages/curl:8.21.0 # {"$imagescan": "firefly-iii-curl"}
+              imagePullPolicy: IfNotPresent
+              env:
+                - name: STATIC_CRON_TOKEN
+                  valueFrom:
+                    secretKeyRef:
+                      name: firefly-iii
+                      key: STATIC_CRON_TOKEN
+              command:
+                - /bin/sh
+                - -ec
+                - |
+                  curl --fail --show-error --silent "http://firefly-iii:8080/api/v1/cron/${STATIC_CRON_TOKEN}"
+              resources:
+                requests:
+                  cpu: 5m
+                  memory: 32Mi
+                limits:
+                  memory: 128Mi
+              securityContext:
+                allowPrivilegeEscalation: false
+                capabilities:
+                  drop:
+                    - ALL
+                readOnlyRootFilesystem: true
+                runAsNonRoot: true
+                runAsUser: 1000
+                runAsGroup: 1000

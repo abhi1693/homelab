@@ -1,0 +1,29 @@
+---
+- name: Run smartctl_exporter entrypoint
+  hosts: "{{ smartctl_exporter_target_hosts | default('k3s_nodes') }}"
+  become: true
+  gather_facts: true
+
+  vars:
+    smartctl_exporter_selected_entrypoint: "{{ smartctl_exporter_entrypoint | default('main') }}"
+
+  pre_tasks:
+    - name: Assert smartctl_exporter entrypoint is supported
+      ansible.builtin.assert:
+        that:
+          - smartctl_exporter_selected_entrypoint in ['main', 'validation', 'reset']
+        fail_msg: "Unsupported smartctl_exporter entrypoint {{ smartctl_exporter_selected_entrypoint }}"
+        success_msg: "Running smartctl_exporter entrypoint {{ smartctl_exporter_selected_entrypoint }}"
+
+  tasks:
+    - name: Run smartctl_exporter main entrypoint
+      ansible.builtin.include_role:
+        name: smartctl_exporter
+      when: smartctl_exporter_selected_entrypoint == 'main'
+
+    - name: Run smartctl_exporter alternate entrypoint
+      ansible.builtin.include_role:
+        name: smartctl_exporter
+        tasks_from: "{{ smartctl_exporter_selected_entrypoint }}"
+        rolespec_validate: false
+      when: smartctl_exporter_selected_entrypoint != 'main'

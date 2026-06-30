@@ -1,0 +1,41 @@
+---
+argument_specs:
+  main:
+    short_description: Prepare Raspberry Pi specific prerequisites.
+    options:
+      rpi_prep:
+        type: dict
+        required: true
+        options:
+          disable_swap:
+            type: bool
+            required: true
+            description:
+              - Whether swap should be disabled on Raspberry Pi nodes.
+          required_cmdline_params:
+            type: list
+            elements: str
+            required: true
+            description:
+              - Kernel parameters that must be present in the Raspberry Pi boot cmdline.
+          required_config_lines:
+            type: list
+            elements: str
+            required: true
+            description:
+              - Boot config lines that must be present in /boot/firmware/config.txt.
+          required_sysctls:
+            type: dict
+            required: true
+            description:
+              - Kernel tunables that must be persisted for K3s protect-kernel-defaults.
+          node_exporter_textfile_dir:
+            type: str
+            required: true
+            description:
+              - Host directory where Raspberry Pi textfile metrics are written for node-exporter.
+          throttling_exporter_interval:
+            type: str
+            required: true
+            description:
+              - systemd timer interval for refreshing Raspberry Pi throttling metrics.

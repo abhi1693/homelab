@@ -1,0 +1,173 @@
+- name: Assert K3s registration VIP is set
+  ansible.builtin.assert:
+    that:
+      - k3s.registration_vip | trim != ''
+    fail_msg: Expected k3s.registration_vip to be set for K3s server bootstrap and join operations.
+    success_msg: "K3s registration VIP is set to {{ k3s.registration_vip }}"
+
+- name: Assert K3s extra args use key=value format
+  ansible.builtin.assert:
+    that:
+      - "'=' in item"
+      - item.split('=', 1)[0] | trim != ''
+      - item.split('=', 1)[1] | trim != ''
+      - item.split('=', 1)[0] != 'kube-apiserver-arg'
+      - item.split('=', 1)[0] != 'kubelet-arg'
+    fail_msg: "Expected k3s_server.extra_args item in key=value form and repeated component args in their dedicated lists: {{ item }}"
+    success_msg: "K3s extra arg {{ item }} is valid"
+  loop: "{{ k3s_server.extra_args }}"
+
+- name: Assert K3s kube-apiserver args use key=value format
+  ansible.builtin.assert:
+    that:
+      - "'=' in item"
+      - item.split('=', 1)[0] | trim != ''
+      - item.split('=', 1)[1] | trim != ''
+    fail_msg: "Expected k3s_server.kube_apiserver_args item in key=value form: {{ item }}"
+    success_msg: "K3s kube-apiserver arg {{ item }} is valid"
+  loop: "{{ k3s_server.kube_apiserver_args }}"
+
+- name: Assert K3s kubelet args use key=value format
+  ansible.builtin.assert:
+    that:
+      - "'=' in item"
+      - item.split('=', 1)[0] | trim != ''
+      - item.split('=', 1)[1] | trim != ''
+    fail_msg: "Expected k3s_server.kubelet_args item in key=value form: {{ item }}"
+    success_msg: "K3s kubelet arg {{ item }} is valid"
+  loop: "{{ k3s_server.kubelet_args }}"
+
+- name: Assert K3s audit logging config is valid
+  ansible.builtin.assert:
+    that:
+      - not (k3s_server.audit_logging.enabled | bool) or k3s_server.audit_logging.policy_file | trim != ''
+      - not (k3s_server.audit_logging.enabled | bool) or k3s_server.audit_logging.log_path | trim != ''
+      - k3s_server.audit_logging.log_maxage | int > 0
+      - k3s_server.audit_logging.log_maxbackup | int > 0
+      - k3s_server.audit_logging.log_maxsize | int > 0
+    fail_msg: Expected valid K3s audit logging paths and rotation settings.
+    success_msg: "K3s audit logging config is valid"
+
+- name: Assert K3s registry mirror config is valid
+  ansible.builtin.assert:
+    that:
+      - not (k3s_server.registry_mirror.enabled | bool)
+        or (k3s_server.registry_mirror.mirrors | length > 0)
+        or (k3s_server.registry_mirror.configs | length > 0)
+      - not (k3s_server.registry_mirror.disable_default_registry_endpoint | bool)
+        or (k3s_server.registry_mirror.enabled | bool)
+    fail_msg: K3s registry config requires at least one mirror or config and must be enabled before disabling default registry fallback.
+    success_msg: "K3s registry mirror config is valid"
+
+- name: Wait for K3s registration endpoint before joining an additional server
+  ansible.builtin.wait_for:
+    host: "{{ k3s.registration_vip }}"
+    port: 6443
+    timeout: 300
+  when: not (k3s_node.cluster_init | bool)
+
+- name: Ensure K3s config directory exists
+  ansible.builtin.file:
+    path: /etc/rancher/k3s
+    state: directory
+    owner: root
+    group: root
+    mode: "0755"
+
+- name: Ensure K3s audit policy directory exists
+  ansible.builtin.file:
+    path: "{{ k3s_server.audit_logging.policy_file | dirname }}"
+    state: directory
+    owner: root
+    group: root
+    mode: "0755"
+  when: k3s_server.audit_logging.enabled | bool
+
+- name: Ensure K3s audit log directory exists
+  ansible.builtin.file:
+    path: "{{ k3s_server.audit_logging.log_path | dirname }}"
+    state: directory
+    owner: root
+    group: root
+    mode: "0700"
+  when: k3s_server.audit_logging.enabled | bool
+
+- name: Render K3s audit policy
+  ansible.builtin.template:
+    src: audit-policy.yaml.j2
+    dest: "{{ k3s_server.audit_logging.policy_file }}"
+    owner: root
+    group: root
+    mode: "0600"
+  when: k3s_server.audit_logging.enabled | bool
+  notify: Restart k3s
+
+- name: Render K3s registries config
+  ansible.builtin.template:
+    src: registries.yaml.j2
+    dest: /etc/rancher/k3s/registries.yaml
+    owner: root
+    group: root
+    mode: "0600"
+  when: k3s_server.registry_mirror.enabled | bool
+  notify: Restart k3s
+
+- name: Remove K3s registries config when registry mirror is disabled
+  ansible.builtin.file:
+    path: /etc/rancher/k3s/registries.yaml
+    state: absent
+  when: not (k3s_server.registry_mirror.enabled | bool)
+  notify: Restart k3s
+
+- name: Render K3s server config
+  ansible.builtin.template:
+    src: config.yaml.j2
+    dest: /etc/rancher/k3s/config.yaml
+    owner: root
+    group: root
+    mode: "0600"
+  no_log: true
+  notify: Restart k3s
+
+- name: Download K3s install script
+  ansible.builtin.get_url:
+    url: https://get.k3s.io
+    dest: /usr/local/bin/k3s-install.sh
+    owner: root
+    group: root
+    mode: "0755"
+
+- name: Check whether K3s binary is already installed
+  ansible.builtin.stat:
+    path: /usr/local/bin/k3s
+  register: k3s_binary_stat
+
+- name: Read installed K3s version
+  ansible.builtin.command: /usr/local/bin/k3s --version
+  register: k3s_version_output
+  changed_when: false
+  when: k3s_binary_stat.stat.exists
+
+- name: Record installed K3s version
+  ansible.builtin.set_fact:
+    k3s_installed_version: >-
+      {{
+        ((k3s_version_output.stdout_lines | first).split()[2]) | default('')
+      }}
+  when: k3s_binary_stat.stat.exists
+
+- name: Install or update K3s server binary
+  ansible.builtin.command: /usr/local/bin/k3s-install.sh
+  environment:
+    INSTALL_K3S_VERSION: "{{ k3s.version }}"
+    INSTALL_K3S_EXEC: server
+  when:
+    - not k3s_binary_stat.stat.exists
+      or (k3s_installed_version | default('')) != k3s.version
+
+- name: Ensure K3s service is enabled and started
+  ansible.builtin.systemd:
+    name: k3s
+    enabled: true
+    state: started
+    daemon_reload: true

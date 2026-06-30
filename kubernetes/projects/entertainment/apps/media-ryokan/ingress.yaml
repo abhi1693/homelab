@@ -1,0 +1,21 @@
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: ryokan
+  namespace: media
+  labels:
+    app.kubernetes.io/name: ryokan
+    app.kubernetes.io/part-of: media-stack
+spec:
+  ingressClassName: traefik
+  rules:
+    - host: ryokan.media.home
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: ryokan
+                port:
+                  name: http

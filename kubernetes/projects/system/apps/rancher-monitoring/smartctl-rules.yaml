@@ -1,0 +1,103 @@
+---
+apiVersion: monitoring.coreos.com/v1
+kind: PrometheusRule
+metadata:
+  name: raspberry-pi-nvme-health
+  namespace: cattle-monitoring-system
+  labels:
+    app.kubernetes.io/name: raspberry-pi-nvme-health
+    app.kubernetes.io/part-of: rancher-monitoring
+    home-lab.io/project-slug: system
+spec:
+  groups:
+    - name: raspberry-pi.nvme-health
+      rules:
+        - record: home_lab:nvme_percentage_used_eta_days
+          expr: |-
+            (
+              (100 - smartctl_device_percentage_used{job="smartctl-exporter"})
+              / deriv(smartctl_device_percentage_used{job="smartctl-exporter"}[30d])
+              / 86400
+            )
+            and (deriv(smartctl_device_percentage_used{job="smartctl-exporter"}[30d]) > 0)
+            and (smartctl_device_percentage_used{job="smartctl-exporter"} < 100)
+        - alert: SmartctlExporterDown
+          expr: up{job="smartctl-exporter"} == 0
+          for: 5m
+          labels:
+            severity: critical
+          annotations:
+            summary: smartctl_exporter is down
+            description: smartctl_exporter has been unreachable on {{ $labels.node }} for more than 5 minutes.
+        - alert: RaspberryPiNvmeSmartStatusBad
+          expr: smartctl_device_smart_status{job="smartctl-exporter"} != 1
+          for: 5m
+          labels:
+            severity: critical
+          annotations:
+            summary: NVMe SMART status is unhealthy
+            description: NVMe device {{ $labels.device }} on {{ $labels.node }} reports an unhealthy SMART status.
+        - alert: RaspberryPiNvmeCriticalWarning
+          expr: smartctl_device_critical_warning{job="smartctl-exporter"} != 0
+          for: 5m
+          labels:
+            severity: critical
+          annotations:
+            summary: NVMe controller has critical warnings
+            description: NVMe device {{ $labels.device }} on {{ $labels.node }} reports critical warning bitmask {{ printf "%.0f" $value }}.
+        - alert: RaspberryPiNvmeHighTemperature
+          expr: smartctl_device_temperature{job="smartctl-exporter", temperature_type="current"} > 70
+          for: 10m
+          labels:
+            severity: warning
+          annotations:
+            summary: NVMe temperature is high
+            description: NVMe device {{ $labels.device }} on {{ $labels.node }} is {{ printf "%.0f" $value }}C for more than 10 minutes.
+        - alert: RaspberryPiNvmeCriticalTemperature
+          expr: smartctl_device_temperature{job="smartctl-exporter", temperature_type="current"} > 75
+          for: 5m
+          labels:
+            severity: critical
+          annotations:
+            summary: NVMe temperature is critical
+            description: NVMe device {{ $labels.device }} on {{ $labels.node }} is {{ printf "%.0f" $value }}C for more than 5 minutes.
+        - alert: RaspberryPiNvmeAvailableSpareLow
+          expr: smartctl_device_available_spare{job="smartctl-exporter"} < on(instance, device) smartctl_device_available_spare_threshold{job="smartctl-exporter"}
+          for: 10m
+          labels:
+            severity: warning
+          annotations:
+            summary: NVMe available spare is below threshold
+            description: NVMe device {{ $labels.device }} on {{ $labels.node }} has available spare at {{ printf "%.0f" $value }}%.
+        - alert: RaspberryPiNvmeWearHigh
+          expr: smartctl_device_percentage_used{job="smartctl-exporter"} > 80
+          for: 30m
+          labels:
+            severity: warning
+          annotations:
+            summary: NVMe wear percentage is high
+            description: NVMe device {{ $labels.device }} on {{ $labels.node }} is {{ printf "%.0f" $value }}% used.
+        - alert: RaspberryPiNvmeWearEtaUnderOneYear
+          expr: home_lab:nvme_percentage_used_eta_days{job="smartctl-exporter"} < 365
+          for: 6h
+          labels:
+            severity: warning
+          annotations:
+            summary: NVMe wear ETA is under one year
+            description: NVMe device {{ $labels.device }} on {{ $labels.node }} is projected to reach 100% wear in {{ printf "%.0f" $value }} days based on the last 30 days.
+        - alert: RaspberryPiNvmeMediaErrorsIncreasing
+          expr: increase(smartctl_device_media_errors{job="smartctl-exporter"}[1h]) > 0
+          for: 5m
+          labels:
+            severity: critical
+          annotations:
+            summary: NVMe media errors increased
+            description: NVMe device {{ $labels.device }} on {{ $labels.node }} reported new unrecovered data integrity errors.
+        - alert: RaspberryPiNvmeErrorLogIncreasing
+          expr: increase(smartctl_device_num_err_log_entries{job="smartctl-exporter"}[1h]) > 0
+          for: 10m
+          labels:
+            severity: warning
+          annotations:
+            summary: NVMe error log entries increased
+            description: NVMe device {{ $labels.device }} on {{ $labels.node }} added new controller error log entries.

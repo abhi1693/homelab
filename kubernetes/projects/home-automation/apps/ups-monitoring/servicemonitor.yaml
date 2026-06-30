@@ -1,0 +1,31 @@
+---
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+  name: ups-monitoring
+  namespace: ups
+  labels:
+    app.kubernetes.io/name: ups-monitoring
+    app.kubernetes.io/component: metrics
+    app.kubernetes.io/part-of: home-automation
+    home-lab.io/project-slug: home-automation
+spec:
+  jobLabel: app.kubernetes.io/name
+  namespaceSelector:
+    matchNames:
+      - ups
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: ups-monitoring
+  endpoints:
+    - port: http
+      path: /api/v1/metrics
+      interval: 60s
+      scrapeTimeout: 15s
+    - port: metrics
+      path: /ups_metrics
+      interval: 60s
+      scrapeTimeout: 15s
+      params:
+        ups:
+          - ups

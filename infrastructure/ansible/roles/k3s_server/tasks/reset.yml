@@ -1,0 +1,19 @@
+---
+- name: Check for K3s uninstall script
+  ansible.builtin.stat:
+    path: /usr/local/bin/k3s-uninstall.sh
+  register: k3s_uninstall_script_stat
+
+- name: Run K3s uninstall script
+  ansible.builtin.command: /usr/local/bin/k3s-uninstall.sh
+  when: k3s_uninstall_script_stat.stat.exists
+
+- name: Remove K3s config directory
+  ansible.builtin.file:
+    path: /etc/rancher/k3s
+    state: absent
+
+- name: Remove cached K3s install script
+  ansible.builtin.file:
+    path: /usr/local/bin/k3s-install.sh
+    state: absent

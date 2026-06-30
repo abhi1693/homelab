@@ -1,0 +1,49 @@
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: shipyardhq-worker
+  namespace: shipyardhq
+  labels:
+    app.kubernetes.io/name: shipyardhq
+    app.kubernetes.io/component: worker
+    app.kubernetes.io/part-of: shipyardhq
+automountServiceAccountToken: false
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: shipyardhq-worker-rollout-waiter
+  namespace: shipyardhq
+  labels:
+    app.kubernetes.io/name: shipyardhq
+    app.kubernetes.io/component: worker
+    app.kubernetes.io/part-of: shipyardhq
+rules:
+  - apiGroups:
+      - apps
+    resources:
+      - deployments
+      - replicasets
+    verbs:
+      - get
+      - list
+      - watch
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: shipyardhq-worker-rollout-waiter
+  namespace: shipyardhq
+  labels:
+    app.kubernetes.io/name: shipyardhq
+    app.kubernetes.io/component: worker
+    app.kubernetes.io/part-of: shipyardhq
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: Role
+  name: shipyardhq-worker-rollout-waiter
+subjects:
+  - kind: ServiceAccount
+    name: shipyardhq-worker
+    namespace: shipyardhq

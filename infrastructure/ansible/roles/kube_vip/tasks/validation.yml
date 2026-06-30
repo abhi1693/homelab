@@ -1,0 +1,109 @@
+---
+- name: Assert kube-vip validation is running on the bootstrap server
+  ansible.builtin.assert:
+    that:
+      - k3s_node.cluster_init | bool
+    fail_msg: kube_vip validation must run on the initial K3s server where k3s_node.cluster_init=true.
+    success_msg: "Validating kube-vip from the bootstrap K3s server"
+
+- name: Check kube-vip manifest files
+  ansible.builtin.stat:
+    path: "{{ item }}"
+  loop:
+    - /var/lib/rancher/k3s/server/manifests/kube-vip-rbac.yaml
+    - /var/lib/rancher/k3s/server/manifests/kube-vip.yaml
+  register: kube_vip_manifest_stats
+
+- name: Assert kube-vip manifest files exist
+  ansible.builtin.assert:
+    that:
+      - item.stat.exists
+    fail_msg: "Expected kube-vip manifest {{ item.stat.path }} to exist"
+    success_msg: "kube-vip manifest {{ item.stat.path }} exists"
+  loop: "{{ kube_vip_manifest_stats.results }}"
+
+- name: Read kube-vip DaemonSet manifest
+  ansible.builtin.slurp:
+    path: /var/lib/rancher/k3s/server/manifests/kube-vip.yaml
+  register: kube_vip_manifest_raw
+
+- name: Record kube-vip DaemonSet manifest text
+  ansible.builtin.set_fact:
+    kube_vip_manifest_text: "{{ kube_vip_manifest_raw.content | b64decode }}"
+
+- name: Record expected kube-vip manifest lines
+  ansible.builtin.set_fact:
+    kube_vip_expected_address_line: 'value: "{{ k3s.registration_vip }}"'
+    kube_vip_expected_image_line: "image: ghcr.io/kube-vip/kube-vip:{{ kube_vip.version }}"
+    kube_vip_expected_priority_class_line: "priorityClassName: {{ kube_vip.priority_class_name }}"
+
+- name: Assert kube-vip manifest renders the expected VIP and image version
+  ansible.builtin.assert:
+    that:
+      - kube_vip_expected_address_line in kube_vip_manifest_text
+      - kube_vip_expected_image_line in kube_vip_manifest_text
+      - kube_vip_expected_priority_class_line in kube_vip_manifest_text
+    fail_msg: Expected kube-vip manifest to contain the configured VIP, image version, and priority class.
+    success_msg: "kube-vip manifest contains the configured VIP, image version, and priority class"
+
+- name: Read kube-vip priority class
+  ansible.builtin.command:
+    argv:
+      - /usr/local/bin/k3s
+      - kubectl
+      - -n
+      - kube-system
+      - get
+      - daemonset
+      - kube-vip-ds
+      - -o
+      - jsonpath={.spec.template.spec.priorityClassName}
+  register: kube_vip_priority_class
+  changed_when: false
+
+- name: Assert kube-vip uses the configured priority class
+  ansible.builtin.assert:
+    that:
+      - kube_vip_priority_class.stdout | trim == kube_vip.priority_class_name
+    fail_msg: "Expected kube-vip to use priority class {{ kube_vip.priority_class_name }}"
+    success_msg: "kube-vip uses priority class {{ kube_vip.priority_class_name }}"
+
+- name: Wait for kube-vip DaemonSet rollout
+  ansible.builtin.command:
+    argv:
+      - /usr/local/bin/k3s
+      - kubectl
+      - -n
+      - kube-system
+      - rollout
+      - status
+      - daemonset/kube-vip-ds
+      - --timeout=180s
+  register: kube_vip_rollout
+  changed_when: false
+
+- name: Wait for the control-plane VIP API endpoint
+  ansible.builtin.wait_for:
+    host: "{{ k3s.registration_vip }}"
+    port: 6443
+    timeout: 180
+
+- name: Check K3s API readiness through the kube-vip endpoint
+  ansible.builtin.command:
+    argv:
+      - /usr/local/bin/k3s
+      - kubectl
+      - --kubeconfig
+      - /etc/rancher/k3s/k3s.yaml
+      - --server=https://{{ k3s.registration_vip }}:6443
+      - get
+      - --raw=/readyz
+  register: kube_vip_readyz
+  changed_when: false
+
+- name: Assert kube-vip endpoint serves the K3s API
+  ansible.builtin.assert:
+    that:
+      - kube_vip_readyz.stdout | trim == 'ok'
+    fail_msg: "Expected K3s API /readyz endpoint to return ok through https://{{ k3s.registration_vip }}:6443"
+    success_msg: "K3s API is reachable through the kube-vip endpoint"

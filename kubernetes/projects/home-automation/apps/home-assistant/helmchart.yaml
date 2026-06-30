@@ -1,0 +1,172 @@
+---
+apiVersion: helm.cattle.io/v1
+kind: HelmChart
+metadata:
+  name: home-assistant
+  namespace: kube-system
+spec:
+  targetNamespace: home-assistant
+  createNamespace: true
+  chart: home-assistant
+  repo: http://pajikos.github.io/home-assistant-helm-chart/
+  version: 0.3.67
+  timeout: 10m0s
+  valuesContent: |-
+    replicaCount: 1
+    deploymentStrategy: Recreate
+    controller:
+      type: Deployment
+    image:
+      repository: registry.home/ghcr.io/home-assistant/home-assistant
+      pullPolicy: IfNotPresent
+      tag: "2026.6.4" # {"$imagescan": "home-assistant:tag"}
+    env:
+      - name: TZ
+        value: Asia/Kolkata
+      - name: HOME_ASSISTANT_PACKAGES_REVISION
+        value: "2026-06-02-rpi-cooling-webhooks"
+    podSecurityContext:
+      fsGroup: 1000
+      fsGroupChangePolicy: OnRootMismatch
+    tolerations:
+      - key: node.kubernetes.io/not-ready
+        operator: Exists
+        effect: NoExecute
+        tolerationSeconds: 30
+      - key: node.kubernetes.io/unreachable
+        operator: Exists
+        effect: NoExecute
+        tolerationSeconds: 30
+    ingress:
+      enabled: true
+      external: false
+      className: traefik
+      hosts:
+        - host: ha.home
+          paths:
+            - path: /
+              pathType: Prefix
+      tls: []
+    initContainers:
+      - name: install-hacs
+        image: registry.home/ghcr.io/home-assistant/home-assistant:2026.6.4 # {"$imagescan": "home-assistant"}
+        imagePullPolicy: IfNotPresent
+        securityContext:
+          runAsUser: 0
+        command:
+          - /bin/sh
+          - -c
+        args:
+          - |-
+            set -e
+
+            if [ -f /config/custom_components/hacs/manifest.json ]; then
+              echo "HACS already installed"
+              exit 0
+            fi
+
+            echo "Installing HACS 2.0.5"
+            mkdir -p /config/custom_components/hacs
+            wget -O /tmp/hacs.zip https://github.com/hacs/integration/releases/download/2.0.5/hacs.zip
+            unzip -o /tmp/hacs.zip -d /config/custom_components/hacs >/dev/null
+            rm -f /tmp/hacs.zip
+        volumeMounts:
+          - name: home-assistant-pvc
+            mountPath: /config
+    configuration:
+      enabled: true
+      forceInit: false
+      trusted_proxies:
+        - 10.42.0.0/16
+      templateConfig: |-
+        # Loads default set of integrations. Do not remove.
+        default_config:
+
+        http:
+          use_x_forwarded_for: true
+          trusted_proxies:
+            - 10.42.0.0/16
+
+        homeassistant:
+          packages: !include_dir_named packages
+
+        # Load frontend themes from the themes folder
+        frontend:
+          themes: !include_dir_merge_named themes
+
+        automation: !include automations.yaml
+        script: !include scripts.yaml
+        scene: !include scenes.yaml
+      initScript: |-
+        #!/bin/sh
+        set -e
+
+        if [ ! -f /config/configuration.yaml ]; then
+          echo "Configuration file not found, creating a new one"
+          cp /config-templates/configuration.yaml /config/configuration.yaml
+        fi
+
+        yq -i '.homeassistant.packages = "packages" | .homeassistant.packages tag = "!include_dir_named"' /config/configuration.yaml
+
+        if [ ! -f /config/automations.yaml ]; then
+          echo "Automations file not found, creating a new one"
+          printf '[]\n' > /config/automations.yaml
+        fi
+
+        if [ ! -f /config/scripts.yaml ]; then
+          echo "Scripts file not found, creating a new one"
+          touch /config/scripts.yaml
+        fi
+
+        if [ ! -f /config/scenes.yaml ]; then
+          echo "Scenes file not found, creating a new one"
+          touch /config/scenes.yaml
+        fi
+    additionalVolumes:
+      - name: home-assistant-packages
+        configMap:
+          name: home-assistant-packages
+    additionalMounts:
+      - name: home-assistant-packages
+        mountPath: /config/packages
+        readOnly: true
+    persistence:
+      enabled: true
+      accessMode: ReadWriteMany
+      size: 2Gi
+      storageClass: longhorn
+      annotations:
+        helm.sh/resource-policy: keep
+    resources:
+      requests:
+        cpu: 25m
+        memory: 576Mi
+      limits:
+        memory: 864Mi
+    startupProbe:
+      failureThreshold: 60
+      httpGet:
+        path: /
+        port: http
+        scheme: HTTP
+      periodSeconds: 10
+      successThreshold: 1
+      timeoutSeconds: 2
+    addons:
+      codeserver:
+        enabled: true
+        resources:
+          requests:
+            cpu: 10m
+            memory: 80Mi
+          limits:
+            memory: 144Mi
+        ingress:
+          enabled: true
+          className: traefik
+          hosts:
+            - host: code.ha.home
+              paths:
+                - path: /
+                  pathType: Prefix
+          tls: []

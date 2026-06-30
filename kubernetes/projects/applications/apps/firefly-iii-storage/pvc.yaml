@@ -1,0 +1,20 @@
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: firefly-iii-upload
+  namespace: finance
+  annotations:
+    helm.sh/resource-policy: keep
+    home-lab.io/reset-at: "2026-06-14T10:20:00Z"
+  labels:
+    app.kubernetes.io/name: firefly-iii
+    app.kubernetes.io/part-of: firefly-iii
+    home-lab.io/project-slug: applications
+spec:
+  accessModes:
+    - ReadWriteOnce
+  storageClassName: longhorn
+  resources:
+    requests:
+      storage: 256Mi

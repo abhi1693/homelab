@@ -1,0 +1,267 @@
+---
+global:
+  cattle:
+    clusterId: local
+    clusterName: local
+    rkePathPrefix: ""
+    rkeWindowsPathPrefix: ""
+    systemDefaultRegistry: ""
+    systemProjectId: p-zl69x
+    url: https://rancher.home
+    windows:
+      enabled: false
+  systemDefaultRegistry: ""
+nameOverride: rancher-monitoring
+namespaceOverride: cattle-monitoring-system
+crds:
+  enabled: false
+rancherMonitoring:
+  enabled: true
+k3sServer:
+  enabled: true
+windowsMonitoring:
+  enabled: false
+prometheus-adapter:
+  logLevel: 1
+  metricsRelistInterval: 10m
+  resources:
+    requests:
+      cpu: 50m
+      memory: 128Mi
+    limits:
+      memory: 192Mi
+  rules:
+    default: false
+    custom:
+      - seriesQuery: '{__name__="home_lab_disabled_prometheus_adapter_metric",namespace!="",pod!=""}'
+        resources:
+          overrides:
+            namespace:
+              resource: namespace
+            pod:
+              resource: pod
+        name:
+          matches: "^home_lab_disabled_prometheus_adapter_metric$"
+          as: "home_lab_disabled_prometheus_adapter_metric"
+        metricsQuery: 'sum(<<.Series>>{<<.LabelMatchers>>}) by (<<.GroupBy>>)'
+    external: []
+prometheusOperator:
+  resources:
+    requests:
+      cpu: 50m
+      memory: 80Mi
+    limits:
+      memory: 144Mi
+  prometheusConfigReloader:
+    resources:
+      requests:
+        cpu: 50m
+        memory: 64Mi
+      limits:
+        memory: 128Mi
+prometheus:
+  podDisruptionBudget:
+    enabled: true
+    minAvailable: 1
+  prometheusSpec:
+    externalUrl: http://prometheus.home
+    routePrefix: /
+    replicas: 1
+    shards: 1
+    retention: 14d
+    retentionSize: 16GiB
+    scrapeInterval: 60s
+    enableOTLPReceiver: true
+    podAntiAffinity: hard
+    persistentVolumeClaimRetentionPolicy:
+      whenDeleted: Retain
+      whenScaled: Delete
+    ruleSelector: {}
+    ruleNamespaceSelector: {}
+    serviceMonitorSelector: {}
+    serviceMonitorNamespaceSelector: {}
+    podMonitorSelector: {}
+    podMonitorNamespaceSelector: {}
+    probeSelectorNilUsesHelmValues: false
+    probeSelector: {}
+    probeNamespaceSelector: {}
+    scrapeConfigSelectorNilUsesHelmValues: false
+    scrapeConfigSelector: {}
+    scrapeConfigNamespaceSelector: {}
+    otlp:
+      keepIdentifyingResourceAttributes: true
+      promoteResourceAttributes:
+        - service.instance.id
+        - service.name
+        - service.namespace
+        - deployment.environment.name
+        - service.version
+        - cloud.availability_zone
+        - cloud.region
+        - container.name
+        - deployment.environment
+        - k8s.cluster.name
+        - k8s.container.name
+        - k8s.cronjob.name
+        - k8s.daemonset.name
+        - k8s.deployment.name
+        - k8s.job.name
+        - k8s.namespace.name
+        - k8s.pod.name
+        - k8s.replicaset.name
+        - k8s.statefulset.name
+    resources:
+      requests:
+        cpu: 400m
+        memory: 3584Mi
+      limits:
+        memory: 5Gi
+    storageSpec:
+      volumeClaimTemplate:
+        spec:
+          storageClassName: longhorn
+          accessModes:
+            - ReadWriteOnce
+          resources:
+            requests:
+              storage: 20Gi
+alertmanager:
+  podDisruptionBudget:
+    enabled: true
+    minAvailable: 1
+  alertmanagerSpec:
+    externalUrl: http://alertmanager.home
+    routePrefix: /
+    alertmanagerConfigMatcherStrategy:
+      type: None
+    replicas: 2
+    retention: 120h
+    podAntiAffinity: hard
+    persistentVolumeClaimRetentionPolicy:
+      whenDeleted: Retain
+      whenScaled: Retain
+    resources:
+      requests:
+        cpu: 50m
+        memory: 64Mi
+      limits:
+        memory: 128Mi
+    storage:
+      volumeClaimTemplate:
+        spec:
+          storageClassName: longhorn
+          accessModes:
+            - ReadWriteOnce
+          resources:
+            requests:
+              storage: 2Gi
+grafana:
+  replicas: 1
+  deploymentStrategy:
+    type: Recreate
+  env:
+    HOME_LAB_DATASOURCE_REVISION: "2026-06-30-loki"
+  envFromSecret: rancher-monitoring-grafana-llm
+  ingress:
+    enabled: true
+    ingressClassName: traefik
+    path: /
+    pathType: Prefix
+    hosts:
+      - grafana.home
+    tls: []
+  defaultDashboards:
+    namespace: cattle-dashboards
+    useExistingNamespace: true
+    cleanupOnUninstall: false
+  plugins:
+    - grafana-llm-app
+  extraConfigmapMounts:
+    - name: grafana-llm-provisioning
+      mountPath: /etc/grafana/provisioning/plugins/grafana-llm.yaml
+      subPath: grafana-llm.yaml
+      configMap: rancher-monitoring-grafana-llm-provisioning
+      readOnly: true
+  additionalDataSources:
+    - name: Tempo
+      type: tempo
+      uid: tempo
+      access: proxy
+      url: http://tempo.cattle-monitoring-system.svc.cluster.local:3200
+      editable: false
+      jsonData:
+        httpMethod: GET
+        tracesToMetrics:
+          datasourceUid: prometheus
+    - name: Loki
+      type: loki
+      uid: loki
+      access: proxy
+      url: http://loki-gateway.cattle-monitoring-system.svc.cluster.local
+      editable: false
+      jsonData:
+        derivedFields:
+          - datasourceUid: tempo
+            matcherRegex: "(?:trace_id|traceId|traceID)[=\": ]+([a-fA-F0-9]{16,32})"
+            name: TraceID
+            url: "$${__value.raw}"
+    - name: Pyroscope
+      type: grafana-pyroscope-datasource
+      uid: pyroscope
+      access: proxy
+      url: http://pyroscope.cattle-monitoring-system.svc.cluster.local:4040
+      editable: false
+      jsonData:
+        minStep: 15s
+  persistence:
+    enabled: true
+    type: pvc
+    storageClassName: longhorn
+    accessModes:
+      - ReadWriteOnce
+    size: 2Gi
+    finalizers:
+      - kubernetes.io/pvc-protection
+  resources:
+    requests:
+      cpu: 50m
+      memory: 288Mi
+    limits:
+      memory: 416Mi
+  sidecar:
+    dashboards:
+      resources:
+        requests:
+          cpu: 50m
+          memory: 192Mi
+        limits:
+          memory: 272Mi
+prometheus-node-exporter:
+  extraArgs:
+    - --collector.filesystem.mount-points-exclude=^/(dev|proc|sys|run/containerd/.+|var/lib/docker/.+|var/lib/kubelet/.+)($|/)
+    - --collector.filesystem.fs-types-exclude=^(autofs|binfmt_misc|bpf|cgroup2?|configfs|debugfs|devpts|devtmpfs|fusectl|hugetlbfs|iso9660|mqueue|nsfs|overlay|proc|procfs|pstore|rpc_pipefs|securityfs|selinuxfs|squashfs|sysfs|tracefs|erofs)$
+    - --collector.textfile.directory=/host/root/var/lib/node_exporter/textfile_collector
+  resources:
+    requests:
+      cpu: 50m
+      memory: 128Mi
+    limits:
+      memory: 192Mi
+kube-state-metrics:
+  metricLabelsAllowlist:
+    - namespaces=[home-lab.io/project-slug,field.cattle.io/projectId,app.kubernetes.io/part-of]
+  volumeMounts:
+    - name: zoneinfo
+      mountPath: /usr/share/zoneinfo
+      readOnly: true
+  volumes:
+    - name: zoneinfo
+      hostPath:
+        path: /usr/share/zoneinfo
+        type: Directory
+  resources:
+    requests:
+      cpu: 50m
+      memory: 96Mi
+    limits:
+      memory: 160Mi

@@ -1,0 +1,32 @@
+---
+- name: Update apt cache
+  ansible.builtin.apt:
+    update_cache: true
+    cache_valid_time: 3600
+  when: ansible_facts.pkg_mgr == "apt"
+
+- name: Upgrade installed apt packages
+  ansible.builtin.apt:
+    upgrade: dist
+  when: ansible_facts.pkg_mgr == "apt"
+  notify: Reboot host
+
+- name: Install common OS packages
+  ansible.builtin.package:
+    name: "{{ os_prep.common_packages }}"
+    state: present
+  when: os_prep.common_packages | length > 0
+
+- name: Set system hostname
+  ansible.builtin.hostname:
+    name: "{{ node_identity.hostname }}"
+  when: node_identity.hostname is defined
+
+- name: Read current timezone
+  ansible.builtin.command: timedatectl show --property=Timezone --value
+  register: os_prep_current_timezone
+  changed_when: false
+
+- name: Set system timezone
+  ansible.builtin.command: "timedatectl set-timezone {{ os_prep.timezone }}"
+  when: os_prep_current_timezone.stdout != os_prep.timezone

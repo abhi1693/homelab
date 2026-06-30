@@ -1,0 +1,33 @@
+---
+- name: Run os_prep entrypoint
+  hosts: k3s_nodes
+  become: true
+  gather_facts: true
+
+  vars:
+    os_prep_selected_entrypoint: "{{ os_prep_entrypoint | default('main') }}"
+
+  pre_tasks:
+    - name: Assert os_prep entrypoint is supported
+      ansible.builtin.assert:
+        that:
+          - os_prep_selected_entrypoint in ['main', 'validation']
+        fail_msg: "Unsupported os_prep entrypoint {{ os_prep_selected_entrypoint }}"
+        success_msg: "Running os_prep entrypoint {{ os_prep_selected_entrypoint }}"
+
+  tasks:
+    - name: Run os_prep main entrypoint
+      ansible.builtin.include_role:
+        name: os_prep
+      when: os_prep_selected_entrypoint == 'main'
+
+    - name: Run os_prep alternate entrypoint
+      ansible.builtin.include_role:
+        name: os_prep
+        tasks_from: "{{ os_prep_selected_entrypoint }}"
+        rolespec_validate: false
+      when: os_prep_selected_entrypoint != 'main'
+
+  post_tasks:
+    - name: Reboot after os_prep if requested by handlers
+      ansible.builtin.meta: flush_handlers

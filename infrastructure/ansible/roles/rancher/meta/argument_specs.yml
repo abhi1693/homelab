@@ -1,0 +1,146 @@
+---
+argument_specs:
+  main:
+    short_description: Install Rancher from the bootstrap K3s server using Traefik ingress and Rancher-generated certificates.
+    options:
+      k3s_node:
+        type: dict
+        required: true
+        options:
+          cluster_init:
+            type: bool
+            required: true
+      rancher:
+        type: dict
+        required: true
+        options:
+          namespace:
+            type: str
+            required: true
+          chart_version:
+            type: str
+            required: true
+          hostname:
+            type: str
+            required: true
+          bootstrap_password:
+            type: str
+            required: true
+            no_log: true
+          replicas:
+            type: int
+            required: true
+          rolling_update:
+            type: dict
+            required: true
+            options:
+              max_surge:
+                type: int
+                required: true
+              max_unavailable:
+                type: int
+                required: true
+          anti_affinity:
+            type: str
+            required: true
+          topology_key:
+            type: str
+            required: true
+          priority_class_name:
+            type: str
+            required: true
+          resources:
+            type: dict
+            required: true
+            options:
+              requests:
+                type: dict
+                required: true
+                options:
+                  cpu:
+                    type: str
+                    required: true
+                  memory:
+                    type: str
+                    required: true
+              limits:
+                type: dict
+                required: true
+                options:
+                  cpu:
+                    type: str
+                    required: true
+                  memory:
+                    type: str
+                    required: true
+          ingress:
+            type: dict
+            required: true
+            options:
+              class_name:
+                type: str
+                required: true
+              tls_source:
+                type: str
+                required: true
+              tls_secret_name:
+                type: str
+                required: true
+          service:
+            type: dict
+            required: true
+            options:
+              type:
+                type: str
+                required: true
+          fleet:
+            type: dict
+            required: false
+            options:
+              image:
+                type: dict
+                required: false
+                options:
+                  repository:
+                    type: str
+                    required: false
+                  tag:
+                    type: str
+                    required: false
+              agent_image:
+                type: dict
+                required: false
+                options:
+                  repository:
+                    type: str
+                    required: false
+                  tag:
+                    type: str
+                    required: false
+              image_pull_secret:
+                type: dict
+                required: false
+                options:
+                  enabled:
+                    type: bool
+                    required: false
+                  name:
+                    type: str
+                    required: false
+                  server:
+                    type: str
+                    required: false
+                  username:
+                    type: str
+                    required: false
+                  password:
+                    type: str
+                    required: false
+                    no_log: true
+              imagescan:
+                type: dict
+                required: false
+                options:
+                  enabled:
+                    type: bool
+                    required: false

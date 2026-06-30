@@ -1,0 +1,33 @@
+---
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: git-rank
+  namespace: git-rank
+  labels:
+    app.kubernetes.io/name: git-rank
+    app.kubernetes.io/component: frontend
+    app.kubernetes.io/part-of: git-rank
+spec:
+  ingressClassName: cloudflare-tunnel
+  rules:
+    - host: git-rank.dev
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: git-rank-frontend
+                port:
+                  name: http
+    - host: api.git-rank.dev
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: git-rank-api
+                port:
+                  name: http

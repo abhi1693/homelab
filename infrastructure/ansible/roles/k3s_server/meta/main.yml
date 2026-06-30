@@ -1,0 +1,11 @@
+---
+galaxy_info:
+  author: asaharan
+  description: Bootstrap the initial K3s server node.
+  min_ansible_version: "2.16"
+  platforms:
+    - name: Debian
+      versions:
+        - bookworm
+
+dependencies: []

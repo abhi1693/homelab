@@ -1,0 +1,263 @@
+externalURL: http://registry.home
+expose:
+  type: ingress
+  tls:
+    enabled: false
+  ingress:
+    hosts:
+      core: registry.home
+    className: traefik
+    annotations:
+      ingress.kubernetes.io/ssl-redirect: "false"
+      ingress.kubernetes.io/proxy-body-size: "0"
+      nginx.ingress.kubernetes.io/ssl-redirect: null
+      nginx.ingress.kubernetes.io/proxy-body-size: null
+existingSecretAdminPassword: harbor
+existingSecretAdminPasswordKey: HARBOR_ADMIN_PASSWORD
+existingSecretSecretKey: harbor
+secretKey: ""
+imagePullPolicy: IfNotPresent
+imagePullSecrets:
+  - name: ghcr-home-lab
+updateStrategy:
+  type: RollingUpdate
+logLevel: info
+metrics:
+  enabled: true
+  serviceMonitor:
+    enabled: true
+    interval: 60s
+proxy:
+  noProxy: 127.0.0.1,localhost,.local,.internal,.svc,.cluster.local,.home,postgresql-pooler-harbor-rw.postgresql.svc.cluster.local,valkey.valkey.svc.cluster.local,valkey-headless.valkey.svc.cluster.local
+  components:
+    - core
+    - jobservice
+    - trivy
+cache:
+  enabled: true
+  expireHours: 24
+persistence:
+  enabled: true
+  resourcePolicy: keep
+  persistentVolumeClaim:
+    registry:
+      storageClass: longhorn
+      accessMode: ReadWriteMany
+      size: 30Gi
+    trivy:
+      storageClass: longhorn
+      accessMode: ReadWriteOnce
+      size: 2Gi
+  imageChartStorage:
+    type: filesystem
+    filesystem:
+      rootdirectory: /storage
+database:
+  type: external
+  external:
+    host: postgresql-pooler-harbor-rw.postgresql.svc.cluster.local
+    port: "5432"
+    username: harbor
+    coreDatabase: harbor
+    existingSecret: harbor
+    sslmode: disable
+  maxIdleConns: 4
+  maxOpenConns: 20
+redis:
+  type: external
+  external:
+    addr: valkey-node-0.valkey-headless.valkey.svc.cluster.local:26379,valkey-node-1.valkey-headless.valkey.svc.cluster.local:26379,valkey-node-2.valkey-headless.valkey.svc.cluster.local:26379
+    sentinelMasterSet: valkey
+    coreDatabaseIndex: "20"
+    jobserviceDatabaseIndex: "21"
+    registryDatabaseIndex: "22"
+    trivyAdapterIndex: "23"
+    harborDatabaseIndex: "24"
+    cacheLayerDatabaseIndex: "25"
+portal:
+  image:
+    repository: registry.home/ghcr.io/abhi1693/harbor-portal
+    tag: v2.15.1 # {"$imagescan": "harbor-portal:tag"}
+  replicas: 2
+  podDisruptionBudget:
+    enabled: true
+    minAvailable: 1
+  resources:
+    requests:
+      cpu: 10m
+      memory: 32Mi
+    limits:
+      memory: 96Mi
+  nodeSelector:
+    kubernetes.io/arch: arm64
+  topologySpreadConstraints:
+    - maxSkew: 1
+      topologyKey: kubernetes.io/hostname
+      whenUnsatisfiable: ScheduleAnyway
+  affinity:
+    podAntiAffinity:
+      preferredDuringSchedulingIgnoredDuringExecution:
+        - weight: 100
+          podAffinityTerm:
+            labelSelector:
+              matchLabels:
+                app.kubernetes.io/name: harbor
+                app.kubernetes.io/component: portal
+            topologyKey: kubernetes.io/hostname
+core:
+  image:
+    repository: registry.home/ghcr.io/abhi1693/harbor-core
+    tag: v2.15.1 # {"$imagescan": "harbor-core:tag"}
+  replicas: 2
+  podDisruptionBudget:
+    enabled: true
+    minAvailable: 1
+  quotaUpdateProvider: db
+  resources:
+    requests:
+      cpu: 35m
+      memory: 144Mi
+    limits:
+      memory: 208Mi
+  nodeSelector:
+    kubernetes.io/arch: arm64
+  topologySpreadConstraints:
+    - maxSkew: 1
+      topologyKey: kubernetes.io/hostname
+      whenUnsatisfiable: ScheduleAnyway
+  affinity:
+    podAntiAffinity:
+      preferredDuringSchedulingIgnoredDuringExecution:
+        - weight: 100
+          podAffinityTerm:
+            labelSelector:
+              matchLabels:
+                app.kubernetes.io/name: harbor
+                app.kubernetes.io/component: core
+            topologyKey: kubernetes.io/hostname
+jobservice:
+  image:
+    repository: registry.home/ghcr.io/abhi1693/harbor-jobservice
+    tag: v2.15.1 # {"$imagescan": "harbor-jobservice:tag"}
+  replicas: 2
+  podDisruptionBudget:
+    enabled: true
+    minAvailable: 1
+  maxJobWorkers: 5
+  jobLoggers:
+    - stdout
+  resources:
+    requests:
+      cpu: 10m
+      memory: 48Mi
+    limits:
+      memory: 112Mi
+  nodeSelector:
+    kubernetes.io/arch: arm64
+  topologySpreadConstraints:
+    - maxSkew: 1
+      topologyKey: kubernetes.io/hostname
+      whenUnsatisfiable: ScheduleAnyway
+  affinity:
+    podAntiAffinity:
+      preferredDuringSchedulingIgnoredDuringExecution:
+        - weight: 100
+          podAffinityTerm:
+            labelSelector:
+              matchLabels:
+                app.kubernetes.io/name: harbor
+                app.kubernetes.io/component: jobservice
+            topologyKey: kubernetes.io/hostname
+registry:
+  replicas: 2
+  podDisruptionBudget:
+    enabled: true
+    minAvailable: 1
+  relativeurls: true
+  registry:
+    image:
+      repository: registry.home/ghcr.io/abhi1693/registry-photon
+      tag: v2.15.1 # {"$imagescan": "registry-photon:tag"}
+    extraEnvVars:
+      - name: REGISTRY_STORAGE_REDIRECT_DISABLE
+        value: "true"
+    resources:
+      requests:
+        cpu: 40m
+        memory: 48Mi
+      limits:
+        memory: 112Mi
+  controller:
+    image:
+      repository: registry.home/ghcr.io/abhi1693/harbor-registryctl
+      tag: v2.15.1 # {"$imagescan": "harbor-registryctl:tag"}
+    resources:
+      requests:
+        cpu: 10m
+        memory: 32Mi
+      limits:
+        memory: 96Mi
+  nodeSelector:
+    kubernetes.io/arch: arm64
+  topologySpreadConstraints:
+    - maxSkew: 1
+      topologyKey: kubernetes.io/hostname
+      whenUnsatisfiable: ScheduleAnyway
+  affinity:
+    podAntiAffinity:
+      preferredDuringSchedulingIgnoredDuringExecution:
+        - weight: 100
+          podAffinityTerm:
+            labelSelector:
+              matchLabels:
+                app.kubernetes.io/name: harbor
+                app.kubernetes.io/component: registry
+            topologyKey: kubernetes.io/hostname
+trivy:
+  enabled: true
+  image:
+    repository: registry.home/ghcr.io/abhi1693/trivy-adapter-photon
+    tag: v2.15.1 # {"$imagescan": "trivy-adapter-photon:tag"}
+  replicas: 1
+  podDisruptionBudget:
+    enabled: false
+    minAvailable: 1
+  resources:
+    requests:
+      cpu: 10m
+      memory: 112Mi
+    limits:
+      memory: 176Mi
+  nodeSelector:
+    kubernetes.io/arch: arm64
+  topologySpreadConstraints:
+    - maxSkew: 1
+      topologyKey: kubernetes.io/hostname
+      whenUnsatisfiable: ScheduleAnyway
+  affinity:
+    podAntiAffinity:
+      preferredDuringSchedulingIgnoredDuringExecution:
+        - weight: 100
+          podAffinityTerm:
+            labelSelector:
+              matchLabels:
+                app.kubernetes.io/name: harbor
+                app.kubernetes.io/component: trivy
+            topologyKey: kubernetes.io/hostname
+exporter:
+  image:
+    repository: registry.home/ghcr.io/octohelm/harbor/harbor-exporter
+    tag: v2.14.0 # {"$imagescan": "harbor-exporter:tag"}
+  replicas: 1
+  resources:
+    requests:
+      cpu: 10m
+      memory: 32Mi
+    limits:
+      memory: 96Mi
+  nodeSelector:
+    kubernetes.io/arch: arm64
+  topologySpreadConstraints:
+    - maxSkew: 1
+      topologyKey: kubernetes.io/hostname
+      whenUnsatisfiable: ScheduleAnyway

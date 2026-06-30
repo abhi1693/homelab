@@ -1,0 +1,178 @@
+---
+- name: Read runtime kernel cmdline
+  ansible.builtin.command: cat /proc/cmdline
+  register: rpi_runtime_cmdline
+  changed_when: false
+
+- name: Check K3s kernel tunables file
+  ansible.builtin.stat:
+    path: /etc/sysctl.d/90-kubelet.conf
+  register: rpi_kubelet_sysctl_file_stat
+
+- name: Check Raspberry Pi throttling exporter script
+  ansible.builtin.stat:
+    path: /usr/local/sbin/rpi-throttling-textfile-exporter
+  register: rpi_throttling_exporter_script_stat
+
+- name: Check Raspberry Pi throttling exporter metrics file
+  ansible.builtin.stat:
+    path: "{{ rpi_prep.node_exporter_textfile_dir }}/raspberry_pi_throttling.prom"
+  register: rpi_throttling_metrics_file_stat
+
+- name: Check vcgencmd availability
+  ansible.builtin.command:
+    argv:
+      - bash
+      - -lc
+      - command -v vcgencmd
+  register: rpi_vcgencmd_path
+  changed_when: false
+  failed_when: false
+
+- name: Check Raspberry Pi throttling exporter timer is enabled
+  ansible.builtin.command:
+    argv:
+      - systemctl
+      - is-enabled
+      - rpi-throttling-textfile-exporter.timer
+  register: rpi_throttling_timer_enabled
+  changed_when: false
+  failed_when: false
+
+- name: Check Raspberry Pi throttling exporter timer is active
+  ansible.builtin.command:
+    argv:
+      - systemctl
+      - is-active
+      - rpi-throttling-textfile-exporter.timer
+  register: rpi_throttling_timer_active
+  changed_when: false
+  failed_when: false
+
+- name: Assert K3s kernel tunables file exists
+  ansible.builtin.assert:
+    that:
+      - rpi_kubelet_sysctl_file_stat.stat.exists
+    fail_msg: "Expected /etc/sysctl.d/90-kubelet.conf to exist"
+    success_msg: "K3s kernel tunables file is present"
+
+- name: Assert vcgencmd is available
+  ansible.builtin.assert:
+    that:
+      - rpi_vcgencmd_path.rc == 0
+    fail_msg: "Expected vcgencmd to be available for Raspberry Pi throttling metrics"
+    success_msg: "vcgencmd is available at {{ rpi_vcgencmd_path.stdout }}"
+
+- name: Assert Raspberry Pi throttling exporter script exists
+  ansible.builtin.assert:
+    that:
+      - rpi_throttling_exporter_script_stat.stat.exists
+      - rpi_throttling_exporter_script_stat.stat.executable
+    fail_msg: "Expected /usr/local/sbin/rpi-throttling-textfile-exporter to exist and be executable"
+    success_msg: "Raspberry Pi throttling exporter script is installed"
+
+- name: Assert Raspberry Pi throttling exporter timer is enabled and active
+  ansible.builtin.assert:
+    that:
+      - rpi_throttling_timer_enabled.stdout | trim == "enabled"
+      - rpi_throttling_timer_active.stdout | trim == "active"
+    fail_msg: "Expected rpi-throttling-textfile-exporter.timer to be enabled and active"
+    success_msg: "Raspberry Pi throttling exporter timer is enabled and active"
+
+- name: Assert Raspberry Pi throttling metrics file exists
+  ansible.builtin.assert:
+    that:
+      - rpi_throttling_metrics_file_stat.stat.exists
+    fail_msg: "Expected {{ rpi_prep.node_exporter_textfile_dir }}/raspberry_pi_throttling.prom to exist"
+    success_msg: "Raspberry Pi throttling metrics file is present"
+
+- name: Read K3s kernel tunables file
+  ansible.builtin.slurp:
+    path: /etc/sysctl.d/90-kubelet.conf
+  register: rpi_kubelet_sysctl_raw
+
+- name: Read Raspberry Pi throttling metrics file
+  ansible.builtin.slurp:
+    path: "{{ rpi_prep.node_exporter_textfile_dir }}/raspberry_pi_throttling.prom"
+  register: rpi_throttling_metrics_raw
+
+- name: Record K3s kernel tunables lines
+  ansible.builtin.set_fact:
+    rpi_kubelet_sysctl_lines: "{{ rpi_kubelet_sysctl_raw.content | b64decode | trim | split('\n') }}"
+
+- name: Record Raspberry Pi throttling metric lines
+  ansible.builtin.set_fact:
+    rpi_throttling_metric_lines: "{{ rpi_throttling_metrics_raw.content | b64decode | trim | split('\n') }}"
+
+- name: Read Raspberry Pi boot config
+  ansible.builtin.slurp:
+    path: /boot/firmware/config.txt
+  register: rpi_boot_config_raw
+
+- name: Record Raspberry Pi boot config lines
+  ansible.builtin.set_fact:
+    rpi_boot_config_lines: "{{ rpi_boot_config_raw.content | b64decode | trim | split('\n') }}"
+
+- name: Read active swap devices
+  ansible.builtin.command: swapon --noheadings --raw --show
+  register: rpi_active_swap
+  changed_when: false
+
+- name: Read runtime K3s kernel tunables
+  ansible.builtin.command:
+    argv:
+      - sysctl
+      - -n
+      - "{{ item.key }}"
+  loop: "{{ rpi_prep.required_sysctls | dict2items }}"
+  register: rpi_runtime_sysctls
+  changed_when: false
+
+- name: Assert K3s kernel tunables file contains required settings
+  ansible.builtin.assert:
+    that:
+      - item.key ~ '=' ~ (item.value | string) in rpi_kubelet_sysctl_lines
+    fail_msg: "Expected sysctl {{ item.key }}={{ item.value }} in /etc/sysctl.d/90-kubelet.conf"
+    success_msg: "Sysctl {{ item.key }} is persisted in /etc/sysctl.d/90-kubelet.conf"
+  loop: "{{ rpi_prep.required_sysctls | dict2items }}"
+
+- name: Assert Raspberry Pi throttling metrics file contains expected metrics
+  ansible.builtin.assert:
+    that:
+      - rpi_throttling_metric_lines | select('match', '^raspberry_pi_vcgencmd_get_throttled_success ') | list | length == 1
+      - rpi_throttling_metric_lines | select('match', '^raspberry_pi_throttled_flags ') | list | length == 1
+      - rpi_throttling_metric_lines | select('match', '^raspberry_pi_throttled_state\\{condition="undervoltage",state="active"\\} ') | list | length == 1
+      - rpi_throttling_metric_lines | select('match', '^raspberry_pi_throttled_state\\{condition="throttled",state="occurred"\\} ') | list | length == 1
+    fail_msg: "Raspberry Pi throttling metrics file is missing expected metrics"
+    success_msg: "Raspberry Pi throttling metrics file contains expected metrics"
+
+- name: Assert runtime kernel cmdline contains required parameters
+  ansible.builtin.assert:
+    that:
+      - item in rpi_runtime_cmdline.stdout.split()
+    fail_msg: "Expected kernel parameter {{ item }} in /proc/cmdline"
+    success_msg: "Kernel parameter {{ item }} is active"
+  loop: "{{ rpi_prep.required_cmdline_params }}"
+
+- name: Assert Raspberry Pi boot config contains required lines
+  ansible.builtin.assert:
+    that:
+      - item in rpi_boot_config_lines
+    fail_msg: "Expected boot config line {{ item }} in /boot/firmware/config.txt"
+    success_msg: "Boot config line {{ item }} is present"
+  loop: "{{ rpi_prep.required_config_lines }}"
+
+- name: Assert runtime kernel tunables match required settings
+  ansible.builtin.assert:
+    that:
+      - item.stdout | trim == (item.item.value | string)
+    fail_msg: "Expected sysctl {{ item.item.key }}={{ item.item.value }} but found {{ item.stdout | trim }}"
+    success_msg: "Sysctl {{ item.item.key }} is active with value {{ item.stdout | trim }}"
+  loop: "{{ rpi_runtime_sysctls.results }}"
+
+- name: Assert swap is disabled
+  ansible.builtin.assert:
+    that:
+      - rpi_active_swap.stdout | trim == ""
+    fail_msg: "Swap is still active: {{ rpi_active_swap.stdout }}"
+    success_msg: "No active swap detected"

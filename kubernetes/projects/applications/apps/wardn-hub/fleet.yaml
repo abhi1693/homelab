@@ -1,0 +1,52 @@
+---
+name: wardn-hub
+defaultNamespace: wardn
+namespaceLabels:
+  app.kubernetes.io/managed-by: Helm
+  app.kubernetes.io/part-of: wardn-hub
+  field.cattle.io/projectId: p-applications
+namespaceAnnotations:
+  field.cattle.io/projectId: local:p-applications
+  meta.helm.sh/release-name: wardn-hub
+  meta.helm.sh/release-namespace: wardn
+labels:
+  app.kubernetes.io/part-of: wardn-hub
+  home-lab.io/project-slug: applications
+imageScans:
+  - image: registry.home/ghcr.io/abhi1693/wardn-hub/backend
+    tagName: wardn-hub-backend
+    interval: 10m0s
+    secretRef:
+      name: harbor-registry
+    policy:
+      semver:
+        range: ">=0.2.0 <1.0.0"
+  - image: registry.home/ghcr.io/abhi1693/wardn-hub/frontend
+    tagName: wardn-hub-frontend
+    interval: 10m0s
+    secretRef:
+      name: harbor-registry
+    policy:
+      semver:
+        range: ">=0.2.0 <1.0.0"
+  - image: registry.home/ghcr.io/abhi1693/wardn-hub-scoring
+    tagName: wardn-hub-scoring
+    interval: 10m0s
+    secretRef:
+      name: harbor-registry
+    policy:
+      semver:
+        range: ">=0.1.0 <1.0.0"
+dependsOn:
+  - name: rancher-project-applications
+  - name: registry-artifacts
+  - name: postgresql
+  - name: postgresql-networkpolicy
+  - name: postgresql-pooler-pdb
+  - name: valkey
+  - name: valkey-networkpolicy
+helm:
+  takeOwnership: true
+  timeoutSeconds: 900
+  waitForJobs: true
+forceSyncGeneration: 32
