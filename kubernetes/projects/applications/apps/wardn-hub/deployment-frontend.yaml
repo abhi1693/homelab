@@ -22,6 +22,7 @@ spec:
   template:
     metadata:
       annotations:
+        home-lab.io/faro-config-revision: "2026-07-01-next-rebuild"
         home-lab.io/reconcile-token: "20260625T2115Z"
       labels:
         app.kubernetes.io/name: wardn-hub-frontend
@@ -97,7 +98,7 @@ spec:
             - |
               set -eu
 
-              cache_version=next-build-v4
+              cache_version=next-build-v5
               cache_root=/app/hub/frontend/.next-build-cache
               artifact_root="$cache_root/artifacts"
               build_root=/app/hub/frontend/.next

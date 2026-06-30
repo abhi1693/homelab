@@ -147,6 +147,17 @@ spec:
     - to:
         - namespaceSelector:
             matchLabels:
+              kubernetes.io/metadata.name: cattle-monitoring-system
+          podSelector:
+            matchLabels:
+              app.kubernetes.io/name: alloy
+              app.kubernetes.io/instance: alloy-faro
+      ports:
+        - protocol: TCP
+          port: 12347
+    - to:
+        - namespaceSelector:
+            matchLabels:
               kubernetes.io/metadata.name: git-rank
           podSelector:
             matchLabels:

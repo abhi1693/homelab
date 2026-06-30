@@ -76,7 +76,7 @@ spec:
             - |
               set -eu
 
-              cache_version=next-build-v4
+              cache_version=next-build-v5
               cache_root=/app/hub/frontend/.next-build-cache
               artifact_root="$cache_root/artifacts"
               build_root=/app/hub/frontend/.next

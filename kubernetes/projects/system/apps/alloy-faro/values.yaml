@@ -5,6 +5,8 @@ crds:
 controller:
   type: deployment
   replicas: 1
+  podAnnotations:
+    home-lab.io/faro-secret-revision: "2026-07-01-browser-key"
   nodeSelector:
     kubernetes.io/arch: arm64
 
@@ -25,7 +27,7 @@ alloy:
           cluster = "local",
           source  = "faro",
         }
-        log_format = "json"
+        log_format = "logfmt"
 
         server {
           listen_address           = "0.0.0.0"
@@ -74,8 +76,28 @@ alloy:
         }
 
         output {
-          logs   = [loki.write.local.receiver]
+          logs   = [loki.process.faro_labels.receiver]
           traces = [otelcol.exporter.otlphttp.tempo.input]
+        }
+      }
+
+      loki.process "faro_labels" {
+        forward_to = [loki.write.local.receiver]
+
+        stage.logfmt {
+          mapping = {
+            Application = "",
+            Environment = "",
+            kind = "",
+          }
+        }
+
+        stage.labels {
+          values = {
+            Application = "",
+            Environment = "",
+            kind = "",
+          }
         }
       }
 

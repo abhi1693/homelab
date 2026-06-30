@@ -8,13 +8,8 @@ metadata:
     app.kubernetes.io/part-of: media-stack
     home-lab.io/project-slug: entertainment
 spec:
-  forceSyncGeneration: 16
+  forceSyncGeneration: 17
   defaultNamespace: media
-  namespaceLabels:
-    app.kubernetes.io/part-of: media-stack
-    field.cattle.io/projectId: p-rm645
-  namespaceAnnotations:
-    field.cattle.io/projectId: local:p-rm645
   dependsOn:
     - name: rancher-project-entertainment
     - name: media-helm-repositories

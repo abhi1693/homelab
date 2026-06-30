@@ -9,11 +9,6 @@ metadata:
     home-lab.io/project-slug: home-automation
 spec:
   defaultNamespace: netbox
-  namespaceLabels:
-    app.kubernetes.io/part-of: netbox
-    field.cattle.io/projectId: p-qqtgt
-  namespaceAnnotations:
-    field.cattle.io/projectId: local:p-qqtgt
   dependsOn:
     - name: rancher-project-home-automation
     - name: home-automation-helm-repositories

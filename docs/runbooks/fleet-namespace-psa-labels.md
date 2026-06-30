@@ -148,6 +148,9 @@ check for these problems:
   `meta.helm.sh/release-namespace` annotations.
 - The namespace manifest is missing the Rancher project label or annotation.
 - The namespace manifest is missing `helm.sh/resource-policy: keep`.
+- Another bundle, HelmOp, or chart still has `namespaceLabels` or
+  `namespaceAnnotations` for the same namespace and is clobbering the explicit
+  namespace manifest ownership metadata.
 
 Use read-only inspection:
 
@@ -160,6 +163,24 @@ kubectl get bundledeployment -A | rg '<bundle-name>|STATUS'
 If the namespace is already broken, prefer a Git-only fix using the safe pattern
 above. Do not patch live metadata unless the user explicitly authorizes a
 break-glass operation.
+
+For a namespace that is already stuck in `not owned by us`, a temporary
+Git-only bootstrap may be needed:
+
+1. Remove `namespaceLabels` and `namespaceAnnotations` from every other bundle
+   or HelmOp that targets the same namespace.
+2. Temporarily add the expected Helm ownership metadata to the owning bundle's
+   `namespaceLabels` and `namespaceAnnotations`.
+3. If Fleet still reports the namespace is not owned after Helm ownership
+   metadata lands, temporarily add the rendered `objectset.rio.cattle.io/id`
+   annotation and `objectset.rio.cattle.io/hash` label from
+   `helm get manifest <release> -n <namespace>`.
+4. Wait until the bundle and GitRepo are healthy.
+5. Remove the temporary `namespaceLabels` and `namespaceAnnotations` so the
+   explicit `namespace.yaml` is again the only namespace metadata source.
+
+Keep each bootstrap and cleanup step in its own commit, and verify Fleet health
+between steps.
 
 ## References
 
