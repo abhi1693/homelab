@@ -1,0 +1,21 @@
+---
+apiVersion: management.cattle.io/v3
+kind: Project
+metadata:
+  name: p-qqtgt
+  namespace: local
+  annotations:
+    meta.helm.sh/release-name: rancher-project-home-automation
+    meta.helm.sh/release-namespace: local
+  labels:
+    app.kubernetes.io/managed-by: Helm
+    app.kubernetes.io/name: home-automation
+    app.kubernetes.io/part-of: rancher-projects
+spec:
+  clusterName: local
+  displayName: Home Automation
+  containerDefaultResourceLimit: {}
+  namespaceDefaultResourceQuota:
+    limit: {}
+  resourceQuota:
+    limit: {}

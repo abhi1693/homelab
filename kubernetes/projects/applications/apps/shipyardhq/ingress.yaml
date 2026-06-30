@@ -1,0 +1,33 @@
+---
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: shipyardhq
+  namespace: shipyardhq
+  labels:
+    app.kubernetes.io/name: shipyardhq
+    app.kubernetes.io/component: web
+    app.kubernetes.io/part-of: shipyardhq
+spec:
+  ingressClassName: cloudflare-tunnel
+  rules:
+    - host: shipyardhq.dev
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: shipyardhq
+                port:
+                  name: http
+    - host: www.shipyardhq.dev
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: shipyardhq
+                port:
+                  name: http

@@ -1,0 +1,35 @@
+---
+- name: Run k3s_server entrypoint
+  hosts: "{{ k3s_server_target_hosts | default('k3s_servers') }}"
+  become: true
+  gather_facts: true
+  order: inventory
+  serial: 1
+
+  vars:
+    k3s_server_selected_entrypoint: "{{ k3s_server_entrypoint | default('main') }}"
+
+  pre_tasks:
+    - name: Assert k3s_server entrypoint is supported
+      ansible.builtin.assert:
+        that:
+          - k3s_server_selected_entrypoint in ['main', 'validation', 'reset']
+        fail_msg: "Unsupported k3s_server entrypoint {{ k3s_server_selected_entrypoint }}"
+        success_msg: "Running k3s_server entrypoint {{ k3s_server_selected_entrypoint }}"
+
+  tasks:
+    - name: Run k3s_server main entrypoint
+      ansible.builtin.include_role:
+        name: k3s_server
+      when: k3s_server_selected_entrypoint == 'main'
+
+    - name: Run k3s_server alternate entrypoint
+      ansible.builtin.include_role:
+        name: k3s_server
+        tasks_from: "{{ k3s_server_selected_entrypoint }}"
+        rolespec_validate: false
+      when: k3s_server_selected_entrypoint != 'main'
+
+  post_tasks:
+    - name: Restart k3s after k3s_server if requested by handlers
+      ansible.builtin.meta: flush_handlers

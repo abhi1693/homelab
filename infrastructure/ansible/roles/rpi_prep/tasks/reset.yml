@@ -1,0 +1,107 @@
+---
+- name: Gather service facts
+  ansible.builtin.service_facts:
+
+- name: Stop and disable Raspberry Pi throttling textfile exporter timer
+  ansible.builtin.systemd:
+    name: rpi-throttling-textfile-exporter.timer
+    enabled: false
+    state: stopped
+  when: "'rpi-throttling-textfile-exporter.timer' in ansible_facts.services"
+
+- name: Remove Raspberry Pi throttling textfile exporter files
+  ansible.builtin.file:
+    path: "{{ item }}"
+    state: absent
+  loop:
+    - /usr/local/sbin/rpi-throttling-textfile-exporter
+    - /etc/systemd/system/rpi-throttling-textfile-exporter.service
+    - /etc/systemd/system/rpi-throttling-textfile-exporter.timer
+    - "{{ rpi_prep.node_exporter_textfile_dir }}/raspberry_pi_throttling.prom"
+  register: rpi_throttling_exporter_removed
+
+- name: Reload systemd after Raspberry Pi throttling exporter reset
+  ansible.builtin.systemd:
+    daemon_reload: true
+  when: rpi_throttling_exporter_removed.changed
+
+- name: Remove managed rpi-swap override
+  ansible.builtin.file:
+    path: /etc/rpi/swap.conf.d/90-disable-swap.conf
+    state: absent
+  notify: Reboot host
+
+- name: Remove managed K3s kernel tunables file
+  ansible.builtin.file:
+    path: /etc/sysctl.d/90-kubelet.conf
+    state: absent
+  notify: Reboot host
+
+- name: Check Raspberry Pi cmdline path
+  ansible.builtin.stat:
+    path: /boot/firmware/cmdline.txt
+  register: rpi_cmdline_path_stat
+
+- name: Check Raspberry Pi boot config path
+  ansible.builtin.stat:
+    path: /boot/firmware/config.txt
+  register: rpi_config_path_stat
+
+- name: Assert Raspberry Pi cmdline path exists
+  ansible.builtin.assert:
+    that:
+      - rpi_cmdline_path_stat.stat.exists
+    fail_msg: Could not find /boot/firmware/cmdline.txt
+    success_msg: Using Raspberry Pi cmdline file /boot/firmware/cmdline.txt
+
+- name: Assert Raspberry Pi boot config path exists
+  ansible.builtin.assert:
+    that:
+      - rpi_config_path_stat.stat.exists
+    fail_msg: Could not find /boot/firmware/config.txt
+    success_msg: Using Raspberry Pi boot config file /boot/firmware/config.txt
+
+- name: Read current boot cmdline
+  ansible.builtin.slurp:
+    path: /boot/firmware/cmdline.txt
+  register: rpi_cmdline_raw
+
+- name: Record current boot cmdline
+  ansible.builtin.set_fact:
+    rpi_cmdline_current: "{{ rpi_cmdline_raw.content | b64decode | trim }}"
+
+- name: Build reset boot cmdline
+  ansible.builtin.set_fact:
+    rpi_cmdline_reset: >-
+      {{
+        rpi_cmdline_current.split()
+        | reject('in', rpi_prep.required_cmdline_params)
+        | list
+        | join(' ')
+      }}
+
+- name: Remove managed boot params
+  ansible.builtin.copy:
+    content: "{{ rpi_cmdline_reset }}\n"
+    dest: /boot/firmware/cmdline.txt
+    owner: root
+    group: root
+    mode: "0644"
+  when: rpi_cmdline_reset != rpi_cmdline_current
+  notify: Reboot host
+
+- name: Remove managed Raspberry Pi boot config lines
+  ansible.builtin.lineinfile:
+    path: /boot/firmware/config.txt
+    line: "{{ item }}"
+    state: absent
+  loop: "{{ rpi_prep.required_config_lines }}"
+  notify: Reboot host
+
+- name: Re-enable dphys-swapfile when present
+  ansible.builtin.systemd:
+    name: dphys-swapfile.service
+    masked: false
+    enabled: true
+    state: started
+  when: "'dphys-swapfile.service' in ansible_facts.services"

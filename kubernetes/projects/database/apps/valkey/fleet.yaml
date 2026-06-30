@@ -1,0 +1,9 @@
+---
+name: valkey-helmop
+defaultNamespace: fleet-local
+labels:
+  app.kubernetes.io/part-of: valkey
+  home-lab.io/project-slug: database
+dependsOn:
+  - name: rancher-project-database
+  - name: database-helm-repositories

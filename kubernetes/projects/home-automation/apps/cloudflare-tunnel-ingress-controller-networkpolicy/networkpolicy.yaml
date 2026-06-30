@@ -1,0 +1,190 @@
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: cloudflare-tunnel-ingress-controller-ingress-boundary
+  namespace: cloudflare
+  labels:
+    app.kubernetes.io/name: cloudflare-tunnel-ingress-controller
+    app.kubernetes.io/part-of: cloudflare
+spec:
+  podSelector:
+    matchLabels:
+      app.kubernetes.io/name: cloudflare-tunnel-ingress-controller
+      app.kubernetes.io/instance: cloudflare-tunnel-ingress-controller
+  policyTypes:
+    - Ingress
+  ingress: []
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: controlled-cloudflared-connector-default-deny
+  namespace: cloudflare
+  labels:
+    app.kubernetes.io/name: cloudflare-tunnel-ingress-controller
+    app.kubernetes.io/component: controlled-cloudflared
+    app.kubernetes.io/part-of: cloudflare
+spec:
+  podSelector:
+    matchLabels:
+      app: controlled-cloudflared-connector
+      strrl.dev/cloudflare-tunnel-ingress-controller: controlled-cloudflared-connector
+  policyTypes:
+    - Ingress
+    - Egress
+  ingress: []
+  egress: []
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: controlled-cloudflared-connector-egress
+  namespace: cloudflare
+  labels:
+    app.kubernetes.io/name: cloudflare-tunnel-ingress-controller
+    app.kubernetes.io/component: controlled-cloudflared
+    app.kubernetes.io/part-of: cloudflare
+spec:
+  podSelector:
+    matchLabels:
+      app: controlled-cloudflared-connector
+      strrl.dev/cloudflare-tunnel-ingress-controller: controlled-cloudflared-connector
+  policyTypes:
+    - Egress
+  egress:
+    - to:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: kube-system
+          podSelector:
+            matchLabels:
+              k8s-app: kube-dns
+      ports:
+        - protocol: UDP
+          port: 53
+        - protocol: TCP
+          port: 53
+    - to:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: personal-blog
+          podSelector:
+            matchLabels:
+              app.kubernetes.io/name: personal-blog
+              app.kubernetes.io/component: web
+      ports:
+        - protocol: TCP
+          port: 3000
+        - protocol: TCP
+          port: 8080
+    - to:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: portfolio
+          podSelector:
+            matchLabels:
+              app.kubernetes.io/name: portfolio
+              app.kubernetes.io/component: web
+      ports:
+        - protocol: TCP
+          port: 3000
+    - to:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: shipyardhq
+          podSelector:
+            matchLabels:
+              app.kubernetes.io/name: shipyardhq
+              app.kubernetes.io/component: web
+      ports:
+        - protocol: TCP
+          port: 3000
+    - to:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: shipyardhq
+          podSelector:
+            matchLabels:
+              app.kubernetes.io/name: shipyardhq-imgproxy
+              app.kubernetes.io/component: image-proxy
+      ports:
+        - protocol: TCP
+          port: 8080
+    - to:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: indexly
+          podSelector:
+            matchLabels:
+              app.kubernetes.io/name: indexly
+              app.kubernetes.io/component: web
+      ports:
+        - protocol: TCP
+          port: 3000
+    - to:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: git-rank
+          podSelector:
+            matchLabels:
+              app.kubernetes.io/name: git-rank-frontend
+              app.kubernetes.io/component: frontend
+      ports:
+        - protocol: TCP
+          port: 3000
+    - to:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: wardn
+          podSelector:
+            matchLabels:
+              app.kubernetes.io/name: wardn-hub-frontend
+              app.kubernetes.io/component: frontend
+      ports:
+        - protocol: TCP
+          port: 3000
+    - to:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: git-rank
+          podSelector:
+            matchLabels:
+              app.kubernetes.io/name: git-rank-api
+              app.kubernetes.io/component: api
+      ports:
+        - protocol: TCP
+          port: 8080
+    - to:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: harbor
+          podSelector:
+            matchLabels:
+              app.kubernetes.io/name: harbor
+            matchExpressions:
+              - key: app.kubernetes.io/component
+                operator: In
+                values:
+                  - core
+                  - portal
+      ports:
+        - protocol: TCP
+          port: 80
+        - protocol: TCP
+          port: 8080
+    - to:
+        - ipBlock:
+            cidr: 0.0.0.0/0
+            except:
+              - 10.0.0.0/8
+              - 100.64.0.0/10
+              - 172.16.0.0/12
+              - 192.168.0.0/16
+      ports:
+        - protocol: TCP
+          port: 443
+        - protocol: UDP
+          port: 7844
+        - protocol: TCP
+          port: 7844

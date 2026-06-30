@@ -1,0 +1,71 @@
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: alloy-faro-boundary
+  namespace: cattle-monitoring-system
+  labels:
+    app.kubernetes.io/name: alloy-faro
+    app.kubernetes.io/part-of: rancher-monitoring
+    home-lab.io/project-slug: system
+spec:
+  podSelector:
+    matchLabels:
+      app.kubernetes.io/name: alloy
+      app.kubernetes.io/instance: alloy-faro
+  policyTypes:
+    - Ingress
+    - Egress
+  ingress:
+    - from:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: cloudflare
+          podSelector:
+            matchLabels:
+              app: controlled-cloudflared-connector
+              strrl.dev/cloudflare-tunnel-ingress-controller: controlled-cloudflared-connector
+      ports:
+        - protocol: TCP
+          port: 12347
+    - from:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: cattle-monitoring-system
+          podSelector:
+            matchLabels:
+              app.kubernetes.io/name: prometheus
+              prometheus: rancher-monitoring-prometheus
+      ports:
+        - protocol: TCP
+          port: 12345
+  egress:
+    - to:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: kube-system
+          podSelector:
+            matchLabels:
+              k8s-app: kube-dns
+      ports:
+        - protocol: UDP
+          port: 53
+        - protocol: TCP
+          port: 53
+    - to:
+        - podSelector:
+            matchLabels:
+              app.kubernetes.io/name: loki
+              app.kubernetes.io/instance: loki
+      ports:
+        - protocol: TCP
+          port: 8080
+    - to:
+        - podSelector:
+            matchLabels:
+              app.kubernetes.io/name: tempo
+              app.kubernetes.io/component: tracing-backend
+      ports:
+        - protocol: TCP
+          port: 4318
+

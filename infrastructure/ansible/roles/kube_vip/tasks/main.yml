@@ -1,0 +1,58 @@
+---
+- name: Assert kube-vip is being installed from the bootstrap server
+  ansible.builtin.assert:
+    that:
+      - k3s_node.cluster_init | bool
+    fail_msg: kube_vip must be applied from the initial K3s server where k3s_node.cluster_init=true.
+    success_msg: "Installing kube-vip from the bootstrap K3s server"
+
+- name: Assert kube-vip VIP and interface are set
+  ansible.builtin.assert:
+    that:
+      - k3s.registration_vip | trim != ''
+      - kube_vip.interface | trim != ''
+      - kube_vip.priority_class_name | trim != ''
+    fail_msg: Expected both k3s.registration_vip and kube_vip.interface to be set.
+    success_msg: "kube-vip will advertise {{ k3s.registration_vip }} on {{ kube_vip.interface }}"
+
+- name: Wait for local K3s API before deploying kube-vip
+  ansible.builtin.wait_for:
+    host: 127.0.0.1
+    port: 6443
+    timeout: 120
+
+- name: Assert local K3s API is ready before deploying kube-vip
+  ansible.builtin.command: /usr/local/bin/k3s kubectl get --raw=/readyz
+  register: kube_vip_local_readyz
+  changed_when: false
+
+- name: Confirm local K3s API returned readyz ok
+  ansible.builtin.assert:
+    that:
+      - kube_vip_local_readyz.stdout | trim == 'ok'
+    fail_msg: Expected local K3s API /readyz endpoint to return ok before deploying kube-vip.
+    success_msg: "Local K3s API is ready for kube-vip deployment"
+
+- name: Ensure K3s manifests directory exists for kube-vip
+  ansible.builtin.file:
+    path: /var/lib/rancher/k3s/server/manifests
+    state: directory
+    owner: root
+    group: root
+    mode: "0755"
+
+- name: Render kube-vip RBAC manifest
+  ansible.builtin.template:
+    src: kube-vip-rbac.yaml.j2
+    dest: /var/lib/rancher/k3s/server/manifests/kube-vip-rbac.yaml
+    owner: root
+    group: root
+    mode: "0644"
+
+- name: Render kube-vip DaemonSet manifest
+  ansible.builtin.template:
+    src: kube-vip.yaml.j2
+    dest: /var/lib/rancher/k3s/server/manifests/kube-vip.yaml
+    owner: root
+    group: root
+    mode: "0644"

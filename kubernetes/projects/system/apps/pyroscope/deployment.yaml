@@ -1,0 +1,111 @@
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: pyroscope
+  namespace: cattle-monitoring-system
+  labels:
+    app.kubernetes.io/name: pyroscope
+    app.kubernetes.io/component: profiling-backend
+    app.kubernetes.io/part-of: rancher-monitoring
+    home-lab.io/project-slug: system
+spec:
+  replicas: 1
+  revisionHistoryLimit: 2
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: pyroscope
+      app.kubernetes.io/component: profiling-backend
+  strategy:
+    type: Recreate
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: pyroscope
+        app.kubernetes.io/component: profiling-backend
+        app.kubernetes.io/part-of: rancher-monitoring
+        home-lab.io/project-slug: system
+    spec:
+      automountServiceAccountToken: false
+      nodeSelector:
+        kubernetes.io/arch: arm64
+      securityContext:
+        fsGroup: 10001
+        fsGroupChangePolicy: OnRootMismatch
+      containers:
+        - name: pyroscope
+          image: docker.io/grafana/pyroscope:2.1.0
+          imagePullPolicy: IfNotPresent
+          args:
+            - -target=all
+            - -server.http-listen-port=4040
+            - -server.grpc-listen-port=9095
+            - -architecture.storage=v2
+            - -storage.backend=filesystem
+            - -storage.filesystem.dir=/var/pyroscope/v2/shared
+            - -metastore.data-dir=/var/pyroscope/v2/metastore/data
+            - -metastore.raft.dir=/var/pyroscope/v2/metastore/raft
+            - -compactor.data-dir=/var/pyroscope/compactor
+            - -compactor.blocks-retention-period=24h
+            - -querier.max-query-lookback=24h
+            - -querier.max-query-length=24h
+            - -validation.reject-older-than=2h
+            - -usage-stats.enabled=false
+            - -self-profiling.disable-push=true
+            - -log.level=info
+          env:
+            - name: GOMEMLIMIT
+              value: 320MiB
+            - name: GOGC
+              value: "50"
+          ports:
+            - name: http
+              containerPort: 4040
+              protocol: TCP
+            - name: grpc
+              containerPort: 9095
+              protocol: TCP
+          startupProbe:
+            httpGet:
+              path: /ready
+              port: http
+            periodSeconds: 5
+            timeoutSeconds: 3
+            failureThreshold: 24
+          readinessProbe:
+            httpGet:
+              path: /ready
+              port: http
+            periodSeconds: 10
+            timeoutSeconds: 3
+            failureThreshold: 3
+          livenessProbe:
+            httpGet:
+              path: /ready
+              port: http
+            periodSeconds: 30
+            timeoutSeconds: 3
+            failureThreshold: 3
+          resources:
+            requests:
+              cpu: 10m
+              memory: 96Mi
+            limits:
+              memory: 160Mi
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop:
+                - ALL
+            runAsGroup: 10001
+            runAsNonRoot: true
+            runAsUser: 10001
+            seccompProfile:
+              type: RuntimeDefault
+          volumeMounts:
+            - name: data
+              mountPath: /var/pyroscope
+      volumes:
+        - name: data
+          emptyDir:
+            sizeLimit: 2Gi

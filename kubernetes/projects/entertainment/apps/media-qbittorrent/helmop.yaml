@@ -1,0 +1,50 @@
+---
+apiVersion: fleet.cattle.io/v1alpha1
+kind: HelmOp
+metadata:
+  name: qbittorrent
+  labels:
+    app.kubernetes.io/name: qbittorrent
+    app.kubernetes.io/part-of: media-stack
+    home-lab.io/project-slug: entertainment
+spec:
+  defaultNamespace: media
+  namespaceLabels:
+    app.kubernetes.io/part-of: media-stack
+    field.cattle.io/projectId: p-rm645
+  namespaceAnnotations:
+    field.cattle.io/projectId: local:p-rm645
+  dependsOn:
+    - name: rancher-project-entertainment
+    - name: media-helm-repositories
+    - name: media-storage
+  labels:
+    app.kubernetes.io/name: qbittorrent
+    app.kubernetes.io/part-of: media-stack
+    home-lab.io/project-slug: entertainment
+  targets:
+    - name: default
+      clusterGroup: default
+  targetRestrictions:
+    - name: default
+      clusterGroup: default
+  correctDrift:
+    enabled: true
+    force: true
+    keepFailHistory: true
+  downstreamResources:
+    - kind: ConfigMap
+      name: qbittorrent-values
+  helm:
+    releaseName: qbittorrent
+    repo: oci://oci.trueforge.org/truecharts/qbittorrent
+    version: 25.6.0
+    atomic: true
+    timeoutSeconds: 600
+    takeOwnership: true
+    valuesFrom:
+      - configMapKeyRef:
+          name: qbittorrent-values
+          namespace: fleet-local
+          key: values.yaml
+    waitForJobs: true

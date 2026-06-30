@@ -1,0 +1,38 @@
+---
+- name: Assert K3s system add-on reset is running on the bootstrap server
+  ansible.builtin.assert:
+    that:
+      - k3s_node.cluster_init | bool
+    fail_msg: k3s_system_addons reset must run on the initial K3s server where k3s_node.cluster_init=true.
+    success_msg: "Resetting custom K3s system add-ons from the bootstrap server"
+
+- name: Check custom system add-on manifest files
+  ansible.builtin.stat:
+    path: "{{ item }}"
+  loop:
+    - /var/lib/rancher/k3s/server/manifests/custom-coredns.yaml
+    - /var/lib/rancher/k3s/server/manifests/custom-metrics-server.yaml
+  register: k3s_system_addons_reset_manifest_stats
+
+- name: Delete custom system add-on resources
+  ansible.builtin.command:
+    argv:
+      - /usr/local/bin/k3s
+      - kubectl
+      - delete
+      - -f
+      - "{{ item.stat.path }}"
+  environment:
+    KUBECONFIG: /etc/rancher/k3s/k3s.yaml
+  loop: "{{ k3s_system_addons_reset_manifest_stats.results }}"
+  when: item.stat.exists
+  changed_when: true
+  failed_when: false
+
+- name: Remove custom system add-on manifest files
+  ansible.builtin.file:
+    path: "{{ item }}"
+    state: absent
+  loop:
+    - /var/lib/rancher/k3s/server/manifests/custom-coredns.yaml
+    - /var/lib/rancher/k3s/server/manifests/custom-metrics-server.yaml

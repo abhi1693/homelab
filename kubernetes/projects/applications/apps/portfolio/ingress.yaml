@@ -1,0 +1,33 @@
+---
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: portfolio
+  namespace: portfolio
+  labels:
+    app.kubernetes.io/name: portfolio
+    app.kubernetes.io/component: web
+    app.kubernetes.io/part-of: portfolio
+spec:
+  ingressClassName: cloudflare-tunnel
+  rules:
+    - host: abhimanyu-saharan.com
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: portfolio
+                port:
+                  name: http
+    - host: www.abhimanyu-saharan.com
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: portfolio
+                port:
+                  name: http

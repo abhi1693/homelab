@@ -1,0 +1,29 @@
+---
+- name: Run longhorn entrypoint
+  hosts: "{{ longhorn_target_hosts | default('k3s_nodes') }}"
+  become: true
+  gather_facts: true
+
+  vars:
+    longhorn_selected_entrypoint: "{{ longhorn_entrypoint | default('main') }}"
+
+  pre_tasks:
+    - name: Assert longhorn entrypoint is supported
+      ansible.builtin.assert:
+        that:
+          - longhorn_selected_entrypoint in ['main', 'validation', 'reset']
+        fail_msg: "Unsupported longhorn entrypoint {{ longhorn_selected_entrypoint }}"
+        success_msg: "Running longhorn entrypoint {{ longhorn_selected_entrypoint }}"
+
+  tasks:
+    - name: Run longhorn main entrypoint
+      ansible.builtin.include_role:
+        name: longhorn
+      when: longhorn_selected_entrypoint == 'main'
+
+    - name: Run longhorn alternate entrypoint
+      ansible.builtin.include_role:
+        name: longhorn
+        tasks_from: "{{ longhorn_selected_entrypoint }}"
+        rolespec_validate: false
+      when: longhorn_selected_entrypoint != 'main'

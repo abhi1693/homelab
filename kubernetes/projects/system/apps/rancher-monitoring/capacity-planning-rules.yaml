@@ -1,0 +1,137 @@
+---
+apiVersion: monitoring.coreos.com/v1
+kind: PrometheusRule
+metadata:
+  name: cluster-capacity-planning
+  namespace: cattle-monitoring-system
+  labels:
+    app.kubernetes.io/name: cluster-capacity-planning
+    app.kubernetes.io/part-of: rancher-monitoring
+    home-lab.io/project-slug: system
+spec:
+  groups:
+    - name: home-lab.capacity-planning
+      interval: 1m
+      rules:
+        - record: home_lab:cluster_cpu_allocatable_cores:sum
+          expr: sum(kube_node_status_allocatable{resource="cpu",unit="core"})
+        - record: home_lab:cluster_memory_allocatable_bytes:sum
+          expr: sum(kube_node_status_allocatable{resource="memory",unit="byte"})
+        - record: home_lab:pod_cpu_container_requests_cores:sum
+          expr: |-
+            sum by (namespace, pod, uid, node) (
+              kube_pod_container_resource_requests{resource="cpu",unit="core"}
+              * on(namespace, pod, uid) group_left()
+              (kube_pod_status_phase{phase=~"Pending|Running"} == 1)
+            )
+        - record: home_lab:pod_memory_container_requests_bytes:sum
+          expr: |-
+            sum by (namespace, pod, uid, node) (
+              kube_pod_container_resource_requests{resource="memory",unit="byte"}
+              * on(namespace, pod, uid) group_left()
+              (kube_pod_status_phase{phase=~"Pending|Running"} == 1)
+            )
+        - record: home_lab:pod_cpu_init_requests_cores:max
+          expr: |-
+            max by (namespace, pod, uid, node) (
+              kube_pod_init_container_resource_requests{resource="cpu",unit="core"}
+              * on(namespace, pod, uid) group_left()
+              (kube_pod_status_phase{phase=~"Pending|Running"} == 1)
+            )
+        - record: home_lab:pod_memory_init_requests_bytes:max
+          expr: |-
+            max by (namespace, pod, uid, node) (
+              kube_pod_init_container_resource_requests{resource="memory",unit="byte"}
+              * on(namespace, pod, uid) group_left()
+              (kube_pod_status_phase{phase=~"Pending|Running"} == 1)
+            )
+        - record: home_lab:pod_cpu_requests_cores:scheduler
+          expr: |-
+            (
+              home_lab:pod_cpu_container_requests_cores:sum
+              unless on(namespace, pod, uid, node)
+              (
+                home_lab:pod_cpu_init_requests_cores:max
+                > on(namespace, pod, uid, node)
+                home_lab:pod_cpu_container_requests_cores:sum
+              )
+            )
+            or
+            (
+              home_lab:pod_cpu_init_requests_cores:max
+              > on(namespace, pod, uid, node)
+              home_lab:pod_cpu_container_requests_cores:sum
+            )
+        - record: home_lab:pod_memory_requests_bytes:scheduler
+          expr: |-
+            (
+              home_lab:pod_memory_container_requests_bytes:sum
+              unless on(namespace, pod, uid, node)
+              (
+                home_lab:pod_memory_init_requests_bytes:max
+                > on(namespace, pod, uid, node)
+                home_lab:pod_memory_container_requests_bytes:sum
+              )
+            )
+            or
+            (
+              home_lab:pod_memory_init_requests_bytes:max
+              > on(namespace, pod, uid, node)
+              home_lab:pod_memory_container_requests_bytes:sum
+            )
+        - record: home_lab:cluster_cpu_effective_requests_cores:sum
+          expr: sum(home_lab:pod_cpu_requests_cores:scheduler)
+        - record: home_lab:cluster_memory_effective_requests_bytes:sum
+          expr: sum(home_lab:pod_memory_requests_bytes:scheduler)
+        - record: home_lab:cluster_cpu_limits_cores:sum
+          expr: |-
+            sum(
+              kube_pod_container_resource_limits{resource="cpu",unit="core"}
+              * on(namespace, pod, uid) group_left()
+              (kube_pod_status_phase{phase=~"Pending|Running"} == 1)
+            )
+        - record: home_lab:cluster_memory_limits_bytes:sum
+          expr: |-
+            sum(
+              kube_pod_container_resource_limits{resource="memory",unit="byte"}
+              * on(namespace, pod, uid) group_left()
+              (kube_pod_status_phase{phase=~"Pending|Running"} == 1)
+            )
+        - record: home_lab:cluster_cpu_usage_cores:rate5m
+          expr: sum(rate(container_cpu_usage_seconds_total{container!="",image!="",pod!=""}[5m]))
+        - record: home_lab:cluster_memory_working_set_bytes:sum
+          expr: sum(container_memory_working_set_bytes{container!="",image!="",pod!=""})
+        - record: home_lab:node_cpu_allocatable_cores
+          expr: max by (node) (kube_node_status_allocatable{resource="cpu",unit="core"})
+        - record: home_lab:node_memory_allocatable_bytes
+          expr: max by (node) (kube_node_status_allocatable{resource="memory",unit="byte"})
+        - record: home_lab:node_cpu_effective_requests_cores:sum
+          expr: sum by (node) (home_lab:pod_cpu_requests_cores:scheduler{node!=""})
+        - record: home_lab:node_memory_effective_requests_bytes:sum
+          expr: sum by (node) (home_lab:pod_memory_requests_bytes:scheduler{node!=""})
+        - record: home_lab:node_cpu_usage_cores:rate5m
+          expr: |-
+            sum by (node) (
+              sum by (instance) (rate(container_cpu_usage_seconds_total{container!="",image!="",pod!=""}[5m]))
+              * on(instance) group_left(node)
+              label_replace(max by (node, internal_ip) (kube_node_info), "instance", "$1:10250", "internal_ip", "(.*)")
+            )
+        - record: home_lab:node_memory_working_set_bytes:sum
+          expr: |-
+            sum by (node) (
+              sum by (instance) (container_memory_working_set_bytes{container!="",image!="",pod!=""})
+              * on(instance) group_left(node)
+              label_replace(max by (node, internal_ip) (kube_node_info), "instance", "$1:10250", "internal_ip", "(.*)")
+            )
+        - record: home_lab:namespace_cpu_effective_requests_cores:sum
+          expr: sum by (namespace) (home_lab:pod_cpu_requests_cores:scheduler)
+        - record: home_lab:namespace_memory_effective_requests_bytes:sum
+          expr: sum by (namespace) (home_lab:pod_memory_requests_bytes:scheduler)
+        - record: home_lab:namespace_cpu_usage_cores:rate5m
+          expr: sum by (namespace) (rate(container_cpu_usage_seconds_total{container!="",image!="",pod!=""}[5m]))
+        - record: home_lab:namespace_memory_working_set_bytes:sum
+          expr: sum by (namespace) (container_memory_working_set_bytes{container!="",image!="",pod!=""})
+        - record: home_lab:node_namespace_cpu_effective_requests_cores:sum
+          expr: sum by (node, namespace) (home_lab:pod_cpu_requests_cores:scheduler{node!=""})
+        - record: home_lab:node_namespace_memory_effective_requests_bytes:sum
+          expr: sum by (node, namespace) (home_lab:pod_memory_requests_bytes:scheduler{node!=""})

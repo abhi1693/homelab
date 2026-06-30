@@ -1,0 +1,50 @@
+---
+apiVersion: fleet.cattle.io/v1alpha1
+kind: HelmOp
+metadata:
+  name: radarr
+  labels:
+    app.kubernetes.io/name: radarr
+    app.kubernetes.io/part-of: media-stack
+    home-lab.io/project-slug: entertainment
+spec:
+  defaultNamespace: media
+  namespaceLabels:
+    app.kubernetes.io/part-of: media-stack
+    field.cattle.io/projectId: p-rm645
+  namespaceAnnotations:
+    field.cattle.io/projectId: local:p-rm645
+  dependsOn:
+    - name: rancher-project-entertainment
+    - name: media-helm-repositories
+    - name: media-storage
+  labels:
+    app.kubernetes.io/name: radarr
+    app.kubernetes.io/part-of: media-stack
+    home-lab.io/project-slug: entertainment
+  targets:
+    - name: default
+      clusterGroup: default
+  targetRestrictions:
+    - name: default
+      clusterGroup: default
+  correctDrift:
+    enabled: true
+    force: true
+    keepFailHistory: true
+  downstreamResources:
+    - kind: ConfigMap
+      name: radarr-values
+  helm:
+    releaseName: radarr
+    repo: oci://oci.trueforge.org/truecharts/radarr
+    version: 27.6.0
+    atomic: true
+    timeoutSeconds: 600
+    takeOwnership: true
+    valuesFrom:
+      - configMapKeyRef:
+          name: radarr-values
+          namespace: fleet-local
+          key: values.yaml
+    waitForJobs: true

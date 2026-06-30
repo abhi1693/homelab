@@ -1,0 +1,25 @@
+---
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+  name: shipyardhq-imgproxy
+  namespace: shipyardhq
+  labels:
+    app.kubernetes.io/name: shipyardhq-imgproxy
+    app.kubernetes.io/component: metrics
+    app.kubernetes.io/part-of: shipyardhq
+    home-lab.io/project-slug: applications
+spec:
+  jobLabel: app.kubernetes.io/name
+  namespaceSelector:
+    matchNames:
+      - shipyardhq
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: shipyardhq-imgproxy
+      app.kubernetes.io/component: image-proxy
+  endpoints:
+    - port: metrics
+      path: /metrics
+      interval: 60s
+      scrapeTimeout: 15s

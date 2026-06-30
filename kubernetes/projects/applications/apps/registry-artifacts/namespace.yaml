@@ -1,0 +1,17 @@
+---
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: registry-artifacts
+  labels:
+    app.kubernetes.io/managed-by: Helm
+    app.kubernetes.io/part-of: registry-artifacts
+    field.cattle.io/projectId: p-applications
+    kubernetes.io/metadata.name: registry-artifacts
+    pod-security.kubernetes.io/audit: restricted
+    pod-security.kubernetes.io/warn: restricted
+  annotations:
+    field.cattle.io/projectId: local:p-applications
+    helm.sh/resource-policy: keep
+    meta.helm.sh/release-name: registry-artifacts
+    meta.helm.sh/release-namespace: registry-artifacts

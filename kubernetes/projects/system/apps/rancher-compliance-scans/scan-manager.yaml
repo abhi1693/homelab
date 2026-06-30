@@ -1,0 +1,97 @@
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: rancher-compliance-scan-manager
+  namespace: compliance-operator-system
+  labels:
+    app.kubernetes.io/name: rancher-compliance-scan-manager
+    app.kubernetes.io/part-of: rancher-compliance
+    home-lab.io/project-slug: system
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: rancher-compliance-scan-manager
+  labels:
+    app.kubernetes.io/name: rancher-compliance-scan-manager
+    app.kubernetes.io/part-of: rancher-compliance
+    home-lab.io/project-slug: system
+rules:
+  - apiGroups:
+      - compliance.cattle.io
+    resources:
+      - clusterscans
+    verbs:
+      - get
+      - create
+      - patch
+      - update
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: rancher-compliance-scan-manager
+  labels:
+    app.kubernetes.io/name: rancher-compliance-scan-manager
+    app.kubernetes.io/part-of: rancher-compliance
+    home-lab.io/project-slug: system
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: rancher-compliance-scan-manager
+subjects:
+  - kind: ServiceAccount
+    name: rancher-compliance-scan-manager
+    namespace: compliance-operator-system
+---
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: rancher-compliance-seed-scans
+  namespace: compliance-operator-system
+  labels:
+    app.kubernetes.io/name: rancher-compliance-seed-scans
+    app.kubernetes.io/part-of: rancher-compliance
+    home-lab.io/project-slug: system
+  annotations:
+    helm.sh/hook: post-install,post-upgrade
+    helm.sh/hook-weight: "10"
+    helm.sh/hook-delete-policy: before-hook-creation
+spec:
+  backoffLimit: 3
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: rancher-compliance-seed-scans
+        app.kubernetes.io/part-of: rancher-compliance
+        home-lab.io/project-slug: system
+    spec:
+      serviceAccountName: rancher-compliance-scan-manager
+      restartPolicy: OnFailure
+      nodeSelector:
+        kubernetes.io/arch: arm64
+      containers:
+        - name: kubectl
+          image: rancher/kubectl:v1.35.2
+          imagePullPolicy: IfNotPresent
+          command:
+            - kubectl
+            - apply
+            - -f
+            - /manifests/clusterscans.yaml
+          volumeMounts:
+            - name: scan-definitions
+              mountPath: /manifests
+              readOnly: true
+          resources:
+            requests:
+              cpu: 10m
+              memory: 64Mi
+            limits:
+              cpu: 250m
+              memory: 128Mi
+      volumes:
+        - name: scan-definitions
+          configMap:
+            name: rancher-compliance-scan-definitions

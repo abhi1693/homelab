@@ -1,0 +1,19 @@
+---
+name: portfolio
+defaultNamespace: portfolio
+labels:
+  app.kubernetes.io/part-of: portfolio
+  home-lab.io/project-slug: applications
+imageScans:
+  - image: registry.home/portfolio/portfolio
+    tagName: portfolio
+    interval: 10m0s
+    secretRef:
+      name: harbor-registry
+    policy:
+      semver:
+        range: ">=0.0.0 <1.0.0"
+dependsOn:
+  - name: rancher-project-applications
+helm:
+  takeOwnership: true

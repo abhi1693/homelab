@@ -1,0 +1,35 @@
+- name: Assert kube-vip reset is running on the bootstrap server
+  ansible.builtin.assert:
+    that:
+      - k3s_node.cluster_init | bool
+    fail_msg: kube_vip reset must run on the initial K3s server where k3s_node.cluster_init=true.
+    success_msg: "Resetting kube-vip from the bootstrap K3s server"
+
+- name: Check kube-vip manifest files
+  ansible.builtin.stat:
+    path: "{{ item }}"
+  loop:
+    - /var/lib/rancher/k3s/server/manifests/kube-vip.yaml
+    - /var/lib/rancher/k3s/server/manifests/kube-vip-rbac.yaml
+  register: kube_vip_manifest_stats
+
+- name: Delete kube-vip resources from the cluster
+  ansible.builtin.command:
+    argv:
+      - /usr/local/bin/k3s
+      - kubectl
+      - delete
+      - -f
+      - "{{ item.stat.path }}"
+      - --ignore-not-found=true
+  loop: "{{ kube_vip_manifest_stats.results }}"
+  when: item.stat.exists
+  changed_when: true
+
+- name: Remove kube-vip manifest files
+  ansible.builtin.file:
+    path: "{{ item }}"
+    state: absent
+  loop:
+    - /var/lib/rancher/k3s/server/manifests/kube-vip.yaml
+    - /var/lib/rancher/k3s/server/manifests/kube-vip-rbac.yaml

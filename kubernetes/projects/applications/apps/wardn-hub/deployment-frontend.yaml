@@ -1,0 +1,266 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: wardn-hub-frontend
+  namespace: wardn
+  labels:
+    app.kubernetes.io/name: wardn-hub-frontend
+    app.kubernetes.io/component: frontend
+    app.kubernetes.io/part-of: wardn-hub
+spec:
+  replicas: 1
+  progressDeadlineSeconds: 900
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: wardn-hub-frontend
+      app.kubernetes.io/component: frontend
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxSurge: 1
+      maxUnavailable: 0
+  template:
+    metadata:
+      annotations:
+        home-lab.io/reconcile-token: "20260625T2115Z"
+      labels:
+        app.kubernetes.io/name: wardn-hub-frontend
+        app.kubernetes.io/component: frontend
+        app.kubernetes.io/part-of: wardn-hub
+        wardn-hub-api-client: "true"
+        wardn-hub-api-rollout-waiter: "true"
+    spec:
+      automountServiceAccountToken: false
+      serviceAccountName: wardn-hub-api-rollout-waiter
+      imagePullSecrets:
+        - name: harbor-registry
+      nodeSelector:
+        kubernetes.io/arch: arm64
+      securityContext:
+        fsGroup: 1001
+        fsGroupChangePolicy: OnRootMismatch
+      affinity:
+        podAntiAffinity:
+          preferredDuringSchedulingIgnoredDuringExecution:
+            - weight: 100
+              podAffinityTerm:
+                labelSelector:
+                  matchLabels:
+                    app.kubernetes.io/name: wardn-hub-frontend
+                    app.kubernetes.io/component: frontend
+                topologyKey: kubernetes.io/hostname
+      topologySpreadConstraints:
+        - maxSkew: 1
+          topologyKey: kubernetes.io/hostname
+          whenUnsatisfiable: ScheduleAnyway
+          labelSelector:
+            matchLabels:
+              app.kubernetes.io/name: wardn-hub-frontend
+              app.kubernetes.io/component: frontend
+      initContainers:
+        - name: wait-for-api-rollout
+          image: registry.home/ghcr.io/abhi1693/wardn-hub/backend:0.2.59 # {"$imagescan": "wardn-hub-backend"}
+          imagePullPolicy: IfNotPresent
+          command:
+            - python
+            - /opt/wardn/wait-for-api-rollout.py
+          resources:
+            requests:
+              cpu: 25m
+              memory: 128Mi
+            limits:
+              cpu: 250m
+              memory: 256Mi
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop:
+                - ALL
+            runAsGroup: 999
+            runAsNonRoot: true
+            runAsUser: 999
+          volumeMounts:
+            - name: api-rollout-script
+              mountPath: /opt/wardn/wait-for-api-rollout.py
+              subPath: wait-for-api-rollout.py
+              readOnly: true
+            - name: api-rollout-token
+              mountPath: /var/run/secrets/wardn-hub-api-rollout
+              readOnly: true
+        - name: restore-next-build
+          image: registry.home/ghcr.io/abhi1693/wardn-hub/frontend:0.2.60 # {"$imagescan": "wardn-hub-frontend"}
+          imagePullPolicy: IfNotPresent
+          command:
+            - /bin/sh
+            - -c
+          args:
+            - |
+              set -eu
+
+              cache_version=next-build-v4
+              cache_root=/app/hub/frontend/.next-build-cache
+              artifact_root="$cache_root/artifacts"
+              build_root=/app/hub/frontend/.next
+
+              mkdir -p "$artifact_root" "$build_root"
+
+              source_key="$(
+                {
+                  for path in app components hooks lib public; do
+                    [ -d "$path" ] && find "$path" -type f -print0
+                  done
+                  for path in next.config.ts package.json postcss.config.mjs proxy.ts tsconfig.json; do
+                    [ -f "$path" ] && printf '%s\0' "$path"
+                  done
+                } | sort -z | xargs -0 sha256sum | sha256sum | awk '{print $1}'
+              )"
+              env_key="$(
+                env | LC_ALL=C sort \
+                  | grep -E '^(CLERK_|NEXT_PUBLIC_|WARDN_HUB_API_INTERNAL_BASE_URL)=' \
+                  | sha256sum | awk '{print $1}'
+              )"
+              build_key="$(printf '%s\n%s\n%s\n' "$cache_version" "$source_key" "$env_key" | sha256sum | awk '{print $1}')"
+              artifact="$artifact_root/$build_key.tar.gz"
+              ready="$artifact_root/$build_key.ready"
+
+              clear_build_root() {
+                rm -rf "$build_root"/* "$build_root"/.[!.]* "$build_root"/..?* 2>/dev/null || true
+                mkdir -p "$build_root"
+              }
+
+              restore_artifact() {
+                if [ -f "$ready" ] && [ -s "$artifact" ]; then
+                  echo "Restoring cached Next.js build artifact $build_key..."
+                  clear_build_root
+                  tar --extract --gzip --file "$artifact" --directory "$build_root" --no-same-owner --no-same-permissions --delay-directory-restore --touch
+                  return 0
+                fi
+
+                echo "Cached Next.js build artifact $build_key is missing."
+                return 1
+              }
+
+              if restore_artifact; then
+                exit 0
+              fi
+
+              attempt=0
+              max_attempts=360
+              while [ "$attempt" -lt "$max_attempts" ]; do
+                echo "Waiting for wardn-hub-next-build artifact $build_key..."
+                sleep 10
+                if restore_artifact; then
+                  exit 0
+                fi
+                attempt=$((attempt + 1))
+              done
+
+              echo "Timed out waiting for wardn-hub-next-build artifact $build_key."
+              exit 1
+          envFrom:
+            - configMapRef:
+                name: wardn-hub
+            - secretRef:
+                name: wardn-hub
+          env:
+            - name: NODE_OPTIONS
+              value: --max-old-space-size=512
+            - name: NPM_CONFIG_CACHE
+              value: /tmp/.npm
+          resources:
+            requests:
+              cpu: 50m
+              memory: 256Mi
+            limits:
+              cpu: 500m
+              memory: 768Mi
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop:
+                - ALL
+            runAsGroup: 1001
+            runAsNonRoot: true
+            runAsUser: 1001
+          volumeMounts:
+            - name: next-build
+              mountPath: /app/hub/frontend/.next
+            - name: next-build-cache
+              mountPath: /app/hub/frontend/.next-build-cache
+      containers:
+        - name: frontend
+          image: registry.home/ghcr.io/abhi1693/wardn-hub/frontend:0.2.60 # {"$imagescan": "wardn-hub-frontend"}
+          imagePullPolicy: IfNotPresent
+          command:
+            - node
+            - .next/standalone/hub/frontend/server.js
+          envFrom:
+            - configMapRef:
+                name: wardn-hub
+            - secretRef:
+                name: wardn-hub
+          ports:
+            - name: http
+              containerPort: 3000
+              protocol: TCP
+          resources:
+            requests:
+              cpu: 60m
+              memory: 304Mi
+            limits:
+              memory: 448Mi
+          startupProbe:
+            httpGet:
+              path: /
+              port: http
+            periodSeconds: 5
+            timeoutSeconds: 3
+            failureThreshold: 120
+          readinessProbe:
+            httpGet:
+              path: /
+              port: http
+            periodSeconds: 10
+            timeoutSeconds: 3
+            failureThreshold: 6
+          livenessProbe:
+            httpGet:
+              path: /
+              port: http
+            periodSeconds: 30
+            timeoutSeconds: 5
+            failureThreshold: 4
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop:
+                - ALL
+            runAsGroup: 1001
+            runAsNonRoot: true
+            runAsUser: 1001
+          volumeMounts:
+            - name: next-build
+              mountPath: /app/hub/frontend/.next
+      volumes:
+        - name: api-rollout-script
+          configMap:
+            name: wardn-hub-api-rollout-waiter
+            defaultMode: 0444
+        - name: api-rollout-token
+          projected:
+            defaultMode: 0444
+            sources:
+              - serviceAccountToken:
+                  path: token
+                  expirationSeconds: 600
+              - configMap:
+                  name: kube-root-ca.crt
+                  items:
+                    - key: ca.crt
+                      path: ca.crt
+        - name: next-build
+          emptyDir:
+            sizeLimit: 2Gi
+        - name: next-build-cache
+          persistentVolumeClaim:
+            claimName: wardn-hub-next-build-cache

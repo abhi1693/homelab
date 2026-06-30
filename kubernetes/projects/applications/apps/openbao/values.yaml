@@ -1,0 +1,47 @@
+---
+global:
+  tlsDisable: true
+
+injector:
+  enabled: false
+
+server:
+  image:
+    registry: registry.home
+    repository: quay.io/openbao/openbao
+    pullPolicy: IfNotPresent
+  resources:
+    requests:
+      cpu: 25m
+      memory: 128Mi
+    limits:
+      memory: 256Mi
+  updateStrategyType: RollingUpdate
+  nodeSelector:
+    kubernetes.io/arch: arm64
+  ingress:
+    enabled: true
+    ingressClassName: traefik
+    hosts:
+      - host: secrets.wardn.home
+        paths:
+          - /
+  dataStorage:
+    enabled: true
+    size: 1Gi
+    storageClass: longhorn
+  auditStorage:
+    enabled: false
+  dev:
+    enabled: false
+  standalone:
+    enabled: true
+  ha:
+    enabled: false
+
+ui:
+  enabled: true
+  serviceType: ClusterIP
+
+csi:
+  enabled: false

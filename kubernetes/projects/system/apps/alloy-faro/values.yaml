@@ -1,0 +1,113 @@
+---
+crds:
+  create: false
+
+controller:
+  type: deployment
+  replicas: 1
+  nodeSelector:
+    kubernetes.io/arch: arm64
+
+alloy:
+  enableReporting: false
+  envFrom:
+    - secretRef:
+        name: alloy-faro
+  extraPorts:
+    - name: faro
+      port: 12347
+      targetPort: 12347
+      protocol: TCP
+  configMap:
+    content: |-
+      faro.receiver "public_apps" {
+        extra_log_labels = {
+          cluster = "local",
+          source  = "faro",
+        }
+        log_format = "json"
+
+        server {
+          listen_address           = "0.0.0.0"
+          listen_port              = 12347
+          api_key                  = sys.env("FARO_API_KEY")
+          cors_allowed_origins     = [
+            "https://abhimanyu-saharan.com",
+            "https://www.abhimanyu-saharan.com",
+            "https://blog.abhimanyu-saharan.com",
+            "https://shipyardhq.dev",
+            "https://www.shipyardhq.dev",
+            "https://hub.wardnai.dev",
+            "https://git-rank.dev",
+            "https://indexly.cc",
+          ]
+          include_metadata         = true
+          max_allowed_payload_size = "2MiB"
+
+          rate_limiting {
+            enabled    = true
+            strategy   = "per_app"
+            rate       = 20
+            burst_size = 40
+          }
+        }
+
+        sourcemaps {
+          download              = true
+          download_from_origins = [
+            "https://abhimanyu-saharan.com",
+            "https://www.abhimanyu-saharan.com",
+            "https://blog.abhimanyu-saharan.com",
+            "https://shipyardhq.dev",
+            "https://www.shipyardhq.dev",
+            "https://hub.wardnai.dev",
+            "https://git-rank.dev",
+            "https://indexly.cc",
+          ]
+          download_timeout      = "2s"
+
+          cache {
+            cleanup_check_interval = "5m"
+            error_cleanup_interval = "30m"
+            ttl                    = "24h"
+          }
+        }
+
+        output {
+          logs   = [loki.write.local.receiver]
+          traces = [otelcol.exporter.otlphttp.tempo.input]
+        }
+      }
+
+      loki.write "local" {
+        endpoint {
+          url = "http://loki-gateway.cattle-monitoring-system.svc.cluster.local/loki/api/v1/push"
+        }
+      }
+
+      otelcol.exporter.otlphttp "tempo" {
+        client {
+          endpoint    = "http://tempo.cattle-monitoring-system.svc.cluster.local:4318"
+          compression = "gzip"
+          timeout     = "10s"
+        }
+      }
+  resources:
+    requests:
+      cpu: 50m
+      memory: 128Mi
+    limits:
+      memory: 256Mi
+
+configReloader:
+  resources:
+    requests:
+      cpu: 10m
+      memory: 32Mi
+    limits:
+      memory: 64Mi
+
+serviceMonitor:
+  enabled: true
+  additionalLabels:
+    app.kubernetes.io/part-of: rancher-monitoring

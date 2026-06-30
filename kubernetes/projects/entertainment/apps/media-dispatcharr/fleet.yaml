@@ -1,0 +1,34 @@
+---
+name: media-dispatcharr
+defaultNamespace: media
+namespaceLabels:
+  app.kubernetes.io/part-of: media-stack
+  field.cattle.io/projectId: p-rm645
+namespaceAnnotations:
+  field.cattle.io/projectId: local:p-rm645
+labels:
+  app.kubernetes.io/part-of: media-stack
+  home-lab.io/project-slug: entertainment
+imageScans:
+  - image: registry.home/ghcr.io/dispatcharr/dispatcharr
+    tagName: dispatcharr
+    interval: 10m0s
+    policy:
+      semver:
+        range: ">=0.0.0 <1.0.0"
+dependsOn:
+  - name: rancher-project-entertainment
+  - name: jellyfin
+  - name: postgresql
+  - name: postgresql-networkpolicy
+  - name: postgresql-pooler-pdb
+diff:
+  comparePatches:
+    - apiVersion: v1
+      kind: PersistentVolumeClaim
+      name: dispatcharr-data
+      namespace: media
+      jsonPointers:
+        - /spec/volumeName
+helm:
+  takeOwnership: true

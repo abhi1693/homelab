@@ -1,0 +1,23 @@
+---
+global:
+  cattle:
+    clusterName: local
+    systemDefaultRegistry: ""
+  kubectl:
+    repository: rancher/kubectl
+    tag: v1.35.2
+resources:
+  requests:
+    cpu: 10m
+    memory: 64Mi
+  limits:
+    memory: 128Mi
+nodeSelector:
+  kubernetes.io/arch: arm64
+securityScanJob:
+  overrideTolerations: false
+  tolerations: []
+alerts:
+  enabled: false
+  severity: warning
+  metricsPort: 8080

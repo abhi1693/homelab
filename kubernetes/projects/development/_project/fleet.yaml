@@ -1,0 +1,6 @@
+---
+name: rancher-project-development
+defaultNamespace: local
+labels:
+  app.kubernetes.io/name: development
+  app.kubernetes.io/part-of: rancher-projects

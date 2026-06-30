@@ -1,0 +1,22 @@
+---
+name: external-dns-unifi
+defaultNamespace: kube-public
+namespaceLabels:
+  field.cattle.io/projectId: p-zl69x
+namespaceAnnotations:
+  field.cattle.io/projectId: local:p-zl69x
+labels:
+  app.kubernetes.io/name: external-dns-unifi
+  app.kubernetes.io/part-of: cluster-dns
+  home-lab.io/project-slug: system
+dependsOn:
+  - name: system-helm-repositories
+  - name: external-dns-unifi-networkpolicy
+  - name: external-dns-unifi-secrets
+helm:
+  releaseName: external-dns-unifi
+  chart: external-dns
+  repo: https://kubernetes-sigs.github.io/external-dns/
+  version: 1.21.1
+  valuesFiles:
+    - values.yaml

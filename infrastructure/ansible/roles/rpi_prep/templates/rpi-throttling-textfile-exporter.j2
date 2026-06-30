@@ -1,0 +1,65 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+textfile_dir="{{ rpi_prep.node_exporter_textfile_dir }}"
+output_file="${textfile_dir}/raspberry_pi_throttling.prom"
+tmp_file="$(mktemp "${output_file}.XXXXXX")"
+
+cleanup() {
+  rm -f "${tmp_file}"
+}
+trap cleanup EXIT
+
+raw_output="$(vcgencmd get_throttled 2>/dev/null || true)"
+success=0
+flags=0
+
+if [[ "${raw_output}" =~ ^throttled=0x[0-9a-fA-F]+$ ]]; then
+  success=1
+  flags=$(( ${raw_output#*=} ))
+fi
+
+emit_state() {
+  local condition="$1"
+  local state="$2"
+  local bit="$3"
+  local value=0
+
+  if (( flags & bit )); then
+    value=1
+  fi
+
+  printf 'raspberry_pi_throttled_state{condition="%s",state="%s"} %d\n' \
+    "${condition}" "${state}" "${value}"
+}
+
+{
+  cat <<'EOF'
+# HELP raspberry_pi_vcgencmd_get_throttled_success Whether vcgencmd get_throttled returned a parseable throttling bitset.
+# TYPE raspberry_pi_vcgencmd_get_throttled_success gauge
+EOF
+  printf 'raspberry_pi_vcgencmd_get_throttled_success %d\n' "${success}"
+
+  cat <<'EOF'
+# HELP raspberry_pi_throttled_flags Raw vcgencmd get_throttled bitset.
+# TYPE raspberry_pi_throttled_flags gauge
+EOF
+  printf 'raspberry_pi_throttled_flags %d\n' "${flags}"
+
+  cat <<'EOF'
+# HELP raspberry_pi_throttled_state Raspberry Pi firmware throttling state, split into active and occurred conditions.
+# TYPE raspberry_pi_throttled_state gauge
+EOF
+  emit_state undervoltage active 0x1
+  emit_state frequency_capped active 0x2
+  emit_state throttled active 0x4
+  emit_state soft_temperature_limit active 0x8
+  emit_state undervoltage occurred 0x10000
+  emit_state frequency_capped occurred 0x20000
+  emit_state throttled occurred 0x40000
+  emit_state soft_temperature_limit occurred 0x80000
+} > "${tmp_file}"
+
+chmod 0644 "${tmp_file}"
+mv "${tmp_file}" "${output_file}"
+trap - EXIT

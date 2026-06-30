@@ -1,0 +1,50 @@
+---
+apiVersion: fleet.cattle.io/v1alpha1
+kind: HelmOp
+metadata:
+  name: sonarr
+  labels:
+    app.kubernetes.io/name: sonarr
+    app.kubernetes.io/part-of: media-stack
+    home-lab.io/project-slug: entertainment
+spec:
+  defaultNamespace: media
+  namespaceLabels:
+    app.kubernetes.io/part-of: media-stack
+    field.cattle.io/projectId: p-rm645
+  namespaceAnnotations:
+    field.cattle.io/projectId: local:p-rm645
+  dependsOn:
+    - name: rancher-project-entertainment
+    - name: media-helm-repositories
+    - name: media-storage
+  labels:
+    app.kubernetes.io/name: sonarr
+    app.kubernetes.io/part-of: media-stack
+    home-lab.io/project-slug: entertainment
+  targets:
+    - name: default
+      clusterGroup: default
+  targetRestrictions:
+    - name: default
+      clusterGroup: default
+  correctDrift:
+    enabled: true
+    force: true
+    keepFailHistory: true
+  downstreamResources:
+    - kind: ConfigMap
+      name: sonarr-values
+  helm:
+    releaseName: sonarr
+    repo: oci://oci.trueforge.org/truecharts/sonarr
+    version: 26.5.0
+    atomic: true
+    timeoutSeconds: 600
+    takeOwnership: true
+    valuesFrom:
+      - configMapKeyRef:
+          name: sonarr-values
+          namespace: fleet-local
+          key: values.yaml
+    waitForJobs: true

@@ -1,0 +1,33 @@
+---
+apiVersion: fleet.cattle.io/v1alpha1
+kind: GitRepo
+metadata:
+  name: home-lab-database
+  namespace: fleet-local
+  labels:
+    app.kubernetes.io/name: home-lab-database
+    app.kubernetes.io/part-of: fleet
+    home-lab.io/project-slug: database
+spec:
+  repo: https://github.com/abhi1693/home-lab.git
+  branch: master
+  clientSecretName: home-lab-apps-github
+  pollingInterval: 1h0m0s
+  imageScanInterval: 1h0m0s
+  imageScanCommit:
+    authorName: home-lab-fleet
+    authorEmail: fleet@abhimanyu-saharan.com
+    messageTemplate: "Update image from Fleet ImageScan"
+  paths:
+    - kubernetes/projects/database/apps/cnpg-operator
+    - kubernetes/projects/database/apps/cnpg-operator-registry-secrets
+    - kubernetes/projects/database/apps/database-helm-repositories
+    - kubernetes/projects/database/apps/postgresql
+    - kubernetes/projects/database/apps/postgresql-networkpolicy
+    - kubernetes/projects/database/apps/postgresql-pooler-pdb
+    - kubernetes/projects/database/apps/valkey
+    - kubernetes/projects/database/apps/valkey-networkpolicy
+  correctDrift:
+    enabled: true
+    force: true
+    keepFailHistory: true

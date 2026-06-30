@@ -1,0 +1,51 @@
+---
+apiVersion: fleet.cattle.io/v1alpha1
+kind: HelmOp
+metadata:
+  name: netbox
+  labels:
+    app.kubernetes.io/name: netbox
+    app.kubernetes.io/part-of: netbox
+    home-lab.io/project-slug: home-automation
+spec:
+  defaultNamespace: netbox
+  namespaceLabels:
+    app.kubernetes.io/part-of: netbox
+    field.cattle.io/projectId: p-qqtgt
+  namespaceAnnotations:
+    field.cattle.io/projectId: local:p-qqtgt
+  dependsOn:
+    - name: rancher-project-home-automation
+    - name: home-automation-helm-repositories
+    - name: netbox-secrets
+  labels:
+    app.kubernetes.io/part-of: netbox
+    home-lab.io/project-slug: home-automation
+  targets:
+    - name: default
+      clusterGroup: default
+  targetRestrictions:
+    - name: default
+      clusterGroup: default
+  correctDrift:
+    enabled: true
+    force: true
+    keepFailHistory: true
+  downstreamResources:
+    - kind: ConfigMap
+      name: netbox-values
+  helm:
+    releaseName: netbox
+    repo: oci://ghcr.io/netbox-community/netbox-chart/netbox
+    version: 8.3.22
+    timeoutSeconds: 600
+    valuesFrom:
+      - configMapKeyRef:
+          name: netbox-values
+          namespace: fleet-local
+          key: values.yaml
+      - secretKeyRef:
+          name: netbox-values
+          namespace: netbox
+          key: values.yaml
+    waitForJobs: true

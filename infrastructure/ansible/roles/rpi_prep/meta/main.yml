@@ -1,0 +1,10 @@
+---
+galaxy_info:
+  description: Prepare Raspberry Pi specific prerequisites for K3s nodes.
+  min_ansible_version: "2.14"
+  platforms:
+    - name: Debian
+      versions:
+        - bookworm
+
+dependencies: []

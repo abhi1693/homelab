@@ -1,0 +1,9 @@
+---
+name: longhorn-recurring-jobs
+defaultNamespace: longhorn-system
+labels:
+  app.kubernetes.io/name: longhorn-recurring-jobs
+  app.kubernetes.io/part-of: longhorn
+  home-lab.io/project-slug: system
+helm:
+  takeOwnership: true

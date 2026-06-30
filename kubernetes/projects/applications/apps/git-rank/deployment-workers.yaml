@@ -1,0 +1,179 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: git-rank-worker-default
+  namespace: git-rank
+  labels:
+    app.kubernetes.io/name: git-rank-worker-default
+    app.kubernetes.io/component: worker-default
+    app.kubernetes.io/part-of: git-rank
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: git-rank-worker-default
+      app.kubernetes.io/component: worker-default
+  template:
+    metadata:
+      annotations:
+        home-lab.io/config-revision: git-rank-db-pool-20260630
+      labels:
+        app.kubernetes.io/name: git-rank-worker-default
+        app.kubernetes.io/component: worker-default
+        app.kubernetes.io/part-of: git-rank
+        git-rank-psql-client: "true"
+        git-rank-valkey-client: "true"
+    spec:
+      automountServiceAccountToken: false
+      imagePullSecrets:
+        - name: harbor-registry
+      nodeSelector:
+        kubernetes.io/arch: arm64
+      securityContext:
+        seccompProfile:
+          type: RuntimeDefault
+      affinity:
+        podAntiAffinity:
+          requiredDuringSchedulingIgnoredDuringExecution:
+            - labelSelector:
+                matchLabels:
+                  app.kubernetes.io/component: worker-default
+              topologyKey: kubernetes.io/hostname
+      containers:
+        - name: worker
+          image: registry.home/git-rank/backend:1.2.24 # {"$imagescan": "git-rank-backend"}
+          imagePullPolicy: IfNotPresent
+          command:
+            - python
+            - rq_worker.py
+            - -n
+            - "1"
+          envFrom:
+            - secretRef:
+                name: git-rank
+            - configMapRef:
+                name: git-rank
+          env:
+            - name: POSTGRES_USER
+              valueFrom:
+                secretKeyRef:
+                  name: git-rank-postgresql
+                  key: username
+            - name: POSTGRES_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: git-rank-postgresql
+                  key: password
+            - name: POSTGRES_DB
+              valueFrom:
+                secretKeyRef:
+                  name: git-rank-postgresql
+                  key: dbname
+            - name: DATABASE_URL
+              value: postgresql://$(POSTGRES_USER):$(POSTGRES_PASSWORD)@postgresql-pooler-git-rank-rw.postgresql.svc.cluster.local:5432/$(POSTGRES_DB)?sslmode=disable
+          resources:
+            requests:
+              cpu: 500m
+              memory: 208Mi
+            limits:
+              cpu: "1"
+              memory: 304Mi
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop:
+                - ALL
+            readOnlyRootFilesystem: false
+            runAsGroup: 999
+            runAsNonRoot: true
+            runAsUser: 999
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: git-rank-worker-high
+  namespace: git-rank
+  labels:
+    app.kubernetes.io/name: git-rank-worker-high
+    app.kubernetes.io/component: worker-high
+    app.kubernetes.io/part-of: git-rank
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: git-rank-worker-high
+      app.kubernetes.io/component: worker-high
+  template:
+    metadata:
+      annotations:
+        home-lab.io/config-revision: git-rank-db-pool-20260630
+      labels:
+        app.kubernetes.io/name: git-rank-worker-high
+        app.kubernetes.io/component: worker-high
+        app.kubernetes.io/part-of: git-rank
+        git-rank-psql-client: "true"
+        git-rank-valkey-client: "true"
+    spec:
+      automountServiceAccountToken: false
+      imagePullSecrets:
+        - name: harbor-registry
+      nodeSelector:
+        kubernetes.io/arch: arm64
+      securityContext:
+        seccompProfile:
+          type: RuntimeDefault
+      affinity:
+        podAntiAffinity:
+          requiredDuringSchedulingIgnoredDuringExecution:
+            - labelSelector:
+                matchLabels:
+                  app.kubernetes.io/component: worker-high
+              topologyKey: kubernetes.io/hostname
+      containers:
+        - name: worker
+          image: registry.home/git-rank/backend:1.2.24 # {"$imagescan": "git-rank-backend"}
+          imagePullPolicy: IfNotPresent
+          command:
+            - python
+            - rq_worker.py
+            - -n
+            - "1"
+            - high
+          envFrom:
+            - secretRef:
+                name: git-rank
+            - configMapRef:
+                name: git-rank
+          env:
+            - name: POSTGRES_USER
+              valueFrom:
+                secretKeyRef:
+                  name: git-rank-postgresql
+                  key: username
+            - name: POSTGRES_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: git-rank-postgresql
+                  key: password
+            - name: POSTGRES_DB
+              valueFrom:
+                secretKeyRef:
+                  name: git-rank-postgresql
+                  key: dbname
+            - name: DATABASE_URL
+              value: postgresql://$(POSTGRES_USER):$(POSTGRES_PASSWORD)@postgresql-pooler-git-rank-rw.postgresql.svc.cluster.local:5432/$(POSTGRES_DB)?sslmode=disable
+          resources:
+            requests:
+              cpu: 10m
+              memory: 112Mi
+            limits:
+              memory: 176Mi
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop:
+                - ALL
+            readOnlyRootFilesystem: false
+            runAsGroup: 999
+            runAsNonRoot: true
+            runAsUser: 999

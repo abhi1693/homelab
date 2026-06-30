@@ -1,0 +1,6 @@
+---
+name: rancher-project-home-automation
+defaultNamespace: local
+labels:
+  app.kubernetes.io/name: home-automation
+  app.kubernetes.io/part-of: rancher-projects

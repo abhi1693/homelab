@@ -1,0 +1,33 @@
+---
+apiVersion: monitoring.coreos.com/v1alpha1
+kind: ScrapeConfig
+metadata:
+  name: smartctl-exporter
+  namespace: cattle-monitoring-system
+  labels:
+    app.kubernetes.io/name: smartctl-exporter
+    app.kubernetes.io/component: nvme-health
+    app.kubernetes.io/part-of: rancher-monitoring
+    home-lab.io/project-slug: system
+spec:
+  jobName: smartctl-exporter
+  metricsPath: /metrics
+  scrapeInterval: 60s
+  scrapeTimeout: 15s
+  staticConfigs:
+    - targets:
+        - 192.168.3.243:9633
+      labels:
+        node: k8s-rpi1
+    - targets:
+        - 192.168.3.191:9633
+      labels:
+        node: k8s-rpi2
+    - targets:
+        - 192.168.3.108:9633
+      labels:
+        node: k8s-rpi3
+    - targets:
+        - 192.168.3.135:9633
+      labels:
+        node: k8s-rpi4

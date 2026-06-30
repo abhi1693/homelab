@@ -1,0 +1,55 @@
+---
+- name: Gather service facts for Longhorn reset
+  ansible.builtin.service_facts:
+
+- name: Delete Longhorn resources from the HelmChart manifest
+  ansible.builtin.command:
+    argv:
+      - /usr/local/bin/k3s
+      - kubectl
+      - delete
+      - -f
+      - /var/lib/rancher/k3s/server/manifests/longhorn.yaml
+  environment:
+    KUBECONFIG: /etc/rancher/k3s/k3s.yaml
+  changed_when: true
+  failed_when: false
+  when: k3s_node.cluster_init | bool
+
+- name: Delete Longhorn CRD resources from the HelmChart manifest
+  ansible.builtin.command:
+    argv:
+      - /usr/local/bin/k3s
+      - kubectl
+      - delete
+      - -f
+      - /var/lib/rancher/k3s/server/manifests/longhorn-crd.yaml
+  environment:
+    KUBECONFIG: /etc/rancher/k3s/k3s.yaml
+  changed_when: true
+  failed_when: false
+  when: k3s_node.cluster_init | bool
+
+- name: Remove Longhorn manifest file
+  ansible.builtin.file:
+    path: /var/lib/rancher/k3s/server/manifests/longhorn.yaml
+    state: absent
+  when: k3s_node.cluster_init | bool
+
+- name: Remove Longhorn CRD manifest file
+  ansible.builtin.file:
+    path: /var/lib/rancher/k3s/server/manifests/longhorn-crd.yaml
+    state: absent
+  when: k3s_node.cluster_init | bool
+
+- name: Stop and mask iscsid during Longhorn reset
+  ansible.builtin.systemd_service:
+    name: iscsid.service
+    enabled: false
+    state: stopped
+    masked: true
+
+- name: Remove Longhorn modules-load file
+  ansible.builtin.file:
+    path: /etc/modules-load.d/longhorn.conf
+    state: absent

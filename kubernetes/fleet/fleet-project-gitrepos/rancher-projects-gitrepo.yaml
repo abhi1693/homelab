@@ -1,0 +1,17 @@
+---
+apiVersion: fleet.cattle.io/v1alpha1
+kind: GitRepo
+metadata:
+  name: home-lab-rancher-projects
+  namespace: fleet-local
+  labels:
+    app.kubernetes.io/name: home-lab-rancher-projects
+    app.kubernetes.io/part-of: fleet
+    home-lab.io/project-slug: rancher-projects
+spec:
+  repo: https://github.com/abhi1693/home-lab.git
+  branch: master
+  clientSecretName: home-lab-apps-github
+  pollingInterval: 1h0m0s
+  paths:
+    - kubernetes/projects/*/_project

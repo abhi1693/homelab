@@ -1,0 +1,44 @@
+---
+apiVersion: monitoring.coreos.com/v1
+kind: PrometheusRule
+metadata:
+  name: shipyardhq-imgproxy
+  namespace: shipyardhq
+  labels:
+    app.kubernetes.io/name: shipyardhq-imgproxy
+    app.kubernetes.io/component: alerts
+    app.kubernetes.io/part-of: shipyardhq
+    home-lab.io/project-slug: applications
+spec:
+  groups:
+    - name: shipyardhq.imgproxy
+      rules:
+        - alert: ShipyardHQImgproxyDown
+          expr: up{namespace="shipyardhq", job="shipyardhq-imgproxy"} == 0
+          for: 5m
+          labels:
+            severity: critical
+          annotations:
+            summary: ShipyardHQ imgproxy metrics are down
+            description: Prometheus has been unable to scrape ShipyardHQ imgproxy for more than 5 minutes.
+        - alert: ShipyardHQImgproxyHighErrorRate
+          expr: |
+            (
+              sum(rate(imgproxy_errors_total{namespace="shipyardhq", job="shipyardhq-imgproxy"}[5m]))
+              /
+              clamp_min(sum(rate(imgproxy_requests_total{namespace="shipyardhq", job="shipyardhq-imgproxy"}[5m])), 1)
+            ) > 0.05
+          for: 10m
+          labels:
+            severity: warning
+          annotations:
+            summary: ShipyardHQ imgproxy error rate is high
+            description: ShipyardHQ imgproxy has returned processing, download, or timeout errors for more than 5% of requests over 10 minutes.
+        - alert: ShipyardHQImgproxyWorkersSaturated
+          expr: avg(imgproxy_workers_utilization{namespace="shipyardhq", job="shipyardhq-imgproxy"}) > 80
+          for: 10m
+          labels:
+            severity: warning
+          annotations:
+            summary: ShipyardHQ imgproxy workers are saturated
+            description: ShipyardHQ imgproxy worker utilization has averaged above 80% for more than 10 minutes.

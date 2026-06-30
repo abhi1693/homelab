@@ -1,0 +1,21 @@
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: shoko
+  namespace: media
+  labels:
+    app.kubernetes.io/name: shoko
+    app.kubernetes.io/part-of: media-stack
+spec:
+  ingressClassName: traefik
+  rules:
+    - host: anime.media.home
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: shoko
+                port:
+                  name: http

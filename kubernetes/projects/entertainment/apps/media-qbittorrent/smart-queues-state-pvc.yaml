@@ -1,0 +1,21 @@
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: qbittorrent-smart-queues-state
+  namespace: media
+  annotations:
+    helm.sh/resource-policy: keep
+  labels:
+    app.kubernetes.io/instance: qbittorrent-smart-queues
+    app.kubernetes.io/name: qbittorrent-smart-queues
+    app.kubernetes.io/part-of: media-stack
+    home-lab.io/project-slug: entertainment
+    home-lab.io/migration-retain: rack-ops
+spec:
+  accessModes:
+    - ReadWriteOnce
+  storageClassName: longhorn
+  resources:
+    requests:
+      storage: 64Mi

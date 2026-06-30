@@ -1,0 +1,43 @@
+---
+apiVersion: fleet.cattle.io/v1alpha1
+kind: HelmOp
+metadata:
+  name: descheduler
+  labels:
+    app.kubernetes.io/name: descheduler
+    app.kubernetes.io/part-of: descheduler
+    home-lab.io/project-slug: system
+spec:
+  defaultNamespace: kube-system
+  dependsOn:
+    - name: system-helm-repositories
+  labels:
+    app.kubernetes.io/name: descheduler
+    app.kubernetes.io/part-of: descheduler
+    home-lab.io/project-slug: system
+  targets:
+    - name: default
+      clusterGroup: default
+  targetRestrictions:
+    - name: default
+      clusterGroup: default
+  correctDrift:
+    enabled: true
+    force: true
+    keepFailHistory: true
+  downstreamResources:
+    - kind: ConfigMap
+      name: descheduler-values
+  helm:
+    releaseName: descheduler
+    repo: https://kubernetes-sigs.github.io/descheduler/
+    chart: descheduler
+    version: 0.36.0
+    timeoutSeconds: 600
+    takeOwnership: true
+    valuesFrom:
+      - configMapKeyRef:
+          name: descheduler-values
+          namespace: fleet-local
+          key: values.yaml
+    waitForJobs: true

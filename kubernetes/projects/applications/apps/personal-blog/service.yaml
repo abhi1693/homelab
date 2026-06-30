@@ -1,0 +1,41 @@
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: personal-blog
+  namespace: personal-blog
+  labels:
+    app.kubernetes.io/name: personal-blog
+    app.kubernetes.io/component: web
+    app.kubernetes.io/part-of: personal-blog
+spec:
+  type: ClusterIP
+  selector:
+    app.kubernetes.io/name: personal-blog
+    app.kubernetes.io/component: web
+  ports:
+    - name: http
+      port: 3000
+      targetPort: http
+      protocol: TCP
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: personal-blog-headless
+  namespace: personal-blog
+  labels:
+    app.kubernetes.io/name: personal-blog
+    app.kubernetes.io/component: web
+    app.kubernetes.io/part-of: personal-blog
+spec:
+  type: ClusterIP
+  clusterIP: None
+  selector:
+    app.kubernetes.io/name: personal-blog
+    app.kubernetes.io/component: web
+  ports:
+    - name: http
+      port: 3000
+      targetPort: http
+      protocol: TCP

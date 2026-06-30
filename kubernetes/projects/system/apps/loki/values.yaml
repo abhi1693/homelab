@@ -1,0 +1,88 @@
+---
+deploymentMode: SingleBinary
+
+loki:
+  auth_enabled: false
+  commonConfig:
+    path_prefix: /var/loki
+    replication_factor: 1
+  compactor:
+    retention_enabled: true
+    delete_request_store: filesystem
+  storage:
+    type: filesystem
+  schemaConfig:
+    configs:
+      - from: 2024-04-01
+        store: tsdb
+        object_store: filesystem
+        schema: v13
+        index:
+          prefix: index_
+          period: 24h
+  limits_config:
+    retention_period: 168h
+    volume_enabled: true
+    reject_old_samples: true
+    reject_old_samples_max_age: 168h
+
+singleBinary:
+  replicas: 1
+  persistence:
+    enabled: true
+    storageClass: longhorn
+    size: 20Gi
+    whenDeleted: Retain
+    whenScaled: Retain
+  resources:
+    requests:
+      cpu: 100m
+      memory: 512Mi
+    limits:
+      memory: 1Gi
+  nodeSelector:
+    kubernetes.io/arch: arm64
+
+read:
+  replicas: 0
+write:
+  replicas: 0
+backend:
+  replicas: 0
+
+gateway:
+  enabled: true
+  verboseLogging: false
+  resources:
+    requests:
+      cpu: 20m
+      memory: 48Mi
+    limits:
+      memory: 96Mi
+
+chunksCache:
+  enabled: false
+resultsCache:
+  enabled: false
+lokiCanary:
+  enabled: false
+test:
+  enabled: false
+
+monitoring:
+  serviceMonitor:
+    enabled: true
+    labels:
+      app.kubernetes.io/part-of: rancher-monitoring
+  dashboards:
+    enabled: true
+    namespace: cattle-dashboards
+    labels:
+      grafana_dashboard: "1"
+      app.kubernetes.io/part-of: rancher-monitoring
+  rules:
+    enabled: true
+    alerting: false
+    labels:
+      app.kubernetes.io/part-of: rancher-monitoring
+

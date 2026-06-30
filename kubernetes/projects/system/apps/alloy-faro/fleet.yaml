@@ -1,0 +1,12 @@
+---
+name: alloy-faro-helmop
+defaultNamespace: fleet-local
+labels:
+  app.kubernetes.io/name: alloy-faro
+  app.kubernetes.io/part-of: rancher-monitoring
+  home-lab.io/project-slug: system
+dependsOn:
+  - name: system-helm-repositories
+  - name: loki-helmop
+  - name: tempo
+

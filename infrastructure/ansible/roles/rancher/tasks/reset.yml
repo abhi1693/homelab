@@ -1,0 +1,83 @@
+---
+- name: Assert Rancher reset is running on the bootstrap server
+  ansible.builtin.assert:
+    that:
+      - k3s_node.cluster_init | bool
+    fail_msg: rancher reset must run on the initial K3s server where k3s_node.cluster_init=true.
+    success_msg: "Resetting Rancher from the bootstrap K3s server"
+
+- name: Check Rancher manifest files
+  ansible.builtin.stat:
+    path: "{{ item }}"
+  loop:
+    - /var/lib/rancher/k3s/server/manifests/rancher-helmchart.yaml
+  register: rancher_reset_manifest_stats
+
+- name: Delete Rancher resources from manifests
+  ansible.builtin.command:
+    argv:
+      - /usr/local/bin/k3s
+      - kubectl
+      - delete
+      - -f
+      - "{{ item.stat.path }}"
+  environment:
+    KUBECONFIG: /etc/rancher/k3s/k3s.yaml
+  loop: "{{ rancher_reset_manifest_stats.results }}"
+  when: item.stat.exists
+  changed_when: true
+  failed_when: false
+
+- name: Remove Rancher manifest files
+  ansible.builtin.file:
+    path: "{{ item }}"
+    state: absent
+  loop:
+    - /var/lib/rancher/k3s/server/manifests/rancher-helmchart.yaml
+
+- name: Delete Rancher generated secrets
+  ansible.builtin.command:
+    argv:
+      - /usr/local/bin/k3s
+      - kubectl
+      - -n
+      - "{{ rancher.namespace }}"
+      - delete
+      - secret
+      - bootstrap-secret
+      - "{{ rancher.ingress.tls_secret_name }}"
+  environment:
+    KUBECONFIG: /etc/rancher/k3s/k3s.yaml
+  changed_when: true
+  failed_when: false
+  no_log: true
+
+- name: Delete legacy Rancher certificate addon record
+  ansible.builtin.command:
+    argv:
+      - /usr/local/bin/k3s
+      - kubectl
+      - -n
+      - kube-system
+      - delete
+      - addon
+      - rancher-certificate
+  environment:
+    KUBECONFIG: /etc/rancher/k3s/k3s.yaml
+  changed_when: true
+  failed_when: false
+
+- name: Delete legacy Rancher cert-manager Certificate
+  ansible.builtin.command:
+    argv:
+      - /usr/local/bin/k3s
+      - kubectl
+      - -n
+      - "{{ rancher.namespace }}"
+      - delete
+      - certificate
+      - rancher-ingress
+  environment:
+    KUBECONFIG: /etc/rancher/k3s/k3s.yaml
+  changed_when: true
+  failed_when: false

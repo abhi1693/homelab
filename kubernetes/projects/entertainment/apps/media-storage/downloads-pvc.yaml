@@ -1,0 +1,21 @@
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: media-downloads
+  namespace: media
+  annotations:
+    helm.sh/resource-policy: keep
+  labels:
+    app.kubernetes.io/name: media-downloads
+    app.kubernetes.io/part-of: media-stack
+    recurring-job.longhorn.io/source: enabled
+    recurring-job.longhorn.io/weekly-filesystem-trim: enabled
+spec:
+  accessModes:
+    - ReadWriteMany
+  storageClassName: longhorn
+  volumeName: pvc-444b6324-7709-4175-846b-d3d06219cf61
+  resources:
+    requests:
+      storage: 300Gi

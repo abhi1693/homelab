@@ -1,0 +1,70 @@
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: portfolio-default-deny
+  namespace: portfolio
+  labels:
+    app.kubernetes.io/name: portfolio
+    app.kubernetes.io/part-of: portfolio
+spec:
+  podSelector: {}
+  policyTypes:
+    - Ingress
+    - Egress
+  ingress: []
+  egress: []
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: portfolio-web-ingress
+  namespace: portfolio
+  labels:
+    app.kubernetes.io/name: portfolio
+    app.kubernetes.io/part-of: portfolio
+spec:
+  podSelector:
+    matchLabels:
+      app.kubernetes.io/name: portfolio
+      app.kubernetes.io/component: web
+  policyTypes:
+    - Ingress
+  ingress:
+    - from:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: cloudflare
+          podSelector:
+            matchLabels:
+              app: controlled-cloudflared-connector
+              strrl.dev/cloudflare-tunnel-ingress-controller: controlled-cloudflared-connector
+      ports:
+        - protocol: TCP
+          port: 3000
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: portfolio-dns-egress
+  namespace: portfolio
+  labels:
+    app.kubernetes.io/name: portfolio
+    app.kubernetes.io/part-of: portfolio
+spec:
+  podSelector: {}
+  policyTypes:
+    - Egress
+  egress:
+    - to:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: kube-system
+          podSelector:
+            matchLabels:
+              k8s-app: kube-dns
+      ports:
+        - protocol: UDP
+          port: 53
+        - protocol: TCP
+          port: 53

@@ -1,0 +1,23 @@
+---
+name: firefly-iii-storage
+defaultNamespace: finance
+namespaceLabels:
+  app.kubernetes.io/part-of: firefly-iii
+  field.cattle.io/projectId: p-applications
+namespaceAnnotations:
+  field.cattle.io/projectId: local:p-applications
+labels:
+  app.kubernetes.io/part-of: firefly-iii
+  home-lab.io/project-slug: applications
+dependsOn:
+  - name: rancher-project-applications
+diff:
+  comparePatches:
+    - apiVersion: v1
+      kind: PersistentVolumeClaim
+      name: firefly-iii-upload
+      namespace: finance
+      jsonPointers:
+        - /spec/volumeName
+helm:
+  takeOwnership: true

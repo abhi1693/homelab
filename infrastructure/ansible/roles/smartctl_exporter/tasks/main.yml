@@ -1,0 +1,82 @@
+---
+- name: Assert smartctl_exporter inputs are configured
+  ansible.builtin.assert:
+    that:
+      - smartctl_exporter.packages | length > 0
+      - smartctl_exporter.service_name | trim != ''
+      - smartctl_exporter.binary_path | trim != ''
+      - smartctl_exporter.listen_address | trim != ''
+      - smartctl_exporter.telemetry_path | trim != ''
+      - smartctl_exporter.interval | trim != ''
+      - smartctl_exporter.rescan | trim != ''
+      - smartctl_exporter.device_include | trim != ''
+      - smartctl_exporter.powermode_check in ['never', 'sleep', 'standby', 'idle']
+      - smartctl_exporter.log_level in ['debug', 'info', 'warn', 'error']
+    fail_msg: Expected smartctl_exporter inventory to define packages, service, and exporter flags.
+    success_msg: "smartctl_exporter inputs are configured"
+
+- name: Ensure Debian backports source is present for smartctl_exporter
+  ansible.builtin.copy:
+    dest: "{{ smartctl_exporter.apt_backports.source_path }}"
+    owner: root
+    group: root
+    mode: "0644"
+    content: |
+      Types: deb
+      URIs: {{ smartctl_exporter.apt_backports.uri }}
+      Suites: {{ smartctl_exporter.apt_backports.suite }}
+      Components: {{ smartctl_exporter.apt_backports.components | join(' ') }}
+      Signed-By: {{ smartctl_exporter.apt_backports.signed_by }}
+  register: smartctl_exporter_backports_source
+  when:
+    - ansible_facts.pkg_mgr == "apt"
+    - smartctl_exporter.apt_backports.enabled | bool
+
+- name: Update apt cache after adding smartctl_exporter backports source
+  ansible.builtin.apt:
+    update_cache: true
+  when:
+    - ansible_facts.pkg_mgr == "apt"
+    - smartctl_exporter_backports_source is changed
+
+- name: Install smartmontools from the default repository
+  ansible.builtin.package:
+    name: smartmontools
+    state: present
+
+- name: Install smartctl_exporter package from Debian backports
+  ansible.builtin.apt:
+    name: prometheus-smartctl-exporter
+    state: present
+    default_release: "{{ smartctl_exporter.apt_backports.suite }}"
+  when: ansible_facts.pkg_mgr == "apt"
+
+- name: Install smartctl_exporter package
+  ansible.builtin.package:
+    name: prometheus-smartctl-exporter
+    state: present
+  when: ansible_facts.pkg_mgr != "apt"
+
+- name: Ensure smartctl_exporter systemd drop-in directory exists
+  ansible.builtin.file:
+    path: "/etc/systemd/system/{{ smartctl_exporter.service_name }}.d"
+    state: directory
+    owner: root
+    group: root
+    mode: "0755"
+
+- name: Render smartctl_exporter managed systemd override
+  ansible.builtin.template:
+    src: smartctl_exporter-override.conf.j2
+    dest: "/etc/systemd/system/{{ smartctl_exporter.service_name }}.d/10-home-lab.conf"
+    owner: root
+    group: root
+    mode: "0644"
+  notify: Restart smartctl exporter
+
+- name: Ensure smartctl_exporter service is enabled and running
+  ansible.builtin.systemd_service:
+    name: "{{ smartctl_exporter.service_name }}"
+    daemon_reload: true
+    enabled: true
+    state: started

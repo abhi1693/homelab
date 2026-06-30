@@ -1,0 +1,24 @@
+---
+apiVersion: catalog.cattle.io/v1
+kind: ClusterRepo
+metadata:
+  name: bitnami-valkey
+  labels:
+    app.kubernetes.io/part-of: database
+    app.kubernetes.io/component: helm-repository
+    home-lab.io/project-slug: database
+spec:
+  enabled: true
+  url: oci://registry-1.docker.io/bitnamicharts/valkey
+---
+apiVersion: catalog.cattle.io/v1
+kind: ClusterRepo
+metadata:
+  name: cloudnative-pg
+  labels:
+    app.kubernetes.io/part-of: database
+    app.kubernetes.io/component: helm-repository
+    home-lab.io/project-slug: database
+spec:
+  enabled: true
+  url: https://cloudnative-pg.github.io/charts

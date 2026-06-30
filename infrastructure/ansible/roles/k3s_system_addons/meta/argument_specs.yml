@@ -1,0 +1,51 @@
+---
+argument_specs:
+  main:
+    short_description: Manage HA CoreDNS and Metrics Server manifests on the bootstrap K3s server.
+    options:
+      k3s_node:
+        type: dict
+        required: true
+        options:
+          cluster_init:
+            type: bool
+            required: true
+            description:
+              - Whether the target node is the initial K3s control-plane node.
+      k3s_system_addons:
+        type: dict
+        required: true
+        options:
+          coredns:
+            type: dict
+            required: true
+            options:
+              image:
+                type: str
+                required: true
+                description:
+                  - CoreDNS image to pin for the custom cluster DNS deployment.
+              replicas:
+                type: int
+                required: true
+                description:
+                  - Number of CoreDNS replicas to run.
+          metrics_server:
+            type: dict
+            required: true
+            options:
+              image:
+                type: str
+                required: true
+                description:
+                  - Metrics Server image to pin for the custom aggregated metrics deployment.
+              replicas:
+                type: int
+                required: true
+                description:
+                  - Number of Metrics Server replicas to run.
+              metric_resolution:
+                type: str
+                required: true
+                description:
+                  - Metrics Server scrape interval for kubelet resource metrics.

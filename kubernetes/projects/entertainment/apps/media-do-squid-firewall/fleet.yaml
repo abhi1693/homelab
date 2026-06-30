@@ -1,0 +1,16 @@
+---
+name: media-do-squid-firewall
+defaultNamespace: media
+namespaceLabels:
+  app.kubernetes.io/part-of: media-stack
+  field.cattle.io/projectId: p-rm645
+namespaceAnnotations:
+  field.cattle.io/projectId: local:p-rm645
+labels:
+  app.kubernetes.io/part-of: media-stack
+  home-lab.io/project-slug: entertainment
+dependsOn:
+  - name: rancher-project-entertainment
+  - name: media-storage
+helm:
+  takeOwnership: true

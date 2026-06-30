@@ -1,0 +1,23 @@
+---
+name: postgresql-helmop
+defaultNamespace: fleet-local
+labels:
+  app.kubernetes.io/part-of: postgresql
+  home-lab.io/project-slug: database
+imageScans:
+  - image: registry.home/ghcr.io/cloudnative-pg/postgresql
+    tagName: postgresql-17
+    interval: 10m0s
+    secretRef:
+      name: harbor-registry
+    policy:
+      semver:
+        range: ">=17.0.0 <18.0.0"
+  - image: registry.home/ghcr.io/cloudnative-pg/pgbouncer
+    tagName: pgbouncer
+    interval: 10m0s
+    secretRef:
+      name: harbor-registry
+    policy:
+      semver:
+        range: ">=1.0.0 <2.0.0"

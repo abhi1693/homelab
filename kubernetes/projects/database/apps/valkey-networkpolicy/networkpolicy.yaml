@@ -1,0 +1,101 @@
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: valkey-access
+  namespace: valkey
+  labels:
+    app.kubernetes.io/name: valkey
+    app.kubernetes.io/part-of: valkey
+spec:
+  podSelector:
+    matchLabels:
+      app.kubernetes.io/instance: valkey
+      app.kubernetes.io/name: valkey
+  policyTypes:
+    - Ingress
+    - Egress
+  ingress:
+    - from:
+        - podSelector:
+            matchLabels:
+              app.kubernetes.io/instance: valkey
+              app.kubernetes.io/name: valkey
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: netbox
+          podSelector:
+            matchLabels:
+              app.kubernetes.io/instance: netbox
+              app.kubernetes.io/name: netbox
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: git-rank
+          podSelector:
+            matchLabels:
+              git-rank-valkey-client: "true"
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: wardn
+          podSelector:
+            matchLabels:
+              wardn-hub-valkey-client: "true"
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: shipyardhq
+          podSelector:
+            matchExpressions:
+              - key: app.kubernetes.io/name
+                operator: In
+                values:
+                  - shipyardhq
+              - key: app.kubernetes.io/component
+                operator: In
+                values:
+                  - web
+                  - worker
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: harbor
+          podSelector:
+            matchLabels:
+              app: harbor
+      ports:
+        - protocol: TCP
+          port: 6379
+        - protocol: TCP
+          port: 26379
+    - from:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: cattle-monitoring-system
+          podSelector:
+            matchLabels:
+              app.kubernetes.io/name: prometheus
+              prometheus: rancher-monitoring-prometheus
+      ports:
+        - protocol: TCP
+          port: 9121
+  egress:
+    - to:
+        - podSelector:
+            matchLabels:
+              app.kubernetes.io/instance: valkey
+              app.kubernetes.io/name: valkey
+      ports:
+        - protocol: TCP
+          port: 6379
+        - protocol: TCP
+          port: 26379
+    - to:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: kube-system
+          podSelector:
+            matchLabels:
+              k8s-app: kube-dns
+      ports:
+        - protocol: UDP
+          port: 53
+        - protocol: TCP
+          port: 53

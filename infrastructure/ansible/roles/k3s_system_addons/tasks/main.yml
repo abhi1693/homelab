@@ -1,0 +1,124 @@
+---
+- name: Assert K3s system add-ons are managed from the bootstrap server
+  ansible.builtin.assert:
+    that:
+      - k3s_node.cluster_init | bool
+    fail_msg: k3s_system_addons must run on the initial K3s server where k3s_node.cluster_init=true.
+    success_msg: "Managing HA K3s system add-ons from the bootstrap server"
+
+- name: Assert HA system add-on inputs are set
+  ansible.builtin.assert:
+    that:
+      - k3s_system_addons.coredns.image | trim != ''
+      - k3s_system_addons.metrics_server.image | trim != ''
+      - k3s_system_addons.metrics_server.metric_resolution | trim != ''
+      - k3s_system_addons.coredns.replicas | int >= 2
+      - k3s_system_addons.metrics_server.replicas | int >= 2
+    fail_msg: Expected HA CoreDNS and Metrics Server inputs to be fully configured.
+    success_msg: "HA CoreDNS and Metrics Server inputs are configured"
+
+- name: Wait for local K3s API before managing custom system add-ons
+  ansible.builtin.wait_for:
+    host: 127.0.0.1
+    port: 6443
+    timeout: 120
+
+- name: Assert local K3s API is ready before managing custom system add-ons
+  ansible.builtin.command: /usr/local/bin/k3s kubectl get --raw=/readyz
+  register: k3s_system_addons_local_readyz
+  changed_when: false
+
+- name: Confirm local K3s API returned readyz ok
+  ansible.builtin.assert:
+    that:
+      - k3s_system_addons_local_readyz.stdout | trim == 'ok'
+    fail_msg: Expected local K3s API /readyz endpoint to return ok before managing custom system add-ons.
+    success_msg: "Local K3s API is ready for custom system add-ons"
+
+- name: Ensure K3s manifests directory exists for custom system add-ons
+  ansible.builtin.file:
+    path: /var/lib/rancher/k3s/server/manifests
+    state: directory
+    owner: root
+    group: root
+    mode: "0755"
+
+- name: Render custom CoreDNS manifest
+  ansible.builtin.template:
+    src: coredns.yaml.j2
+    dest: /var/lib/rancher/k3s/server/manifests/custom-coredns.yaml
+    owner: root
+    group: root
+    mode: "0644"
+  register: k3s_system_addons_coredns_manifest
+
+- name: Render custom Metrics Server manifest
+  ansible.builtin.template:
+    src: metrics-server.yaml.j2
+    dest: /var/lib/rancher/k3s/server/manifests/custom-metrics-server.yaml
+    owner: root
+    group: root
+    mode: "0644"
+  register: k3s_system_addons_metrics_server_manifest
+
+- name: Wait for custom system add-on deployments to exist
+  ansible.builtin.command:
+    argv:
+      - /usr/local/bin/k3s
+      - kubectl
+      - -n
+      - kube-system
+      - get
+      - "deployment/{{ item }}"
+  environment:
+    KUBECONFIG: /etc/rancher/k3s/k3s.yaml
+  register: k3s_system_addons_deployments
+  changed_when: false
+  until: k3s_system_addons_deployments.rc == 0
+  retries: 60
+  delay: 5
+  loop:
+    - coredns
+    - metrics-server
+
+- name: Restart custom system add-on deployments after manifest changes
+  ansible.builtin.command:
+    argv:
+      - /usr/local/bin/k3s
+      - kubectl
+      - -n
+      - kube-system
+      - rollout
+      - restart
+      - "deployment/{{ item }}"
+  environment:
+    KUBECONFIG: /etc/rancher/k3s/k3s.yaml
+  loop: >-
+    {{
+      [
+        {'name': 'coredns', 'changed': k3s_system_addons_coredns_manifest.changed},
+        {'name': 'metrics-server', 'changed': k3s_system_addons_metrics_server_manifest.changed}
+      ]
+      | selectattr('changed', 'equalto', true)
+      | map(attribute='name')
+      | list
+    }}
+  changed_when: true
+
+- name: Wait for custom system add-on deployments to roll out
+  ansible.builtin.command:
+    argv:
+      - /usr/local/bin/k3s
+      - kubectl
+      - -n
+      - kube-system
+      - rollout
+      - status
+      - "deployment/{{ item }}"
+      - --timeout=300s
+  environment:
+    KUBECONFIG: /etc/rancher/k3s/k3s.yaml
+  changed_when: false
+  loop:
+    - coredns
+    - metrics-server

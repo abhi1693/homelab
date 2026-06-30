@@ -1,0 +1,44 @@
+---
+apiVersion: fleet.cattle.io/v1alpha1
+kind: HelmOp
+metadata:
+  name: openbao
+  labels:
+    app.kubernetes.io/name: openbao
+    app.kubernetes.io/part-of: openbao
+    home-lab.io/project-slug: applications
+spec:
+  defaultNamespace: wardn
+  dependsOn:
+    - name: rancher-project-applications
+    - name: applications-helm-repositories
+    - name: wardn-hub
+  labels:
+    app.kubernetes.io/name: openbao
+    app.kubernetes.io/part-of: openbao
+    home-lab.io/project-slug: applications
+  targets:
+    - name: default
+      clusterGroup: default
+  targetRestrictions:
+    - name: default
+      clusterGroup: default
+  correctDrift:
+    enabled: true
+    keepFailHistory: true
+  downstreamResources:
+    - kind: ConfigMap
+      name: openbao-values
+  helm:
+    releaseName: openbao
+    repo: https://openbao.github.io/openbao-helm
+    chart: openbao
+    version: 0.28.4
+    timeoutSeconds: 600
+    takeOwnership: true
+    valuesFrom:
+      - configMapKeyRef:
+          name: openbao-values
+          namespace: fleet-local
+          key: values.yaml
+    waitForJobs: true

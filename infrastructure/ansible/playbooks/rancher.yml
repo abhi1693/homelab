@@ -1,0 +1,29 @@
+---
+- name: Run rancher entrypoint
+  hosts: "{{ rancher_target_hosts | default('server-1') }}"
+  become: true
+  gather_facts: true
+
+  vars:
+    rancher_selected_entrypoint: "{{ rancher_entrypoint | default('main') }}"
+
+  pre_tasks:
+    - name: Assert rancher entrypoint is supported
+      ansible.builtin.assert:
+        that:
+          - rancher_selected_entrypoint in ['main', 'validation', 'reset']
+        fail_msg: "Unsupported rancher entrypoint {{ rancher_selected_entrypoint }}"
+        success_msg: "Running rancher entrypoint {{ rancher_selected_entrypoint }}"
+
+  tasks:
+    - name: Run rancher main entrypoint
+      ansible.builtin.include_role:
+        name: rancher
+      when: rancher_selected_entrypoint == 'main'
+
+    - name: Run rancher alternate entrypoint
+      ansible.builtin.include_role:
+        name: rancher
+        tasks_from: "{{ rancher_selected_entrypoint }}"
+        rolespec_validate: false
+      when: rancher_selected_entrypoint != 'main'

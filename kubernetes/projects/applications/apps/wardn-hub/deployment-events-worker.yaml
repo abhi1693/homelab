@@ -1,0 +1,184 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: wardn-hub-events-worker
+  namespace: wardn
+  labels:
+    app.kubernetes.io/name: wardn-hub-events-worker
+    app.kubernetes.io/component: events-worker
+    app.kubernetes.io/part-of: wardn-hub
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: wardn-hub-events-worker
+      app.kubernetes.io/component: events-worker
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxSurge: 1
+      maxUnavailable: 0
+  template:
+    metadata:
+      annotations:
+        home-lab.io/reconcile-token: "20260627T2100Z"
+      labels:
+        app.kubernetes.io/name: wardn-hub-events-worker
+        app.kubernetes.io/component: events-worker
+        app.kubernetes.io/part-of: wardn-hub
+        wardn-hub-psql-client: "true"
+        wardn-hub-api-rollout-waiter: "true"
+    spec:
+      automountServiceAccountToken: false
+      serviceAccountName: wardn-hub-api-rollout-waiter
+      imagePullSecrets:
+        - name: harbor-registry
+      nodeSelector:
+        kubernetes.io/arch: arm64
+      initContainers:
+        - name: wait-for-api-rollout
+          image: registry.home/ghcr.io/abhi1693/wardn-hub/backend:0.2.59 # {"$imagescan": "wardn-hub-backend"}
+          imagePullPolicy: IfNotPresent
+          command:
+            - python
+            - /opt/wardn/wait-for-api-rollout.py
+          resources:
+            requests:
+              cpu: 25m
+              memory: 128Mi
+            limits:
+              cpu: 250m
+              memory: 256Mi
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop:
+                - ALL
+            runAsGroup: 999
+            runAsNonRoot: true
+            runAsUser: 999
+          volumeMounts:
+            - name: api-rollout-script
+              mountPath: /opt/wardn/wait-for-api-rollout.py
+              subPath: wait-for-api-rollout.py
+              readOnly: true
+            - name: api-rollout-token
+              mountPath: /var/run/secrets/wardn-hub-api-rollout
+              readOnly: true
+        - name: wait-for-codex-login
+          image: registry.home/ghcr.io/abhi1693/wardn-hub/backend:0.2.59 # {"$imagescan": "wardn-hub-backend"}
+          imagePullPolicy: IfNotPresent
+          command:
+            - sh
+            - -ec
+          args:
+            - |
+              for attempt in $(seq 1 180); do
+                if codex login status; then
+                  exit 0
+                fi
+                echo "Waiting for shared Codex login in /app/.codex (${attempt}/180)..."
+                sleep 10
+              done
+              echo "Timed out waiting for shared Codex login."
+              exit 1
+          resources:
+            requests:
+              cpu: 25m
+              memory: 128Mi
+            limits:
+              cpu: 250m
+              memory: 256Mi
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop:
+                - ALL
+            runAsGroup: 999
+            runAsNonRoot: true
+            runAsUser: 999
+          volumeMounts:
+            - name: codex-config
+              mountPath: /app/.codex
+      volumes:
+        - name: api-rollout-script
+          configMap:
+            name: wardn-hub-api-rollout-waiter
+            defaultMode: 0444
+        - name: api-rollout-token
+          projected:
+            defaultMode: 0444
+            sources:
+              - serviceAccountToken:
+                  path: token
+                  expirationSeconds: 600
+              - configMap:
+                  name: kube-root-ca.crt
+                  items:
+                    - key: ca.crt
+                      path: ca.crt
+        - name: codex-config
+          persistentVolumeClaim:
+            claimName: wardn-hub-codex-config
+      containers:
+        - name: events-worker
+          image: registry.home/ghcr.io/abhi1693/wardn-hub/backend:0.2.59 # {"$imagescan": "wardn-hub-backend"}
+          imagePullPolicy: IfNotPresent
+          command:
+            - python
+            - -m
+            - app.cli.events_worker
+          args:
+            - --interval
+            - "5"
+            - --limit
+            - "50"
+          envFrom:
+            - configMapRef:
+                name: wardn-hub
+            - secretRef:
+                name: wardn-hub
+          env:
+            - name: POSTGRES_USER
+              valueFrom:
+                secretKeyRef:
+                  name: wardn-hub-postgresql
+                  key: username
+            - name: POSTGRES_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: wardn-hub-postgresql
+                  key: password
+            - name: POSTGRES_DB
+              valueFrom:
+                secretKeyRef:
+                  name: wardn-hub-postgresql
+                  key: dbname
+            - name: WARDN_HUB_DATABASE_URL
+              value: postgresql+asyncpg://$(POSTGRES_USER):$(POSTGRES_PASSWORD)@postgresql-pooler-wardn-hub-rw.postgresql.svc.cluster.local:5432/$(POSTGRES_DB)
+            - name: POD_NAME
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.name
+            - name: WARDN_HUB_OTEL_SERVICE_NAME
+              value: wardn-hub-events-worker
+            - name: WARDN_HUB_OTEL_RESOURCE_ATTRIBUTES
+              value: service.namespace=wardn-hub,deployment.environment.name=production,service.instance.id=$(POD_NAME),k8s.namespace.name=wardn,k8s.deployment.name=wardn-hub-events-worker,k8s.pod.name=$(POD_NAME),k8s.container.name=events-worker
+          ports:
+            - name: metrics
+              containerPort: 8092
+              protocol: TCP
+          resources:
+            requests:
+              cpu: 10m
+              memory: 96Mi
+            limits:
+              memory: 160Mi
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop:
+                - ALL
+            runAsGroup: 999
+            runAsNonRoot: true
+            runAsUser: 999

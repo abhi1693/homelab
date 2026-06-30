@@ -1,0 +1,29 @@
+---
+- name: Run k3s_system_addons entrypoint
+  hosts: "{{ k3s_system_addons_target_hosts | default('server-1') }}"
+  become: true
+  gather_facts: true
+
+  vars:
+    k3s_system_addons_selected_entrypoint: "{{ k3s_system_addons_entrypoint | default('main') }}"
+
+  pre_tasks:
+    - name: Assert k3s_system_addons entrypoint is supported
+      ansible.builtin.assert:
+        that:
+          - k3s_system_addons_selected_entrypoint in ['main', 'validation', 'reset']
+        fail_msg: "Unsupported k3s_system_addons entrypoint {{ k3s_system_addons_selected_entrypoint }}"
+        success_msg: "Running k3s_system_addons entrypoint {{ k3s_system_addons_selected_entrypoint }}"
+
+  tasks:
+    - name: Run k3s_system_addons main entrypoint
+      ansible.builtin.include_role:
+        name: k3s_system_addons
+      when: k3s_system_addons_selected_entrypoint == 'main'
+
+    - name: Run k3s_system_addons alternate entrypoint
+      ansible.builtin.include_role:
+        name: k3s_system_addons
+        tasks_from: "{{ k3s_system_addons_selected_entrypoint }}"
+        rolespec_validate: false
+      when: k3s_system_addons_selected_entrypoint != 'main'

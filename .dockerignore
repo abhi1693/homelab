@@ -1,0 +1,6 @@
+**
+!coder/
+!coder/templates/
+!coder/templates/*/
+!coder/templates/*/image/
+!coder/templates/*/image/**

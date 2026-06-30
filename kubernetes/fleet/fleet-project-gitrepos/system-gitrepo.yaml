@@ -1,0 +1,21 @@
+---
+apiVersion: fleet.cattle.io/v1alpha1
+kind: GitRepo
+metadata:
+  name: home-lab-system
+  namespace: fleet-local
+  labels:
+    app.kubernetes.io/name: home-lab-system
+    app.kubernetes.io/part-of: fleet
+    home-lab.io/project-slug: system
+spec:
+  repo: https://github.com/abhi1693/home-lab.git
+  branch: master
+  clientSecretName: home-lab-apps-github
+  pollingInterval: 1h0m0s
+  paths:
+    - kubernetes/projects/system/apps/*
+  correctDrift:
+    enabled: true
+    force: true
+    keepFailHistory: true

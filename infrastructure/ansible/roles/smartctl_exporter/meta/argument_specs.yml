@@ -1,0 +1,63 @@
+---
+argument_specs:
+  main:
+    short_description: Install and configure smartctl_exporter for node disk health monitoring.
+    options:
+      smartctl_exporter:
+        type: dict
+        required: true
+        options:
+          apt_backports:
+            type: dict
+            required: true
+            options:
+              enabled:
+                type: bool
+                required: true
+              source_path:
+                type: str
+                required: true
+              suite:
+                type: str
+                required: true
+              uri:
+                type: str
+                required: true
+              components:
+                type: list
+                elements: str
+                required: true
+              signed_by:
+                type: str
+                required: true
+          packages:
+            type: list
+            elements: str
+            required: true
+          service_name:
+            type: str
+            required: true
+          binary_path:
+            type: str
+            required: true
+          listen_address:
+            type: str
+            required: true
+          telemetry_path:
+            type: str
+            required: true
+          interval:
+            type: str
+            required: true
+          rescan:
+            type: str
+            required: true
+          device_include:
+            type: str
+            required: true
+          powermode_check:
+            type: str
+            required: true
+          log_level:
+            type: str
+            required: true

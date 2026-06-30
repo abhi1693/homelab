@@ -1,0 +1,20 @@
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: rack-ops-state
+  namespace: rack-ops
+  annotations:
+    helm.sh/resource-policy: keep
+  labels:
+    app.kubernetes.io/name: rack-ops
+    app.kubernetes.io/part-of: rack-ops
+    home-lab.io/project-slug: home-automation
+spec:
+  accessModes:
+    - ReadWriteOnce
+  storageClassName: longhorn
+  volumeName: pvc-dc3d571f-617a-490b-8585-dc62297703c1
+  resources:
+    requests:
+      storage: 64Mi

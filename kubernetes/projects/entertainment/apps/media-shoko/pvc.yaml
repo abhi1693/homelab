@@ -1,0 +1,19 @@
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: shoko-config
+  namespace: media
+  annotations:
+    helm.sh/resource-policy: keep
+  labels:
+    app.kubernetes.io/name: shoko
+    app.kubernetes.io/part-of: media-stack
+spec:
+  accessModes:
+    - ReadWriteOnce
+  storageClassName: longhorn
+  volumeName: pvc-93f9e8ec-0145-4f6a-b3c6-11e0edec0a0f
+  resources:
+    requests:
+      storage: 1536Mi

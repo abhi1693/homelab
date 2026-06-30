@@ -1,0 +1,20 @@
+---
+name: radarr-helmop
+defaultNamespace: fleet-local
+labels:
+  app.kubernetes.io/name: radarr
+  app.kubernetes.io/part-of: media-stack
+  home-lab.io/project-slug: entertainment
+imageScans:
+  - image: registry.home/oci.trueforge.org/containerforge/radarr
+    tagName: radarr
+    interval: 10m0s
+    secretRef:
+      name: harbor-registry
+    policy:
+      semver:
+        range: ">=6.0.0 <7.0.0"
+dependsOn:
+  - name: rancher-project-entertainment
+  - name: media-helm-repositories
+  - name: media-storage

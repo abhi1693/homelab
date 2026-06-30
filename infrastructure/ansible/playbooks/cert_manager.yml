@@ -1,0 +1,29 @@
+---
+- name: Run cert_manager entrypoint
+  hosts: "{{ cert_manager_target_hosts | default('server-1') }}"
+  become: true
+  gather_facts: true
+
+  vars:
+    cert_manager_selected_entrypoint: "{{ cert_manager_entrypoint | default('main') }}"
+
+  pre_tasks:
+    - name: Assert cert_manager entrypoint is supported
+      ansible.builtin.assert:
+        that:
+          - cert_manager_selected_entrypoint in ['main', 'validation', 'reset']
+        fail_msg: "Unsupported cert_manager entrypoint {{ cert_manager_selected_entrypoint }}"
+        success_msg: "Running cert_manager entrypoint {{ cert_manager_selected_entrypoint }}"
+
+  tasks:
+    - name: Run cert_manager main entrypoint
+      ansible.builtin.include_role:
+        name: cert_manager
+      when: cert_manager_selected_entrypoint == 'main'
+
+    - name: Run cert_manager alternate entrypoint
+      ansible.builtin.include_role:
+        name: cert_manager
+        tasks_from: "{{ cert_manager_selected_entrypoint }}"
+        rolespec_validate: false
+      when: cert_manager_selected_entrypoint != 'main'

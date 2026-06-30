@@ -1,0 +1,59 @@
+---
+- import_playbook: os_prep.yml
+- import_playbook: os_prep.yml
+  vars:
+    os_prep_entrypoint: validation
+- import_playbook: rpi_prep.yml
+- import_playbook: rpi_prep.yml
+  vars:
+    rpi_prep_entrypoint: validation
+- import_playbook: k3s_server.yml
+  vars:
+    k3s_server_target_hosts: server-1
+- import_playbook: k3s_server.yml
+  vars:
+    k3s_server_target_hosts: server-1
+    k3s_server_entrypoint: validation
+- import_playbook: kube_vip.yml
+- import_playbook: k3s_server.yml
+  vars:
+    k3s_server_target_hosts: "server-2:server-3"
+- import_playbook: k3s_server.yml
+  vars:
+    k3s_server_target_hosts: "server-2:server-3"
+    k3s_server_entrypoint: validation
+- import_playbook: k3s_agent.yml
+- import_playbook: k3s_agent.yml
+  vars:
+    k3s_agent_entrypoint: validation
+- import_playbook: cilium.yml
+- import_playbook: k3s_system_addons.yml
+- import_playbook: cert_manager.yml
+- import_playbook: rancher.yml
+- import_playbook: longhorn.yml
+- import_playbook: smartctl_exporter.yml
+- import_playbook: fleet_apps.yml
+- import_playbook: kube_vip.yml
+  vars:
+    kube_vip_entrypoint: validation
+- import_playbook: cilium.yml
+  vars:
+    cilium_entrypoint: validation
+- import_playbook: k3s_system_addons.yml
+  vars:
+    k3s_system_addons_entrypoint: validation
+- import_playbook: cert_manager.yml
+  vars:
+    cert_manager_entrypoint: validation
+- import_playbook: rancher.yml
+  vars:
+    rancher_entrypoint: validation
+- import_playbook: longhorn.yml
+  vars:
+    longhorn_entrypoint: validation
+- import_playbook: smartctl_exporter.yml
+  vars:
+    smartctl_exporter_entrypoint: validation
+- import_playbook: fleet_apps.yml
+  vars:
+    fleet_apps_entrypoint: validation

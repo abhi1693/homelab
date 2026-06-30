@@ -1,0 +1,105 @@
+---
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: postgresql-pooler-git-rank-rw
+  namespace: postgresql
+  labels:
+    app.kubernetes.io/name: postgresql-pooler
+    app.kubernetes.io/part-of: postgresql
+    home-lab.io/client: git-rank
+spec:
+  minAvailable: 1
+  selector:
+    matchLabels:
+      cnpg.io/poolerName: postgresql-pooler-git-rank-rw
+---
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: postgresql-pooler-jellyfin-rw
+  namespace: postgresql
+  labels:
+    app.kubernetes.io/name: postgresql-pooler
+    app.kubernetes.io/part-of: postgresql
+    home-lab.io/client: jellyfin
+spec:
+  minAvailable: 1
+  selector:
+    matchLabels:
+      cnpg.io/poolerName: postgresql-pooler-jellyfin-rw
+---
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: postgresql-pooler-dispatcharr-rw
+  namespace: postgresql
+  labels:
+    app.kubernetes.io/name: postgresql-pooler
+    app.kubernetes.io/part-of: postgresql
+    home-lab.io/client: dispatcharr
+spec:
+  minAvailable: 1
+  selector:
+    matchLabels:
+      cnpg.io/poolerName: postgresql-pooler-dispatcharr-rw
+---
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: postgresql-pooler-netbox-rw
+  namespace: postgresql
+  labels:
+    app.kubernetes.io/name: postgresql-pooler
+    app.kubernetes.io/part-of: postgresql
+    home-lab.io/client: netbox
+spec:
+  minAvailable: 1
+  selector:
+    matchLabels:
+      cnpg.io/poolerName: postgresql-pooler-netbox-rw
+---
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: postgresql-pooler-shipyardhq-rw
+  namespace: postgresql
+  labels:
+    app.kubernetes.io/name: postgresql-pooler
+    app.kubernetes.io/part-of: postgresql
+    home-lab.io/client: shipyardhq
+spec:
+  minAvailable: 1
+  selector:
+    matchLabels:
+      cnpg.io/poolerName: postgresql-pooler-shipyardhq-rw
+---
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: postgresql-pooler-harbor-rw
+  namespace: postgresql
+  labels:
+    app.kubernetes.io/name: postgresql-pooler
+    app.kubernetes.io/part-of: postgresql
+    home-lab.io/client: harbor
+spec:
+  minAvailable: 1
+  selector:
+    matchLabels:
+      cnpg.io/poolerName: postgresql-pooler-harbor-rw
+---
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: postgresql-pooler-registry-artifacts-rw
+  namespace: postgresql
+  labels:
+    app.kubernetes.io/name: postgresql-pooler
+    app.kubernetes.io/part-of: postgresql
+    home-lab.io/client: registry-artifacts
+spec:
+  minAvailable: 1
+  selector:
+    matchLabels:
+      cnpg.io/poolerName: postgresql-pooler-registry-artifacts-rw

@@ -1,0 +1,65 @@
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: fleet-gitjob-webhook-ingress
+  namespace: cattle-fleet-system
+  labels:
+    app.kubernetes.io/name: fleet-gitjob-webhook
+    app.kubernetes.io/part-of: fleet
+spec:
+  podSelector:
+    matchLabels:
+      app: gitjob
+  policyTypes:
+    - Ingress
+  ingress:
+    - from:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: cloudflare
+          podSelector:
+            matchLabels:
+              app: controlled-cloudflared-connector
+              strrl.dev/cloudflare-tunnel-ingress-controller: controlled-cloudflared-connector
+      ports:
+        - protocol: TCP
+          port: 8080
+    - from:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: cattle-monitoring-system
+          podSelector:
+            matchLabels:
+              app.kubernetes.io/name: prometheus
+              operator.prometheus.io/name: rancher-monitoring-prometheus
+      ports:
+        - protocol: TCP
+          port: 8081
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: controlled-cloudflared-connector-fleet-gitjob-egress
+  namespace: cloudflare
+  labels:
+    app.kubernetes.io/name: fleet-gitjob-webhook
+    app.kubernetes.io/part-of: fleet
+spec:
+  podSelector:
+    matchLabels:
+      app: controlled-cloudflared-connector
+      strrl.dev/cloudflare-tunnel-ingress-controller: controlled-cloudflared-connector
+  policyTypes:
+    - Egress
+  egress:
+    - to:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: cattle-fleet-system
+          podSelector:
+            matchLabels:
+              app: gitjob
+      ports:
+        - protocol: TCP
+          port: 8080

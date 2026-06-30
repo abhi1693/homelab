@@ -1,0 +1,32 @@
+---
+name: media-shoko
+defaultNamespace: media
+namespaceLabels:
+  app.kubernetes.io/part-of: media-stack
+  field.cattle.io/projectId: p-rm645
+namespaceAnnotations:
+  field.cattle.io/projectId: local:p-rm645
+labels:
+  app.kubernetes.io/part-of: media-stack
+  home-lab.io/project-slug: entertainment
+imageScans:
+  - image: registry.home/ghcr.io/shokoanime/server
+    tagName: shoko
+    interval: 10m0s
+    policy:
+      semver:
+        range: ">=5.0.0 <6.0.0"
+dependsOn:
+  - name: rancher-project-entertainment
+  - name: media-storage
+  - name: jellyfin
+diff:
+  comparePatches:
+    - apiVersion: v1
+      kind: PersistentVolumeClaim
+      name: shoko-config
+      namespace: media
+      jsonPointers:
+        - /spec/volumeName
+helm:
+  takeOwnership: true

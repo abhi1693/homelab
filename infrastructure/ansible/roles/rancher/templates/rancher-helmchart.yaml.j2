@@ -1,0 +1,65 @@
+{% set rancher_fleet = rancher.fleet | default({}) %}
+{% set rancher_fleet_image = rancher_fleet.image | default({}) %}
+{% set rancher_fleet_agent_image = rancher_fleet.agent_image | default({}) %}
+{% set rancher_fleet_imagescan = rancher_fleet.imagescan | default({}) %}
+apiVersion: helm.cattle.io/v1
+kind: HelmChart
+metadata:
+  name: rancher
+  namespace: kube-system
+spec:
+  targetNamespace: {{ rancher.namespace }}
+  createNamespace: true
+  chart: rancher
+  repo: https://releases.rancher.com/server-charts/stable
+  version: {{ rancher.chart_version }}
+  timeout: 15m
+  valuesContent: |-
+    hostname: {{ rancher.hostname }}
+    replicas: {{ rancher.replicas }}
+    antiAffinity: {{ rancher.anti_affinity }}
+    topologyKey: {{ rancher.topology_key }}
+    priorityClassName: {{ rancher.priority_class_name }}
+    resources:
+      requests:
+        cpu: {{ rancher.resources.requests.cpu }}
+        memory: {{ rancher.resources.requests.memory }}
+      limits:
+        cpu: {{ rancher.resources.limits.cpu }}
+        memory: {{ rancher.resources.limits.memory }}
+    bootstrapPassword: {{ rancher.bootstrap_password | quote }}
+    tls: ingress
+    ingress:
+      includeDefaultExtraAnnotations: false
+      ingressClassName: {{ rancher.ingress.class_name }}
+      tls:
+        source: {{ rancher.ingress.tls_source }}
+{% if rancher.ingress.tls_source == 'secret' %}
+        secretName: {{ rancher.ingress.tls_secret_name }}
+{% endif %}
+    service:
+      type: {{ rancher.service.type }}
+{% if rancher_fleet_imagescan.enabled | default(false) | bool %}
+    fleet: |-
+{% if rancher_fleet_image.repository | default('') | trim != '' %}
+      image:
+        repository: {{ rancher_fleet_image.repository }}
+{% if rancher_fleet_image.tag | default('') | trim != '' %}
+        tag: {{ rancher_fleet_image.tag }}
+{% endif %}
+{% endif %}
+{% if rancher_fleet_agent_image.repository | default('') | trim != '' %}
+      agentImage:
+        repository: {{ rancher_fleet_agent_image.repository }}
+{% if rancher_fleet_agent_image.tag | default('') | trim != '' %}
+        tag: {{ rancher_fleet_agent_image.tag }}
+{% endif %}
+{% endif %}
+{% if rancher_fleet_agent_image.repository | default('') | trim != '' and rancher_fleet_agent_image.tag | default('') | trim != '' %}
+      extraAnnotations:
+        fleetController:
+          home-lab.io/fleet-agent-image: {{ (rancher_fleet_agent_image.repository ~ ':' ~ rancher_fleet_agent_image.tag) | quote }}
+{% endif %}
+      imagescan:
+        enabled: {{ rancher_fleet_imagescan.enabled | bool | lower }}
+{% endif %}

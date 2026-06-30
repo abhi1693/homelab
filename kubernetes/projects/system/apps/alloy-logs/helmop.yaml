@@ -1,0 +1,45 @@
+---
+apiVersion: fleet.cattle.io/v1alpha1
+kind: HelmOp
+metadata:
+  name: alloy-logs
+  labels:
+    app.kubernetes.io/name: alloy-logs
+    app.kubernetes.io/part-of: rancher-monitoring
+    home-lab.io/project-slug: system
+spec:
+  defaultNamespace: cattle-monitoring-system
+  dependsOn:
+    - name: system-helm-repositories
+    - name: loki-helmop
+  labels:
+    app.kubernetes.io/name: alloy-logs
+    app.kubernetes.io/part-of: rancher-monitoring
+    home-lab.io/project-slug: system
+  targets:
+    - name: default
+      clusterGroup: default
+  targetRestrictions:
+    - name: default
+      clusterGroup: default
+  correctDrift:
+    enabled: true
+    force: true
+    keepFailHistory: true
+  downstreamResources:
+    - kind: ConfigMap
+      name: alloy-logs-values
+  helm:
+    releaseName: alloy-logs
+    repo: https://grafana.github.io/helm-charts
+    chart: alloy
+    version: 1.10.0
+    timeoutSeconds: 600
+    takeOwnership: true
+    valuesFrom:
+      - configMapKeyRef:
+          name: alloy-logs-values
+          namespace: fleet-local
+          key: values.yaml
+    waitForJobs: true
+

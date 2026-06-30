@@ -1,0 +1,18 @@
+---
+name: netbox-helmop
+defaultNamespace: fleet-local
+labels:
+  app.kubernetes.io/part-of: netbox
+  home-lab.io/project-slug: home-automation
+imageScans:
+  - image: registry.home/home-lab/netbox
+    tagName: netbox
+    interval: 10m0s
+    secretRef:
+      name: harbor-registry
+    policy:
+      semver:
+        range: ">=4.0.0-0 <5.0.0"
+dependsOn:
+  - name: rancher-project-home-automation
+  - name: home-automation-helm-repositories

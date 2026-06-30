@@ -1,0 +1,23 @@
+---
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: indexly
+  namespace: indexly
+  labels:
+    app.kubernetes.io/name: indexly
+    app.kubernetes.io/component: web
+    app.kubernetes.io/part-of: indexly
+spec:
+  ingressClassName: cloudflare-tunnel
+  rules:
+    - host: indexly.cc
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: indexly
+                port:
+                  number: 3000

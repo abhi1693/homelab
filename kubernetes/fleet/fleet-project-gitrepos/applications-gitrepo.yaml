@@ -1,0 +1,37 @@
+---
+apiVersion: fleet.cattle.io/v1alpha1
+kind: GitRepo
+metadata:
+  name: home-lab-applications
+  namespace: fleet-local
+  labels:
+    app.kubernetes.io/name: home-lab-applications
+    app.kubernetes.io/part-of: fleet
+    home-lab.io/project-slug: applications
+spec:
+  repo: https://github.com/abhi1693/home-lab.git
+  branch: master
+  clientSecretName: home-lab-apps-github
+  pollingInterval: 1h0m0s
+  imageScanInterval: 10m0s
+  imageScanCommit:
+    authorName: home-lab-fleet
+    authorEmail: fleet@abhimanyu-saharan.com
+    messageTemplate: "Update image from Fleet ImageScan"
+  paths:
+    - kubernetes/projects/applications/apps/applications-helm-repositories
+    - kubernetes/projects/applications/apps/firefly-iii-storage
+    - kubernetes/projects/applications/apps/firefly-iii
+    - kubernetes/projects/applications/apps/firefly-iii-data-importer
+    - kubernetes/projects/applications/apps/git-rank
+    - kubernetes/projects/applications/apps/harbor
+    - kubernetes/projects/applications/apps/indexly
+    - kubernetes/projects/applications/apps/openbao
+    - kubernetes/projects/applications/apps/personal-blog
+    - kubernetes/projects/applications/apps/portfolio
+    - kubernetes/projects/applications/apps/registry-artifacts
+    - kubernetes/projects/applications/apps/shipyardhq
+    - kubernetes/projects/applications/apps/wardn-hub
+  correctDrift:
+    enabled: true
+    keepFailHistory: true

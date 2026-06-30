@@ -1,0 +1,29 @@
+---
+- name: Run fleet_apps entrypoint
+  hosts: "{{ fleet_apps_target_hosts | default('server-1') }}"
+  become: true
+  gather_facts: true
+
+  vars:
+    fleet_apps_selected_entrypoint: "{{ fleet_apps_entrypoint | default('main') }}"
+
+  pre_tasks:
+    - name: Assert fleet_apps entrypoint is supported
+      ansible.builtin.assert:
+        that:
+          - fleet_apps_selected_entrypoint in ['main', 'validation', 'reset']
+        fail_msg: "Unsupported fleet_apps entrypoint {{ fleet_apps_selected_entrypoint }}"
+        success_msg: "Running fleet_apps entrypoint {{ fleet_apps_selected_entrypoint }}"
+
+  tasks:
+    - name: Run fleet_apps main entrypoint
+      ansible.builtin.include_role:
+        name: fleet_apps
+      when: fleet_apps_selected_entrypoint == 'main'
+
+    - name: Run fleet_apps alternate entrypoint
+      ansible.builtin.include_role:
+        name: fleet_apps
+        tasks_from: "{{ fleet_apps_selected_entrypoint }}"
+        rolespec_validate: false
+      when: fleet_apps_selected_entrypoint != 'main'

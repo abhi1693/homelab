@@ -1,0 +1,26 @@
+apiVersion: cilium.io/v2
+kind: CiliumBGPAdvertisement
+metadata:
+  name: {{ cilium.bgp.advertisement_name }}
+  labels:
+    advertise: {{ cilium.bgp.advertisement_name }}
+spec:
+  advertisements:
+    - advertisementType: Service
+      service:
+        addresses:
+          - LoadBalancerIP
+      selector:
+        matchLabels:
+          io.kubernetes.service.namespace: {{ traefik.namespace }}
+          io.kubernetes.service.name: {{ traefik.service_name }}
+    - advertisementType: Service
+      service:
+        addresses:
+          - LoadBalancerIP
+      selector:
+        matchExpressions:
+          - key: io.kubernetes.service.namespace
+            operator: NotIn
+            values:
+              - {{ traefik.namespace }}

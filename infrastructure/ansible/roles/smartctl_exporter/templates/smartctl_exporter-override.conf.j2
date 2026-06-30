@@ -1,0 +1,5 @@
+[Service]
+User=root
+Group=root
+ExecStart=
+ExecStart={{ smartctl_exporter.binary_path }} --web.listen-address={{ smartctl_exporter.listen_address }} --web.telemetry-path={{ smartctl_exporter.telemetry_path }} --smartctl.interval={{ smartctl_exporter.interval }} --smartctl.rescan={{ smartctl_exporter.rescan }} --smartctl.device-include={{ smartctl_exporter.device_include }} --smartctl.powermode-check={{ smartctl_exporter.powermode_check }} --log.level={{ smartctl_exporter.log_level }}

@@ -1,0 +1,54 @@
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: alloy-logs-boundary
+  namespace: cattle-monitoring-system
+  labels:
+    app.kubernetes.io/name: alloy-logs
+    app.kubernetes.io/part-of: rancher-monitoring
+    home-lab.io/project-slug: system
+spec:
+  podSelector:
+    matchLabels:
+      app.kubernetes.io/name: alloy
+      app.kubernetes.io/instance: alloy-logs
+  policyTypes:
+    - Ingress
+    - Egress
+  ingress:
+    - from:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: cattle-monitoring-system
+          podSelector:
+            matchLabels:
+              app.kubernetes.io/name: prometheus
+              prometheus: rancher-monitoring-prometheus
+      ports:
+        - protocol: TCP
+          port: 12345
+  egress:
+    - to:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: kube-system
+          podSelector:
+            matchLabels:
+              k8s-app: kube-dns
+      ports:
+        - protocol: UDP
+          port: 53
+        - protocol: TCP
+          port: 53
+    - ports:
+        - protocol: TCP
+          port: 443
+    - to:
+        - podSelector:
+            matchLabels:
+              app.kubernetes.io/name: loki
+              app.kubernetes.io/instance: loki
+      ports:
+        - protocol: TCP
+          port: 8080

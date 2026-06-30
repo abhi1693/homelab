@@ -1,0 +1,147 @@
+TZ: Asia/Kolkata
+chartContext:
+  appUrl: http://prowlarr.media.home
+image:
+  repository: registry.home/oci.trueforge.org/containerforge/prowlarr
+  pullPolicy: IfNotPresent
+  tag: "2.5" # {"$imagescan": "prowlarr:tag"}
+imagePullSecret:
+  harbor-registry:
+    enabled: true
+    existingSecret: harbor-registry
+global:
+  podCIDR: 10.42.0.0/16
+  svcCIDR: 10.43.0.0/16
+  fallbackDefaults:
+    storageClass: longhorn
+    pvcRetain: true
+podOptions:
+  defaultAffinity: false
+  nodeSelector:
+    kubernetes.io/arch: arm64
+resources:
+  requests:
+    cpu: 50m
+    memory: 368Mi
+  limits:
+    memory: 544Mi
+ingress:
+  main:
+    enabled: true
+    ingressClassName: traefik
+    hosts:
+      - host: prowlarr.media.home
+        paths:
+          - path: /
+            pathType: Prefix
+    tls: []
+workload:
+  main:
+    podSpec:
+      automountServiceAccountToken: false
+      labels:
+        home-lab.io/topology-group: heavy-media
+      topologySpreadConstraints:
+        - maxSkew: 1
+          topologyKey: kubernetes.io/hostname
+          whenUnsatisfiable: DoNotSchedule
+          labelSelector:
+            matchLabels:
+              home-lab.io/topology-group: heavy-media
+          nodeAffinityPolicy: Honor
+          nodeTaintsPolicy: Honor
+persistence:
+  config:
+    size: 256Mi
+    storageClass: longhorn
+    volumeName: pvc-02ce383f-d495-4e4e-b2d7-cd27b86021f2
+metrics:
+  main:
+    enabled: false
+configmap:
+  dashboard:
+    enabled: false
+networkPolicy:
+  ingress:
+    enabled: true
+    policyType: ingress
+    ingress:
+      - from:
+          - namespaceSelector:
+              matchLabels:
+                kubernetes.io/metadata.name: kube-system
+            podSelector:
+              matchLabels:
+                app.kubernetes.io/name: traefik
+          - podSelector:
+              matchLabels:
+                app.kubernetes.io/instance: sonarr
+                app.kubernetes.io/name: sonarr
+          - podSelector:
+              matchLabels:
+                app.kubernetes.io/instance: radarr
+                app.kubernetes.io/name: radarr
+          - podSelector:
+              matchLabels:
+                app.kubernetes.io/name: ryokan
+        ports:
+          - protocol: TCP
+            port: 9696
+  egress:
+    enabled: true
+    policyType: egress
+    egress:
+      - to:
+          - namespaceSelector:
+              matchLabels:
+                kubernetes.io/metadata.name: kube-system
+            podSelector:
+              matchLabels:
+                k8s-app: kube-dns
+        ports:
+          - protocol: UDP
+            port: 53
+          - protocol: TCP
+            port: 53
+      - to:
+          - podSelector:
+              matchLabels:
+                app.kubernetes.io/instance: flaresolverr
+                app.kubernetes.io/name: flaresolverr
+        ports:
+          - protocol: TCP
+            port: 8191
+      - to:
+          - podSelector:
+              matchLabels:
+                app.kubernetes.io/instance: sonarr
+                app.kubernetes.io/name: sonarr
+        ports:
+          - protocol: TCP
+            port: 8989
+      - to:
+          - podSelector:
+              matchLabels:
+                app.kubernetes.io/instance: radarr
+                app.kubernetes.io/name: radarr
+        ports:
+          - protocol: TCP
+            port: 7878
+      - to:
+          - podSelector:
+              matchLabels:
+                app.kubernetes.io/instance: qbittorrent
+                app.kubernetes.io/name: qbittorrent
+          - podSelector:
+              matchLabels:
+                app.kubernetes.io/instance: qbittorrent-prowlarr
+                app.kubernetes.io/name: qbittorrent
+        ports:
+          - protocol: TCP
+            port: 8080
+      - to:
+          - ipBlock:
+              cidr: 0.0.0.0/0
+              except:
+                - 10.42.0.0/16
+                - 10.43.0.0/16

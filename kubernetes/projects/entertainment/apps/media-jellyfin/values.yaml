@@ -1,0 +1,367 @@
+TZ: Asia/Kolkata
+chartContext:
+  appUrl: http://watch.media.home
+image:
+  repository: registry.home/home-lab/jellyfin
+  tag: 10.11.8-pgsql.10.11.8-1-20260610@sha256:19bc369e8ed16a98b2e1d80c9c26956c20ed239e5654d6131c1e3fac01ef24fc
+  pullPolicy: IfNotPresent
+imagePullSecret:
+  harbor-registry:
+    enabled: true
+    existingSecret: harbor-registry
+global:
+  fallbackDefaults:
+    storageClass: longhorn
+    pvcRetain: true
+workload:
+  main:
+    replicas: 1
+    strategy: Recreate
+    podSpec:
+      automountServiceAccountToken: false
+      labels:
+        home-lab.io/topology-group: heavy-media
+      initContainers:
+        jellyfin-enhanced-config:
+          enabled: true
+          type: init
+          imageSelector: image
+          command:
+            - /bin/bash
+            - -ec
+            - |
+              source_dir=/opt/jellyfin/plugin-secrets
+              target_dir=/opt/jellyfin/plugin-overrides
+
+              mkdir -p "$target_dir"
+              patched=0
+
+              shopt -s nullglob
+              for source_file in \
+                "$source_dir"/Jellyfin.Plugin.JellyfinEnhanced.xml \
+                "$source_dir"/*JellyfinEnhanced*.xml \
+                "$source_dir"/*Enhanced*.xml; do
+                target_file="$target_dir/$(basename "$source_file")"
+                cp "$source_file" "$target_file"
+
+                if [ "$(xmlstarlet select -t -v 'count(//*[local-name()="AutoSkipOutro"])' "$target_file" 2>/dev/null || echo 0)" != "0" ]; then
+                  xmlstarlet edit \
+                    --inplace \
+                    -u '//*[local-name()="AutoSkipOutro"]' \
+                    -v false \
+                    "$target_file"
+                  patched=1
+                  echo "Jellyfin Enhanced: set AutoSkipOutro=false in $target_file"
+                fi
+              done
+
+              if [ "$patched" -eq 0 ]; then
+                echo "Jellyfin Enhanced: AutoSkipOutro was not found in mounted plugin config"
+              fi
+      containers:
+        main:
+          command:
+            - /bin/bash
+            - -ec
+            - |
+              patched_entrypoint=/tmp/jellyfin-entrypoint.sh
+              sed '/plugin_name="$(basename "${image_plugin_dir}")"/a\
+                  case "${plugin_name}" in\
+                    "Intro Skipper_"*|"InPlayer Episode Preview_"*|"Playback Reporting_"*)\
+                      continue\
+                      ;;\
+                  esac
+              ' /entrypoint.sh > "${patched_entrypoint}"
+              chmod +x "${patched_entrypoint}"
+
+              exec "${patched_entrypoint}"
+          env:
+            JELLYFIN_SERVER_ID: 6f2af3a6478c417ebf645566121042a1
+            POSTGRES_HOST: postgresql-pooler-jellyfin-rw.postgresql.svc.cluster.local
+            POSTGRES_PORT: "5432"
+            POSTGRES_DB:
+              secretKeyRef:
+                name: media-jellyfin-postgresql
+                key: dbname
+                expandObjectName: false
+            POSTGRES_USER:
+              secretKeyRef:
+                name: media-jellyfin-postgresql
+                key: username
+                expandObjectName: false
+            POSTGRES_PASSWORD:
+              secretKeyRef:
+                name: media-jellyfin-postgresql
+                key: password
+                expandObjectName: false
+            POSTGRES_SSLMODE: Disable
+            JELLYFIN_CONFIG_SOURCE_DIRS: /opt/jellyfin/config-secrets
+            JELLYFIN_PLUGIN_CONFIG_SOURCE_DIRS: /opt/jellyfin/plugin-config:/opt/jellyfin/plugin-secrets:/opt/jellyfin/plugin-overrides
+            JELLYFIN_ENHANCED_AUTO_SKIP_OUTRO: "false"
+            JELLYFIN_SHARED_DATA_DIR: /shared-data
+            JELLYFIN_SHARED_DATA_PATHS: metadata:data/collections:data/subtitles:data/livetv:data/playlists:data/imdb-ratings-cache:data/trickplay:root:Shokofin
+            JELLYFIN_DISABLE_TRICKPLAY_AND_CHAPTER_IMAGES: "false"
+          probes:
+            liveness:
+              enabled: true
+              type: exec
+              command:
+                - /entrypoint.sh
+                - healthcheck
+                - liveness
+              spec:
+                initialDelaySeconds: 12
+                periodSeconds: 15
+                successThreshold: 1
+                timeoutSeconds: 5
+                failureThreshold: 5
+            readiness:
+              enabled: true
+              type: exec
+              command:
+                - /entrypoint.sh
+                - healthcheck
+                - readiness
+              spec:
+                initialDelaySeconds: 10
+                periodSeconds: 12
+                successThreshold: 2
+                timeoutSeconds: 5
+                failureThreshold: 4
+            startup:
+              enabled: true
+              type: exec
+              command:
+                - /entrypoint.sh
+                - healthcheck
+                - startup
+              spec:
+                initialDelaySeconds: 5
+                periodSeconds: 5
+                successThreshold: 1
+                timeoutSeconds: 3
+                failureThreshold: 60
+podOptions:
+  defaultSpread: false
+  defaultAffinity: false
+  nodeSelector:
+    kubernetes.io/arch: arm64
+resources:
+  requests:
+    cpu: 500m
+    memory: 1536Mi
+  limits:
+    cpu: 2500m
+    memory: 4Gi
+ingress:
+  main:
+    enabled: true
+    ingressClassName: traefik
+    hosts:
+      - host: watch.media.home
+        paths:
+          - path: /
+            pathType: Prefix
+    tls: []
+service:
+  main:
+    selectorLabels:
+      pod.name: main
+      app.kubernetes.io/name: jellyfin
+      app.kubernetes.io/instance: jellyfin
+  autodiscovery:
+    selectorLabels:
+      pod.name: main
+      app.kubernetes.io/name: jellyfin
+      app.kubernetes.io/instance: jellyfin
+persistence:
+  config:
+    type: emptyDir
+    size: 512Mi
+  data:
+    type: emptyDir
+    size: 2Gi
+  config-seed:
+    enabled: true
+    type: secret
+    objectName: media-jellyfin-config-seed
+    expandObjectName: false
+    mountPath: /opt/jellyfin/config-secrets
+    readOnly: true
+    items:
+      - key: aspnet-data-protection-key.xml
+        path: .aspnet/DataProtection-Keys/aspnet-data-protection-key.xml
+      - key: encoding.xml
+        path: encoding.xml
+      - key: livetv.xml
+        path: livetv.xml
+      - key: logging.default.json
+        path: logging.default.json
+      - key: metadata.xml
+        path: metadata.xml
+      - key: network.xml
+        path: network.xml
+      - key: system.xml
+        path: system.xml
+  plugin-config-seed:
+    enabled: true
+    type: secret
+    objectName: media-jellyfin-plugin-config-seed
+    expandObjectName: false
+    mountPath: /opt/jellyfin/plugin-secrets
+    readOnly: true
+    targetSelector:
+      main:
+        main:
+          mountPath: /opt/jellyfin/plugin-secrets
+          readOnly: true
+        jellyfin-enhanced-config:
+          mountPath: /opt/jellyfin/plugin-secrets
+          readOnly: true
+  plugin-config-overrides:
+    enabled: true
+    type: emptyDir
+    mountPath: /opt/jellyfin/plugin-overrides
+    targetSelector:
+      main:
+        main:
+          mountPath: /opt/jellyfin/plugin-overrides
+        jellyfin-enhanced-config:
+          mountPath: /opt/jellyfin/plugin-overrides
+  shared-data:
+    enabled: true
+    type: pvc
+    existingClaim: jellyfin-shared-data
+    mountPath: /shared-data
+  media:
+    enabled: true
+    type: pvc
+    existingClaim: media-library-nas
+    mountPath: /media
+  transcode:
+    enabled: false
+podDisruptionBudget:
+  main:
+    enabled: true
+    targetSelector: main
+    minAvailable: 1
+autodiscovery:
+  enabled: false
+networkPolicy:
+  ingress:
+    enabled: true
+    policyType: ingress
+    ingress:
+      - from:
+          - namespaceSelector:
+              matchLabels:
+                kubernetes.io/metadata.name: kube-system
+            podSelector:
+              matchLabels:
+                app.kubernetes.io/name: traefik
+          - podSelector:
+              matchLabels:
+                app.kubernetes.io/instance: jellyseerr
+                app.kubernetes.io/name: seerr-chart
+          - podSelector:
+              matchLabels:
+                app.kubernetes.io/instance: sonarr
+                app.kubernetes.io/name: sonarr
+          - podSelector:
+              matchLabels:
+                app.kubernetes.io/instance: radarr
+                app.kubernetes.io/name: radarr
+          - podSelector:
+              matchLabels:
+                app.kubernetes.io/name: ryokan
+          - podSelector:
+              matchLabels:
+                app.kubernetes.io/name: jellyfin-youtube-library-reconciler
+          - namespaceSelector:
+              matchLabels:
+                kubernetes.io/metadata.name: media
+            podSelector:
+              matchLabels:
+                app.kubernetes.io/instance: qbittorrent-smart-queues
+                app.kubernetes.io/name: qbittorrent-smart-queues
+        ports:
+          - protocol: TCP
+            port: 8096
+  egress:
+    enabled: true
+    policyType: egress
+    egress:
+      - to:
+          - namespaceSelector:
+              matchLabels:
+                kubernetes.io/metadata.name: kube-system
+            podSelector:
+              matchLabels:
+                k8s-app: kube-dns
+        ports:
+          - protocol: UDP
+            port: 53
+          - protocol: TCP
+            port: 53
+      - to:
+          - ipBlock:
+              cidr: 10.43.0.1/32
+        ports:
+          - protocol: TCP
+            port: 443
+      - to:
+          - podSelector:
+              matchLabels:
+                app.kubernetes.io/name: dispatcharr
+        ports:
+          - protocol: TCP
+            port: 9191
+      - to:
+          - podSelector:
+              matchLabels:
+                app.kubernetes.io/name: shoko
+        ports:
+          - protocol: TCP
+            port: 8111
+      - to:
+          - namespaceSelector:
+              matchLabels:
+                kubernetes.io/metadata.name: postgresql
+            podSelector:
+              matchLabels:
+                cnpg.io/poolerName: postgresql-pooler-jellyfin-rw
+        ports:
+          - protocol: TCP
+            port: 5432
+      - to:
+          - podSelector:
+              matchLabels:
+                app.kubernetes.io/instance: jellyseerr
+                app.kubernetes.io/name: seerr-chart
+        ports:
+          - protocol: TCP
+            port: 5055
+          - protocol: TCP
+            port: 10241
+      - to:
+          - podSelector:
+              matchLabels:
+                app.kubernetes.io/instance: radarr
+                app.kubernetes.io/name: radarr
+        ports:
+          - protocol: TCP
+            port: 7878
+      - to:
+          - podSelector:
+              matchLabels:
+                app.kubernetes.io/instance: sonarr
+                app.kubernetes.io/name: sonarr
+        ports:
+          - protocol: TCP
+            port: 8989
+      - to:
+          - ipBlock:
+              cidr: 0.0.0.0/0
+              except:
+                - 10.42.0.0/16
+                - 10.43.0.0/16

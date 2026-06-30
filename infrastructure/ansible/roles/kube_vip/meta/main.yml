@@ -1,0 +1,7 @@
+---
+galaxy_info:
+  author: OpenAI Codex
+  description: Deploy the kube-vip control-plane registration VIP for K3s.
+  license: MIT
+  min_ansible_version: "2.16"
+dependencies: []

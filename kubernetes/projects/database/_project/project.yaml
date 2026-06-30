@@ -1,0 +1,17 @@
+---
+apiVersion: management.cattle.io/v3
+kind: Project
+metadata:
+  name: p-database
+  namespace: local
+  labels:
+    app.kubernetes.io/name: database
+    app.kubernetes.io/part-of: rancher-projects
+spec:
+  clusterName: local
+  displayName: Database
+  containerDefaultResourceLimit: {}
+  namespaceDefaultResourceQuota:
+    limit: {}
+  resourceQuota:
+    limit: {}

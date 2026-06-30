@@ -1,0 +1,25 @@
+---
+apiVersion: cilium.io/v2
+kind: CiliumNetworkPolicy
+metadata:
+  name: qbittorrent-smart-queues-apiserver-access
+  namespace: media
+  labels:
+    app.kubernetes.io/instance: qbittorrent-smart-queues
+    app.kubernetes.io/name: qbittorrent-smart-queues
+    app.kubernetes.io/part-of: media-stack
+    home-lab.io/project-slug: entertainment
+spec:
+  endpointSelector:
+    matchLabels:
+      app.kubernetes.io/instance: qbittorrent-smart-queues
+      app.kubernetes.io/name: qbittorrent-smart-queues
+  egress:
+    - toEntities:
+        - kube-apiserver
+      toPorts:
+        - ports:
+            - port: "443"
+              protocol: TCP
+            - port: "6443"
+              protocol: TCP

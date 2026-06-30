@@ -1,0 +1,596 @@
+---
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: jellyfin-youtube-library-reconciler
+  namespace: media
+  labels:
+    app.kubernetes.io/name: jellyfin-youtube-library-reconciler
+    app.kubernetes.io/part-of: media-stack
+    home-lab.io/project-slug: entertainment
+spec:
+  schedule: "23 * * * *"
+  concurrencyPolicy: Forbid
+  startingDeadlineSeconds: 900
+  successfulJobsHistoryLimit: 2
+  failedJobsHistoryLimit: 3
+  jobTemplate:
+    spec:
+      activeDeadlineSeconds: 900
+      backoffLimit: 1
+      template:
+        metadata:
+          labels:
+            app.kubernetes.io/name: jellyfin-youtube-library-reconciler
+            app.kubernetes.io/part-of: media-stack
+            home-lab.io/project-slug: entertainment
+        spec:
+          automountServiceAccountToken: false
+          restartPolicy: Never
+          nodeSelector:
+            kubernetes.io/arch: arm64
+          containers:
+            - name: reconciler
+              image: registry.home/docker.io/library/python:3.12-alpine
+              imagePullPolicy: IfNotPresent
+              command:
+                - python
+                - -c
+              args:
+                - |
+                  import json
+                  import os
+                  import re
+                  import sys
+                  import time
+                  from pathlib import Path
+                  import urllib.error
+                  import urllib.parse
+                  import urllib.request
+
+                  base_url = os.environ.get("JELLYFIN_URL", "http://jellyfin.media.svc.cluster.local:8096").rstrip("/")
+                  api_key = os.environ.get("JELLYFIN_API_KEY") or os.environ.get("QBT_TV_WATCH_JELLYFIN_API_KEY")
+                  library_name = os.environ.get("YOUTUBE_LIBRARY_NAME", "YouTube")
+                  library_path = os.environ.get("YOUTUBE_LIBRARY_PATH", "/media/youtube/videos")
+                  collection_type = os.environ.get("YOUTUBE_LIBRARY_COLLECTION_TYPE", "musicvideos")
+                  item_type = os.environ.get("YOUTUBE_LIBRARY_ITEM_TYPE", "MusicVideo")
+                  shows_library_name = os.environ.get("YOUTUBE_SHOWS_LIBRARY_NAME", "YouTube Shows")
+                  shows_library_path = os.environ.get("YOUTUBE_SHOWS_LIBRARY_PATH", "/media/youtube/shows")
+                  shows_collection_type = os.environ.get("YOUTUBE_SHOWS_LIBRARY_COLLECTION_TYPE", "tvshows")
+                  show_playlist_names = [
+                      line.strip()
+                      for line in os.environ.get("YOUTUBE_SHOW_PLAYLISTS", "").splitlines()
+                      if line.strip()
+                  ]
+                  auto_show_playlists = os.environ.get("YOUTUBE_AUTO_SHOW_PLAYLISTS", "true").lower() in {"1", "true", "yes", "on"}
+                  auto_show_min_episodes = int(os.environ.get("YOUTUBE_AUTO_SHOW_MIN_EPISODES", "3"))
+                  show_season_number = int(os.environ.get("YOUTUBE_SHOW_SEASON_NUMBER", "1"))
+                  provider_name = os.environ.get("YOUTUBE_METADATA_PROVIDER", "YoutubeMetadata")
+                  wait_seconds = int(os.environ.get("JELLYFIN_WAIT_SECONDS", "600"))
+                  media_extensions = {
+                      extension.strip().lower()
+                      for extension in os.environ.get(
+                          "YOUTUBE_LIBRARY_MEDIA_EXTENSIONS",
+                          ".3gp,.aac,.avi,.flac,.flv,.m2ts,.m4a,.m4v,.mkv,.mov,.mp3,.mp4,.mpeg,.mpg,.ogg,.opus,.ts,.wav,.webm,.wmv",
+                      ).split(",")
+                      if extension.strip()
+                  }
+                  image_extensions = {
+                      extension.strip().lower()
+                      for extension in os.environ.get(
+                          "YOUTUBE_LIBRARY_IMAGE_EXTENSIONS",
+                          ".jpg,.jpeg,.png,.webp",
+                      ).split(",")
+                      if extension.strip()
+                  }
+                  playlist_episode_pattern = re.compile(r"^(?P<index>\d{1,4})\s+-\s+(?P<title>.+)$")
+                  title_episode_pattern = re.compile(r"(?:^|[\s|｜:,-])EP\s*(?P<number>\d{1,4})(?:\D|$)", re.IGNORECASE)
+                  auto_show_signal_pattern = re.compile(r"(?:^|[\s|｜:,-])(ep(?:isode)?|finale|season)\b", re.IGNORECASE)
+                  finale_pattern = re.compile(r"(?:^|[\s|｜:,-])finale(?:\D|$)", re.IGNORECASE)
+                  generated_episode_pattern = re.compile(r"^S\d{2}E\d{2,4}\s+-\s+")
+                  generated_episode_artwork_pattern = re.compile(r"^S\d{2}E\d{2,4}\s+-.+-thumb\.[^.]+$")
+
+                  def hardlink_or_replace(source_file, target_file):
+                      replaced_existing = False
+                      if target_file.exists():
+                          try:
+                              if target_file.samefile(source_file):
+                                  return "unchanged"
+                          except OSError:
+                              pass
+                          target_file.unlink()
+                          replaced_existing = True
+
+                      try:
+                          os.link(source_file, target_file)
+                      except OSError as error:
+                          print(f"Could not hardlink {source_file} to {target_file}: {error}", file=sys.stderr)
+                          sys.exit(1)
+                      if replaced_existing:
+                          return "replaced"
+                      return "linked"
+
+                  def find_matching_image(base_file):
+                      for extension in sorted(image_extensions):
+                          candidate = base_file.with_suffix(extension)
+                          if candidate.exists() and candidate.is_file():
+                              return candidate
+                      return None
+
+                  def find_playlist_image(videos_root, show_name):
+                      candidates = [
+                          candidate
+                          for candidate in videos_root.glob(f"{show_name}*")
+                          if candidate.is_file() and candidate.suffix.lower() in image_extensions
+                      ]
+                      if not candidates:
+                          return None
+                      return sorted(candidates)[0]
+
+                  def title_episode_number(title):
+                      match = title_episode_pattern.search(title)
+                      if not match:
+                          return None
+                      return int(match.group("number"))
+
+                  def show_episode_number(playlist_index, title, max_explicit_episode):
+                      explicit_episode_number = title_episode_number(title)
+                      if explicit_episode_number is not None:
+                          return explicit_episode_number
+                      if finale_pattern.search(title) and max_explicit_episode:
+                          return max_explicit_episode + 1
+                      return int(playlist_index)
+
+                  def ordered_unique(values):
+                      seen = set()
+                      unique_values = []
+                      for value in values:
+                          if value in seen:
+                              continue
+                          seen.add(value)
+                          unique_values.append(value)
+                      return unique_values
+
+                  def show_source_entries(source_dir):
+                      source_entries = []
+                      explicit_episode_numbers = []
+                      signal_count = 0
+
+                      for source_file in sorted(source_dir.rglob("*")):
+                          if not source_file.is_file():
+                              continue
+                          if source_file.name == ".ignore" or source_file.suffix.lower() not in media_extensions:
+                              continue
+
+                          match = playlist_episode_pattern.match(source_file.stem)
+                          if not match:
+                              continue
+
+                          title = match.group("title")
+                          explicit_episode_number = title_episode_number(title)
+                          if explicit_episode_number is not None:
+                              explicit_episode_numbers.append(explicit_episode_number)
+                          if explicit_episode_number is not None or auto_show_signal_pattern.search(title):
+                              signal_count += 1
+                          source_entries.append((source_file, match.group("index"), title))
+
+                      return source_entries, explicit_episode_numbers, signal_count
+
+                  def detect_show_playlist_names(videos_root):
+                      if not auto_show_playlists or not videos_root.exists() or not videos_root.is_dir():
+                          return []
+
+                      detected_names = []
+                      for source_dir in sorted(videos_root.iterdir()):
+                          if not source_dir.is_dir():
+                              continue
+
+                          source_entries, _, signal_count = show_source_entries(source_dir)
+                          if len(source_entries) < auto_show_min_episodes:
+                              continue
+                          if signal_count < max(2, min(auto_show_min_episodes, len(source_entries))):
+                              continue
+
+                          detected_names.append(source_dir.name)
+
+                      if detected_names:
+                          print(f"Detected YouTube show playlists: {', '.join(detected_names)}")
+                      else:
+                          print("No YouTube show playlists detected")
+                      return detected_names
+
+                  def reconcile_show_playlists():
+                      videos_root = Path(library_path)
+                      shows_root = Path(shows_library_path)
+                      forced_ignored_dirs = set()
+                      changed = False
+                      detected_show_playlist_names = detect_show_playlist_names(videos_root)
+                      current_show_playlist_names = ordered_unique(show_playlist_names + detected_show_playlist_names)
+
+                      if not current_show_playlist_names:
+                          return changed, forced_ignored_dirs
+
+                      shows_root.mkdir(parents=True, exist_ok=True)
+
+                      for show_name in current_show_playlist_names:
+                          source_dir = videos_root / show_name
+                          if not source_dir.exists():
+                              print(f"YouTube show playlist {show_name} is not present yet")
+                              continue
+                          if not source_dir.is_dir():
+                              print(f"YouTube show playlist {show_name} is not a directory; skipping", file=sys.stderr)
+                              continue
+
+                          forced_ignored_dirs.add(source_dir)
+                          target_dir = shows_root / show_name / f"Season {show_season_number:02d}"
+                          target_dir.mkdir(parents=True, exist_ok=True)
+                          desired_targets = set()
+                          desired_artwork_targets = set()
+                          linked = 0
+                          artwork_linked = 0
+                          replaced = 0
+                          source_entries, explicit_episode_numbers, _ = show_source_entries(source_dir)
+
+                          max_explicit_episode = max(explicit_episode_numbers, default=0)
+
+                          playlist_image = find_playlist_image(videos_root, show_name)
+                          if playlist_image:
+                              show_dir = shows_root / show_name
+                              for artwork_name in ("cover", "folder", "poster", "thumbnail"):
+                                  target_artwork = show_dir / f"{artwork_name}{playlist_image.suffix}"
+                                  desired_artwork_targets.add(target_artwork)
+                                  artwork_status = hardlink_or_replace(playlist_image, target_artwork)
+                                  if artwork_status == "linked":
+                                      artwork_linked += 1
+                                  elif artwork_status == "replaced":
+                                      replaced += 1
+
+                              season_artwork = target_dir / f"cover{playlist_image.suffix}"
+                              desired_artwork_targets.add(season_artwork)
+                              artwork_status = hardlink_or_replace(playlist_image, season_artwork)
+                              if artwork_status == "linked":
+                                  artwork_linked += 1
+                              elif artwork_status == "replaced":
+                                  replaced += 1
+
+                          for source_file, playlist_index, title in source_entries:
+                              episode_number = show_episode_number(playlist_index, title, max_explicit_episode)
+                              target_name = f"S{show_season_number:02d}E{episode_number:02d} - {title}{source_file.suffix}"
+                              target_file = target_dir / target_name
+                              desired_targets.add(target_file)
+
+                              link_status = hardlink_or_replace(source_file, target_file)
+                              if link_status == "linked":
+                                  linked += 1
+                              elif link_status == "replaced":
+                                  replaced += 1
+
+                              source_artwork = find_matching_image(source_file)
+                              if source_artwork:
+                                  target_artwork = target_dir / f"{target_file.stem}-thumb{source_artwork.suffix}"
+                                  desired_artwork_targets.add(target_artwork)
+                                  artwork_status = hardlink_or_replace(source_artwork, target_artwork)
+                                  if artwork_status == "linked":
+                                      artwork_linked += 1
+                                  elif artwork_status == "replaced":
+                                      replaced += 1
+
+                          for existing_file in target_dir.glob("*"):
+                              if (
+                                  existing_file.is_file()
+                                  and existing_file.suffix.lower() in media_extensions
+                                  and generated_episode_pattern.match(existing_file.name)
+                                  and existing_file not in desired_targets
+                              ):
+                                  existing_file.unlink()
+                                  changed = True
+                              elif (
+                                  existing_file.is_file()
+                                  and existing_file.suffix.lower() in image_extensions
+                                  and generated_episode_artwork_pattern.match(existing_file.name)
+                                  and existing_file not in desired_artwork_targets
+                              ):
+                                  existing_file.unlink()
+                                  changed = True
+
+                          ignore_file = source_dir / ".ignore"
+                          if not ignore_file.exists():
+                              ignore_file.touch()
+                              changed = True
+
+                          if linked or replaced or artwork_linked:
+                              print(f"Reconciled YouTube show {show_name}: linked={linked} artwork_linked={artwork_linked} replaced={replaced}")
+                              changed = True
+                          else:
+                              print(f"YouTube show {show_name} already reconciled")
+
+                      return changed, forced_ignored_dirs
+
+                  def reconcile_ignore_files(forced_ignored_dirs):
+                      root = Path(library_path)
+                      if not root.exists():
+                          print(f"YouTube library path {library_path} does not exist; skipping .ignore reconciliation")
+                          return False
+                      if not root.is_dir():
+                          print(f"YouTube library path {library_path} is not a directory", file=sys.stderr)
+                          sys.exit(1)
+
+                      has_media = {}
+                      added = 0
+                      removed = 0
+
+                      for current_root, dirnames, filenames in os.walk(root, topdown=False):
+                          current_path = Path(current_root)
+                          subtree_has_media = any(
+                              Path(filename).suffix.lower() in media_extensions
+                              for filename in filenames
+                          )
+                          subtree_has_media = subtree_has_media or any(
+                              has_media.get(current_path / dirname, False)
+                              for dirname in dirnames
+                          )
+                          has_media[current_path] = subtree_has_media
+
+                          if current_path == root:
+                              continue
+
+                          ignore_file = current_path / ".ignore"
+                          if current_path in forced_ignored_dirs:
+                              if not ignore_file.exists():
+                                  ignore_file.touch()
+                                  added += 1
+                              continue
+
+                          if subtree_has_media:
+                              if ignore_file.exists():
+                                  ignore_file.unlink()
+                                  removed += 1
+                              continue
+
+                          if not ignore_file.exists():
+                              ignore_file.touch()
+                              added += 1
+
+                      if added or removed:
+                          print(f"Reconciled YouTube .ignore files: added={added} removed={removed}")
+                          return True
+
+                      print("YouTube .ignore files already reconciled")
+                      return False
+
+                  def request(method, path, payload=None, query=None, parse_json=True):
+                      url = base_url + path
+                      if query:
+                          url += "?" + urllib.parse.urlencode(query, doseq=True)
+
+                      data = None
+                      headers = {
+                          "X-Emby-Token": api_key,
+                          "Accept": "application/json",
+                      }
+                      if payload is not None:
+                          data = json.dumps(payload, separators=(",", ":")).encode()
+                          headers["Content-Type"] = "application/json"
+
+                      req = urllib.request.Request(url, data=data, method=method, headers=headers)
+                      try:
+                          with urllib.request.urlopen(req, timeout=30) as response:
+                              body = response.read().decode()
+                      except urllib.error.HTTPError as error:
+                          body = error.read().decode(errors="replace")[:500]
+                          raise RuntimeError(f"Jellyfin API {method} {path} failed: HTTP {error.code}: {body}") from error
+                      except urllib.error.URLError as error:
+                          raise RuntimeError(f"Jellyfin API {method} {path} failed: {error}") from error
+
+                      if not parse_json or not body:
+                          return None
+                      return json.loads(body)
+
+                  def wait_for_jellyfin():
+                      deadline = time.monotonic() + wait_seconds
+                      while True:
+                          try:
+                              return request("GET", "/Library/VirtualFolders")
+                          except RuntimeError as error:
+                              if "HTTP 401" in str(error) or "HTTP 403" in str(error):
+                                  raise
+                              if time.monotonic() >= deadline:
+                                  raise
+                              print(f"Waiting for Jellyfin: {error}", file=sys.stderr)
+                              time.sleep(10)
+
+                  def find_library(folders, name):
+                      for folder in folders:
+                          if folder.get("Name") == name:
+                              return folder
+                      return None
+
+                  def with_value_first(values, value):
+                      values = [item for item in (values or []) if item != value]
+                      return [value] + values
+
+                  def configure_provider(options, path, item_types):
+                      options = dict(options or {})
+                      path_infos = [dict(item) for item in (options.get("PathInfos") or [])]
+                      path_infos = [item for item in path_infos if item.get("Path") != path]
+
+                      options["Enabled"] = True
+                      options["EnableRealtimeMonitor"] = True
+                      options["EnableInternetProviders"] = True
+                      options["EnableLUFSScan"] = False
+                      options["EnableChapterImageExtraction"] = False
+                      options["ExtractChapterImagesDuringLibraryScan"] = False
+                      options["EnableTrickplayImageExtraction"] = False
+                      options["ExtractTrickplayImagesDuringLibraryScan"] = False
+                      options["SaveLocalMetadata"] = False
+                      options["EnableEmbeddedTitles"] = False
+                      options["PathInfos"] = [{"Path": path}] + path_infos
+
+                      type_options = [dict(item) for item in (options.get("TypeOptions") or [])]
+                      for current_item_type in item_types:
+                          current = None
+                          for entry in type_options:
+                              if entry.get("Type") == current_item_type:
+                                  current = entry
+                                  break
+
+                          if current is None:
+                              current = {"Type": current_item_type}
+                              type_options.append(current)
+
+                          current["MetadataFetchers"] = with_value_first(current.get("MetadataFetchers"), provider_name)
+                          current["MetadataFetcherOrder"] = with_value_first(current.get("MetadataFetcherOrder"), provider_name)
+                          current["ImageFetchers"] = with_value_first(current.get("ImageFetchers"), provider_name)
+                          current["ImageFetcherOrder"] = with_value_first(current.get("ImageFetcherOrder"), provider_name)
+
+                      options["TypeOptions"] = type_options
+                      return options
+
+                  def reconcile_jellyfin_library(folders, name, path, library_collection_type, item_types):
+                      folder = find_library(folders, name)
+                      changed = False
+
+                      if folder is None:
+                          request(
+                              "POST",
+                              "/Library/VirtualFolders",
+                              payload={},
+                              query={
+                                  "name": name,
+                                  "collectionType": library_collection_type,
+                                  "paths": [path],
+                                  "refreshLibrary": "false",
+                              },
+                              parse_json=False,
+                          )
+                          changed = True
+                          print(f"Created Jellyfin library {name} at {path}")
+                          folders = request("GET", "/Library/VirtualFolders")
+                          folder = find_library(folders, name)
+
+                      if folder is None:
+                          print(f"Could not find Jellyfin library {name} after creation", file=sys.stderr)
+                          sys.exit(1)
+
+                      locations = folder.get("Locations") or []
+                      if path not in locations:
+                          request(
+                              "POST",
+                              "/Library/VirtualFolders/Paths",
+                              payload={"Name": name, "Path": path},
+                              query={"refreshLibrary": "false"},
+                              parse_json=False,
+                          )
+                          changed = True
+                          print(f"Added {path} to Jellyfin library {name}")
+                          folders = request("GET", "/Library/VirtualFolders")
+                          folder = find_library(folders, name)
+
+                      current_options = folder.get("LibraryOptions") or {}
+                      desired_options = configure_provider(current_options, path, item_types)
+                      if json.dumps(current_options, sort_keys=True) != json.dumps(desired_options, sort_keys=True):
+                          request(
+                              "POST",
+                              "/Library/VirtualFolders/LibraryOptions",
+                              payload={"Id": folder.get("ItemId"), "LibraryOptions": desired_options},
+                              parse_json=False,
+                          )
+                          changed = True
+                          print(f"Configured {provider_name} for Jellyfin library {name}")
+
+                      return folders, changed
+
+                  changed, forced_ignored_dirs = reconcile_show_playlists()
+                  changed = reconcile_ignore_files(forced_ignored_dirs) or changed
+
+                  if not api_key:
+                      print("Skipping Jellyfin API reconciliation: JELLYFIN_API_KEY or QBT_TV_WATCH_JELLYFIN_API_KEY is not present")
+                      sys.exit(0)
+
+                  folders = wait_for_jellyfin()
+                  folders, library_changed = reconcile_jellyfin_library(
+                      folders,
+                      library_name,
+                      library_path,
+                      collection_type,
+                      [item_type],
+                  )
+                  changed = library_changed or changed
+
+                  if show_playlist_names or auto_show_playlists:
+                      folders, library_changed = reconcile_jellyfin_library(
+                          folders,
+                          shows_library_name,
+                          shows_library_path,
+                          shows_collection_type,
+                          ["Series", "Season", "Episode"],
+                      )
+                      changed = library_changed or changed
+
+                  if changed:
+                      request("POST", "/Library/Refresh", parse_json=False)
+                      print("Triggered Jellyfin library refresh")
+                  else:
+                      print(f"Jellyfin library {library_name} already configured")
+              env:
+                - name: PYTHONDONTWRITEBYTECODE
+                  value: "1"
+                - name: PYTHONUNBUFFERED
+                  value: "1"
+                - name: JELLYFIN_URL
+                  value: http://jellyfin.media.svc.cluster.local:8096
+                - name: YOUTUBE_LIBRARY_NAME
+                  value: YouTube
+                - name: YOUTUBE_LIBRARY_PATH
+                  value: /media/youtube/videos
+                - name: YOUTUBE_LIBRARY_COLLECTION_TYPE
+                  value: musicvideos
+                - name: YOUTUBE_LIBRARY_ITEM_TYPE
+                  value: MusicVideo
+                - name: YOUTUBE_METADATA_PROVIDER
+                  value: YoutubeMetadata
+                - name: YOUTUBE_SHOWS_LIBRARY_NAME
+                  value: YouTube Shows
+                - name: YOUTUBE_SHOWS_LIBRARY_PATH
+                  value: /media/youtube/shows
+                - name: YOUTUBE_SHOWS_LIBRARY_COLLECTION_TYPE
+                  value: tvshows
+                - name: YOUTUBE_AUTO_SHOW_PLAYLISTS
+                  value: "true"
+                - name: YOUTUBE_AUTO_SHOW_MIN_EPISODES
+                  value: "3"
+                - name: YOUTUBE_SHOW_SEASON_NUMBER
+                  value: "1"
+                - name: YOUTUBE_LIBRARY_MEDIA_EXTENSIONS
+                  value: .3gp,.aac,.avi,.flac,.flv,.m2ts,.m4a,.m4v,.mkv,.mov,.mp3,.mp4,.mpeg,.mpg,.ogg,.opus,.ts,.wav,.webm,.wmv
+              envFrom:
+                - secretRef:
+                    name: media-jellyfin-arr-api-keys
+                    optional: false
+              resources:
+                requests:
+                  cpu: 5m
+                  memory: 64Mi
+                limits:
+                  memory: 128Mi
+              securityContext:
+                runAsNonRoot: true
+                runAsUser: 568
+                runAsGroup: 568
+                readOnlyRootFilesystem: true
+                allowPrivilegeEscalation: false
+                capabilities:
+                  drop:
+                    - ALL
+              volumeMounts:
+                - name: media
+                  mountPath: /media
+          securityContext:
+            fsGroup: 568
+            fsGroupChangePolicy: OnRootMismatch
+            seccompProfile:
+              type: RuntimeDefault
+          volumes:
+            - name: media
+              persistentVolumeClaim:
+                claimName: media-library-nas

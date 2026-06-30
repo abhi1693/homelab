@@ -1,0 +1,155 @@
+TZ: Asia/Kolkata
+chartContext:
+  appUrl: http://radarr.media.home
+image:
+  repository: registry.home/oci.trueforge.org/containerforge/radarr
+  pullPolicy: IfNotPresent
+  tag: "6.2.1" # {"$imagescan": "radarr:tag"}
+imagePullSecret:
+  harbor-registry:
+    enabled: true
+    existingSecret: harbor-registry
+global:
+  fallbackDefaults:
+    storageClass: longhorn
+    pvcRetain: true
+podOptions:
+  defaultAffinity: false
+  nodeSelector:
+    kubernetes.io/arch: arm64
+resources:
+  requests:
+    cpu: 55m
+    memory: 656Mi
+  limits:
+    memory: 976Mi
+ingress:
+  main:
+    enabled: true
+    ingressClassName: traefik
+    hosts:
+      - host: radarr.media.home
+        paths:
+          - path: /
+            pathType: Prefix
+    tls: []
+workload:
+  main:
+    podSpec:
+      automountServiceAccountToken: false
+      labels:
+        home-lab.io/topology-group: heavy-media
+      topologySpreadConstraints:
+        - maxSkew: 1
+          topologyKey: kubernetes.io/hostname
+          whenUnsatisfiable: DoNotSchedule
+          labelSelector:
+            matchLabels:
+              home-lab.io/topology-group: heavy-media
+          nodeAffinityPolicy: Honor
+          nodeTaintsPolicy: Honor
+persistence:
+  config:
+    size: 768Mi
+    storageClass: longhorn
+    volumeName: pvc-ec085850-85b7-41e3-a415-3c45d4907852
+  media:
+    enabled: true
+    type: pvc
+    existingClaim: media-library-nas
+    mountPath: /data
+  downloads:
+    enabled: true
+    type: pvc
+    existingClaim: media-downloads
+    mountPath: /downloads
+metrics:
+  main:
+    enabled: false
+networkPolicy:
+  ingress:
+    enabled: true
+    policyType: ingress
+    ingress:
+      - from:
+          - namespaceSelector:
+              matchLabels:
+                kubernetes.io/metadata.name: kube-system
+            podSelector:
+              matchLabels:
+                app.kubernetes.io/name: traefik
+          - podSelector:
+              matchLabels:
+                app.kubernetes.io/instance: jellyseerr
+                app.kubernetes.io/name: seerr-chart
+          - podSelector:
+              matchLabels:
+                app.kubernetes.io/instance: jellyfin
+                app.kubernetes.io/name: jellyfin
+          - podSelector:
+              matchLabels:
+                app.kubernetes.io/name: profilarr
+          - podSelector:
+              matchLabels:
+                app.kubernetes.io/instance: prowlarr
+                app.kubernetes.io/name: prowlarr
+          - namespaceSelector:
+              matchLabels:
+                kubernetes.io/metadata.name: media
+            podSelector:
+              matchLabels:
+                app.kubernetes.io/instance: qbittorrent-smart-queues
+                app.kubernetes.io/name: qbittorrent-smart-queues
+        ports:
+          - protocol: TCP
+            port: 7878
+  egress:
+    enabled: true
+    policyType: egress
+    egress:
+      - to:
+          - namespaceSelector:
+              matchLabels:
+                kubernetes.io/metadata.name: kube-system
+            podSelector:
+              matchLabels:
+                k8s-app: kube-dns
+        ports:
+          - protocol: UDP
+            port: 53
+          - protocol: TCP
+            port: 53
+      - to:
+          - podSelector:
+              matchLabels:
+                app.kubernetes.io/instance: prowlarr
+                app.kubernetes.io/name: prowlarr
+        ports:
+          - protocol: TCP
+            port: 9696
+      - to:
+          - podSelector:
+              matchLabels:
+                app.kubernetes.io/instance: qbittorrent
+                app.kubernetes.io/name: qbittorrent
+          - podSelector:
+              matchLabels:
+                app.kubernetes.io/instance: qbittorrent-movies
+                app.kubernetes.io/name: qbittorrent
+        ports:
+          - protocol: TCP
+            port: 8080
+      - to:
+          - podSelector:
+              matchLabels:
+                app.kubernetes.io/instance: jellyfin
+                app.kubernetes.io/name: jellyfin
+        ports:
+          - protocol: TCP
+            port: 8096
+      - to:
+          - ipBlock:
+              cidr: 0.0.0.0/0
+              except:
+                - 10.42.0.0/16
+                - 10.43.0.0/16

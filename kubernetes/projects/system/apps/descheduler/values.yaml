@@ -1,0 +1,118 @@
+---
+kind: CronJob
+schedule: "*/15 * * * *"
+timeZone: Etc/UTC
+suspend: false
+concurrencyPolicy: Forbid
+startingDeadlineSeconds: 300
+successfulJobsHistoryLimit: 1
+failedJobsHistoryLimit: 3
+ttlSecondsAfterFinished: 600
+activeDeadlineSeconds: 300
+image:
+  repository: registry.k8s.io/descheduler/descheduler
+  pullPolicy: IfNotPresent
+resources:
+  requests:
+    cpu: 10m
+    memory: 64Mi
+  limits:
+    memory: 128Mi
+priorityClassName: system-cluster-critical
+podAnnotations:
+  home-lab.io/apiserver-egress-policy: cilium
+cmdOptions:
+  v: 4
+deschedulerPolicyAPIVersion: descheduler/v1alpha2
+deschedulerPolicy:
+  maxNoOfPodsToEvictPerNode: 2
+  maxNoOfPodsToEvictPerNamespace: 1
+  maxNoOfPodsToEvictTotal: 4
+  metricsProviders:
+    - source: KubernetesMetrics
+  profiles:
+    - name: balanced-node-utilization
+      pluginConfig:
+        - name: DefaultEvictor
+          args:
+            nodeFit: true
+            minReplicas: 1
+            minPodAge: 10m
+            noEvictionPolicy: Mandatory
+            priorityThreshold:
+              value: 900000000
+            podProtections:
+              defaultDisabled:
+                - PodsWithLocalStorage
+        - name: RemoveDuplicates
+          args:
+            namespaces:
+              exclude:
+                - cattle-fleet-local-system
+                - cattle-fleet-system
+                - cattle-monitoring-system
+                - cattle-resources-system
+                - cattle-system
+                - cattle-turtles-system
+                - cert-manager
+                - cnpg-system
+                - fleet-default
+                - fleet-local
+                - kube-public
+                - kube-system
+                - longhorn-system
+                - postgresql
+        - name: RemovePodsViolatingTopologySpreadConstraint
+          args:
+            constraints:
+              - DoNotSchedule
+            namespaces:
+              exclude:
+                - cattle-fleet-local-system
+                - cattle-fleet-system
+                - cattle-monitoring-system
+                - cattle-resources-system
+                - cattle-system
+                - cattle-turtles-system
+                - cert-manager
+                - cnpg-system
+                - fleet-default
+                - fleet-local
+                - kube-public
+                - kube-system
+                - longhorn-system
+                - postgresql
+        - name: LowNodeUtilization
+          args:
+            useDeviationThresholds: true
+            thresholds:
+              cpu: 3
+              memory: 8
+            targetThresholds:
+              cpu: 5
+              memory: 8
+            evictionLimits:
+              node: 2
+            metricsUtilization:
+              source: KubernetesMetrics
+            evictableNamespaces:
+              exclude:
+                - cattle-fleet-local-system
+                - cattle-fleet-system
+                - cattle-monitoring-system
+                - cattle-resources-system
+                - cattle-system
+                - cattle-turtles-system
+                - cert-manager
+                - cnpg-system
+                - fleet-default
+                - fleet-local
+                - kube-public
+                - kube-system
+                - longhorn-system
+      plugins:
+        balance:
+          enabled:
+            - RemoveDuplicates
+            - RemovePodsViolatingTopologySpreadConstraint
+            - LowNodeUtilization

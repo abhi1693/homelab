@@ -1,0 +1,11 @@
+---
+global:
+  cattle:
+    clusterId: local
+    clusterName: local
+    rkePathPrefix: ""
+    rkeWindowsPathPrefix: ""
+    systemDefaultRegistry: ""
+    systemProjectId: p-zl69x
+    url: https://rancher.home
+  systemDefaultRegistry: ""

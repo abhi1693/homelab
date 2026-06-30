@@ -1,0 +1,173 @@
+---
+- name: Assert cert-manager is being managed from the bootstrap server
+  ansible.builtin.assert:
+    that:
+      - k3s_node.cluster_init | bool
+    fail_msg: cert_manager must be applied from the initial K3s server where k3s_node.cluster_init=true.
+    success_msg: "Installing cert-manager from the bootstrap K3s server"
+
+- name: Assert cert-manager inputs are fully configured
+  ansible.builtin.assert:
+    that:
+      - cert_manager.namespace | trim != ''
+      - cert_manager.chart_version | trim != ''
+      - cert_manager.acme.server | trim != ''
+      - cert_manager.acme.email | trim != ''
+      - cert_manager.acme.email != 'change-me@example.com'
+      - cert_manager.cluster_issuer_name | trim != ''
+      - cert_manager.priority_class_name | trim != ''
+      - cert_manager.cloudflare_api_token_secret_name | trim != ''
+      - cert_manager.cloudflare.api_token | trim != ''
+      - cert_manager.cloudflare.api_token != 'change-me'
+      - cert_manager.controller_replicas | int >= 2
+      - cert_manager.webhook_replicas | int >= 2
+      - cert_manager.cainjector_replicas | int >= 2
+    fail_msg: Expected cert-manager ACME email, Cloudflare token, and HA replica counts to be configured before deployment.
+    success_msg: "cert-manager inputs are configured"
+  no_log: true
+
+- name: Wait for local K3s API before deploying cert-manager
+  ansible.builtin.wait_for:
+    host: 127.0.0.1
+    port: 6443
+    timeout: 120
+
+- name: Assert local K3s API is ready before deploying cert-manager
+  ansible.builtin.command: /usr/local/bin/k3s kubectl get --raw=/readyz
+  register: cert_manager_local_readyz
+  changed_when: false
+
+- name: Confirm local K3s API returned readyz ok
+  ansible.builtin.assert:
+    that:
+      - cert_manager_local_readyz.stdout | trim == 'ok'
+    fail_msg: Expected local K3s API /readyz endpoint to return ok before deploying cert-manager.
+    success_msg: "Local K3s API is ready for cert-manager deployment"
+
+- name: Ensure K3s manifests directory exists for cert-manager
+  ansible.builtin.file:
+    path: /var/lib/rancher/k3s/server/manifests
+    state: directory
+    owner: root
+    group: root
+    mode: "0755"
+
+- name: Render cert-manager HelmChart manifest
+  ansible.builtin.template:
+    src: cert-manager-helmchart.yaml.j2
+    dest: /var/lib/rancher/k3s/server/manifests/cert-manager-helmchart.yaml
+    owner: root
+    group: root
+    mode: "0644"
+
+- name: Wait for cert-manager namespace to exist
+  ansible.builtin.command:
+    argv:
+      - /usr/local/bin/k3s
+      - kubectl
+      - get
+      - namespace
+      - "{{ cert_manager.namespace }}"
+  environment:
+    KUBECONFIG: /etc/rancher/k3s/k3s.yaml
+  register: cert_manager_namespace_check
+  changed_when: false
+  until: cert_manager_namespace_check.rc == 0
+  retries: 60
+  delay: 5
+
+- name: Render Cloudflare API token Secret manifest
+  ansible.builtin.template:
+    src: cloudflare-api-token-secret.yaml.j2
+    dest: /var/lib/rancher/k3s/server/manifests/cert-manager-cloudflare-secret.yaml
+    owner: root
+    group: root
+    mode: "0600"
+  no_log: true
+
+- name: Apply Cloudflare API token Secret manifest
+  ansible.builtin.command:
+    argv:
+      - /usr/local/bin/k3s
+      - kubectl
+      - apply
+      - -f
+      - /var/lib/rancher/k3s/server/manifests/cert-manager-cloudflare-secret.yaml
+  environment:
+    KUBECONFIG: /etc/rancher/k3s/k3s.yaml
+  register: cert_manager_cloudflare_secret_apply
+  changed_when: "'unchanged' not in cert_manager_cloudflare_secret_apply.stdout"
+
+- name: Wait for cert-manager deployments to exist
+  ansible.builtin.command:
+    argv:
+      - /usr/local/bin/k3s
+      - kubectl
+      - -n
+      - "{{ cert_manager.namespace }}"
+      - get
+      - "deployment/{{ item }}"
+  environment:
+    KUBECONFIG: /etc/rancher/k3s/k3s.yaml
+  register: cert_manager_deployments
+  changed_when: false
+  until: cert_manager_deployments.rc == 0
+  retries: 60
+  delay: 5
+  loop:
+    - cert-manager
+    - cert-manager-webhook
+    - cert-manager-cainjector
+
+- name: Wait for cert-manager deployments to roll out
+  ansible.builtin.command:
+    argv:
+      - /usr/local/bin/k3s
+      - kubectl
+      - -n
+      - "{{ cert_manager.namespace }}"
+      - rollout
+      - status
+      - "deployment/{{ item }}"
+      - --timeout=300s
+  environment:
+    KUBECONFIG: /etc/rancher/k3s/k3s.yaml
+  changed_when: false
+  loop:
+    - cert-manager
+    - cert-manager-webhook
+    - cert-manager-cainjector
+
+- name: Render ACME ClusterIssuer manifest
+  ansible.builtin.template:
+    src: clusterissuer.yaml.j2
+    dest: /var/lib/rancher/k3s/server/manifests/cert-manager-clusterissuer.yaml
+    owner: root
+    group: root
+    mode: "0644"
+
+- name: Apply ACME ClusterIssuer manifest
+  ansible.builtin.command:
+    argv:
+      - /usr/local/bin/k3s
+      - kubectl
+      - apply
+      - -f
+      - /var/lib/rancher/k3s/server/manifests/cert-manager-clusterissuer.yaml
+  environment:
+    KUBECONFIG: /etc/rancher/k3s/k3s.yaml
+  register: cert_manager_clusterissuer_apply
+  changed_when: "'unchanged' not in cert_manager_clusterissuer_apply.stdout"
+
+- name: Wait for ACME ClusterIssuer to become ready
+  ansible.builtin.command:
+    argv:
+      - /usr/local/bin/k3s
+      - kubectl
+      - wait
+      - --for=condition=Ready
+      - "clusterissuer/{{ cert_manager.cluster_issuer_name }}"
+      - --timeout=300s
+  environment:
+    KUBECONFIG: /etc/rancher/k3s/k3s.yaml
+  changed_when: false

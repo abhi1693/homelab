@@ -1,0 +1,15 @@
+---
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+resources:
+  - scan-manager.yaml
+configMapGenerator:
+  - name: rancher-compliance-scan-definitions
+    files:
+      - clusterscans.yaml
+generatorOptions:
+  disableNameSuffixHash: true
+  labels:
+    app.kubernetes.io/name: rancher-compliance-scans
+    app.kubernetes.io/part-of: rancher-compliance
+    home-lab.io/project-slug: system

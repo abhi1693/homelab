@@ -1,0 +1,253 @@
+- name: Check K3s binary path
+  ansible.builtin.stat:
+    path: /usr/local/bin/k3s
+  register: k3s_binary_stat
+
+- name: Check K3s config path
+  ansible.builtin.stat:
+    path: /etc/rancher/k3s/config.yaml
+  register: k3s_config_stat
+
+- name: Check K3s registries config path
+  ansible.builtin.stat:
+    path: /etc/rancher/k3s/registries.yaml
+  register: k3s_registries_config_stat
+
+- name: Check K3s audit policy path
+  ansible.builtin.stat:
+    path: "{{ k3s_server.audit_logging.policy_file }}"
+  register: k3s_audit_policy_stat
+  when: k3s_server.audit_logging.enabled | bool
+
+- name: Check K3s audit log directory path
+  ansible.builtin.stat:
+    path: "{{ k3s_server.audit_logging.log_path | dirname }}"
+  register: k3s_audit_log_dir_stat
+  when: k3s_server.audit_logging.enabled | bool
+
+- name: Read K3s config file
+  ansible.builtin.slurp:
+    path: /etc/rancher/k3s/config.yaml
+  register: k3s_config_raw
+  no_log: true
+  when: k3s_config_stat.stat.exists
+
+- name: Read K3s registries config file
+  ansible.builtin.slurp:
+    path: /etc/rancher/k3s/registries.yaml
+  register: k3s_registries_config_raw
+  no_log: true
+  when: k3s_registries_config_stat.stat.exists
+
+- name: Read K3s audit policy file
+  ansible.builtin.slurp:
+    path: "{{ k3s_server.audit_logging.policy_file }}"
+  register: k3s_audit_policy_raw
+  when:
+    - k3s_server.audit_logging.enabled | bool
+    - k3s_audit_policy_stat.stat.exists
+
+- name: Record K3s config text
+  ansible.builtin.set_fact:
+    k3s_config_text: "{{ k3s_config_raw.content | b64decode }}"
+  no_log: true
+  when: k3s_config_stat.stat.exists
+
+- name: Record K3s registries config object
+  ansible.builtin.set_fact:
+    k3s_registries_config_object: "{{ k3s_registries_config_raw.content | b64decode | from_yaml }}"
+  no_log: true
+  when: k3s_registries_config_stat.stat.exists
+
+- name: Record K3s audit policy text
+  ansible.builtin.set_fact:
+    k3s_audit_policy_text: "{{ k3s_audit_policy_raw.content | b64decode }}"
+  when:
+    - k3s_server.audit_logging.enabled | bool
+    - k3s_audit_policy_stat.stat.exists
+
+- name: Check K3s encryption config path
+  ansible.builtin.stat:
+    path: /var/lib/rancher/k3s/server/cred/encryption-config.json
+  register: k3s_encryption_config_stat
+
+- name: Assert K3s binary and config exist
+  ansible.builtin.assert:
+    that:
+      - k3s_binary_stat.stat.exists
+      - k3s_config_stat.stat.exists
+    fail_msg: "Expected /usr/local/bin/k3s and /etc/rancher/k3s/config.yaml to exist"
+    success_msg: "K3s binary and config file exist"
+
+- name: Assert cluster-init servers render cluster-init in config
+  ansible.builtin.assert:
+    that:
+      - "'cluster-init: true' in k3s_config_text"
+    fail_msg: "Expected cluster-init: true in /etc/rancher/k3s/config.yaml"
+    success_msg: "K3s config declares cluster-init on the bootstrap server"
+  when: k3s_node.cluster_init | bool
+
+- name: Record expected K3s join config line
+  ansible.builtin.set_fact:
+    k3s_expected_join_server_line: 'server: "https://{{ k3s.registration_vip }}:6443"'
+  when: not (k3s_node.cluster_init | bool)
+
+- name: Record expected K3s extra arg config lines
+  ansible.builtin.set_fact:
+    k3s_expected_extra_arg_lines: >-
+      {{
+        (k3s_expected_extra_arg_lines | default([]))
+        + [item.split('=', 1)[0] ~ ': ' ~ item.split('=', 1)[1]]
+      }}
+  loop: "{{ k3s_server.extra_args }}"
+
+- name: Record expected K3s kube-apiserver args
+  ansible.builtin.set_fact:
+    k3s_expected_kube_apiserver_args: >-
+      {{
+        k3s_server.kube_apiserver_args
+        + (
+            [
+              'audit-policy-file=' ~ k3s_server.audit_logging.policy_file,
+              'audit-log-path=' ~ k3s_server.audit_logging.log_path,
+              'audit-log-maxage=' ~ k3s_server.audit_logging.log_maxage,
+              'audit-log-maxbackup=' ~ k3s_server.audit_logging.log_maxbackup,
+              'audit-log-maxsize=' ~ k3s_server.audit_logging.log_maxsize
+            ]
+            if (k3s_server.audit_logging.enabled | bool)
+            else []
+          )
+      }}
+
+- name: Record expected K3s kubelet args
+  ansible.builtin.set_fact:
+    k3s_expected_kubelet_args: "{{ k3s_server.kubelet_args }}"
+
+- name: Assert joining servers render the shared registration endpoint in config
+  ansible.builtin.assert:
+    that:
+      - k3s_expected_join_server_line in k3s_config_text
+    fail_msg: >-
+      Expected server: "https://{{ k3s.registration_vip }}:6443"
+      in /etc/rancher/k3s/config.yaml
+    success_msg: "K3s config points at the shared registration endpoint"
+  when: not (k3s_node.cluster_init | bool)
+
+- name: Assert configured K3s extra args render in config
+  ansible.builtin.assert:
+    that:
+      - item in k3s_config_text
+    fail_msg: "Expected {{ item }} in /etc/rancher/k3s/config.yaml"
+    success_msg: "K3s config contains {{ item }}"
+  loop: "{{ k3s_expected_extra_arg_lines }}"
+
+- name: Assert configured K3s kube-apiserver args render in config
+  ansible.builtin.assert:
+    that:
+      - "'kube-apiserver-arg:' in k3s_config_text"
+      - item in k3s_config_text
+    fail_msg: "Expected kube-apiserver arg {{ item }} in /etc/rancher/k3s/config.yaml"
+    success_msg: "K3s config contains kube-apiserver arg {{ item }}"
+  loop: "{{ k3s_expected_kube_apiserver_args }}"
+
+- name: Assert configured K3s kubelet args render in config
+  ansible.builtin.assert:
+    that:
+      - "'kubelet-arg:' in k3s_config_text"
+      - item in k3s_config_text
+    fail_msg: "Expected kubelet arg {{ item }} in /etc/rancher/k3s/config.yaml"
+    success_msg: "K3s config contains kubelet arg {{ item }}"
+  loop: "{{ k3s_expected_kubelet_args }}"
+
+- name: Assert K3s audit logging files exist when enabled
+  ansible.builtin.assert:
+    that:
+      - "not (k3s_server.audit_logging.enabled | bool) or k3s_audit_policy_stat.stat.exists"
+      - "not (k3s_server.audit_logging.enabled | bool) or (k3s_audit_log_dir_stat.stat.isdir | default(false))"
+      - "not (k3s_server.audit_logging.enabled | bool) or (k3s_audit_policy_text | default('') is search('apiVersion: audit.k8s.io/v1'))"
+      - "not (k3s_server.audit_logging.enabled | bool) or (k3s_audit_policy_text | default('') is search('level: Metadata'))"
+    fail_msg: Expected K3s audit policy and log directory to exist.
+    success_msg: "K3s audit logging files exist"
+
+- name: Record expected K3s embedded registry state
+  ansible.builtin.set_fact:
+    k3s_embedded_registry_expected: >-
+      {{
+        k3s_server.registry_mirror.embedded_registry
+        | default(k3s_server.registry_mirror.enabled)
+        | bool
+      }}
+
+- name: Assert K3s registry mirror config matches inventory
+  ansible.builtin.assert:
+    that:
+      - k3s_registries_config_stat.stat.exists == (k3s_server.registry_mirror.enabled | bool)
+      - "not k3s_embedded_registry_expected or 'embedded-registry: true' in k3s_config_text"
+      - "k3s_embedded_registry_expected or 'embedded-registry: true' not in k3s_config_text"
+      - "not (k3s_server.registry_mirror.disable_default_registry_endpoint | bool) or 'disable-default-registry-endpoint: true' in k3s_config_text"
+      - "not (k3s_server.registry_mirror.enabled | bool) or ((k3s_registries_config_object.mirrors | default({})).keys() | list | sort) == (k3s_server.registry_mirror.mirrors.keys() | list | sort)"
+    fail_msg: Expected K3s registry config to match inventory.
+    success_msg: "K3s registry config matches inventory"
+
+- name: Read installed K3s version
+  ansible.builtin.command: /usr/local/bin/k3s --version
+  register: k3s_version_output
+  changed_when: false
+
+- name: Assert installed K3s version matches inventory
+  ansible.builtin.assert:
+    that:
+      - k3s.version in k3s_version_output.stdout
+    fail_msg: "Expected installed K3s version {{ k3s.version }}"
+    success_msg: "Installed K3s version matches {{ k3s.version }}"
+
+- name: Check K3s service enablement
+  ansible.builtin.command: systemctl is-enabled k3s
+  register: k3s_service_enabled
+  changed_when: false
+  failed_when: false
+
+- name: Check K3s service activity
+  ansible.builtin.command: systemctl is-active k3s
+  register: k3s_service_active
+  changed_when: false
+  failed_when: false
+
+- name: Wait for K3s API port
+  ansible.builtin.wait_for:
+    host: 127.0.0.1
+    port: 6443
+    timeout: 60
+
+- name: Re-check K3s service activity after API wait
+  ansible.builtin.command: systemctl is-active k3s
+  register: k3s_service_active
+  changed_when: false
+  failed_when: false
+
+- name: Assert K3s service is enabled and active
+  ansible.builtin.assert:
+    that:
+      - k3s_service_enabled.stdout == 'enabled'
+      - k3s_service_active.stdout == 'active'
+    fail_msg: "Expected k3s service to be enabled and active"
+    success_msg: "K3s service is enabled and active"
+
+- name: Check K3s API readiness endpoint
+  ansible.builtin.command: /usr/local/bin/k3s kubectl get --raw=/readyz
+  register: k3s_readyz
+  changed_when: false
+
+- name: Assert K3s API is reachable
+  ansible.builtin.assert:
+    that:
+      - k3s_readyz.stdout | trim == 'ok'
+    fail_msg: "Expected K3s API /readyz endpoint to return ok"
+    success_msg: "K3s API /readyz endpoint returned ok"
+
+- name: Assert K3s secrets encryption config exists when enabled
+  ansible.builtin.assert:
+    that:
+      - not (k3s_server.secrets_encryption | bool) or k3s_encryption_config_stat.stat.exists
+    fail_msg: "Expected /var/lib/rancher/k3s/server/cred/encryption-config.json when secrets encryption is enabled"
+    success_msg: "K3s secrets encryption config state matches inventory"

@@ -1,0 +1,163 @@
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: do-squid-firewall
+  namespace: media
+  labels:
+    app.kubernetes.io/name: do-squid-firewall
+    app.kubernetes.io/part-of: media-stack
+spec:
+  schedule: "*/15 * * * *"
+  concurrencyPolicy: Forbid
+  startingDeadlineSeconds: 600
+  successfulJobsHistoryLimit: 2
+  failedJobsHistoryLimit: 3
+  jobTemplate:
+    spec:
+      activeDeadlineSeconds: 120
+      backoffLimit: 1
+      template:
+        metadata:
+          labels:
+            app.kubernetes.io/name: do-squid-firewall
+            app.kubernetes.io/part-of: media-stack
+        spec:
+          automountServiceAccountToken: false
+          securityContext:
+            seccompProfile:
+              type: RuntimeDefault
+          restartPolicy: Never
+          nodeSelector:
+            kubernetes.io/arch: arm64
+          containers:
+            - name: updater
+              image: registry.home/docker.io/library/python:3.12-alpine
+              imagePullPolicy: IfNotPresent
+              command:
+                - python
+                - -c
+              args:
+                - |
+                  import ipaddress
+                  import json
+                  import os
+                  import sys
+                  import urllib.error
+                  import urllib.request
+
+                  api_token = os.environ["DO_API_TOKEN"]
+                  firewall_id = os.environ["DO_FIREWALL_ID"]
+                  port_values = os.environ.get("PROXY_FIREWALL_PORTS") or os.environ.get("SQUID_PORT", "3128")
+                  ports = [port.strip() for port in port_values.split(",") if port.strip()]
+                  protocol = os.environ.get("PROXY_FIREWALL_PROTOCOL", os.environ.get("SQUID_PROTOCOL", "tcp"))
+                  ip_check_url = os.environ.get("IP_CHECK_URL", "https://api.ipify.org")
+
+                  def fail(message):
+                      print(message, file=sys.stderr)
+                      sys.exit(1)
+
+                  def do_request(method, path, payload=None):
+                      data = None
+                      if payload is not None:
+                          data = json.dumps(payload, separators=(",", ":")).encode()
+
+                      request = urllib.request.Request(
+                          "https://api.digitalocean.com/v2" + path,
+                          data=data,
+                          method=method,
+                          headers={
+                              "Authorization": "Bearer " + api_token,
+                              "Content-Type": "application/json",
+                          },
+                      )
+
+                      try:
+                          with urllib.request.urlopen(request, timeout=20) as response:
+                              body = response.read().decode()
+                              return json.loads(body) if body else {}
+                      except urllib.error.HTTPError as error:
+                          body = error.read().decode(errors="replace")[:500]
+                          fail(f"DigitalOcean API {method} {path} failed: HTTP {error.code}: {body}")
+                      except urllib.error.URLError as error:
+                          fail(f"DigitalOcean API {method} {path} failed: {error}")
+
+                  try:
+                      current_ip = urllib.request.urlopen(ip_check_url, timeout=10).read().decode().strip()
+                      parsed_ip = ipaddress.ip_address(current_ip)
+                  except Exception as error:
+                      fail(f"Could not determine current public IP from {ip_check_url}: {error}")
+
+                  if parsed_ip.version != 4:
+                      fail(f"Expected an IPv4 egress address, got {current_ip}")
+
+                  if not ports:
+                      fail("PROXY_FIREWALL_PORTS did not include any ports")
+
+                  desired_source = f"{current_ip}/32"
+                  firewall = do_request("GET", f"/firewalls/{firewall_id}")["firewall"]
+                  inbound_rules = list(firewall.get("inbound_rules") or [])
+                  matched_ports = set()
+                  changed = False
+
+                  for rule in inbound_rules:
+                      port = str(rule.get("ports"))
+                      if rule.get("protocol") == protocol and port in ports:
+                          matched_ports.add(port)
+                          desired_sources = {"addresses": [desired_source]}
+                          if rule.get("sources") != desired_sources:
+                              rule["sources"] = desired_sources
+                              changed = True
+
+                  for port in ports:
+                      if port not in matched_ports:
+                          inbound_rules.append(
+                              {
+                                  "protocol": protocol,
+                                  "ports": port,
+                                  "sources": {"addresses": [desired_source]},
+                              }
+                          )
+                          changed = True
+
+                  if not changed:
+                      print(f"{firewall['name']} already allows {protocol}/{','.join(ports)} from {desired_source}")
+                      sys.exit(0)
+
+                  payload = {
+                      "name": firewall["name"],
+                      "inbound_rules": inbound_rules,
+                      "outbound_rules": firewall.get("outbound_rules") or [],
+                      "droplet_ids": firewall.get("droplet_ids") or [],
+                      "tags": firewall.get("tags") or [],
+                  }
+                  do_request("PUT", f"/firewalls/{firewall_id}", payload)
+                  print(f"Updated {firewall['name']} to allow {protocol}/{','.join(ports)} from {desired_source}")
+              env:
+                - name: DO_API_TOKEN
+                  valueFrom:
+                    secretKeyRef:
+                      name: media-do-squid-firewall
+                      key: token
+                - name: DO_FIREWALL_ID
+                  value: 467ad9ef-34ba-4c21-aaaf-edeee2bc531c
+                - name: PROXY_FIREWALL_PORTS
+                  value: "3128,2525"
+                - name: PROXY_FIREWALL_PROTOCOL
+                  value: tcp
+                - name: IP_CHECK_URL
+                  value: https://api.ipify.org
+              resources:
+                requests:
+                  cpu: 2m
+                  memory: 64Mi
+                limits:
+                  memory: 128Mi
+              securityContext:
+                runAsNonRoot: true
+                runAsUser: 65532
+                runAsGroup: 65532
+                readOnlyRootFilesystem: true
+                allowPrivilegeEscalation: false
+                capabilities:
+                  drop:
+                    - ALL

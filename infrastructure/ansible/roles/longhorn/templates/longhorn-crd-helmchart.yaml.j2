@@ -1,0 +1,13 @@
+apiVersion: helm.cattle.io/v1
+kind: HelmChart
+metadata:
+  name: longhorn-crd
+  namespace: kube-system
+spec:
+  targetNamespace: {{ longhorn.namespace }}
+  createNamespace: true
+  chart: longhorn-crd
+  repo: https://charts.rancher.io
+  version: "{{ longhorn.crd_chart_version }}"
+  takeOwnership: true
+  timeout: 15m

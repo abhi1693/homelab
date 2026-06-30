@@ -1,0 +1,25 @@
+---
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+  name: pyroscope
+  namespace: cattle-monitoring-system
+  labels:
+    app.kubernetes.io/name: pyroscope
+    app.kubernetes.io/component: profiling-backend
+    app.kubernetes.io/part-of: rancher-monitoring
+    home-lab.io/project-slug: system
+spec:
+  jobLabel: app.kubernetes.io/name
+  namespaceSelector:
+    matchNames:
+      - cattle-monitoring-system
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: pyroscope
+      app.kubernetes.io/component: profiling-backend
+  endpoints:
+    - port: http
+      path: /metrics
+      interval: 60s
+      scrapeTimeout: 10s

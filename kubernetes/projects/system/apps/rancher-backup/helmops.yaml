@@ -1,0 +1,96 @@
+---
+apiVersion: fleet.cattle.io/v1alpha1
+kind: HelmOp
+metadata:
+  name: rancher-backup-crd
+  labels:
+    app.kubernetes.io/name: rancher-backup-crd
+    app.kubernetes.io/part-of: rancher-backup
+    home-lab.io/project-slug: system
+spec:
+  defaultNamespace: cattle-resources-system
+  namespaceLabels:
+    field.cattle.io/projectId: p-zl69x
+  namespaceAnnotations:
+    field.cattle.io/projectId: local:p-zl69x
+  dependsOn:
+    - name: system-helm-repositories
+  labels:
+    app.kubernetes.io/name: rancher-backup-crd
+    app.kubernetes.io/part-of: rancher-backup
+    home-lab.io/project-slug: system
+  targets:
+    - name: default
+      clusterGroup: default
+  targetRestrictions:
+    - name: default
+      clusterGroup: default
+  correctDrift:
+    enabled: true
+    force: true
+    keepFailHistory: true
+  downstreamResources:
+    - kind: ConfigMap
+      name: rancher-backup-crd-values
+  helm:
+    releaseName: rancher-backup-crd
+    repo: https://charts.rancher.io
+    chart: rancher-backup-crd
+    version: 109.0.5+up10.0.5
+    timeoutSeconds: 900
+    takeOwnership: true
+    valuesFrom:
+      - configMapKeyRef:
+          name: rancher-backup-crd-values
+          namespace: fleet-local
+          key: crd-values.yaml
+    waitForJobs: true
+---
+apiVersion: fleet.cattle.io/v1alpha1
+kind: HelmOp
+metadata:
+  name: rancher-backup
+  labels:
+    app.kubernetes.io/name: rancher-backup
+    app.kubernetes.io/part-of: rancher-backup
+    home-lab.io/project-slug: system
+spec:
+  defaultNamespace: cattle-resources-system
+  namespaceLabels:
+    field.cattle.io/projectId: p-zl69x
+  namespaceAnnotations:
+    field.cattle.io/projectId: local:p-zl69x
+  dependsOn:
+    - name: system-helm-repositories
+    - name: rancher-backup-crd
+    - name: rancher-backup-secrets
+  labels:
+    app.kubernetes.io/name: rancher-backup
+    app.kubernetes.io/part-of: rancher-backup
+    home-lab.io/project-slug: system
+  targets:
+    - name: default
+      clusterGroup: default
+  targetRestrictions:
+    - name: default
+      clusterGroup: default
+  correctDrift:
+    enabled: true
+    force: true
+    keepFailHistory: true
+  downstreamResources:
+    - kind: ConfigMap
+      name: rancher-backup-values
+  helm:
+    releaseName: rancher-backup
+    repo: https://charts.rancher.io
+    chart: rancher-backup
+    version: 109.0.5+up10.0.5
+    timeoutSeconds: 900
+    takeOwnership: true
+    valuesFrom:
+      - configMapKeyRef:
+          name: rancher-backup-values
+          namespace: fleet-local
+          key: values.yaml
+    waitForJobs: true

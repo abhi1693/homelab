@@ -1,0 +1,23 @@
+---
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: shipyardhq-imgproxy
+  namespace: shipyardhq
+  labels:
+    app.kubernetes.io/name: shipyardhq-imgproxy
+    app.kubernetes.io/component: image-proxy
+    app.kubernetes.io/part-of: shipyardhq
+spec:
+  ingressClassName: cloudflare-tunnel
+  rules:
+    - host: img.shipyardhq.dev
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: shipyardhq-imgproxy
+                port:
+                  name: http

@@ -1,0 +1,190 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: registry-artifacts
+  namespace: registry-artifacts
+  labels:
+    app.kubernetes.io/name: registry-artifacts
+    app.kubernetes.io/part-of: harbor
+spec:
+  replicas: 1
+  revisionHistoryLimit: 3
+  strategy:
+    type: Recreate
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: registry-artifacts
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: registry-artifacts
+        app.kubernetes.io/part-of: harbor
+        registry-artifacts-psql-client: "true"
+    spec:
+      serviceAccountName: registry-artifacts
+      automountServiceAccountToken: true
+      imagePullSecrets:
+        - name: harbor-registry
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 65534
+        runAsGroup: 65534
+        fsGroup: 65534
+        seccompProfile:
+          type: RuntimeDefault
+      initContainers:
+        - name: migrate-jobrun-blob-bytes
+          image: registry.home/ghcr.io/cloudnative-pg/postgresql:17.10 # {"$imagescan": "registry-artifacts-postgresql"}
+          imagePullPolicy: IfNotPresent
+          env:
+            - name: PGHOST
+              value: postgresql-pooler-registry-artifacts-rw.postgresql.svc.cluster.local
+            - name: PGPORT
+              value: "5432"
+            - name: PGDATABASE
+              valueFrom:
+                secretKeyRef:
+                  name: registry-artifacts-postgresql
+                  key: dbname
+            - name: PGUSER
+              valueFrom:
+                secretKeyRef:
+                  name: registry-artifacts-postgresql
+                  key: username
+            - name: PGPASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: registry-artifacts-postgresql
+                  key: password
+          command:
+            - /bin/sh
+            - -ec
+            - |
+              needs_migration="$(
+                psql \
+                  --set=ON_ERROR_STOP=1 \
+                  --tuples-only \
+                  --no-align \
+                  --command "
+                    SELECT CASE WHEN EXISTS (
+                      SELECT 1
+                      FROM information_schema.columns
+                      WHERE table_schema = 'public'
+                        AND table_name = 'jobrun'
+                        AND column_name = 'blob_bytes'
+                        AND data_type <> 'bigint'
+                    ) THEN 'true' ELSE 'false' END;
+                  "
+              )"
+
+              if [ "${needs_migration}" = "true" ]; then
+                psql \
+                  --set=ON_ERROR_STOP=1 \
+                  --command "ALTER TABLE public.jobrun ALTER COLUMN blob_bytes TYPE bigint;"
+              fi
+          resources:
+            requests:
+              cpu: 10m
+              memory: 64Mi
+            limits:
+              memory: 128Mi
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities:
+              drop:
+                - ALL
+      containers:
+        - name: app
+          image: registry.home/registry-artifacts/registry-artifacts:0.1.50 # {"$imagescan": "registry-artifacts"}
+          imagePullPolicy: IfNotPresent
+          ports:
+            - name: http
+              containerPort: 8080
+          envFrom:
+            - configMapRef:
+                name: registry-artifacts
+          env:
+            - name: HARBOR_USERNAME
+              valueFrom:
+                secretKeyRef:
+                  name: registry-artifacts
+                  key: HARBOR_USERNAME
+            - name: HARBOR_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: registry-artifacts
+                  key: HARBOR_ADMIN_PASSWORD
+            - name: LOCAL_REGISTRY_USERNAME
+              valueFrom:
+                secretKeyRef:
+                  name: registry-artifacts
+                  key: LOCAL_REGISTRY_USERNAME
+            - name: LOCAL_REGISTRY_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: registry-artifacts
+                  key: LOCAL_REGISTRY_PASSWORD
+            - name: GHCR_USERNAME
+              valueFrom:
+                secretKeyRef:
+                  name: registry-artifacts
+                  key: GHCR_USERNAME
+                  optional: true
+            - name: GHCR_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: registry-artifacts
+                  key: GHCR_PASSWORD
+                  optional: true
+            - name: POSTGRES_USER
+              valueFrom:
+                secretKeyRef:
+                  name: registry-artifacts-postgresql
+                  key: username
+            - name: POSTGRES_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: registry-artifacts-postgresql
+                  key: password
+            - name: POSTGRES_DB
+              valueFrom:
+                secretKeyRef:
+                  name: registry-artifacts-postgresql
+                  key: dbname
+            - name: DATABASE_URL
+              value: postgresql://$(POSTGRES_USER):$(POSTGRES_PASSWORD)@postgresql-pooler-registry-artifacts-rw.postgresql.svc.cluster.local:5432/$(POSTGRES_DB)?sslmode=disable
+          readinessProbe:
+            httpGet:
+              path: /readyz
+              port: http
+            initialDelaySeconds: 10
+            periodSeconds: 15
+            timeoutSeconds: 5
+            failureThreshold: 4
+          livenessProbe:
+            httpGet:
+              path: /healthz
+              port: http
+            initialDelaySeconds: 30
+            periodSeconds: 30
+            timeoutSeconds: 5
+            failureThreshold: 4
+          resources:
+            requests:
+              cpu: 20m
+              memory: 128Mi
+            limits:
+              memory: 192Mi
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities:
+              drop:
+                - ALL
+          volumeMounts:
+            - name: tmp
+              mountPath: /tmp
+      volumes:
+        - name: tmp
+          emptyDir: {}

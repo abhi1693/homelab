@@ -1,0 +1,95 @@
+diff --git a/internal/cmd/controller/imagescan/tagscan_job.go b/internal/cmd/controller/imagescan/tagscan_job.go
+index 0690d9c..58d6f96 100644
+--- a/internal/cmd/controller/imagescan/tagscan_job.go
++++ b/internal/cmd/controller/imagescan/tagscan_job.go
+@@ -8,12 +8,14 @@ import (
+ 	"encoding/json"
+ 	"errors"
+ 	"fmt"
++	"os"
+ 	"strings"
+ 	"time"
+ 
+ 	"github.com/Masterminds/semver/v3"
+ 	"github.com/google/go-containerregistry/pkg/authn"
+ 	"github.com/google/go-containerregistry/pkg/name"
++	v1 "github.com/google/go-containerregistry/pkg/v1"
+ 	"github.com/google/go-containerregistry/pkg/v1/remote"
+ 	"github.com/reugn/go-quartz/quartz"
+ 	"golang.org/x/sync/semaphore"
+@@ -97,7 +99,7 @@ func (j *TagScanJob) updateImageTags(ctx context.Context) {
+ 
+ 	logger = logger.WithValues("name", image.Name, "namespace", image.Namespace, "gitrepo", image.Spec.GitRepoName)
+ 
+-	ref, err := name.ParseReference(image.Spec.Image)
++	ref, err := name.ParseReference(image.Spec.Image, imageReferenceOptions(image.Spec.Image)...)
+ 	if err != nil {
+ 		err = j.updateErrorStatus(ctx, image, err)
+ 		logger.V(1).Info("Failed to parse image name", "image", image.Spec.Image, "error", err)
+@@ -159,6 +161,7 @@ func (j *TagScanJob) updateImageTags(ctx context.Context) {
+ 	image.Status.LatestDigest = digest
+ 
+ 	condition.Cond(fleet.ImageScanScanCondition).SetError(&image.Status, "", nil)
++	kstatus.SetActive(image)
+ 	err = retry.RetryOnConflict(retry.DefaultRetry, func() error {
+ 		t := &fleet.ImageScan{}
+ 		err := j.client.Get(ctx, nsn, t)
+@@ -213,12 +216,12 @@ func shouldScan(image *fleet.ImageScan) bool {
+ }
+ 
+ func getDigest(image string, options ...remote.Option) (string, error) {
+-	nameRef, err := name.ParseReference(image)
++	nameRef, err := name.ParseReference(image, imageReferenceOptions(image)...)
+ 	if err != nil {
+ 		return "", err
+ 	}
+ 
+-	im, err := remote.Image(nameRef, options...)
++	im, err := remote.Image(nameRef, append(options, imageDigestOptions(image)...)...)
+ 	if err != nil {
+ 		return "", err
+ 	}
+@@ -229,6 +232,43 @@ func getDigest(image string, options ...remote.Option) (string, error) {
+ 	return digest.String(), nil
+ }
+ 
++func imageReferenceOptions(image string) []name.Option {
++	registry, _, ok := strings.Cut(image, "/")
++	if ok && registry == "registry.home" {
++		return []name.Option{name.Insecure}
++	}
++
++	return nil
++}
++
++func imageDigestOptions(image string) []remote.Option {
++	platform := os.Getenv("IMAGESCAN_PLATFORM")
++	if platform == "" {
++		registry, _, ok := strings.Cut(image, "/")
++		if ok && registry == "registry.home" {
++			platform = "linux/arm64"
++		}
++	}
++	if platform == "" {
++		return nil
++	}
++
++	parts := strings.Split(platform, "/")
++	if len(parts) < 2 || parts[0] == "" || parts[1] == "" {
++		return nil
++	}
++
++	imagePlatform := v1.Platform{
++		OS:           parts[0],
++		Architecture: parts[1],
++	}
++	if len(parts) >= 3 {
++		imagePlatform.Variant = parts[2]
++	}
++
++	return []remote.Option{remote.WithPlatform(imagePlatform)}
++}
++
+ // authFromSecret creates an Authenticator that can be given to the
+ // `remote` funcs, from a Kubernetes secret. If the secret doesn't
+ // have the right format or data, it returns an error.

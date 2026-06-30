@@ -1,0 +1,6 @@
+---
+name: rancher-project-entertainment
+defaultNamespace: local
+labels:
+  app.kubernetes.io/name: entertainment
+  app.kubernetes.io/part-of: rancher-projects

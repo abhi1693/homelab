@@ -1,0 +1,76 @@
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: home-assistant-network-boundary
+  namespace: home-assistant
+  labels:
+    app.kubernetes.io/name: home-assistant
+    app.kubernetes.io/part-of: home-automation
+spec:
+  podSelector:
+    matchLabels:
+      app.kubernetes.io/instance: home-assistant
+      app.kubernetes.io/name: home-assistant
+  policyTypes:
+    - Ingress
+    - Egress
+  ingress:
+    - from:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: kube-system
+          podSelector:
+            matchLabels:
+              app.kubernetes.io/name: traefik
+      ports:
+        - protocol: TCP
+          port: 8123
+        - protocol: TCP
+          port: 12321
+    - from:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: rack-ops
+          podSelector:
+            matchLabels:
+              app.kubernetes.io/instance: qbittorrent-smart-queues
+              app.kubernetes.io/name: qbittorrent-smart-queues
+      ports:
+        - protocol: TCP
+          port: 8123
+    - from:
+        - ipBlock:
+            cidr: 0.0.0.0/0
+            except:
+              - 10.42.0.0/16
+              - 10.43.0.0/16
+  egress:
+    - to:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: kube-system
+          podSelector:
+            matchLabels:
+              k8s-app: kube-dns
+      ports:
+        - protocol: UDP
+          port: 53
+        - protocol: TCP
+          port: 53
+    - to:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: ups
+          podSelector:
+            matchLabels:
+              app.kubernetes.io/name: ups-monitoring
+      ports:
+        - protocol: TCP
+          port: 3493
+    - to:
+        - ipBlock:
+            cidr: 0.0.0.0/0
+            except:
+              - 10.42.0.0/16
+              - 10.43.0.0/16

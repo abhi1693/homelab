@@ -1,0 +1,17 @@
+---
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+namespace: fleet-local
+resources:
+  - helmop.yaml
+configMapGenerator:
+  - name: netbox-values
+    files:
+      - values.yaml
+generatorOptions:
+  labels:
+    app.kubernetes.io/name: netbox
+    app.kubernetes.io/part-of: netbox
+    home-lab.io/project-slug: home-automation
+configurations:
+  - kustomizeconfig.yaml

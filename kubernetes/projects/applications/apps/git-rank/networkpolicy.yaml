@@ -1,0 +1,268 @@
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: git-rank-default-deny
+  namespace: git-rank
+  labels:
+    app.kubernetes.io/name: git-rank
+    app.kubernetes.io/part-of: git-rank
+spec:
+  podSelector: {}
+  policyTypes:
+    - Ingress
+    - Egress
+  ingress: []
+  egress: []
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: git-rank-api-ingress
+  namespace: git-rank
+  labels:
+    app.kubernetes.io/name: git-rank-api
+    app.kubernetes.io/part-of: git-rank
+spec:
+  podSelector:
+    matchLabels:
+      app.kubernetes.io/name: git-rank-api
+      app.kubernetes.io/component: api
+  policyTypes:
+    - Ingress
+  ingress:
+    - from:
+        - podSelector:
+            matchLabels:
+              git-rank-api-client: "true"
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: cloudflare
+          podSelector:
+            matchLabels:
+              app: controlled-cloudflared-connector
+              strrl.dev/cloudflare-tunnel-ingress-controller: controlled-cloudflared-connector
+      ports:
+        - protocol: TCP
+          port: 8080
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: git-rank-frontend-ingress
+  namespace: git-rank
+  labels:
+    app.kubernetes.io/name: git-rank-frontend
+    app.kubernetes.io/part-of: git-rank
+spec:
+  podSelector:
+    matchLabels:
+      app.kubernetes.io/name: git-rank-frontend
+      app.kubernetes.io/component: frontend
+  policyTypes:
+    - Ingress
+  ingress:
+    - from:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: cloudflare
+          podSelector:
+            matchLabels:
+              app: controlled-cloudflared-connector
+              strrl.dev/cloudflare-tunnel-ingress-controller: controlled-cloudflared-connector
+      ports:
+        - protocol: TCP
+          port: 3000
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: git-rank-worker-ingress-deny
+  namespace: git-rank
+  labels:
+    app.kubernetes.io/name: git-rank-workers
+    app.kubernetes.io/part-of: git-rank
+spec:
+  podSelector:
+    matchExpressions:
+      - key: app.kubernetes.io/component
+        operator: In
+        values:
+          - worker-default
+          - worker-high
+  policyTypes:
+    - Ingress
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: git-rank-dns-egress
+  namespace: git-rank
+  labels:
+    app.kubernetes.io/name: git-rank
+    app.kubernetes.io/part-of: git-rank
+spec:
+  podSelector: {}
+  policyTypes:
+    - Egress
+  egress:
+    - to:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: kube-system
+          podSelector:
+            matchLabels:
+              k8s-app: kube-dns
+      ports:
+        - protocol: UDP
+          port: 53
+        - protocol: TCP
+          port: 53
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: git-rank-api-egress
+  namespace: git-rank
+  labels:
+    app.kubernetes.io/name: git-rank-api
+    app.kubernetes.io/part-of: git-rank
+spec:
+  podSelector:
+    matchLabels:
+      app.kubernetes.io/name: git-rank-api
+      app.kubernetes.io/component: api
+  policyTypes:
+    - Egress
+  egress:
+    - to:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: postgresql
+          podSelector:
+            matchLabels:
+              cnpg.io/poolerName: postgresql-pooler-git-rank-rw
+      ports:
+        - protocol: TCP
+          port: 5432
+    - to:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: valkey
+          podSelector:
+            matchLabels:
+              app.kubernetes.io/instance: valkey
+              app.kubernetes.io/name: valkey
+      ports:
+        - protocol: TCP
+          port: 6379
+        - protocol: TCP
+          port: 26379
+    - to:
+        - ipBlock:
+            cidr: 0.0.0.0/0
+            except:
+              - 10.0.0.0/8
+              - 100.64.0.0/10
+              - 172.16.0.0/12
+              - 192.168.0.0/16
+      ports:
+        - protocol: TCP
+          port: 80
+        - protocol: TCP
+          port: 443
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: git-rank-frontend-egress
+  namespace: git-rank
+  labels:
+    app.kubernetes.io/name: git-rank-frontend
+    app.kubernetes.io/part-of: git-rank
+spec:
+  podSelector:
+    matchLabels:
+      app.kubernetes.io/name: git-rank-frontend
+      app.kubernetes.io/component: frontend
+  policyTypes:
+    - Egress
+  egress:
+    - to:
+        - podSelector:
+            matchLabels:
+              app.kubernetes.io/name: git-rank-api
+              app.kubernetes.io/component: api
+      ports:
+        - protocol: TCP
+          port: 8080
+    - to:
+        - ipBlock:
+            cidr: 0.0.0.0/0
+            except:
+              - 10.0.0.0/8
+              - 100.64.0.0/10
+              - 172.16.0.0/12
+              - 192.168.0.0/16
+      ports:
+        - protocol: TCP
+          port: 80
+        - protocol: TCP
+          port: 443
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: git-rank-worker-egress
+  namespace: git-rank
+  labels:
+    app.kubernetes.io/name: git-rank-workers
+    app.kubernetes.io/part-of: git-rank
+spec:
+  podSelector:
+    matchExpressions:
+      - key: app.kubernetes.io/component
+        operator: In
+        values:
+          - worker-default
+          - worker-high
+          - scheduler
+  policyTypes:
+    - Egress
+  egress:
+    - to:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: postgresql
+          podSelector:
+            matchLabels:
+              cnpg.io/poolerName: postgresql-pooler-git-rank-rw
+      ports:
+        - protocol: TCP
+          port: 5432
+    - to:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: valkey
+          podSelector:
+            matchLabels:
+              app.kubernetes.io/instance: valkey
+              app.kubernetes.io/name: valkey
+      ports:
+        - protocol: TCP
+          port: 6379
+        - protocol: TCP
+          port: 26379
+    - to:
+        - ipBlock:
+            cidr: 0.0.0.0/0
+            except:
+              - 10.0.0.0/8
+              - 100.64.0.0/10
+              - 172.16.0.0/12
+              - 192.168.0.0/16
+      ports:
+        - protocol: TCP
+          port: 80
+        - protocol: TCP
+          port: 443

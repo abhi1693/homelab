@@ -1,0 +1,33 @@
+---
+- name: Run rpi_prep entrypoint
+  hosts: k3s_nodes
+  become: true
+  gather_facts: true
+
+  vars:
+    rpi_prep_selected_entrypoint: "{{ rpi_prep_entrypoint | default('main') }}"
+
+  pre_tasks:
+    - name: Assert rpi_prep entrypoint is supported
+      ansible.builtin.assert:
+        that:
+          - rpi_prep_selected_entrypoint in ['main', 'validation', 'reset']
+        fail_msg: "Unsupported rpi_prep entrypoint {{ rpi_prep_selected_entrypoint }}"
+        success_msg: "Running rpi_prep entrypoint {{ rpi_prep_selected_entrypoint }}"
+
+  tasks:
+    - name: Run rpi_prep main entrypoint
+      ansible.builtin.include_role:
+        name: rpi_prep
+      when: rpi_prep_selected_entrypoint == 'main'
+
+    - name: Run rpi_prep alternate entrypoint
+      ansible.builtin.include_role:
+        name: rpi_prep
+        tasks_from: "{{ rpi_prep_selected_entrypoint }}"
+        rolespec_validate: false
+      when: rpi_prep_selected_entrypoint != 'main'
+
+  post_tasks:
+    - name: Reboot after rpi_prep if requested by handlers
+      ansible.builtin.meta: flush_handlers

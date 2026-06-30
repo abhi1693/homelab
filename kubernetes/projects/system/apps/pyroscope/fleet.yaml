@@ -1,0 +1,9 @@
+---
+name: pyroscope
+defaultNamespace: cattle-monitoring-system
+labels:
+  app.kubernetes.io/name: pyroscope
+  app.kubernetes.io/part-of: rancher-monitoring
+  home-lab.io/project-slug: system
+dependsOn:
+  - name: rancher-monitoring-helmop

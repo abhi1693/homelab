@@ -1,0 +1,65 @@
+cloudflare:
+  secretRef:
+    name: cloudflare-tunnel-ingress-controller
+    accountIDKey: cloudflare-account-id
+    tunnelNameKey: cloudflare-tunnel-name
+    apiTokenKey: api-token
+ingressClass:
+  name: cloudflare-tunnel
+  controllerValue: strrl.dev/cloudflare-tunnel-ingress-controller
+  isDefaultClass: false
+replicaCount: 2
+leaderElection:
+  enabled: true
+image:
+  repository: registry.home/cr.strrl.dev/strrl/cloudflare-tunnel-ingress-controller
+  pullPolicy: IfNotPresent
+  tag: 0.0.23 # {"$imagescan": "cloudflare-tunnel-ingress-controller:tag"}
+imagePullSecrets:
+  - name: harbor-registry
+cloudflared:
+  replicaCount: 2
+  protocol: auto
+  image:
+    repository: registry.home/docker.io/cloudflare/cloudflared
+    pullPolicy: IfNotPresent
+    tag: 2026.6.1 # {"$imagescan": "cloudflared:tag"}
+  resources:
+    requests:
+      cpu: 65m
+      memory: 48Mi
+    limits:
+      memory: 112Mi
+nodeSelector:
+  kubernetes.io/arch: arm64
+affinity:
+  podAntiAffinity:
+    preferredDuringSchedulingIgnoredDuringExecution:
+      - weight: 100
+        podAffinityTerm:
+          labelSelector:
+            matchLabels:
+              app.kubernetes.io/name: cloudflare-tunnel-ingress-controller
+              app.kubernetes.io/instance: cloudflare-tunnel-ingress-controller
+          topologyKey: kubernetes.io/hostname
+podSecurityContext:
+  runAsGroup: 65532
+  runAsNonRoot: true
+  runAsUser: 65532
+  seccompProfile:
+    type: RuntimeDefault
+securityContext:
+  allowPrivilegeEscalation: false
+  capabilities:
+    drop:
+      - ALL
+  readOnlyRootFilesystem: true
+  runAsGroup: 65532
+  runAsNonRoot: true
+  runAsUser: 65532
+resources:
+  requests:
+    cpu: 10m
+    memory: 48Mi
+  limits:
+    memory: 112Mi

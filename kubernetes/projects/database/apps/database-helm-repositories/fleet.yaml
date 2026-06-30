@@ -1,0 +1,10 @@
+---
+name: database-helm-repositories
+defaultNamespace: default
+labels:
+  app.kubernetes.io/part-of: database
+  home-lab.io/project-slug: database
+dependsOn:
+  - name: rancher-project-database
+helm:
+  takeOwnership: true

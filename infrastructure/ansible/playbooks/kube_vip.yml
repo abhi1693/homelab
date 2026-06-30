@@ -1,0 +1,29 @@
+---
+- name: Run kube_vip entrypoint
+  hosts: "{{ kube_vip_target_hosts | default('server-1') }}"
+  become: true
+  gather_facts: true
+
+  vars:
+    kube_vip_selected_entrypoint: "{{ kube_vip_entrypoint | default('main') }}"
+
+  pre_tasks:
+    - name: Assert kube_vip entrypoint is supported
+      ansible.builtin.assert:
+        that:
+          - kube_vip_selected_entrypoint in ['main', 'validation', 'reset']
+        fail_msg: "Unsupported kube_vip entrypoint {{ kube_vip_selected_entrypoint }}"
+        success_msg: "Running kube_vip entrypoint {{ kube_vip_selected_entrypoint }}"
+
+  tasks:
+    - name: Run kube_vip main entrypoint
+      ansible.builtin.include_role:
+        name: kube_vip
+      when: kube_vip_selected_entrypoint == 'main'
+
+    - name: Run kube_vip alternate entrypoint
+      ansible.builtin.include_role:
+        name: kube_vip
+        tasks_from: "{{ kube_vip_selected_entrypoint }}"
+        rolespec_validate: false
+      when: kube_vip_selected_entrypoint != 'main'

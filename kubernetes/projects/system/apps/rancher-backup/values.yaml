@@ -1,0 +1,23 @@
+---
+global:
+  cattle:
+    clusterId: local
+    clusterName: local
+    rkePathPrefix: ""
+    rkeWindowsPathPrefix: ""
+    systemDefaultRegistry: ""
+    systemProjectId: p-zl69x
+    url: https://rancher.home
+  systemDefaultRegistry: ""
+s3:
+  enabled: true
+  bucketName: home-lab-rancher-backups
+  credentialSecretName: rancher-backup-cloudflare-r2
+  credentialSecretNamespace: cattle-resources-system
+  endpoint: 492e25f5f18ef59e38763f58a78362f7.r2.cloudflarestorage.com
+resources:
+  requests:
+    cpu: 50m
+    memory: 128Mi
+  limits:
+    memory: 512Mi

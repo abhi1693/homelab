@@ -1,0 +1,48 @@
+token: "{{ k3s.token }}"
+{% if k3s_node.cluster_init | bool %}
+cluster-init: true
+{% else %}
+server: "https://{{ k3s.registration_vip }}:6443"
+{% endif %}
+{% if k3s_server.secrets_encryption | bool %}
+secrets-encryption: true
+secrets-encryption-provider: "{{ k3s_server.secrets_encryption_provider }}"
+{% endif %}
+{% if k3s_server.registry_mirror.embedded_registry | default(k3s_server.registry_mirror.enabled) | bool %}
+embedded-registry: true
+{% endif %}
+{% if k3s_server.registry_mirror.disable_default_registry_endpoint | bool %}
+disable-default-registry-endpoint: true
+{% endif %}
+protect-kernel-defaults: {{ k3s_server.protect_kernel_defaults | bool | lower }}
+tls-san:
+{% for san in k3s.tls_sans %}
+  - "{{ san }}"
+{% endfor %}
+disable:
+{% for component in k3s_server.disable_components %}
+  - "{{ component }}"
+{% endfor %}
+{% for arg in k3s_server.extra_args %}
+{% set arg_parts = arg.split('=', 1) %}
+{{ arg_parts[0] }}: {{ arg_parts[1] }}
+{% endfor %}
+{% if (k3s_server.kube_apiserver_args | length > 0) or (k3s_server.audit_logging.enabled | bool) %}
+kube-apiserver-arg:
+{% for arg in k3s_server.kube_apiserver_args %}
+  - "{{ arg }}"
+{% endfor %}
+{% if k3s_server.audit_logging.enabled | bool %}
+  - "audit-policy-file={{ k3s_server.audit_logging.policy_file }}"
+  - "audit-log-path={{ k3s_server.audit_logging.log_path }}"
+  - "audit-log-maxage={{ k3s_server.audit_logging.log_maxage }}"
+  - "audit-log-maxbackup={{ k3s_server.audit_logging.log_maxbackup }}"
+  - "audit-log-maxsize={{ k3s_server.audit_logging.log_maxsize }}"
+{% endif %}
+{% endif %}
+{% if k3s_server.kubelet_args | length > 0 %}
+kubelet-arg:
+{% for arg in k3s_server.kubelet_args %}
+  - "{{ arg }}"
+{% endfor %}
+{% endif %}

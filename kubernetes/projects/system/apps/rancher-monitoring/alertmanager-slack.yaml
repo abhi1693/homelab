@@ -1,0 +1,56 @@
+---
+apiVersion: monitoring.coreos.com/v1alpha1
+kind: AlertmanagerConfig
+metadata:
+  name: home-lab-slack
+  namespace: cattle-monitoring-system
+  labels:
+    app.kubernetes.io/name: home-lab-slack-alerts
+    app.kubernetes.io/part-of: rancher-monitoring
+    home-lab.io/project-slug: system
+spec:
+  route:
+    receiver: slack
+    groupBy:
+      - alertname
+      - cluster
+      - namespace
+      - severity
+    groupWait: 30s
+    groupInterval: 5m
+    repeatInterval: 4h
+    matchers:
+      - name: alertname
+        matchType: "!="
+        value: Watchdog
+      - name: severity
+        matchType: "!="
+        value: none
+  receivers:
+    - name: slack
+      slackConfigs:
+        - apiURL:
+            name: alertmanager-slack
+            key: SLACK_API_URL
+          sendResolved: true
+          username: home-lab-alertmanager
+          iconEmoji: ":rotating_light:"
+          title: '{{ .Status | toUpper }}: {{ .CommonLabels.alertname }}'
+          fallback: '{{ .Status | toUpper }}: {{ .CommonLabels.alertname }}'
+          color: '{{ if eq .Status "firing" }}danger{{ else }}good{{ end }}'
+          text: |-
+            {{ range .Alerts -}}
+            *{{ .Annotations.summary }}*
+            {{ .Annotations.description }}
+            {{ end }}
+          fields:
+            - title: Severity
+              value: '{{ .CommonLabels.severity }}'
+              short: true
+            - title: Namespace
+              value: '{{ .CommonLabels.namespace }}'
+              short: true
+            - title: Alerts
+              value: '{{ len .Alerts }}'
+              short: true
+          footer: home-lab

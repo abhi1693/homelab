@@ -1,0 +1,31 @@
+alias: UniFi AP port 13 PoE schedule
+description: Turn UniFi switch port 13 PoE off overnight and back on in the morning.
+triggers:
+  - trigger: time
+    at: "00:00:00"
+    id: "off"
+  - trigger: time
+    at: "05:00:00"
+    id: "on"
+conditions: []
+actions:
+  - choose:
+      - conditions:
+          - condition: trigger
+            id: "off"
+        sequence:
+          - action: switch.turn_off
+            target:
+              entity_id: switch.usw_24_poe_port_13_poe
+      - conditions:
+          - condition: trigger
+            id: "on"
+        sequence:
+          - action: switch.turn_on
+            target:
+              entity_id: switch.usw_24_poe_port_13_poe
+    default:
+      - action: switch.turn_off
+        target:
+          entity_id: switch.usw_24_poe_port_13_poe
+mode: single

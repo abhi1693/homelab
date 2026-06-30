@@ -1,0 +1,63 @@
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: personal-blog-newsletter
+  namespace: personal-blog
+  labels:
+    app.kubernetes.io/name: personal-blog-newsletter
+    app.kubernetes.io/component: newsletter-cron
+    app.kubernetes.io/part-of: personal-blog
+spec:
+  schedule: "0 18 * * 5"
+  concurrencyPolicy: Forbid
+  successfulJobsHistoryLimit: 3
+  failedJobsHistoryLimit: 0
+  jobTemplate:
+    spec:
+      backoffLimit: 2
+      ttlSecondsAfterFinished: 3600
+      template:
+        metadata:
+          labels:
+            app.kubernetes.io/name: personal-blog-newsletter
+            app.kubernetes.io/component: newsletter-cron
+            app.kubernetes.io/part-of: personal-blog
+        spec:
+          restartPolicy: Never
+          automountServiceAccountToken: false
+          securityContext:
+            seccompProfile:
+              type: RuntimeDefault
+          nodeSelector:
+            kubernetes.io/arch: arm64
+          containers:
+            - name: curl
+              image: registry.home/docker.io/curlimages/curl:8.21.0 # {"$imagescan": "personal-blog-curl"}
+              imagePullPolicy: IfNotPresent
+              env:
+                - name: CRON_SECRET
+                  valueFrom:
+                    secretKeyRef:
+                      name: personal-blog
+                      key: CRON_SECRET
+              args:
+                - -fsS
+                - -H
+                - "Authorization: Bearer $(CRON_SECRET)"
+                - http://personal-blog.personal-blog.svc.cluster.local:3000/api/newsletter/send
+              resources:
+                requests:
+                  cpu: 2m
+                  memory: 32Mi
+                limits:
+                  cpu: 100m
+                  memory: 128Mi
+              securityContext:
+                allowPrivilegeEscalation: false
+                capabilities:
+                  drop:
+                    - ALL
+                readOnlyRootFilesystem: true
+                runAsNonRoot: true
+                runAsUser: 100
+                runAsGroup: 101

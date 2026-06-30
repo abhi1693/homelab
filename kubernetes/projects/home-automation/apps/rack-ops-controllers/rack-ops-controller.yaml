@@ -1,0 +1,144 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: rack-ops
+  namespace: rack-ops
+  labels:
+    app.kubernetes.io/name: rack-ops
+    app.kubernetes.io/part-of: rack-ops
+    home-lab.io/project-slug: home-automation
+spec:
+  replicas: 1
+  revisionHistoryLimit: 2
+  strategy:
+    type: Recreate
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: rack-ops
+      app.kubernetes.io/part-of: rack-ops
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: rack-ops
+        app.kubernetes.io/part-of: rack-ops
+        home-lab.io/project-slug: home-automation
+    spec:
+      serviceAccountName: rack-ops
+      automountServiceAccountToken: true
+      imagePullSecrets:
+        - name: harbor-registry
+      restartPolicy: Always
+      terminationGracePeriodSeconds: 60
+      tolerations:
+        - key: node.kubernetes.io/not-ready
+          operator: Exists
+          effect: NoExecute
+          tolerationSeconds: 30
+        - key: node.kubernetes.io/unreachable
+          operator: Exists
+          effect: NoExecute
+          tolerationSeconds: 30
+      securityContext:
+        fsGroup: 65532
+        runAsGroup: 65532
+        runAsNonRoot: true
+        runAsUser: 65532
+        seccompProfile:
+          type: RuntimeDefault
+      containers:
+        - name: rack-ops
+          image: registry.home/rack-ops/rack-ops:0.1.3 # {"$imagescan": "rack-ops"}
+          imagePullPolicy: IfNotPresent
+          env:
+            - name: PYTHONDONTWRITEBYTECODE
+              value: "1"
+            - name: PYTHONUNBUFFERED
+              value: "1"
+            - name: RACK_OPS_CONFIG
+              value: /config/policy.yaml
+            - name: RACK_OPS_STATE
+              value: /state/rack-ops.json
+            - name: RACK_OPS_METRICS_PORT
+              value: "8080"
+            - name: RACK_OPS_LOG_LEVEL
+              value: INFO
+            - name: RACK_OPS_LOG_FORMAT
+              value: json
+            - name: RACK_OPS_HTTP_LOG_LEVEL
+              value: WARNING
+            - name: HOME_ASSISTANT_URL
+              value: http://home-assistant.home-assistant.svc.cluster.local:8123
+            - name: HOME_ASSISTANT_TOKEN
+              valueFrom:
+                secretKeyRef:
+                  name: rack-ops-home-assistant
+                  key: token
+                  optional: true
+          ports:
+            - name: metrics
+              containerPort: 8080
+              protocol: TCP
+          startupProbe:
+            httpGet:
+              path: /healthz
+              port: metrics
+            failureThreshold: 12
+            periodSeconds: 5
+            timeoutSeconds: 3
+          readinessProbe:
+            httpGet:
+              path: /healthz
+              port: metrics
+            periodSeconds: 10
+            timeoutSeconds: 3
+          livenessProbe:
+            httpGet:
+              path: /healthz
+              port: metrics
+            initialDelaySeconds: 15
+            periodSeconds: 30
+            timeoutSeconds: 5
+          resources:
+            requests:
+              cpu: 10m
+              memory: 96Mi
+            limits:
+              memory: 160Mi
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop:
+                - ALL
+            readOnlyRootFilesystem: true
+          volumeMounts:
+            - name: config
+              mountPath: /config
+              readOnly: true
+            - name: state
+              mountPath: /state
+      volumes:
+        - name: config
+          configMap:
+            name: rack-ops-policy
+        - name: state
+          persistentVolumeClaim:
+            claimName: rack-ops-state
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: rack-ops
+  namespace: rack-ops
+  labels:
+    app.kubernetes.io/name: rack-ops
+    app.kubernetes.io/part-of: rack-ops
+    home-lab.io/project-slug: home-automation
+spec:
+  type: ClusterIP
+  selector:
+    app.kubernetes.io/name: rack-ops
+    app.kubernetes.io/part-of: rack-ops
+  ports:
+    - name: metrics
+      port: 8080
+      targetPort: metrics

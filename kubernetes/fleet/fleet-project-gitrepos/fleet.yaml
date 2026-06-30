@@ -1,0 +1,5 @@
+---
+name: fleet-project-gitrepos
+defaultNamespace: fleet-local
+labels:
+  app.kubernetes.io/part-of: fleet

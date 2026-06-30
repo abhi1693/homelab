@@ -1,0 +1,18 @@
+# Installed Jellyfin plugins observed in the live media/jellyfin deployment on 2026-05-19.
+# Format: runtime plugin directory|source zip URL|checksum
+AniDB_11.0.0.0|https://repo.jellyfin.org/files/plugin/anidb/anidb_11.0.0.0.zip|sha256:4a28720873a5ad324ebe7787caa35d1fadfad790d5ce257454ac02843749e830
+Collection Sections_2.3.8.0|https://github.com/IAmParadox27/jellyfin-plugin-collection-sections/releases/download/2.3.8.0/Release-10.11.8.zip|sha256:4781b696d78545fe63ccec08f854d1a72d311a20064d1bf1264293a272e6d527
+Custom Tabs_0.2.8.0|https://github.com/IAmParadox27/jellyfin-plugin-custom-tabs/releases/download/0.2.8.0/Release-10.11.8.zip|sha256:0b7700b8dddf81324de263095467ddf9855f898db3de21c42953b8c136dcd30a
+DLNA_10.0.0.0|https://repo.jellyfin.org/files/plugin/dlna/dlna_10.0.0.0.zip|sha256:bb86cd553f164bdba5be4fd03ce711cdccdfc4402e43bbe63f737d1aacf1e4cb
+File Transformation_2.5.9.0|https://github.com/IAmParadox27/jellyfin-plugin-file-transformation/releases/download/2.5.9.0/Release-10.11.8.zip|sha256:161c41228f05b1556ecc3d9fa209d104c3e36236f2164dec7b88bae10fff0280
+Home Screen Sections_2.5.9.0|https://github.com/IAmParadox27/jellyfin-plugin-home-sections/releases/download/2.5.9.0/Release-10.11.8.zip|sha256:0f85edc95a8d41088f9102dc8c08ed3497ed01ff97607073869253e257ee1bfd
+IMDb Ratings_1.0.0.19|https://github.com/voc0der/jellyfin-imdb-rating-updater/releases/download/1.0.0.19/IMDb_Ratings_1.0.0.19.zip|sha256:369e241ece0ef2f4be444ce982ab466b5db196b126d36c9a3bd1ba46e41e3c1f
+JavaScript Injector_3.4.0.0|https://github.com/n00bcodr/Jellyfin-JavaScript-Injector/releases/download/3.4.0.0/Jellyfin.Plugin.JavaScriptInjector_10.11.0.zip|sha256:c453dd5a13065354c30e79bcf402d9cfe42b254a315f2fe5c11c1e7a2d5e5cc1
+Jellyfin Enhanced_11.9.0.0|https://github.com/n00bcodr/Jellyfin-Enhanced/releases/download/11.9.0.0/Jellyfin.Plugin.JellyfinEnhanced_10.11.0.zip|sha256:53d478431289f99b69409d5b69df08d8536970d8942301ef7248ce918fbbe345
+Media Bar_2.4.10.0|https://github.com/IAmParadox27/jellyfin-plugin-media-bar/releases/download/2.4.10.0/Release-10.11.8.zip|sha256:1e2f36c9b805b740e56ccbce20452cc765fb1082149cd35dc81ad05fe587b5fb
+Merge Versions_10.11.0.1|https://github.com/danieladov/jellyfin-plugin-mergeversions/releases/download/10.11.0.1/Jellyfin.Plugin.MergeVersions.zip|sha256:79afd80219176cadccb05752971072a9fc74dc1122327dcf37c3d8c4ebf0809b
+Plugin Pages_2.4.9.0|https://github.com/IAmParadox27/jellyfin-plugin-pages/releases/download/2.4.9.0/Release-10.11.8.zip|sha256:3331fb1e9ce360ab28e81ae7511b076498ccf426719dbeb69484dd8dae7e71e3
+Shoko_6.0.5.11|https://github.com/ShokoAnime/Shokofin/releases/download/v6.0.5/shoko_6.0.5.0_for_10.11.zip|sha256:3e6fee32e82a480384c66af88d0869bcf68bed9a897ac7023f37aeafb4666bef
+TMDb Box Sets_13.0.0.0|https://repo.jellyfin.org/files/plugin/tmdb-box-sets/tmdb-box-sets_13.0.0.0.zip|sha256:713bfb0335150a0d68619fa850d2e6c4d95ea2fac5640f0f4b38ff00f99a86e3
+Trakt_29.0.0.0|https://repo.jellyfin.org/files/plugin/trakt/trakt_29.0.0.0.zip|sha256:1305da8e6aaea20631cdc5f2585164e85dc176d8d5d733dcba58520a1b9e9783
+YouTube Metadata_1.0.3.15|https://github.com/ankenyr/jellyfin-youtube-metadata-plugin/releases/download/v1.0.3.15/youtube-metadata_1.0.3.15.zip|sha256:3662f63b15449fc88cbe8aad18b586a3ddfe555b738878117a69e71a65a42f3d

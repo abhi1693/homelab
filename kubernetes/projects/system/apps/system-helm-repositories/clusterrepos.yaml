@@ -1,0 +1,84 @@
+---
+apiVersion: catalog.cattle.io/v1
+kind: ClusterRepo
+metadata:
+  name: descheduler
+  labels:
+    app.kubernetes.io/part-of: system
+    app.kubernetes.io/component: helm-repository
+    home-lab.io/project-slug: system
+spec:
+  enabled: true
+  url: https://kubernetes-sigs.github.io/descheduler/
+---
+apiVersion: catalog.cattle.io/v1
+kind: ClusterRepo
+metadata:
+  name: external-dns
+  labels:
+    app.kubernetes.io/part-of: system
+    app.kubernetes.io/component: helm-repository
+    home-lab.io/project-slug: system
+spec:
+  enabled: true
+  url: https://kubernetes-sigs.github.io/external-dns/
+---
+apiVersion: catalog.cattle.io/v1
+kind: ClusterRepo
+metadata:
+  name: grafana
+  labels:
+    app.kubernetes.io/part-of: system
+    app.kubernetes.io/component: helm-repository
+    home-lab.io/project-slug: system
+spec:
+  enabled: true
+  url: https://grafana.github.io/helm-charts
+---
+apiVersion: catalog.cattle.io/v1
+kind: ClusterRepo
+metadata:
+  name: jetstack
+  labels:
+    app.kubernetes.io/part-of: system
+    app.kubernetes.io/component: helm-repository
+    home-lab.io/project-slug: system
+spec:
+  enabled: true
+  url: https://charts.jetstack.io
+---
+apiVersion: catalog.cattle.io/v1
+kind: ClusterRepo
+metadata:
+  name: rancher-charts-http
+  labels:
+    app.kubernetes.io/part-of: system
+    app.kubernetes.io/component: helm-repository
+    home-lab.io/project-slug: system
+spec:
+  enabled: true
+  url: https://charts.rancher.io
+---
+apiVersion: catalog.cattle.io/v1
+kind: ClusterRepo
+metadata:
+  name: rancher-stable
+  labels:
+    app.kubernetes.io/part-of: system
+    app.kubernetes.io/component: helm-repository
+    home-lab.io/project-slug: system
+spec:
+  enabled: true
+  url: https://releases.rancher.com/server-charts/stable
+---
+apiVersion: catalog.cattle.io/v1
+kind: ClusterRepo
+metadata:
+  name: sops-secrets-operator
+  labels:
+    app.kubernetes.io/part-of: system
+    app.kubernetes.io/component: helm-repository
+    home-lab.io/project-slug: system
+spec:
+  enabled: true
+  url: https://isindir.github.io/sops-secrets-operator/

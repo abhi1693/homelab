@@ -1,0 +1,7 @@
+---
+- name: Restart k3s-agent
+  ansible.builtin.systemd:
+    name: k3s-agent
+    state: restarted
+    enabled: true
+    daemon_reload: true

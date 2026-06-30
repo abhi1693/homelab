@@ -1,0 +1,39 @@
+---
+apiVersion: monitoring.coreos.com/v1
+kind: PrometheusRule
+metadata:
+  name: postgresql-pgbouncer
+  namespace: postgresql
+  labels:
+    app.kubernetes.io/name: postgresql-pgbouncer
+    app.kubernetes.io/component: alerts
+    app.kubernetes.io/part-of: postgresql
+    home-lab.io/project-slug: database
+spec:
+  groups:
+    - name: postgresql.pgbouncer
+      rules:
+        - alert: PgBouncerClientQueueing
+          expr: max by (pod, database, user) (max_over_time(cnpg_pgbouncer_pools_cl_waiting{namespace="postgresql"}[5m])) > 0
+          for: 5m
+          labels:
+            severity: warning
+          annotations:
+            summary: PgBouncer pool has queued clients
+            description: PgBouncer pool {{ $labels.database }}/{{ $labels.user }} on {{ $labels.pod }} has had queued clients for more than 5 minutes.
+        - alert: PgBouncerClientWaitHigh
+          expr: max by (pod, database, user) (cnpg_pgbouncer_pools_maxwait{namespace="postgresql"}) > 30
+          for: 5m
+          labels:
+            severity: warning
+          annotations:
+            summary: PgBouncer client wait time is high
+            description: PgBouncer pool {{ $labels.database }}/{{ $labels.user }} on {{ $labels.pod }} has max client wait above 30 seconds for more than 5 minutes.
+        - alert: PgBouncerClientWaitCritical
+          expr: max by (pod, database, user) (cnpg_pgbouncer_pools_maxwait{namespace="postgresql"}) > 60
+          for: 5m
+          labels:
+            severity: critical
+          annotations:
+            summary: PgBouncer client wait time is critical
+            description: PgBouncer pool {{ $labels.database }}/{{ $labels.user }} on {{ $labels.pod }} has max client wait above 60 seconds for more than 5 minutes.

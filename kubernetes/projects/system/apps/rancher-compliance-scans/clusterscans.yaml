@@ -1,0 +1,27 @@
+---
+apiVersion: compliance.cattle.io/v1
+kind: ClusterScan
+metadata:
+  name: home-lab-k3s-cis-initial
+  labels:
+    app.kubernetes.io/name: home-lab-k3s-cis-initial
+    app.kubernetes.io/part-of: rancher-compliance
+    home-lab.io/project-slug: system
+spec:
+  scanProfileName: k3s-cis-1.12-profile
+  scoreWarning: pass
+---
+apiVersion: compliance.cattle.io/v1
+kind: ClusterScan
+metadata:
+  name: home-lab-k3s-cis-monthly
+  labels:
+    app.kubernetes.io/name: home-lab-k3s-cis-monthly
+    app.kubernetes.io/part-of: rancher-compliance
+    home-lab.io/project-slug: system
+spec:
+  scanProfileName: k3s-cis-1.12-profile
+  scheduledScanConfig:
+    cronSchedule: "0 3 1 * *"
+    retentionCount: 12
+  scoreWarning: pass

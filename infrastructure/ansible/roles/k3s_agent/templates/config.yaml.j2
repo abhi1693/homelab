@@ -1,0 +1,12 @@
+token: "{{ k3s.token }}"
+server: "https://{{ k3s.registration_vip }}:6443"
+{% if k3s_agent.registry_mirror.disable_default_registry_endpoint | bool %}
+disable-default-registry-endpoint: true
+{% endif %}
+protect-kernel-defaults: {{ k3s_agent.protect_kernel_defaults | bool | lower }}
+{% if k3s_agent.kubelet_args | length > 0 %}
+kubelet-arg:
+{% for arg in k3s_agent.kubelet_args %}
+  - "{{ arg }}"
+{% endfor %}
+{% endif %}

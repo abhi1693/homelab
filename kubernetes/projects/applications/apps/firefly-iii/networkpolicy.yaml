@@ -1,0 +1,173 @@
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: firefly-iii-default-deny
+  namespace: finance
+  labels:
+    app.kubernetes.io/name: firefly-iii
+    app.kubernetes.io/part-of: firefly-iii
+    home-lab.io/project-slug: applications
+spec:
+  podSelector: {}
+  policyTypes:
+    - Ingress
+    - Egress
+  ingress: []
+  egress: []
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: firefly-iii-web-ingress
+  namespace: finance
+  labels:
+    app.kubernetes.io/name: firefly-iii
+    app.kubernetes.io/part-of: firefly-iii
+    home-lab.io/project-slug: applications
+spec:
+  podSelector:
+    matchLabels:
+      app.kubernetes.io/name: firefly-iii
+      app.kubernetes.io/component: web
+  policyTypes:
+    - Ingress
+  ingress:
+    - from:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: kube-system
+          podSelector:
+            matchLabels:
+              app.kubernetes.io/name: traefik
+      ports:
+        - protocol: TCP
+          port: 8080
+    - from:
+        - podSelector:
+            matchLabels:
+              app.kubernetes.io/name: firefly-iii
+              app.kubernetes.io/component: cron
+      ports:
+        - protocol: TCP
+          port: 8080
+    - from:
+        - podSelector:
+            matchLabels:
+              app.kubernetes.io/name: firefly-iii-data-importer
+              app.kubernetes.io/component: web
+      ports:
+        - protocol: TCP
+          port: 8080
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: firefly-iii-dns-egress
+  namespace: finance
+  labels:
+    app.kubernetes.io/name: firefly-iii
+    app.kubernetes.io/part-of: firefly-iii
+    home-lab.io/project-slug: applications
+spec:
+  podSelector: {}
+  policyTypes:
+    - Egress
+  egress:
+    - to:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: kube-system
+          podSelector:
+            matchLabels:
+              k8s-app: kube-dns
+      ports:
+        - protocol: UDP
+          port: 53
+        - protocol: TCP
+          port: 53
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: firefly-iii-postgresql-egress
+  namespace: finance
+  labels:
+    app.kubernetes.io/name: firefly-iii
+    app.kubernetes.io/part-of: firefly-iii
+    home-lab.io/project-slug: applications
+spec:
+  podSelector:
+    matchLabels:
+      app.kubernetes.io/name: firefly-iii
+      app.kubernetes.io/component: web
+  policyTypes:
+    - Egress
+  egress:
+    - to:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: postgresql
+          podSelector:
+            matchLabels:
+              cnpg.io/poolerName: postgresql-pooler-firefly-iii-rw
+      ports:
+        - protocol: TCP
+          port: 5432
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: firefly-iii-cron-to-web
+  namespace: finance
+  labels:
+    app.kubernetes.io/name: firefly-iii
+    app.kubernetes.io/part-of: firefly-iii
+    home-lab.io/project-slug: applications
+spec:
+  podSelector:
+    matchLabels:
+      app.kubernetes.io/name: firefly-iii
+      app.kubernetes.io/component: cron
+  policyTypes:
+    - Egress
+  egress:
+    - to:
+        - podSelector:
+            matchLabels:
+              app.kubernetes.io/name: firefly-iii
+              app.kubernetes.io/component: web
+      ports:
+        - protocol: TCP
+          port: 8080
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: firefly-iii-public-egress
+  namespace: finance
+  labels:
+    app.kubernetes.io/name: firefly-iii
+    app.kubernetes.io/part-of: firefly-iii
+    home-lab.io/project-slug: applications
+spec:
+  podSelector:
+    matchLabels:
+      app.kubernetes.io/name: firefly-iii
+      app.kubernetes.io/component: web
+  policyTypes:
+    - Egress
+  egress:
+    - to:
+        - ipBlock:
+            cidr: 0.0.0.0/0
+            except:
+              - 10.0.0.0/8
+              - 100.64.0.0/10
+              - 172.16.0.0/12
+              - 192.168.0.0/16
+      ports:
+        - protocol: TCP
+          port: 80
+        - protocol: TCP
+          port: 443

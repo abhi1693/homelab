@@ -1,0 +1,99 @@
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: portfolio
+  namespace: portfolio
+  labels:
+    app.kubernetes.io/name: portfolio
+    app.kubernetes.io/component: web
+    app.kubernetes.io/part-of: portfolio
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: portfolio
+      app.kubernetes.io/component: web
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxSurge: 1
+      maxUnavailable: 0
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: portfolio
+        app.kubernetes.io/component: web
+        app.kubernetes.io/part-of: portfolio
+    spec:
+      automountServiceAccountToken: false
+      imagePullSecrets:
+        - name: harbor-registry
+      nodeSelector:
+        kubernetes.io/arch: arm64
+      affinity:
+        podAntiAffinity:
+          preferredDuringSchedulingIgnoredDuringExecution:
+            - weight: 100
+              podAffinityTerm:
+                labelSelector:
+                  matchLabels:
+                    app.kubernetes.io/name: portfolio
+                    app.kubernetes.io/component: web
+                topologyKey: kubernetes.io/hostname
+      topologySpreadConstraints:
+        - maxSkew: 1
+          topologyKey: kubernetes.io/hostname
+          whenUnsatisfiable: ScheduleAnyway
+          labelSelector:
+            matchLabels:
+              app.kubernetes.io/name: portfolio
+              app.kubernetes.io/component: web
+      containers:
+        - name: web
+          image: registry.home/portfolio/portfolio:0.1.2 # {"$imagescan": "portfolio"}
+          imagePullPolicy: IfNotPresent
+          envFrom:
+            - secretRef:
+                name: portfolio
+            - configMapRef:
+                name: portfolio
+          ports:
+            - name: http
+              containerPort: 3000
+              protocol: TCP
+          resources:
+            requests:
+              cpu: 50m
+              memory: 128Mi
+            limits:
+              memory: 192Mi
+          startupProbe:
+            httpGet:
+              path: /
+              port: http
+            periodSeconds: 5
+            timeoutSeconds: 3
+            failureThreshold: 60
+          readinessProbe:
+            httpGet:
+              path: /
+              port: http
+            periodSeconds: 10
+            timeoutSeconds: 3
+            failureThreshold: 6
+          livenessProbe:
+            httpGet:
+              path: /
+              port: http
+            periodSeconds: 30
+            timeoutSeconds: 5
+            failureThreshold: 4
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop:
+                - ALL
+            runAsGroup: 1001
+            runAsNonRoot: true
+            runAsUser: 1001

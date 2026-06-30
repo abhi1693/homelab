@@ -1,0 +1,25 @@
+---
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: metube
+  namespace: media
+  labels:
+    app.kubernetes.io/name: metube
+    app.kubernetes.io/part-of: media-stack
+    home-lab.io/project-slug: entertainment
+  annotations:
+    traefik.ingress.kubernetes.io/router.middlewares: media-media-edge-basic-auth@kubernetescrd
+spec:
+  ingressClassName: traefik
+  rules:
+    - host: youtube.media.home
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: metube
+                port:
+                  name: http

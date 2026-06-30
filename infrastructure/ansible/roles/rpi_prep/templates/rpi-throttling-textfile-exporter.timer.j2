@@ -1,0 +1,11 @@
+[Unit]
+Description=Refresh Raspberry Pi throttling state metrics
+
+[Timer]
+OnBootSec=1min
+OnUnitActiveSec={{ rpi_prep.throttling_exporter_interval }}
+AccuracySec=15s
+Unit=rpi-throttling-textfile-exporter.service
+
+[Install]
+WantedBy=timers.target

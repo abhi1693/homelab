@@ -1,0 +1,132 @@
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: qbittorrent-tracker-refresh
+  namespace: media
+  labels:
+    app.kubernetes.io/name: qbittorrent-tracker-refresh
+    app.kubernetes.io/part-of: media-stack
+    home-lab.io/project-slug: entertainment
+spec:
+  schedule: "17 3 * * *"
+  concurrencyPolicy: Forbid
+  startingDeadlineSeconds: 900
+  successfulJobsHistoryLimit: 2
+  failedJobsHistoryLimit: 3
+  jobTemplate:
+    spec:
+      activeDeadlineSeconds: 300
+      backoffLimit: 1
+      template:
+        metadata:
+          labels:
+            app.kubernetes.io/name: qbittorrent-tracker-refresh
+            app.kubernetes.io/part-of: media-stack
+            home-lab.io/project-slug: entertainment
+        spec:
+          automountServiceAccountToken: false
+          securityContext:
+            seccompProfile:
+              type: RuntimeDefault
+          restartPolicy: Never
+          nodeSelector:
+            kubernetes.io/arch: arm64
+          containers:
+            - name: refresh
+              image: registry.home/docker.io/curlimages/curl:8.21.0 # {"$imagescan": "qbittorrent-curl"}
+              imagePullPolicy: IfNotPresent
+              command:
+                - /bin/sh
+                - -ec
+              args:
+                - |
+                  fail() {
+                    echo "$1" >&2
+                    exit 1
+                  }
+
+                  qbt_url="${QBT_URL%/}"
+                  cookie_jar="$(mktemp)"
+                  trap 'rm -f "$cookie_jar"' EXIT
+
+                  trackers="$(
+                    curl -fsSL "$TRACKERS_URL" |
+                      awk 'NF { count += 1; value = value (value == "" ? "" : "\\n") $0 } END { if (count > 0) print value }'
+                  )"
+                  tracker_count="$(
+                    printf '%s' "$trackers" |
+                      awk 'BEGIN { count = 0 } { count = gsub(/\\n/, "&") + ($0 == "" ? 0 : 1) } END { print count }'
+                  )"
+
+                  if [ "$tracker_count" -lt "$MIN_TRACKER_COUNT" ]; then
+                    fail "Tracker list from $TRACKERS_URL only contained $tracker_count entries"
+                  fi
+
+                  login_body="$(
+                    curl -fsS \
+                      -c "$cookie_jar" \
+                      -H "Referer: $qbt_url" \
+                      --data-urlencode "username=$QBT_USER" \
+                      --data-urlencode "password=$QBT_PASSWORD" \
+                      "$qbt_url/api/v2/auth/login"
+                  )"
+
+                  if [ "$login_body" != "Ok." ]; then
+                    if [ -n "$login_body" ]; then
+                      fail "qBittorrent login failed: $login_body"
+                    fi
+
+                    curl -fsS \
+                      -b "$cookie_jar" \
+                      -H "Referer: $qbt_url" \
+                      "$qbt_url/api/v2/app/version" >/dev/null ||
+                      fail "qBittorrent login returned an empty body and session verification failed"
+                  fi
+
+                  payload="$(printf '{"add_trackers_enabled":true,"add_trackers":"%s"}' "$trackers")"
+                  curl -fsS \
+                    -b "$cookie_jar" \
+                    -H "Referer: $qbt_url" \
+                    --data-urlencode "json=$payload" \
+                    "$qbt_url/api/v2/app/setPreferences"
+
+                  echo "Updated qBittorrent additional tracker list with $tracker_count trackers"
+              env:
+                - name: QBT_URL
+                  value: http://qbittorrent.media.svc.cluster.local:8080
+                - name: TRACKERS_URL
+                  value: https://raw.githubusercontent.com/ngosang/trackerslist/master/trackers_all.txt
+                - name: MIN_TRACKER_COUNT
+                  value: "20"
+                - name: QBT_USER
+                  valueFrom:
+                    secretKeyRef:
+                      name: media-qbittorrent-cleanup
+                      key: QBT_USER
+                - name: QBT_PASSWORD
+                  valueFrom:
+                    secretKeyRef:
+                      name: media-qbittorrent-cleanup
+                      key: QBT_PASSWORD
+              resources:
+                requests:
+                  cpu: 2m
+                  memory: 32Mi
+                limits:
+                  cpu: 100m
+                  memory: 128Mi
+              securityContext:
+                allowPrivilegeEscalation: false
+                capabilities:
+                  drop:
+                    - ALL
+                readOnlyRootFilesystem: true
+                runAsNonRoot: true
+                runAsUser: 100
+                runAsGroup: 101
+              volumeMounts:
+                - name: tmp
+                  mountPath: /tmp
+          volumes:
+            - name: tmp
+              emptyDir: {}

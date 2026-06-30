@@ -1,0 +1,11 @@
+---
+name: openbao-helmop
+defaultNamespace: fleet-local
+labels:
+  app.kubernetes.io/name: openbao
+  app.kubernetes.io/part-of: openbao
+  home-lab.io/project-slug: applications
+dependsOn:
+  - name: rancher-project-applications
+  - name: applications-helm-repositories
+  - name: wardn-hub

@@ -1,0 +1,98 @@
+---
+apiVersion: fleet.cattle.io/v1alpha1
+kind: HelmOp
+metadata:
+  name: rancher-compliance-crd
+  labels:
+    app.kubernetes.io/name: rancher-compliance-crd
+    app.kubernetes.io/part-of: rancher-compliance
+    home-lab.io/project-slug: system
+spec:
+  defaultNamespace: compliance-operator-system
+  namespaceLabels:
+    app.kubernetes.io/name: rancher-compliance
+    app.kubernetes.io/part-of: rancher-compliance
+    field.cattle.io/projectId: p-zl69x
+  namespaceAnnotations:
+    field.cattle.io/projectId: local:p-zl69x
+  dependsOn:
+    - name: system-helm-repositories
+  labels:
+    app.kubernetes.io/name: rancher-compliance-crd
+    app.kubernetes.io/part-of: rancher-compliance
+    home-lab.io/project-slug: system
+  targets:
+    - name: default
+      clusterGroup: default
+  targetRestrictions:
+    - name: default
+      clusterGroup: default
+  correctDrift:
+    enabled: true
+    force: true
+    keepFailHistory: true
+  downstreamResources:
+    - kind: ConfigMap
+      name: rancher-compliance-crd-values
+  helm:
+    releaseName: rancher-compliance-crd
+    repo: https://charts.rancher.io
+    chart: rancher-compliance-crd
+    version: 109.3.0+up1.4.4
+    timeoutSeconds: 1200
+    takeOwnership: true
+    valuesFrom:
+      - configMapKeyRef:
+          name: rancher-compliance-crd-values
+          namespace: fleet-local
+          key: crd-values.yaml
+    waitForJobs: true
+---
+apiVersion: fleet.cattle.io/v1alpha1
+kind: HelmOp
+metadata:
+  name: rancher-compliance
+  labels:
+    app.kubernetes.io/name: rancher-compliance
+    app.kubernetes.io/part-of: rancher-compliance
+    home-lab.io/project-slug: system
+spec:
+  defaultNamespace: compliance-operator-system
+  namespaceLabels:
+    app.kubernetes.io/name: rancher-compliance
+    app.kubernetes.io/part-of: rancher-compliance
+    field.cattle.io/projectId: p-zl69x
+  namespaceAnnotations:
+    field.cattle.io/projectId: local:p-zl69x
+  dependsOn:
+    - name: system-helm-repositories
+  labels:
+    app.kubernetes.io/name: rancher-compliance
+    app.kubernetes.io/part-of: rancher-compliance
+    home-lab.io/project-slug: system
+  targets:
+    - name: default
+      clusterGroup: default
+  targetRestrictions:
+    - name: default
+      clusterGroup: default
+  correctDrift:
+    enabled: true
+    force: true
+    keepFailHistory: true
+  downstreamResources:
+    - kind: ConfigMap
+      name: rancher-compliance-values
+  helm:
+    releaseName: rancher-compliance
+    repo: https://charts.rancher.io
+    chart: rancher-compliance
+    version: 109.3.0+up1.4.4
+    timeoutSeconds: 1200
+    takeOwnership: true
+    valuesFrom:
+      - configMapKeyRef:
+          name: rancher-compliance-values
+          namespace: fleet-local
+          key: values.yaml
+    waitForJobs: true

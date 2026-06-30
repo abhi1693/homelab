@@ -1,0 +1,725 @@
+fullnameOverride: postgresql
+type: postgresql
+version:
+  postgresql: "17"
+mode: standalone
+cluster:
+  instances: 3
+  imageName: registry.home/ghcr.io/cloudnative-pg/postgresql:17.10 # {"$imagescan": "postgresql-17"}
+  imagePullSecrets:
+    - name: harbor-registry
+  annotations:
+    home-lab.io/firefly-role-reconcile: "20260614T085757Z"
+    home-lab.io/harbor-postgresql-secret: external
+    home-lab.io/postgresql-pvc-resize: "20260630T071000Z"
+  primaryUpdateMethod: switchover
+  primaryUpdateStrategy: unsupervised
+  storage:
+    storageClass: longhorn
+    size: 2Gi
+  walStorage:
+    enabled: true
+    storageClass: longhorn
+    size: 4Gi
+  resources:
+    requests:
+      cpu: 500m
+      memory: 768Mi
+    limits:
+      memory: 1Gi
+  affinity:
+    nodeSelector:
+      kubernetes.io/arch: arm64
+    topologyKey: kubernetes.io/hostname
+    podAntiAffinityType: required
+  enablePDB: true
+  enableSuperuserAccess: false
+  services:
+    disabledDefaultServices:
+      - r
+      - ro
+  monitoring:
+    enabled: true
+    podMonitor:
+      enabled: true
+    instrumentation:
+      logicalReplication: false
+    customQueries:
+      - name: pg_stat_statements_top
+        target_databases:
+          - postgres
+        predicate_query: SELECT EXISTS (SELECT 1 FROM pg_extension WHERE extname = 'pg_stat_statements')
+        query: |
+          SELECT
+            d.datname,
+            r.rolname,
+            s.queryid::text AS queryid,
+            left(regexp_replace(s.query, '\s+', ' ', 'g'), 180) AS query,
+            row_number() OVER (ORDER BY s.total_exec_time DESC)::double precision AS total_rank,
+            s.calls::double precision AS calls,
+            (s.total_exec_time / 1000.0)::double precision AS total_exec_time_seconds,
+            (s.mean_exec_time / 1000.0)::double precision AS mean_exec_time_seconds,
+            (s.max_exec_time / 1000.0)::double precision AS max_exec_time_seconds,
+            s.rows::double precision AS rows,
+            s.shared_blks_read::double precision AS shared_blks_read,
+            s.shared_blks_hit::double precision AS shared_blks_hit,
+            s.shared_blks_dirtied::double precision AS shared_blks_dirtied,
+            s.temp_blks_read::double precision AS temp_blks_read,
+            s.temp_blks_written::double precision AS temp_blks_written,
+            (s.shared_blk_read_time / 1000.0)::double precision AS shared_blk_read_time_seconds,
+            (s.shared_blk_write_time / 1000.0)::double precision AS shared_blk_write_time_seconds
+          FROM pg_stat_statements s
+          JOIN pg_database d ON d.oid = s.dbid
+          JOIN pg_roles r ON r.oid = s.userid
+          WHERE d.datname NOT IN ('template0', 'template1')
+          ORDER BY s.total_exec_time DESC
+          LIMIT 25
+        metrics:
+          - datname:
+              usage: LABEL
+              description: Database name
+          - rolname:
+              usage: LABEL
+              description: Role name
+          - queryid:
+              usage: LABEL
+              description: pg_stat_statements query identifier
+          - query:
+              usage: LABEL
+              description: Normalized query text truncated to 180 characters
+          - total_rank:
+              usage: GAUGE
+              description: Rank by cumulative execution time
+          - calls:
+              usage: COUNTER
+              description: Number of times the statement was executed
+          - total_exec_time_seconds:
+              usage: COUNTER
+              description: Total time spent executing the statement
+          - mean_exec_time_seconds:
+              usage: GAUGE
+              description: Mean execution time for the statement
+          - max_exec_time_seconds:
+              usage: GAUGE
+              description: Maximum execution time for the statement
+          - rows:
+              usage: COUNTER
+              description: Total rows retrieved or affected by the statement
+          - shared_blks_read:
+              usage: COUNTER
+              description: Shared blocks read by the statement
+          - shared_blks_hit:
+              usage: COUNTER
+              description: Shared block cache hits by the statement
+          - shared_blks_dirtied:
+              usage: COUNTER
+              description: Shared blocks dirtied by the statement
+          - temp_blks_read:
+              usage: COUNTER
+              description: Temporary blocks read by the statement
+          - temp_blks_written:
+              usage: COUNTER
+              description: Temporary blocks written by the statement
+          - shared_blk_read_time_seconds:
+              usage: COUNTER
+              description: Time spent reading shared data file blocks by the statement
+          - shared_blk_write_time_seconds:
+              usage: COUNTER
+              description: Time spent writing shared data file blocks by the statement
+  postgresql:
+    parameters:
+      max_connections: "200"
+      pg_stat_statements.max: "10000"
+      pg_stat_statements.track: "all"
+      shared_buffers: "256MB"
+      track_io_timing: "on"
+      wal_level: "replica"
+    synchronous:
+      method: any
+      number: 1
+      dataDurability: required
+      failoverQuorum: true
+  roles:
+    - name: coder
+      ensure: absent
+    - name: netbox
+      ensure: present
+      login: true
+      connectionLimit: 10
+      superuser: false
+      createdb: false
+      createrole: false
+      inherit: true
+      replication: false
+      bypassrls: false
+      passwordSecret:
+        name: netbox-postgresql
+    - name: gitrank
+      ensure: present
+      login: true
+      connectionLimit: 8
+      superuser: false
+      createdb: false
+      createrole: false
+      inherit: true
+      replication: false
+      bypassrls: false
+      passwordSecret:
+        name: git-rank-postgresql
+    - name: jellyfin
+      ensure: present
+      login: true
+      connectionLimit: 15
+      superuser: false
+      createdb: false
+      createrole: false
+      inherit: true
+      replication: false
+      bypassrls: false
+      passwordSecret:
+        name: jellyfin-postgresql
+    - name: dispatcharr
+      ensure: present
+      login: true
+      connectionLimit: 8
+      superuser: false
+      createdb: false
+      createrole: false
+      inherit: true
+      replication: false
+      bypassrls: false
+      passwordSecret:
+        name: dispatcharr-postgresql
+    - name: shipyardhq
+      ensure: present
+      login: true
+      connectionLimit: 32
+      superuser: false
+      createdb: false
+      createrole: false
+      inherit: true
+      replication: false
+      bypassrls: false
+      passwordSecret:
+        name: shipyardhq-postgresql
+    - name: harbor
+      ensure: present
+      login: true
+      connectionLimit: 36
+      superuser: false
+      createdb: false
+      createrole: false
+      inherit: true
+      replication: false
+      bypassrls: false
+      passwordSecret:
+        name: harbor-postgresql
+    - name: registry_artifacts
+      ensure: present
+      login: true
+      connectionLimit: 12
+      superuser: false
+      createdb: false
+      createrole: false
+      inherit: true
+      replication: false
+      bypassrls: false
+      passwordSecret:
+        name: registry-artifacts-postgresql
+    - name: wardn_hub
+      ensure: present
+      login: true
+      connectionLimit: 12
+      superuser: false
+      createdb: false
+      createrole: false
+      inherit: true
+      replication: false
+      bypassrls: false
+      passwordSecret:
+        name: wardn-hub-postgresql
+    - name: firefly
+      ensure: present
+      login: true
+      connectionLimit: 10
+      superuser: false
+      createdb: false
+      createrole: false
+      inherit: true
+      replication: false
+      bypassrls: false
+      passwordSecret:
+        name: firefly-postgresql
+backups:
+  enabled: true
+  endpointURL: https://492e25f5f18ef59e38763f58a78362f7.r2.cloudflarestorage.com
+  destinationPath: s3://home-lab-postgresql/
+  provider: s3
+  s3:
+    region: auto
+    bucket: home-lab-postgresql
+    path: /
+  secret:
+    create: false
+    name: postgresql-r2-backup-sops
+  wal:
+    compression: gzip
+    encryption: ""
+    maxParallel: 1
+  data:
+    compression: gzip
+    encryption: ""
+    jobs: 2
+  scheduledBackups:
+    - name: daily-backup
+      schedule: "0 0 0 * * *"
+      backupOwnerReference: self
+      method: barmanObjectStore
+  retentionPolicy: 30d
+databases:
+  - name: coder
+    ensure: absent
+    owner: coder
+    databaseReclaimPolicy: delete
+  - name: netbox
+    owner: netbox
+    databaseReclaimPolicy: retain
+  - name: gitrank
+    owner: gitrank
+    databaseReclaimPolicy: retain
+  - name: jellyfin
+    owner: jellyfin
+    databaseReclaimPolicy: retain
+  - name: dispatcharr
+    owner: dispatcharr
+    databaseReclaimPolicy: retain
+  - name: shipyardhq
+    owner: shipyardhq
+    databaseReclaimPolicy: retain
+  - name: harbor
+    owner: harbor
+    databaseReclaimPolicy: retain
+  - name: registry_artifacts
+    owner: registry_artifacts
+    databaseReclaimPolicy: retain
+  - name: wardn_hub
+    owner: wardn_hub
+    databaseReclaimPolicy: retain
+  - name: firefly
+    owner: firefly
+    databaseReclaimPolicy: retain
+poolers:
+  - name: jellyfin-rw
+    type: rw
+    poolMode: session
+    instances: 3
+    monitoring:
+      enabled: true
+      podMonitor:
+        enabled: true
+    parameters:
+      max_client_conn: "100"
+      default_pool_size: "4"
+    template:
+      metadata:
+        labels:
+          app.kubernetes.io/part-of: postgresql
+          home-lab.io/client: jellyfin
+      spec:
+        nodeSelector:
+          kubernetes.io/arch: arm64
+        topologySpreadConstraints:
+          - maxSkew: 1
+            topologyKey: kubernetes.io/hostname
+            whenUnsatisfiable: DoNotSchedule
+            labelSelector:
+              matchLabels:
+                cnpg.io/poolerName: postgresql-pooler-jellyfin-rw
+            matchLabelKeys:
+              - pod-template-hash
+        affinity:
+          podAntiAffinity:
+            requiredDuringSchedulingIgnoredDuringExecution:
+              - labelSelector:
+                  matchLabels:
+                    cnpg.io/poolerName: postgresql-pooler-jellyfin-rw
+                matchLabelKeys:
+                  - pod-template-hash
+                topologyKey: kubernetes.io/hostname
+        containers:
+          - name: pgbouncer
+            image: registry.home/ghcr.io/cloudnative-pg/pgbouncer:1.25.2 # {"$imagescan": "pgbouncer"}
+            resources:
+              requests:
+                cpu: 50m
+                memory: 128Mi
+              limits:
+                memory: 192Mi
+  - name: dispatcharr-rw
+    type: rw
+    poolMode: session
+    instances: 2
+    monitoring:
+      enabled: true
+      podMonitor:
+        enabled: true
+    parameters:
+      max_client_conn: "50"
+      default_pool_size: "3"
+    template:
+      metadata:
+        labels:
+          app.kubernetes.io/part-of: postgresql
+          home-lab.io/client: dispatcharr
+      spec:
+        nodeSelector:
+          kubernetes.io/arch: arm64
+        topologySpreadConstraints:
+          - maxSkew: 1
+            topologyKey: kubernetes.io/hostname
+            whenUnsatisfiable: DoNotSchedule
+            labelSelector:
+              matchLabels:
+                cnpg.io/poolerName: postgresql-pooler-dispatcharr-rw
+            matchLabelKeys:
+              - pod-template-hash
+        affinity:
+          podAntiAffinity:
+            requiredDuringSchedulingIgnoredDuringExecution:
+              - labelSelector:
+                  matchLabels:
+                    cnpg.io/poolerName: postgresql-pooler-dispatcharr-rw
+                matchLabelKeys:
+                  - pod-template-hash
+                topologyKey: kubernetes.io/hostname
+        containers:
+          - name: pgbouncer
+            image: registry.home/ghcr.io/cloudnative-pg/pgbouncer:1.25.2 # {"$imagescan": "pgbouncer"}
+            resources:
+              requests:
+                cpu: 50m
+                memory: 128Mi
+              limits:
+                memory: 192Mi
+  - name: git-rank-rw
+    type: rw
+    poolMode: session
+    instances: 2
+    monitoring:
+      enabled: true
+      podMonitor:
+        enabled: true
+    parameters:
+      max_client_conn: "50"
+      default_pool_size: "4"
+    template:
+      metadata:
+        labels:
+          app.kubernetes.io/part-of: postgresql
+          home-lab.io/client: git-rank
+      spec:
+        nodeSelector:
+          kubernetes.io/arch: arm64
+        topologySpreadConstraints:
+          - maxSkew: 1
+            topologyKey: kubernetes.io/hostname
+            whenUnsatisfiable: DoNotSchedule
+            labelSelector:
+              matchLabels:
+                cnpg.io/poolerName: postgresql-pooler-git-rank-rw
+            matchLabelKeys:
+              - pod-template-hash
+        affinity:
+          podAntiAffinity:
+            requiredDuringSchedulingIgnoredDuringExecution:
+              - labelSelector:
+                  matchLabels:
+                    cnpg.io/poolerName: postgresql-pooler-git-rank-rw
+                matchLabelKeys:
+                  - pod-template-hash
+                topologyKey: kubernetes.io/hostname
+        containers:
+          - name: pgbouncer
+            image: registry.home/ghcr.io/cloudnative-pg/pgbouncer:1.25.2 # {"$imagescan": "pgbouncer"}
+            resources:
+              requests:
+                cpu: 50m
+                memory: 128Mi
+              limits:
+                memory: 192Mi
+  - name: shipyardhq-rw
+    type: rw
+    poolMode: session
+    instances: 2
+    monitoring:
+      enabled: true
+      podMonitor:
+        enabled: true
+    parameters:
+      max_client_conn: "50"
+      default_pool_size: "16"
+    template:
+      metadata:
+        labels:
+          app.kubernetes.io/part-of: postgresql
+          home-lab.io/client: shipyardhq
+      spec:
+        nodeSelector:
+          kubernetes.io/arch: arm64
+        topologySpreadConstraints:
+          - maxSkew: 1
+            topologyKey: kubernetes.io/hostname
+            whenUnsatisfiable: DoNotSchedule
+            labelSelector:
+              matchLabels:
+                cnpg.io/poolerName: postgresql-pooler-shipyardhq-rw
+            matchLabelKeys:
+              - pod-template-hash
+        affinity:
+          podAntiAffinity:
+            requiredDuringSchedulingIgnoredDuringExecution:
+              - labelSelector:
+                  matchLabels:
+                    cnpg.io/poolerName: postgresql-pooler-shipyardhq-rw
+                matchLabelKeys:
+                  - pod-template-hash
+                topologyKey: kubernetes.io/hostname
+        containers:
+          - name: pgbouncer
+            image: registry.home/ghcr.io/cloudnative-pg/pgbouncer:1.25.2 # {"$imagescan": "pgbouncer"}
+            resources:
+              requests:
+                cpu: 50m
+                memory: 128Mi
+              limits:
+                memory: 192Mi
+  - name: harbor-rw
+    type: rw
+    poolMode: session
+    instances: 3
+    monitoring:
+      enabled: true
+      podMonitor:
+        enabled: true
+    parameters:
+      max_client_conn: "120"
+      default_pool_size: "12"
+    template:
+      metadata:
+        labels:
+          app.kubernetes.io/part-of: postgresql
+          home-lab.io/client: harbor
+      spec:
+        nodeSelector:
+          kubernetes.io/arch: arm64
+        topologySpreadConstraints:
+          - maxSkew: 1
+            topologyKey: kubernetes.io/hostname
+            whenUnsatisfiable: DoNotSchedule
+            labelSelector:
+              matchLabels:
+                cnpg.io/poolerName: postgresql-pooler-harbor-rw
+            matchLabelKeys:
+              - pod-template-hash
+        affinity:
+          podAntiAffinity:
+            requiredDuringSchedulingIgnoredDuringExecution:
+              - labelSelector:
+                  matchLabels:
+                    cnpg.io/poolerName: postgresql-pooler-harbor-rw
+                matchLabelKeys:
+                  - pod-template-hash
+                topologyKey: kubernetes.io/hostname
+        containers:
+          - name: pgbouncer
+            image: registry.home/ghcr.io/cloudnative-pg/pgbouncer:1.25.2 # {"$imagescan": "pgbouncer"}
+            resources:
+              requests:
+                cpu: 50m
+                memory: 128Mi
+              limits:
+                memory: 192Mi
+  - name: netbox-rw
+    type: rw
+    poolMode: session
+    instances: 2
+    monitoring:
+      enabled: true
+      podMonitor:
+        enabled: true
+    parameters:
+      max_client_conn: "50"
+      default_pool_size: "3"
+    template:
+      metadata:
+        labels:
+          app.kubernetes.io/part-of: postgresql
+          home-lab.io/client: netbox
+      spec:
+        nodeSelector:
+          kubernetes.io/arch: arm64
+        topologySpreadConstraints:
+          - maxSkew: 1
+            topologyKey: kubernetes.io/hostname
+            whenUnsatisfiable: DoNotSchedule
+            labelSelector:
+              matchLabels:
+                cnpg.io/poolerName: postgresql-pooler-netbox-rw
+            matchLabelKeys:
+              - pod-template-hash
+        affinity:
+          podAntiAffinity:
+            requiredDuringSchedulingIgnoredDuringExecution:
+              - labelSelector:
+                  matchLabels:
+                    cnpg.io/poolerName: postgresql-pooler-netbox-rw
+                matchLabelKeys:
+                  - pod-template-hash
+                topologyKey: kubernetes.io/hostname
+        containers:
+          - name: pgbouncer
+            image: registry.home/ghcr.io/cloudnative-pg/pgbouncer:1.25.2 # {"$imagescan": "pgbouncer"}
+            resources:
+              requests:
+                cpu: 50m
+                memory: 128Mi
+              limits:
+                memory: 192Mi
+  - name: registry-artifacts-rw
+    type: rw
+    poolMode: session
+    instances: 2
+    monitoring:
+      enabled: true
+      podMonitor:
+        enabled: true
+    parameters:
+      max_client_conn: "30"
+      default_pool_size: "6"
+    template:
+      metadata:
+        labels:
+          app.kubernetes.io/part-of: postgresql
+          home-lab.io/client: registry-artifacts
+      spec:
+        nodeSelector:
+          kubernetes.io/arch: arm64
+        topologySpreadConstraints:
+          - maxSkew: 1
+            topologyKey: kubernetes.io/hostname
+            whenUnsatisfiable: DoNotSchedule
+            labelSelector:
+              matchLabels:
+                cnpg.io/poolerName: postgresql-pooler-registry-artifacts-rw
+            matchLabelKeys:
+              - pod-template-hash
+        affinity:
+          podAntiAffinity:
+            requiredDuringSchedulingIgnoredDuringExecution:
+              - labelSelector:
+                  matchLabels:
+                    cnpg.io/poolerName: postgresql-pooler-registry-artifacts-rw
+                matchLabelKeys:
+                  - pod-template-hash
+                topologyKey: kubernetes.io/hostname
+        containers:
+          - name: pgbouncer
+            image: registry.home/ghcr.io/cloudnative-pg/pgbouncer:1.25.2 # {"$imagescan": "pgbouncer"}
+            resources:
+              requests:
+                cpu: 50m
+                memory: 128Mi
+              limits:
+                memory: 192Mi
+  - name: wardn-hub-rw
+    type: rw
+    poolMode: session
+    instances: 2
+    monitoring:
+      enabled: true
+      podMonitor:
+        enabled: true
+    parameters:
+      max_client_conn: "50"
+      default_pool_size: "6"
+    template:
+      metadata:
+        labels:
+          app.kubernetes.io/part-of: postgresql
+          home-lab.io/client: wardn-hub
+      spec:
+        nodeSelector:
+          kubernetes.io/arch: arm64
+        topologySpreadConstraints:
+          - maxSkew: 1
+            topologyKey: kubernetes.io/hostname
+            whenUnsatisfiable: DoNotSchedule
+            labelSelector:
+              matchLabels:
+                cnpg.io/poolerName: postgresql-pooler-wardn-hub-rw
+            matchLabelKeys:
+              - pod-template-hash
+        affinity:
+          podAntiAffinity:
+            requiredDuringSchedulingIgnoredDuringExecution:
+              - labelSelector:
+                  matchLabels:
+                    cnpg.io/poolerName: postgresql-pooler-wardn-hub-rw
+                matchLabelKeys:
+                  - pod-template-hash
+                topologyKey: kubernetes.io/hostname
+        containers:
+          - name: pgbouncer
+            image: registry.home/ghcr.io/cloudnative-pg/pgbouncer:1.25.2 # {"$imagescan": "pgbouncer"}
+            resources:
+              requests:
+                cpu: 50m
+                memory: 128Mi
+              limits:
+                memory: 192Mi
+  - name: firefly-iii-rw
+    type: rw
+    poolMode: session
+    instances: 2
+    monitoring:
+      enabled: true
+      podMonitor:
+        enabled: true
+    parameters:
+      max_client_conn: "50"
+      default_pool_size: "4"
+    template:
+      metadata:
+        labels:
+          app.kubernetes.io/part-of: postgresql
+          home-lab.io/client: firefly-iii
+      spec:
+        nodeSelector:
+          kubernetes.io/arch: arm64
+        topologySpreadConstraints:
+          - maxSkew: 1
+            topologyKey: kubernetes.io/hostname
+            whenUnsatisfiable: DoNotSchedule
+            labelSelector:
+              matchLabels:
+                cnpg.io/poolerName: postgresql-pooler-firefly-iii-rw
+            matchLabelKeys:
+              - pod-template-hash
+        affinity:
+          podAntiAffinity:
+            requiredDuringSchedulingIgnoredDuringExecution:
+              - labelSelector:
+                  matchLabels:
+                    cnpg.io/poolerName: postgresql-pooler-firefly-iii-rw
+                matchLabelKeys:
+                  - pod-template-hash
+                topologyKey: kubernetes.io/hostname
+        containers:
+          - name: pgbouncer
+            image: registry.home/ghcr.io/cloudnative-pg/pgbouncer:1.25.2 # {"$imagescan": "pgbouncer"}
+            resources:
+              requests:
+                cpu: 50m
+                memory: 128Mi
+              limits:
+                memory: 192Mi

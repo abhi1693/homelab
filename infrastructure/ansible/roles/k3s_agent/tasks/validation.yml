@@ -1,0 +1,112 @@
+---
+- name: Check K3s binary path
+  ansible.builtin.stat:
+    path: /usr/local/bin/k3s
+  register: k3s_binary_stat
+
+- name: Check K3s agent config path
+  ansible.builtin.stat:
+    path: /etc/rancher/k3s/config.yaml
+  register: k3s_config_stat
+
+- name: Check K3s registries config path
+  ansible.builtin.stat:
+    path: /etc/rancher/k3s/registries.yaml
+  register: k3s_registries_config_stat
+
+- name: Read K3s agent config file
+  ansible.builtin.slurp:
+    path: /etc/rancher/k3s/config.yaml
+  register: k3s_config_raw
+  no_log: true
+  when: k3s_config_stat.stat.exists
+
+- name: Read K3s registries config file
+  ansible.builtin.slurp:
+    path: /etc/rancher/k3s/registries.yaml
+  register: k3s_registries_config_raw
+  no_log: true
+  when: k3s_registries_config_stat.stat.exists
+
+- name: Record K3s agent config text
+  ansible.builtin.set_fact:
+    k3s_config_text: "{{ k3s_config_raw.content | b64decode }}"
+  no_log: true
+  when: k3s_config_stat.stat.exists
+
+- name: Record K3s registries config object
+  ansible.builtin.set_fact:
+    k3s_registries_config_object: "{{ k3s_registries_config_raw.content | b64decode | from_yaml }}"
+  no_log: true
+  when: k3s_registries_config_stat.stat.exists
+
+- name: Assert K3s binary and agent config exist
+  ansible.builtin.assert:
+    that:
+      - k3s_binary_stat.stat.exists
+      - k3s_config_stat.stat.exists
+    fail_msg: "Expected /usr/local/bin/k3s and /etc/rancher/k3s/config.yaml to exist"
+    success_msg: "K3s binary and agent config file exist"
+
+- name: Record expected K3s agent join config line
+  ansible.builtin.set_fact:
+    k3s_expected_join_server_line: 'server: "https://{{ k3s.registration_vip }}:6443"'
+
+- name: Assert K3s agent renders the shared registration endpoint in config
+  ansible.builtin.assert:
+    that:
+      - k3s_expected_join_server_line in k3s_config_text
+    fail_msg: >-
+      Expected server: "https://{{ k3s.registration_vip }}:6443"
+      in /etc/rancher/k3s/config.yaml
+    success_msg: "K3s agent config points at the shared registration endpoint"
+
+- name: Assert configured K3s agent kubelet args render in config
+  ansible.builtin.assert:
+    that:
+      - "'kubelet-arg:' in k3s_config_text"
+      - item in k3s_config_text
+    fail_msg: "Expected kubelet arg {{ item }} in /etc/rancher/k3s/config.yaml"
+    success_msg: "K3s agent config contains kubelet arg {{ item }}"
+  loop: "{{ k3s_agent.kubelet_args }}"
+
+- name: Assert K3s agent registry mirror config matches inventory
+  ansible.builtin.assert:
+    that:
+      - k3s_registries_config_stat.stat.exists == (k3s_agent.registry_mirror.enabled | bool)
+      - "not (k3s_agent.registry_mirror.disable_default_registry_endpoint | bool) or 'disable-default-registry-endpoint: true' in k3s_config_text"
+      - "not (k3s_agent.registry_mirror.enabled | bool) or ((k3s_registries_config_object.mirrors | default({})).keys() | list | sort) == (k3s_agent.registry_mirror.mirrors.keys() | list | sort)"
+    fail_msg: Expected K3s agent registry config to match inventory.
+    success_msg: "K3s agent registry config matches inventory"
+
+- name: Read installed K3s version
+  ansible.builtin.command: /usr/local/bin/k3s --version
+  register: k3s_version_output
+  changed_when: false
+
+- name: Assert installed K3s version matches inventory
+  ansible.builtin.assert:
+    that:
+      - k3s.version in k3s_version_output.stdout
+    fail_msg: "Expected installed K3s version {{ k3s.version }}"
+    success_msg: "Installed K3s version matches {{ k3s.version }}"
+
+- name: Check K3s agent service enablement
+  ansible.builtin.command: systemctl is-enabled k3s-agent
+  register: k3s_agent_service_enabled
+  changed_when: false
+  failed_when: false
+
+- name: Check K3s agent service activity
+  ansible.builtin.command: systemctl is-active k3s-agent
+  register: k3s_agent_service_active
+  changed_when: false
+  failed_when: false
+
+- name: Assert K3s agent service is enabled and active
+  ansible.builtin.assert:
+    that:
+      - k3s_agent_service_enabled.stdout == 'enabled'
+      - k3s_agent_service_active.stdout == 'active'
+    fail_msg: "Expected k3s-agent service to be enabled and active"
+    success_msg: "K3s agent service is enabled and active"

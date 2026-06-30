@@ -1,0 +1,509 @@
+---
+- name: Gather package facts for Longhorn validation
+  ansible.builtin.package_facts:
+    manager: auto
+
+- name: Gather service facts for Longhorn validation
+  ansible.builtin.service_facts:
+
+- name: Assert Longhorn host packages are installed
+  ansible.builtin.assert:
+    that:
+      - item in ansible_facts.packages
+    fail_msg: "Expected Longhorn package {{ item }} to be installed"
+    success_msg: "Longhorn package {{ item }} is installed"
+  loop: "{{ longhorn.required_packages }}"
+
+- name: Read loaded kernel modules
+  ansible.builtin.command: lsmod
+  register: longhorn_lsmod
+  changed_when: false
+
+- name: Assert Longhorn kernel modules are loaded
+  ansible.builtin.assert:
+    that:
+      - item in longhorn_lsmod.stdout
+    fail_msg: "Expected kernel module {{ item }} to be loaded"
+    success_msg: "Kernel module {{ item }} is loaded"
+  loop: "{{ longhorn.required_kernel_modules }}"
+
+- name: Assert iscsid service is active
+  ansible.builtin.assert:
+    that:
+      - "'iscsid.service' in ansible_facts.services"
+      - ansible_facts.services['iscsid.service'].state == 'running'
+    fail_msg: Expected iscsid.service to be active for Longhorn.
+    success_msg: "iscsid.service is active"
+
+- name: Assert multipathd is not running when installed
+  ansible.builtin.assert:
+    that:
+      - ansible_facts.services['multipathd.service'].state != 'running'
+    fail_msg: Expected multipathd.service to be stopped for Longhorn compatibility.
+    success_msg: "multipathd.service is not running"
+  when: "'multipathd.service' in ansible_facts.services"
+
+- name: Check Longhorn data path
+  ansible.builtin.stat:
+    path: "{{ longhorn.default_data_path }}"
+  register: longhorn_data_path_stat
+
+- name: Assert Longhorn data path exists
+  ansible.builtin.assert:
+    that:
+      - longhorn_data_path_stat.stat.exists
+      - longhorn_data_path_stat.stat.isdir
+    fail_msg: "Expected Longhorn data path {{ longhorn.default_data_path }} to exist"
+    success_msg: "Longhorn data path {{ longhorn.default_data_path }} exists"
+
+- name: Check Longhorn manifest file
+  ansible.builtin.stat:
+    path: /var/lib/rancher/k3s/server/manifests/longhorn.yaml
+  register: longhorn_manifest_stat
+  when: k3s_node.cluster_init | bool
+
+- name: Check Longhorn CRD manifest file
+  ansible.builtin.stat:
+    path: /var/lib/rancher/k3s/server/manifests/longhorn-crd.yaml
+  register: longhorn_crd_manifest_stat
+  when: k3s_node.cluster_init | bool
+
+- name: Assert Longhorn manifest file exists
+  ansible.builtin.assert:
+    that:
+      - longhorn_manifest_stat.stat.exists
+    fail_msg: Expected Longhorn manifest /var/lib/rancher/k3s/server/manifests/longhorn.yaml to exist.
+    success_msg: "Longhorn manifest exists"
+  when: k3s_node.cluster_init | bool
+
+- name: Assert Longhorn CRD manifest file exists
+  ansible.builtin.assert:
+    that:
+      - longhorn_crd_manifest_stat.stat.exists
+    fail_msg: Expected Longhorn CRD manifest /var/lib/rancher/k3s/server/manifests/longhorn-crd.yaml to exist.
+    success_msg: "Longhorn CRD manifest exists"
+  when: k3s_node.cluster_init | bool
+
+- name: Read installed Longhorn CRD HelmChart version
+  ansible.builtin.command:
+    argv:
+      - /usr/local/bin/k3s
+      - kubectl
+      - -n
+      - kube-system
+      - get
+      - helmchart
+      - longhorn-crd
+      - -o
+      - jsonpath={.spec.version}
+  environment:
+    KUBECONFIG: /etc/rancher/k3s/k3s.yaml
+  register: longhorn_crd_helmchart_version
+  changed_when: false
+  when: k3s_node.cluster_init | bool
+
+- name: Assert installed Longhorn CRD HelmChart version matches inventory
+  ansible.builtin.assert:
+    that:
+      - longhorn_crd_helmchart_version.stdout | trim == longhorn.crd_chart_version
+    fail_msg: "Expected Longhorn CRD HelmChart version {{ longhorn.crd_chart_version }}"
+    success_msg: "Installed Longhorn CRD HelmChart version matches {{ longhorn.crd_chart_version }}"
+  when: k3s_node.cluster_init | bool
+
+- name: Read installed Longhorn HelmChart version
+  ansible.builtin.command:
+    argv:
+      - /usr/local/bin/k3s
+      - kubectl
+      - -n
+      - kube-system
+      - get
+      - helmchart
+      - longhorn
+      - -o
+      - jsonpath={.spec.version}
+  environment:
+    KUBECONFIG: /etc/rancher/k3s/k3s.yaml
+  register: longhorn_helmchart_version
+  changed_when: false
+  when: k3s_node.cluster_init | bool
+
+- name: Assert installed Longhorn HelmChart version matches inventory
+  ansible.builtin.assert:
+    that:
+      - longhorn_helmchart_version.stdout | trim == longhorn.chart_version
+    fail_msg: "Expected Longhorn HelmChart version {{ longhorn.chart_version }}"
+    success_msg: "Installed Longhorn HelmChart version matches {{ longhorn.chart_version }}"
+  when: k3s_node.cluster_init | bool
+
+- name: Wait for Longhorn manager DaemonSet rollout
+  ansible.builtin.command:
+    argv:
+      - /usr/local/bin/k3s
+      - kubectl
+      - -n
+      - "{{ longhorn.namespace }}"
+      - rollout
+      - status
+      - daemonset/longhorn-manager
+      - --timeout=600s
+  environment:
+    KUBECONFIG: /etc/rancher/k3s/k3s.yaml
+  changed_when: false
+  when: k3s_node.cluster_init | bool
+
+- name: Wait for Longhorn deployments to roll out
+  ansible.builtin.command:
+    argv:
+      - /usr/local/bin/k3s
+      - kubectl
+      - -n
+      - "{{ longhorn.namespace }}"
+      - rollout
+      - status
+      - "deployment/{{ item }}"
+      - --timeout=600s
+  environment:
+    KUBECONFIG: /etc/rancher/k3s/k3s.yaml
+  changed_when: false
+  loop:
+    - longhorn-driver-deployer
+    - longhorn-ui
+  when: k3s_node.cluster_init | bool
+
+- name: Wait for all Longhorn pods to become Ready
+  ansible.builtin.command:
+    argv:
+      - /usr/local/bin/k3s
+      - kubectl
+      - -n
+      - "{{ longhorn.namespace }}"
+      - wait
+      - --for=condition=Ready
+      - pod
+      - --all
+      - --timeout=600s
+  environment:
+    KUBECONFIG: /etc/rancher/k3s/k3s.yaml
+  changed_when: false
+  when: k3s_node.cluster_init | bool
+
+- name: Read Longhorn storage class default annotation
+  ansible.builtin.command:
+    argv:
+      - /usr/local/bin/k3s
+      - kubectl
+      - get
+      - storageclass
+      - longhorn
+      - -o
+      - jsonpath={.metadata.annotations.storageclass\.kubernetes\.io/is-default-class}
+  environment:
+    KUBECONFIG: /etc/rancher/k3s/k3s.yaml
+  register: longhorn_storageclass_default
+  changed_when: false
+  when: k3s_node.cluster_init | bool
+
+- name: Assert Longhorn storage class is default
+  ansible.builtin.assert:
+    that:
+      - longhorn_storageclass_default.stdout | trim == 'true'
+    fail_msg: Expected Longhorn storageclass to be the default storage class.
+    success_msg: "Longhorn storageclass is default"
+  when: k3s_node.cluster_init | bool
+
+- name: Read Longhorn storage class replica count
+  ansible.builtin.command:
+    argv:
+      - /usr/local/bin/k3s
+      - kubectl
+      - get
+      - storageclass
+      - longhorn
+      - -o
+      - jsonpath={.parameters.numberOfReplicas}
+  environment:
+    KUBECONFIG: /etc/rancher/k3s/k3s.yaml
+  register: longhorn_storageclass_replicas
+  changed_when: false
+  when: k3s_node.cluster_init | bool
+
+- name: Assert Longhorn storage class uses the configured replica count
+  ansible.builtin.assert:
+    that:
+      - longhorn_storageclass_replicas.stdout | int == longhorn.default_class_replica_count | int
+    fail_msg: "Expected Longhorn storageclass replica count {{ longhorn.default_class_replica_count }}"
+    success_msg: "Longhorn storageclass replica count matches {{ longhorn.default_class_replica_count }}"
+  when: k3s_node.cluster_init | bool
+
+- name: Read Longhorn default replica count setting
+  ansible.builtin.command:
+    argv:
+      - /usr/local/bin/k3s
+      - kubectl
+      - -n
+      - "{{ longhorn.namespace }}"
+      - get
+      - settings.longhorn.io
+      - default-replica-count
+      - -o
+      - jsonpath={.value}
+  environment:
+    KUBECONFIG: /etc/rancher/k3s/k3s.yaml
+  register: longhorn_default_replica_setting
+  changed_when: false
+  when: k3s_node.cluster_init | bool
+
+- name: Assert Longhorn default replica count setting matches inventory
+  ansible.builtin.assert:
+    that:
+      - ('"v1":"' ~ (longhorn.default_replica_count | string) ~ '"') in longhorn_default_replica_setting.stdout
+      - ('"v2":"' ~ (longhorn.default_replica_count | string) ~ '"') in longhorn_default_replica_setting.stdout
+    fail_msg: Expected Longhorn default-replica-count setting to match inventory for both data engines.
+    success_msg: "Longhorn default-replica-count setting matches {{ longhorn.default_replica_count }}"
+  when: k3s_node.cluster_init | bool
+
+- name: Read Longhorn engine replica timeout setting
+  ansible.builtin.command:
+    argv:
+      - /usr/local/bin/k3s
+      - kubectl
+      - -n
+      - "{{ longhorn.namespace }}"
+      - get
+      - settings.longhorn.io
+      - engine-replica-timeout
+      - -o
+      - jsonpath={.value}
+  environment:
+    KUBECONFIG: /etc/rancher/k3s/k3s.yaml
+  register: longhorn_engine_replica_timeout_setting
+  changed_when: false
+  when: k3s_node.cluster_init | bool
+
+- name: Assert Longhorn engine replica timeout setting matches inventory
+  ansible.builtin.assert:
+    that:
+      - ('"v1":"' ~ (longhorn.engine_replica_timeout | string) ~ '"') in longhorn_engine_replica_timeout_setting.stdout
+      - ('"v2":"' ~ (longhorn.engine_replica_timeout | string) ~ '"') in longhorn_engine_replica_timeout_setting.stdout
+    fail_msg: Expected Longhorn engine-replica-timeout setting to match inventory for both data engines.
+    success_msg: "Longhorn engine-replica-timeout setting matches {{ longhorn.engine_replica_timeout }}"
+  when: k3s_node.cluster_init | bool
+
+- name: Read Longhorn fast replica rebuild setting
+  ansible.builtin.command:
+    argv:
+      - /usr/local/bin/k3s
+      - kubectl
+      - -n
+      - "{{ longhorn.namespace }}"
+      - get
+      - settings.longhorn.io
+      - fast-replica-rebuild-enabled
+      - -o
+      - jsonpath={.value}
+  environment:
+    KUBECONFIG: /etc/rancher/k3s/k3s.yaml
+  register: longhorn_fast_replica_rebuild_setting
+  changed_when: false
+  when: k3s_node.cluster_init | bool
+
+- name: Assert Longhorn fast replica rebuild setting matches inventory
+  ansible.builtin.assert:
+    that:
+      - ('"v1":"' ~ (longhorn.fast_replica_rebuild_enabled | lower) ~ '"') in longhorn_fast_replica_rebuild_setting.stdout
+      - ('"v2":"' ~ (longhorn.fast_replica_rebuild_enabled | lower) ~ '"') in longhorn_fast_replica_rebuild_setting.stdout
+    fail_msg: Expected Longhorn fast-replica-rebuild-enabled setting to match inventory for both data engines.
+    success_msg: "Longhorn fast-replica-rebuild-enabled setting matches {{ longhorn.fast_replica_rebuild_enabled | lower }}"
+  when: k3s_node.cluster_init | bool
+
+- name: Read Longhorn offline replica rebuilding setting
+  ansible.builtin.command:
+    argv:
+      - /usr/local/bin/k3s
+      - kubectl
+      - -n
+      - "{{ longhorn.namespace }}"
+      - get
+      - settings.longhorn.io
+      - offline-replica-rebuilding
+      - -o
+      - jsonpath={.value}
+  environment:
+    KUBECONFIG: /etc/rancher/k3s/k3s.yaml
+  register: longhorn_offline_replica_rebuilding_setting
+  changed_when: false
+  when: k3s_node.cluster_init | bool
+
+- name: Assert Longhorn offline replica rebuilding setting matches inventory
+  ansible.builtin.assert:
+    that:
+      - longhorn_offline_replica_rebuilding_setting.stdout | trim == longhorn.offline_replica_rebuilding | lower
+    fail_msg: "Expected Longhorn offline-replica-rebuilding setting to match {{ longhorn.offline_replica_rebuilding | lower }}"
+    success_msg: "Longhorn offline-replica-rebuilding setting matches {{ longhorn.offline_replica_rebuilding | lower }}"
+  when: k3s_node.cluster_init | bool
+
+- name: Read Longhorn root-disk-safe settings
+  ansible.builtin.command:
+    argv:
+      - /usr/local/bin/k3s
+      - kubectl
+      - -n
+      - "{{ longhorn.namespace }}"
+      - get
+      - settings.longhorn.io
+      - "{{ item.name }}"
+      - -o
+      - jsonpath={.value}
+  environment:
+    KUBECONFIG: /etc/rancher/k3s/k3s.yaml
+  register: longhorn_root_disk_settings
+  changed_when: false
+  loop:
+    - name: storage-over-provisioning-percentage
+      expected: "{{ longhorn.storage_overprovisioning_percentage | string }}"
+    - name: storage-minimal-available-percentage
+      expected: "{{ longhorn.storage_minimal_available_percentage | string }}"
+    - name: storage-reserved-percentage-for-default-disk
+      expected: "{{ longhorn.storage_reserved_percentage_for_default_disk | string }}"
+    - name: replica-soft-anti-affinity
+      expected: "{{ longhorn.replica_soft_anti_affinity | lower }}"
+    - name: replica-auto-balance
+      expected: "{{ longhorn.replica_auto_balance }}"
+    - name: replica-file-sync-http-client-timeout
+      expected: "{{ longhorn.replica_file_sync_http_client_timeout | string }}"
+    - name: concurrent-replica-rebuild-per-node-limit
+      expected: "{{ longhorn.concurrent_replica_rebuild_per_node_limit | string }}"
+    - name: remove-snapshots-during-filesystem-trim
+      expected: "{{ longhorn.remove_snapshots_during_filesystem_trim | lower }}"
+    - name: rwx-volume-fast-failover
+      expected: "{{ longhorn.rwx_volume_fast_failover | lower }}"
+    - name: allow-volume-creation-with-degraded-availability
+      expected: "{{ longhorn.allow_volume_creation_with_degraded_availability | lower }}"
+    - name: v2-data-engine
+      expected: "{{ longhorn.v2_data_engine | lower }}"
+  when: k3s_node.cluster_init | bool
+
+- name: Assert Longhorn root-disk-safe settings match inventory
+  ansible.builtin.assert:
+    that:
+      - item.stdout | trim == item.item.expected
+    fail_msg: "Expected Longhorn setting {{ item.item.name }} to equal {{ item.item.expected }}"
+    success_msg: "Longhorn setting {{ item.item.name }} matches {{ item.item.expected }}"
+  loop: "{{ longhorn_root_disk_settings.results }}"
+  when: k3s_node.cluster_init | bool
+
+- name: Read Longhorn node disk reservations
+  ansible.builtin.command:
+    argv:
+      - /usr/local/bin/k3s
+      - kubectl
+      - -n
+      - "{{ longhorn.namespace }}"
+      - get
+      - nodes.longhorn.io
+      - -o
+      - json
+  environment:
+    KUBECONFIG: /etc/rancher/k3s/k3s.yaml
+  register: longhorn_node_disk_reservations
+  changed_when: false
+  when: k3s_node.cluster_init | bool
+
+- name: Build expected Longhorn node disk reservations
+  ansible.builtin.set_fact:
+    longhorn_expected_disk_reservations: "{{ longhorn_expected_disk_reservations_yaml | from_yaml | default([], true) }}"
+  vars:
+    longhorn_node_disk_objects: "{{ longhorn_node_disk_reservations.stdout | from_json }}"
+    longhorn_expected_disk_reservations_yaml: |
+      {% for node in longhorn_node_disk_objects['items'] %}
+      {% for disk_name, disk_status in (node.status.diskStatus | default({}, true)).items() %}
+      - node: {{ node.metadata.name }}
+        disk: {{ disk_name }}
+        current: {{ node.spec.disks[disk_name].storageReserved | default(0) | int }}
+        expected: {{ ((disk_status.storageMaximum | int) * (longhorn.storage_reserved_percentage_for_default_disk | int) // 100) | int }}
+      {% endfor %}
+      {% endfor %}
+  when: k3s_node.cluster_init | bool
+
+- name: Assert Longhorn node disk reservations match inventory
+  ansible.builtin.assert:
+    that:
+      - item.current | int == item.expected | int
+    fail_msg: "Expected Longhorn disk reservation for {{ item.node }}/{{ item.disk }} to equal {{ item.expected }}"
+    success_msg: "Longhorn disk reservation for {{ item.node }}/{{ item.disk }} matches {{ item.expected }}"
+  loop: "{{ longhorn_expected_disk_reservations }}"
+  when: k3s_node.cluster_init | bool
+
+- name: Check that local-path storage class is absent
+  ansible.builtin.command:
+    argv:
+      - /usr/local/bin/k3s
+      - kubectl
+      - get
+      - storageclass
+      - local-path
+  environment:
+    KUBECONFIG: /etc/rancher/k3s/k3s.yaml
+  register: longhorn_local_path_storageclass
+  changed_when: false
+  failed_when: false
+  when: k3s_node.cluster_init | bool
+
+- name: Assert local-path storage class is absent
+  ansible.builtin.assert:
+    that:
+      - longhorn_local_path_storageclass.rc != 0
+    fail_msg: Expected local-path storage class to be absent after disabling K3s local-storage.
+    success_msg: "local-path storage class is absent"
+  when: k3s_node.cluster_init | bool
+
+- name: Check that local-path-provisioner deployment is absent
+  ansible.builtin.command:
+    argv:
+      - /usr/local/bin/k3s
+      - kubectl
+      - -n
+      - kube-system
+      - get
+      - deployment
+      - local-path-provisioner
+  environment:
+    KUBECONFIG: /etc/rancher/k3s/k3s.yaml
+  register: longhorn_local_path_deployment
+  changed_when: false
+  failed_when: false
+  when: k3s_node.cluster_init | bool
+
+- name: Assert local-path-provisioner deployment is absent
+  ansible.builtin.assert:
+    that:
+      - longhorn_local_path_deployment.rc != 0
+    fail_msg: Expected kube-system/local-path-provisioner to be absent after disabling K3s local-storage.
+    success_msg: "local-path-provisioner deployment is absent"
+  when: k3s_node.cluster_init | bool
+
+- name: Check for PVCs in the Longhorn namespace
+  ansible.builtin.command:
+    argv:
+      - /usr/local/bin/k3s
+      - kubectl
+      - -n
+      - "{{ longhorn.namespace }}"
+      - get
+      - pvc
+      - --no-headers
+  environment:
+    KUBECONFIG: /etc/rancher/k3s/k3s.yaml
+  register: longhorn_namespace_pvcs
+  changed_when: false
+  failed_when: false
+  when: k3s_node.cluster_init | bool
+
+- name: Assert Longhorn system namespace does not use PVCs
+  ansible.builtin.assert:
+    that:
+      - longhorn_namespace_pvcs.stdout | trim == ''
+    fail_msg: Expected Longhorn system namespace to have no PVCs because PVC-backed persistence was not enabled.
+    success_msg: "Longhorn system namespace has no PVCs"
+  when: k3s_node.cluster_init | bool
