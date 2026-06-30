@@ -795,17 +795,101 @@ The design also has costs:
 
 ## Documentation Map
 
+Start with the directory-level maps, then drill into project or app READMEs when
+you need implementation detail.
+
 | Document | Purpose |
 | --- | --- |
-| [kubernetes/README.md](kubernetes/README.md) | Fleet and Kubernetes operating model. |
+| [coder/README.md](coder/README.md) | Coder workspace model and template ownership. |
 | [coder/templates/README.md](coder/templates/README.md) | Coder template catalog, image flow, validation, and push commands. |
+| [docs/README.md](docs/README.md) | Runbooks, architecture notes, and long-form operational docs. |
+| [infrastructure/README.md](infrastructure/README.md) | Bootstrap, host configuration, networking, and source-of-truth tooling. |
+| [infrastructure/ansible/README.md](infrastructure/ansible/README.md) | Ansible control plane, playbook flow, role entrypoints, and validation. |
+| [infrastructure/ansible/inventories/README.md](infrastructure/ansible/inventories/README.md) | Inventory structure and environment-specific host/group data. |
+| [infrastructure/ansible/playbooks/README.md](infrastructure/ansible/playbooks/README.md) | Playbook entrypoints and intended execution model. |
+| [infrastructure/ansible/roles/README.md](infrastructure/ansible/roles/README.md) | Role conventions and bootstrap responsibilities. |
+| [infrastructure/netbox/README.md](infrastructure/netbox/README.md) | NetBox source-of-truth workspace. |
+| [infrastructure/network/README.md](infrastructure/network/README.md) | Network design notes and manual router-facing configuration areas. |
+| [infrastructure/patches/README.md](infrastructure/patches/README.md) | Host and platform patch staging area. |
+| [kubernetes/README.md](kubernetes/README.md) | Fleet and Kubernetes operating model. |
+| [kubernetes/fleet/README.md](kubernetes/fleet/README.md) | Fleet control-plane bundles and GitRepo management. |
+| [kubernetes/images/README.md](kubernetes/images/README.md) | Custom image build context and ARM64 image conventions. |
+| [kubernetes/projects/README.md](kubernetes/projects/README.md) | Rancher project layout and project-level ownership. |
+| [scripts/README.md](scripts/README.md) | Helper scripts and automation expectations. |
+
+Project indexes:
+
+| Document | Purpose |
+| --- | --- |
+| [kubernetes/projects/applications/README.md](kubernetes/projects/applications/README.md) | Public and internal application workloads. |
+| [kubernetes/projects/database/README.md](kubernetes/projects/database/README.md) | PostgreSQL, Valkey, operators, pooling, and database contracts. |
+| [kubernetes/projects/development/README.md](kubernetes/projects/development/README.md) | Developer services and workspace-adjacent apps. |
+| [kubernetes/projects/entertainment/README.md](kubernetes/projects/entertainment/README.md) | Media stack, storage flow, and app coupling. |
+| [kubernetes/projects/home-automation/README.md](kubernetes/projects/home-automation/README.md) | Home Assistant, NetBox, UPS, tunnels, and hardware-adjacent services. |
+| [kubernetes/projects/system/README.md](kubernetes/projects/system/README.md) | Monitoring, logging, tracing, DNS, backup, and cluster add-ons. |
+
+App and component deep dives:
+
+| Document | Purpose |
+| --- | --- |
+| [coder/templates/netbox/README.md](coder/templates/netbox/README.md) | NetBox plugin development workspace. |
+| [coder/templates/nodejs-22/README.md](coder/templates/nodejs-22/README.md) | Node.js 22 ARM64 Coder workspace. |
+| [coder/templates/nodejs-24/README.md](coder/templates/nodejs-24/README.md) | Node.js 24 ARM64 Coder workspace. |
+| [coder/templates/nodejs-26/README.md](coder/templates/nodejs-26/README.md) | Node.js 26 ARM64 Coder workspace. |
+| [coder/templates/python-3-12/README.md](coder/templates/python-3-12/README.md) | Python 3.12 ARM64 Coder workspace. |
+| [coder/templates/ubuntu-desktop/README.md](coder/templates/ubuntu-desktop/README.md) | Ubuntu desktop Coder workspace. |
+| [kubernetes/fleet/fleet-gitjob-webhook/README.md](kubernetes/fleet/fleet-gitjob-webhook/README.md) | Fleet GitJob webhook integration. |
+| [kubernetes/images/fleet/README.md](kubernetes/images/fleet/README.md) | Custom Fleet image context. |
+| [kubernetes/images/jellyfin/README.md](kubernetes/images/jellyfin/README.md) | Custom Jellyfin image context. |
+| [kubernetes/projects/applications/apps/firefly-iii/README.md](kubernetes/projects/applications/apps/firefly-iii/README.md) | Firefly III personal finance app. |
+| [kubernetes/projects/applications/apps/firefly-iii-data-importer/README.md](kubernetes/projects/applications/apps/firefly-iii-data-importer/README.md) | Firefly III importer. |
+| [kubernetes/projects/applications/apps/applications-helm-repositories/README.md](kubernetes/projects/applications/apps/applications-helm-repositories/README.md) | Application Helm repository registrations. |
+| [kubernetes/projects/applications/apps/git-rank/README.md](kubernetes/projects/applications/apps/git-rank/README.md) | Git ranking application. |
+| [kubernetes/projects/applications/apps/harbor/README.md](kubernetes/projects/applications/apps/harbor/README.md) | Harbor registry. |
+| [kubernetes/projects/applications/apps/indexly/README.md](kubernetes/projects/applications/apps/indexly/README.md) | Indexly application. |
+| [kubernetes/projects/applications/apps/openbao/README.md](kubernetes/projects/applications/apps/openbao/README.md) | OpenBao service. |
+| [kubernetes/projects/applications/apps/personal-blog/README.md](kubernetes/projects/applications/apps/personal-blog/README.md) | Personal blog deployment. |
+| [kubernetes/projects/applications/apps/portfolio/README.md](kubernetes/projects/applications/apps/portfolio/README.md) | Portfolio deployment. |
+| [kubernetes/projects/applications/apps/registry-artifacts/README.md](kubernetes/projects/applications/apps/registry-artifacts/README.md) | Harbor artifact automation. |
+| [kubernetes/projects/applications/apps/shipyardhq/README.md](kubernetes/projects/applications/apps/shipyardhq/README.md) | ShipyardHQ deployment. |
+| [kubernetes/projects/applications/apps/wardn-hub/README.md](kubernetes/projects/applications/apps/wardn-hub/README.md) | Wardn Hub deployment. |
+| [kubernetes/projects/database/apps/cnpg-operator/README.md](kubernetes/projects/database/apps/cnpg-operator/README.md) | CloudNativePG operator. |
+| [kubernetes/projects/database/apps/database-helm-repositories/README.md](kubernetes/projects/database/apps/database-helm-repositories/README.md) | Database Helm repository registrations. |
+| [kubernetes/projects/database/apps/postgresql/README.md](kubernetes/projects/database/apps/postgresql/README.md) | PostgreSQL cluster, roles, and poolers. |
+| [kubernetes/projects/entertainment/apps/media-dispatcharr/README.md](kubernetes/projects/entertainment/apps/media-dispatcharr/README.md) | Dispatcharr media workflow. |
+| [kubernetes/projects/entertainment/apps/media-do-squid-firewall/README.md](kubernetes/projects/entertainment/apps/media-do-squid-firewall/README.md) | Remote Squid allowlist automation. |
+| [kubernetes/projects/entertainment/apps/media-helm-repositories/README.md](kubernetes/projects/entertainment/apps/media-helm-repositories/README.md) | Media Helm repository registrations. |
+| [kubernetes/projects/entertainment/apps/media-jellyfin/README.md](kubernetes/projects/entertainment/apps/media-jellyfin/README.md) | Jellyfin media server. |
+| [kubernetes/projects/entertainment/apps/media-metube/README.md](kubernetes/projects/entertainment/apps/media-metube/README.md) | MeTube download UI. |
+| [kubernetes/projects/entertainment/apps/media-profilarr/README.md](kubernetes/projects/entertainment/apps/media-profilarr/README.md) | Profilarr media profile automation. |
+| [kubernetes/projects/entertainment/apps/media-qbittorrent/README.md](kubernetes/projects/entertainment/apps/media-qbittorrent/README.md) | qBittorrent peer traffic and automation. |
+| [kubernetes/projects/entertainment/apps/media-ryokan/README.md](kubernetes/projects/entertainment/apps/media-ryokan/README.md) | Ryokan anime workflow. |
+| [kubernetes/projects/entertainment/apps/media-shoko/README.md](kubernetes/projects/entertainment/apps/media-shoko/README.md) | Shoko anime metadata workflow. |
+| [kubernetes/projects/entertainment/apps/media-storage/README.md](kubernetes/projects/entertainment/apps/media-storage/README.md) | Media storage, libraries, and first-run wiring. |
+| [kubernetes/projects/home-automation/apps/cloudflare-tunnel-ingress-controller/README.md](kubernetes/projects/home-automation/apps/cloudflare-tunnel-ingress-controller/README.md) | Cloudflare Tunnel ingress controller. |
+| [kubernetes/projects/home-automation/apps/home-assistant/README.md](kubernetes/projects/home-automation/apps/home-assistant/README.md) | Home Assistant deployment. |
+| [kubernetes/projects/home-automation/apps/home-automation-helm-repositories/README.md](kubernetes/projects/home-automation/apps/home-automation-helm-repositories/README.md) | Home automation Helm repository registrations. |
+| [kubernetes/projects/home-automation/apps/netbox/README.md](kubernetes/projects/home-automation/apps/netbox/README.md) | NetBox application deployment. |
+| [kubernetes/projects/home-automation/apps/ups-monitoring/README.md](kubernetes/projects/home-automation/apps/ups-monitoring/README.md) | UPS monitoring. |
+| [kubernetes/projects/system/apps/descheduler/README.md](kubernetes/projects/system/apps/descheduler/README.md) | Descheduler policy. |
+| [kubernetes/projects/system/apps/external-dns-unifi/README.md](kubernetes/projects/system/apps/external-dns-unifi/README.md) | ExternalDNS integration for UniFi DNS. |
+| [kubernetes/projects/system/apps/opentelemetry-collector/README.md](kubernetes/projects/system/apps/opentelemetry-collector/README.md) | OpenTelemetry Collector. |
+| [kubernetes/projects/system/apps/pyroscope/README.md](kubernetes/projects/system/apps/pyroscope/README.md) | Pyroscope profiling. |
+| [kubernetes/projects/system/apps/rancher-backup/README.md](kubernetes/projects/system/apps/rancher-backup/README.md) | Rancher backup. |
+| [kubernetes/projects/system/apps/rancher-compliance/README.md](kubernetes/projects/system/apps/rancher-compliance/README.md) | Rancher compliance operator. |
+| [kubernetes/projects/system/apps/rancher-compliance-scans/README.md](kubernetes/projects/system/apps/rancher-compliance-scans/README.md) | Compliance scan definitions. |
+| [kubernetes/projects/system/apps/rancher-monitoring/README.md](kubernetes/projects/system/apps/rancher-monitoring/README.md) | Rancher monitoring stack. |
+| [kubernetes/projects/system/apps/sops-secrets-operator/README.md](kubernetes/projects/system/apps/sops-secrets-operator/README.md) | SOPS secrets operator. |
+| [kubernetes/projects/system/apps/system-helm-repositories/README.md](kubernetes/projects/system/apps/system-helm-repositories/README.md) | System Helm repository registrations. |
+| [kubernetes/projects/system/apps/tempo/README.md](kubernetes/projects/system/apps/tempo/README.md) | Tempo tracing backend. |
+
+Runbooks and architecture decisions:
+
+| Document | Purpose |
+| --- | --- |
 | [docs/architecture/adr-001-jellyfin-horizontal-scaling.md](docs/architecture/adr-001-jellyfin-horizontal-scaling.md) | Jellyfin horizontal scaling architecture decision. |
 | [docs/runbooks/fleet-namespace-psa-labels.md](docs/runbooks/fleet-namespace-psa-labels.md) | Fleet namespace ownership and Pod Security Admission label rollout guidance. |
 | [docs/runbooks/jellyfin-sqlite-to-postgresql-migration.md](docs/runbooks/jellyfin-sqlite-to-postgresql-migration.md) | Jellyfin SQLite-to-PostgreSQL migration rehearsal notes. |
-
-Most app directories also include their own README. Those local READMEs are the
-best place to understand app-specific wiring, required secrets, storage, ingress
-hosts, and operational assumptions.
 
 ## Conventions
 
