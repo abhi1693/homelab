@@ -1,0 +1,12 @@
+---
+name: longhorn-volume-overrides
+defaultNamespace: longhorn-system
+labels:
+  app.kubernetes.io/name: longhorn-volume-overrides
+  app.kubernetes.io/part-of: longhorn
+  home-lab.io/project-slug: system
+dependsOn:
+  - name: longhorn-recurring-jobs
+helm:
+  takeOwnership: true
+  waitForJobs: true

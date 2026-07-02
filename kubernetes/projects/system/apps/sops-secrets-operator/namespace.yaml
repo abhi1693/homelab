@@ -1,0 +1,18 @@
+---
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: sops
+  labels:
+    app.kubernetes.io/managed-by: Helm
+    app.kubernetes.io/part-of: sops-secrets-operator
+    field.cattle.io/projectId: p-zl69x
+    kubernetes.io/metadata.name: sops
+    pod-security.kubernetes.io/audit: restricted
+    pod-security.kubernetes.io/warn: restricted
+  annotations:
+    field.cattle.io/projectId: local:p-zl69x
+    helm.sh/resource-policy: keep
+    management.cattle.io/no-default-sa-token: "true"
+    meta.helm.sh/release-name: sops-secrets-operator-helmop
+    meta.helm.sh/release-namespace: fleet-local

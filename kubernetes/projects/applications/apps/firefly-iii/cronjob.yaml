@@ -33,7 +33,8 @@ spec:
             kubernetes.io/arch: arm64
           containers:
             - name: curl
-              image: registry.home/docker.io/curlimages/curl:8.21.0 # {"$imagescan": "firefly-iii-curl"}
+              # renovate: datasource=docker depName=docker.io/curlimages/curl
+              image: registry.home/docker.io/curlimages/curl:8.21.0
               imagePullPolicy: IfNotPresent
               env:
                 - name: STATIC_CRON_TOKEN

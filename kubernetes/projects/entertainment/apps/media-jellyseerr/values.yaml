@@ -2,7 +2,8 @@ fullnameOverride: jellyseerr
 image:
   registry: registry.home
   repository: docker.io/seerr/seerr
-  tag: v3.3 # {"$imagescan": "jellyseerr:tag"}
+  # renovate: datasource=docker depName=docker.io/seerr/seerr
+  tag: v3.3
   pullPolicy: IfNotPresent
 extraEnv:
   - name: TZ

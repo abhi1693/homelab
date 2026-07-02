@@ -9,12 +9,6 @@ metadata:
     home-lab.io/project-slug: system
 spec:
   defaultNamespace: compliance-operator-system
-  namespaceLabels:
-    app.kubernetes.io/name: rancher-compliance
-    app.kubernetes.io/part-of: rancher-compliance
-    field.cattle.io/projectId: p-zl69x
-  namespaceAnnotations:
-    field.cattle.io/projectId: local:p-zl69x
   dependsOn:
     - name: system-helm-repositories
   labels:
@@ -58,12 +52,6 @@ metadata:
     home-lab.io/project-slug: system
 spec:
   defaultNamespace: compliance-operator-system
-  namespaceLabels:
-    app.kubernetes.io/name: rancher-compliance
-    app.kubernetes.io/part-of: rancher-compliance
-    field.cattle.io/projectId: p-zl69x
-  namespaceAnnotations:
-    field.cattle.io/projectId: local:p-zl69x
   dependsOn:
     - name: system-helm-repositories
   labels:

@@ -20,6 +20,8 @@ spec:
       maxUnavailable: 0
   template:
     metadata:
+      annotations:
+        home-lab.io/faro-secret-revision: "2026-07-01-browser-key-data"
       labels:
         app.kubernetes.io/name: git-rank-frontend
         app.kubernetes.io/component: frontend
@@ -52,12 +54,20 @@ spec:
               app.kubernetes.io/component: frontend
       containers:
         - name: frontend
-          image: registry.home/git-rank/frontend:1.2.26 # {"$imagescan": "git-rank-frontend"}
+          # renovate: datasource=docker depName=ghcr.io/abhi1693/git-rank-frontend
+          image: registry.home/ghcr.io/abhi1693/git-rank-frontend:1.2.34
           imagePullPolicy: IfNotPresent
           envFrom:
             - configMapRef:
                 name: git-rank
+            - secretRef:
+                name: git-rank
           env:
+            - name: FARO_API_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: git-rank
+                  key: NEXT_PUBLIC_FARO_API_KEY
             - name: CLERK_SECRET_KEY
               valueFrom:
                 secretKeyRef:

@@ -77,7 +77,8 @@ redis:
 portal:
   image:
     repository: registry.home/ghcr.io/abhi1693/harbor-portal
-    tag: v2.15.1 # {"$imagescan": "harbor-portal:tag"}
+    # renovate: datasource=docker depName=ghcr.io/abhi1693/harbor-portal
+    tag: v2.15.1
   replicas: 2
   podDisruptionBudget:
     enabled: true
@@ -107,7 +108,8 @@ portal:
 core:
   image:
     repository: registry.home/ghcr.io/abhi1693/harbor-core
-    tag: v2.15.1 # {"$imagescan": "harbor-core:tag"}
+    # renovate: datasource=docker depName=ghcr.io/abhi1693/harbor-core
+    tag: v2.15.1
   replicas: 2
   podDisruptionBudget:
     enabled: true
@@ -138,7 +140,8 @@ core:
 jobservice:
   image:
     repository: registry.home/ghcr.io/abhi1693/harbor-jobservice
-    tag: v2.15.1 # {"$imagescan": "harbor-jobservice:tag"}
+    # renovate: datasource=docker depName=ghcr.io/abhi1693/harbor-jobservice
+    tag: v2.15.1
   replicas: 2
   podDisruptionBudget:
     enabled: true
@@ -177,7 +180,8 @@ registry:
   registry:
     image:
       repository: registry.home/ghcr.io/abhi1693/registry-photon
-      tag: v2.15.1 # {"$imagescan": "registry-photon:tag"}
+      # renovate: datasource=docker depName=ghcr.io/abhi1693/registry-photon
+      tag: v2.15.1
     extraEnvVars:
       - name: REGISTRY_STORAGE_REDIRECT_DISABLE
         value: "true"
@@ -190,7 +194,8 @@ registry:
   controller:
     image:
       repository: registry.home/ghcr.io/abhi1693/harbor-registryctl
-      tag: v2.15.1 # {"$imagescan": "harbor-registryctl:tag"}
+      # renovate: datasource=docker depName=ghcr.io/abhi1693/harbor-registryctl
+      tag: v2.15.1
     resources:
       requests:
         cpu: 10m
@@ -217,7 +222,8 @@ trivy:
   enabled: true
   image:
     repository: registry.home/ghcr.io/abhi1693/trivy-adapter-photon
-    tag: v2.15.1 # {"$imagescan": "trivy-adapter-photon:tag"}
+    # renovate: datasource=docker depName=ghcr.io/abhi1693/trivy-adapter-photon
+    tag: v2.15.1
   replicas: 1
   podDisruptionBudget:
     enabled: false
@@ -247,7 +253,8 @@ trivy:
 exporter:
   image:
     repository: registry.home/ghcr.io/octohelm/harbor/harbor-exporter
-    tag: v2.14.0 # {"$imagescan": "harbor-exporter:tag"}
+    # renovate: datasource=docker depName=ghcr.io/octohelm/harbor/harbor-exporter
+    tag: v2.14.0
   replicas: 1
   resources:
     requests:

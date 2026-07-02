@@ -4,7 +4,8 @@ chartContext:
 image:
   repository: registry.home/oci.trueforge.org/containerforge/radarr
   pullPolicy: IfNotPresent
-  tag: "6.2.1" # {"$imagescan": "radarr:tag"}
+  # renovate: datasource=docker depName=oci.trueforge.org/containerforge/radarr
+  tag: "6.2.1"
 imagePullSecret:
   harbor-registry:
     enabled: true

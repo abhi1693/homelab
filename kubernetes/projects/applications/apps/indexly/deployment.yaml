@@ -20,6 +20,8 @@ spec:
       maxUnavailable: 0
   template:
     metadata:
+      annotations:
+        home-lab.io/faro-secret-revision: "2026-07-01-browser-key-data"
       labels:
         app.kubernetes.io/name: indexly
         app.kubernetes.io/component: web
@@ -53,13 +55,20 @@ spec:
               app.kubernetes.io/component: web
       containers:
         - name: web
-          image: registry.home/indexly/indexly:0.1.6 # {"$imagescan": "indexly"}
+          # renovate: datasource=docker depName=ghcr.io/abhi1693/indexly
+          image: registry.home/ghcr.io/abhi1693/indexly:0.1.13
           imagePullPolicy: IfNotPresent
           envFrom:
             - secretRef:
                 name: indexly
             - configMapRef:
                 name: indexly
+          env:
+            - name: FARO_API_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: indexly
+                  key: NEXT_PUBLIC_FARO_API_KEY
           ports:
             - name: http
               containerPort: 3000

@@ -47,7 +47,8 @@ spec:
           type: RuntimeDefault
       containers:
         - name: rack-ops
-          image: registry.home/rack-ops/rack-ops:0.1.3 # {"$imagescan": "rack-ops"}
+          # renovate: datasource=docker depName=ghcr.io/abhi1693/rack-ops
+          image: registry.home/ghcr.io/abhi1693/rack-ops:0.1.3
           imagePullPolicy: IfNotPresent
           env:
             - name: PYTHONDONTWRITEBYTECODE

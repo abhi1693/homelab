@@ -23,14 +23,10 @@ declared app-side maximum connection demand.
 | `shipyardhq` | `shipyardhq-rw` | 16 | 32 | 32 |
 | `harbor` | `harbor-rw` | chart-managed | 36 | 36 |
 | `netbox` | `netbox-rw` | disabled | 6 | 10 |
-| `registry_artifacts` | `registry-artifacts-rw` | 12 | 12 | 12 |
 | `firefly` | `firefly-iii-rw` | implicit | 8 | 10 |
 
 `shipyardhq` has database-side headroom above the normal rollout surge budget:
 `3 web pods * PG_POOL_MAX 4 + 1 worker pod * PG_POOL_MAX 4 = 16`.
-
-`registry_artifacts` uses `DB_POOL_SIZE=8` and `DB_MAX_OVERFLOW=4`, so its
-maximum app-side pool demand is 12 connections.
 
 `git-rank` uses `DB_POOL_SIZE=1` and `DB_MAX_OVERFLOW=1`, keeping the API, two
 worker pods, and one scheduled trigger pod aligned with the `gitrank` role

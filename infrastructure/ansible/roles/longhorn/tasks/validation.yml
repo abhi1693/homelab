@@ -182,6 +182,7 @@
       - --for=condition=Ready
       - pod
       - --all
+      - --field-selector=status.phase!=Succeeded
       - --timeout=600s
   environment:
     KUBECONFIG: /etc/rancher/k3s/k3s.yaml
@@ -376,6 +377,8 @@
       expected: "{{ longhorn.concurrent_replica_rebuild_per_node_limit | string }}"
     - name: remove-snapshots-during-filesystem-trim
       expected: "{{ longhorn.remove_snapshots_during_filesystem_trim | lower }}"
+    - name: orphan-resource-auto-deletion
+      expected: "{{ longhorn.orphan_resource_auto_deletion }}"
     - name: rwx-volume-fast-failover
       expected: "{{ longhorn.rwx_volume_fast_failover | lower }}"
     - name: allow-volume-creation-with-degraded-availability

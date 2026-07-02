@@ -2,7 +2,7 @@
 
 The Applications project contains public-facing and personal application
 workloads. It is where most custom app deployments live, along with Harbor and
-registry automation that support the rest of the cluster.
+Renovate image automation that support the rest of the cluster.
 
 Fleet tracks this project through the `home-lab-applications` GitRepo. Rancher
 project metadata is tracked separately from `_project/` by
@@ -30,7 +30,6 @@ secret contract each app expects.
 | `openbao` | Lightweight OpenBao deployment for Wardn-related secret workflows. | Internal Traefik at `secrets.wardn.home`. | Longhorn PVC, manual init/unseal workflow. |
 | `personal-blog` | Public personal blog. | Cloudflare Tunnel at `blog.abhimanyu-saharan.com`. | Harbor image, Sanity webhook secret, ConfigMap. |
 | `portfolio` | Public portfolio site. | Cloudflare Tunnel at `abhimanyu-saharan.com`. | Harbor image, runtime config. |
-| `registry-artifacts` | Harbor artifact controller for retention and mirror workflows. | Internal Traefik at `registry-artifacts.home`. | Harbor API, PostgreSQL, GHCR credentials. |
 | `shipyardhq` | Public app with web, worker, image proxy, build job, and media storage. | Cloudflare Tunnel at `shipyardhq.dev` and image hostnames. | PostgreSQL, Valkey, R2, Longhorn build cache, Harbor image. |
 | `wardn-hub` | Wardn Hub backend, frontend, events worker, review webhook, and Codex-backed automation. | Cloudflare Tunnel at `hub.wardnai.dev`. | PostgreSQL, OpenTelemetry, Longhorn Codex state, Harbor image. |
 
@@ -40,7 +39,8 @@ Most apps in this project follow the same shape:
 
 1. non-secret runtime settings in a ConfigMap;
 2. credentials in SOPS or manually managed Secrets;
-3. image pull through namespace-scoped Harbor credentials;
+3. image pull through namespace-scoped Harbor credentials or public Harbor
+   proxy-cache paths;
 4. public traffic through Cloudflare Tunnel or internal traffic through Traefik;
 5. database access through an app-specific PostgreSQL pooler;
 6. optional queue/cache access through Valkey;

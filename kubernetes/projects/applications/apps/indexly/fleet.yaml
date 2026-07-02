@@ -4,23 +4,6 @@ defaultNamespace: indexly
 labels:
   app.kubernetes.io/part-of: indexly
   home-lab.io/project-slug: applications
-imageScans:
-  - image: registry.home/indexly/indexly
-    tagName: indexly
-    interval: 10m0s
-    secretRef:
-      name: harbor-registry
-    policy:
-      semver:
-        range: ">=0.0.0 <1.0.0"
-  - image: registry.home/docker.io/curlimages/curl
-    tagName: indexly-curl
-    interval: 10m0s
-    secretRef:
-      name: harbor-registry
-    policy:
-      semver:
-        range: ">=8.0.0 <9.0.0"
 dependsOn:
   - name: rancher-project-applications
 helm:

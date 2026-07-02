@@ -19,7 +19,8 @@ spec:
     image:
       repository: registry.home/ghcr.io/home-assistant/home-assistant
       pullPolicy: IfNotPresent
-      tag: "2026.6.4" # {"$imagescan": "home-assistant:tag"}
+      # renovate: datasource=docker depName=ghcr.io/home-assistant/home-assistant
+      tag: "2026.7.0"
     env:
       - name: TZ
         value: Asia/Kolkata
@@ -49,7 +50,8 @@ spec:
       tls: []
     initContainers:
       - name: install-hacs
-        image: registry.home/ghcr.io/home-assistant/home-assistant:2026.6.4 # {"$imagescan": "home-assistant"}
+        # renovate: datasource=docker depName=ghcr.io/home-assistant/home-assistant
+        image: registry.home/ghcr.io/home-assistant/home-assistant:2026.7.0
         imagePullPolicy: IfNotPresent
         securityContext:
           runAsUser: 0

@@ -13,11 +13,6 @@ spec:
   branch: master
   clientSecretName: home-lab-apps-github
   pollingInterval: 1h0m0s
-  imageScanInterval: 1h0m0s
-  imageScanCommit:
-    authorName: home-lab-fleet
-    authorEmail: fleet@abhimanyu-saharan.com
-    messageTemplate: "Update image from Fleet ImageScan"
   paths:
     - kubernetes/projects/database/apps/cnpg-operator
     - kubernetes/projects/database/apps/cnpg-operator-registry-secrets

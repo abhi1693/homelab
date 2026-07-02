@@ -75,7 +75,7 @@ monitoring:
     labels:
       app.kubernetes.io/part-of: rancher-monitoring
   dashboards:
-    enabled: true
+    enabled: false
     namespace: cattle-dashboards
     labels:
       grafana_dashboard: "1"
@@ -85,4 +85,3 @@ monitoring:
     alerting: false
     labels:
       app.kubernetes.io/part-of: rancher-monitoring
-

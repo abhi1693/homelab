@@ -37,9 +37,13 @@ layer and the project app bundles.
 | `home-lab-entertainment` | Media stack and entertainment automation. |
 | `home-lab-home-automation` | Home Assistant, NetBox, rack automation, UPS monitoring, and Cloudflare tunnel controller. |
 
-## ImageScan
+## Image Updates
 
-Project GitRepos can enable Fleet ImageScan. The important convention is that
-ImageScan updates Git, not the live object directly. App manifests carry
-Fleet's image marker comments so Fleet can update a tag or digest in the source
-file and commit the change back to the repository.
+Project GitRepos reconcile desired state only. Container image updates are
+handled by the Renovate app bundle, which commits source changes back to this
+repository for Fleet to reconcile.
+
+Renovate reads upstream image tags from each manifest's `depName` comment.
+Fleet then reconciles the updated manifest exactly as committed. Runtime image
+pulls still go through Harbor when the image value starts with `registry.home/`,
+for example `registry.home/ghcr.io/abhi1693/git-rank-backend:1.2.28`.

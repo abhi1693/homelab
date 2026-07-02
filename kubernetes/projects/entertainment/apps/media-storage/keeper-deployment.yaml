@@ -25,7 +25,8 @@ spec:
           type: RuntimeDefault
       initContainers:
         - name: prepare-media-library
-          image: registry.home/docker.io/library/busybox:1.38 # {"$imagescan": "media-storage-busybox"}
+          # renovate: datasource=docker depName=docker.io/library/busybox
+          image: registry.home/docker.io/library/busybox:1.38
           command:
             - /bin/sh
             - -c
@@ -73,7 +74,8 @@ spec:
               memory: 64Mi
       containers:
         - name: keeper
-          image: registry.home/docker.io/library/busybox:1.38 # {"$imagescan": "media-storage-busybox"}
+          # renovate: datasource=docker depName=docker.io/library/busybox
+          image: registry.home/docker.io/library/busybox:1.38
           command:
             - /bin/sh
             - -c

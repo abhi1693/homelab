@@ -4,7 +4,8 @@ chartContext:
 image:
   repository: registry.home/oci.trueforge.org/containerforge/prowlarr
   pullPolicy: IfNotPresent
-  tag: "2.5" # {"$imagescan": "prowlarr:tag"}
+  # renovate: datasource=docker depName=oci.trueforge.org/containerforge/prowlarr
+  tag: "2.5"
 imagePullSecret:
   harbor-registry:
     enabled: true

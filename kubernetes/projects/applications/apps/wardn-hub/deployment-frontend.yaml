@@ -22,7 +22,7 @@ spec:
   template:
     metadata:
       annotations:
-        home-lab.io/faro-config-revision: "2026-07-01-next-rebuild"
+        home-lab.io/faro-config-revision: "2026-07-01-faro-key-rebuild"
         home-lab.io/reconcile-token: "20260625T2115Z"
       labels:
         app.kubernetes.io/name: wardn-hub-frontend
@@ -60,7 +60,8 @@ spec:
               app.kubernetes.io/component: frontend
       initContainers:
         - name: wait-for-api-rollout
-          image: registry.home/ghcr.io/abhi1693/wardn-hub/backend:0.2.59 # {"$imagescan": "wardn-hub-backend"}
+          # renovate: datasource=docker depName=ghcr.io/abhi1693/wardn-hub-backend
+          image: registry.home/ghcr.io/abhi1693/wardn-hub-backend:0.2.66
           imagePullPolicy: IfNotPresent
           command:
             - python
@@ -89,7 +90,8 @@ spec:
               mountPath: /var/run/secrets/wardn-hub-api-rollout
               readOnly: true
         - name: restore-next-build
-          image: registry.home/ghcr.io/abhi1693/wardn-hub/frontend:0.2.60 # {"$imagescan": "wardn-hub-frontend"}
+          # renovate: datasource=docker depName=ghcr.io/abhi1693/wardn-hub-frontend
+          image: registry.home/ghcr.io/abhi1693/wardn-hub-frontend:0.2.66
           imagePullPolicy: IfNotPresent
           command:
             - /bin/sh
@@ -98,7 +100,7 @@ spec:
             - |
               set -eu
 
-              cache_version=next-build-v5
+              cache_version=next-build-v7
               cache_root=/app/hub/frontend/.next-build-cache
               artifact_root="$cache_root/artifacts"
               build_root=/app/hub/frontend/.next
@@ -190,7 +192,8 @@ spec:
               mountPath: /app/hub/frontend/.next-build-cache
       containers:
         - name: frontend
-          image: registry.home/ghcr.io/abhi1693/wardn-hub/frontend:0.2.60 # {"$imagescan": "wardn-hub-frontend"}
+          # renovate: datasource=docker depName=ghcr.io/abhi1693/wardn-hub-frontend
+          image: registry.home/ghcr.io/abhi1693/wardn-hub-frontend:0.2.66
           imagePullPolicy: IfNotPresent
           command:
             - node
@@ -253,7 +256,7 @@ spec:
             sources:
               - serviceAccountToken:
                   path: token
-                  expirationSeconds: 600
+                  expirationSeconds: 1800
               - configMap:
                   name: kube-root-ca.crt
                   items:

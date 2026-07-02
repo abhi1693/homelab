@@ -2,8 +2,9 @@ TZ: Asia/Kolkata
 chartContext:
   appUrl: http://watch.media.home
 image:
-  repository: registry.home/home-lab/jellyfin
-  tag: 10.11.8-pgsql.10.11.8-1-20260610@sha256:19bc369e8ed16a98b2e1d80c9c26956c20ed239e5654d6131c1e3fac01ef24fc
+  repository: registry.home/ghcr.io/abhi1693/home-lab-jellyfin
+  # renovate: datasource=docker depName=ghcr.io/abhi1693/home-lab-jellyfin
+  tag: 10.11.8-pgsql.10.11.8-1-cf39083
   pullPolicy: IfNotPresent
 imagePullSecret:
   harbor-registry:

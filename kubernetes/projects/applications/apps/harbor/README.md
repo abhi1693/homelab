@@ -48,16 +48,44 @@ ConfigMap in `cattle-dashboards`.
 
 ## Replication
 
-GHCR remains the source registry for home-built images. Harbor keeps local
-projects such as `home-lab`, `git-rank`, `shipyardhq`, `indexly`,
-`personal-blog`, `portfolio`, and `qbittorrent-smart-queues`.
-`registry-artifacts` owns tag discovery and mirror copies into those projects
-instead of Harbor scheduled replication policies.
+Harbor is the local pull endpoint for cluster workloads. It keeps proxy-cache
+projects for source registries such as `ghcr.io`, `docker.io`, `quay.io`, and
+other registries mirrored by project path.
+
+GitOps manifests keep the upstream path visible in Renovate metadata and use
+the Harbor-prefixed path for the runtime image:
+
+```yaml
+# renovate: datasource=docker depName=ghcr.io/abhi1693/git-rank-backend
+image: registry.home/ghcr.io/abhi1693/git-rank-backend:1.2.28
+```
+
+Renovate checks `ghcr.io/abhi1693/git-rank-backend` for newer tags. Kubernetes
+pulls `registry.home/ghcr.io/abhi1693/git-rank-backend`, and Harbor fetches the
+artifact from GHCR on cache miss. The same pattern applies to Docker Hub and
+other configured proxy-cache projects.
+
+```mermaid
+sequenceDiagram
+  participant R as Renovate
+  participant U as Upstream registry
+  participant G as Git
+  participant F as Fleet
+  participant K as Kubernetes
+  participant H as Harbor
+
+  R->>U: List tags from depName
+  R->>G: Commit allowed tag update
+  F->>G: Watch project app path
+  F->>K: Reconcile manifest
+  K->>H: Pull registry.home/<registry>/<repo>:tag
+  H->>U: Fetch artifact on cache miss
+  H-->>K: Serve cached image
+```
 
 ## Retention
 
-Retention policies are reconciled by `registry-artifacts`, before Harbor's own
-retention run:
+Retention policies are managed in Harbor:
 
 - proxy cache projects such as `docker.io`, `ghcr.io`, and `quay.io`: retain
   artifacts pulled in the last 90 days.

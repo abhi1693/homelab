@@ -15,7 +15,7 @@ This directory contains the reusable bootstrap roles for the lab.
 | `cilium` | CNI, policy, LB IPAM, BGP, Hubble, Traefik config. | Provides pod networking and service exposure through one system. |
 | `longhorn` | Distributed storage. | Provides Kubernetes persistent volumes for the app and platform layer. |
 | `cert_manager` | Certificate management. | Installs cert-manager and the ClusterIssuer used by cluster services. |
-| `rancher` | Rancher management plane. | Installs Rancher and configures Fleet/ImageScan behavior. |
+| `rancher` | Rancher management plane. | Installs Rancher and configures Fleet behavior. |
 | `fleet_apps` | Fleet GitRepo bootstrap. | Hands post-bootstrap desired state to Fleet. |
 | `smartctl_exporter` | Host S.M.A.R.T. metrics. | Provides disk health metrics where host-level installation is more reliable than a container. |
 

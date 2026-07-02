@@ -1,0 +1,46 @@
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: longhorn-volume-overrides
+  namespace: longhorn-system
+  labels:
+    app.kubernetes.io/name: longhorn-volume-overrides
+    app.kubernetes.io/part-of: longhorn
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: longhorn-volume-overrides
+  namespace: longhorn-system
+  labels:
+    app.kubernetes.io/name: longhorn-volume-overrides
+    app.kubernetes.io/part-of: longhorn
+rules:
+  - apiGroups:
+      - longhorn.io
+    resources:
+      - volumes
+    resourceNames:
+      - pvc-c5b21dec-fcc9-4653-a906-72c3acd81af9
+      - pvc-76a352e4-379b-40de-9624-46499a59b0cf
+    verbs:
+      - get
+      - patch
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: longhorn-volume-overrides
+  namespace: longhorn-system
+  labels:
+    app.kubernetes.io/name: longhorn-volume-overrides
+    app.kubernetes.io/part-of: longhorn
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: Role
+  name: longhorn-volume-overrides
+subjects:
+  - kind: ServiceAccount
+    name: longhorn-volume-overrides
+    namespace: longhorn-system

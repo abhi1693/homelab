@@ -57,7 +57,8 @@ spec:
               app.kubernetes.io/component: api
       initContainers:
         - name: wait-for-codex-login
-          image: registry.home/ghcr.io/abhi1693/wardn-hub/backend:0.2.59 # {"$imagescan": "wardn-hub-backend"}
+          # renovate: datasource=docker depName=ghcr.io/abhi1693/wardn-hub-backend
+          image: registry.home/ghcr.io/abhi1693/wardn-hub-backend:0.2.66
           imagePullPolicy: IfNotPresent
           command:
             - sh
@@ -92,7 +93,8 @@ spec:
             - name: codex-config
               mountPath: /app/.codex
         - name: migrate-db
-          image: registry.home/ghcr.io/abhi1693/wardn-hub/backend:0.2.59 # {"$imagescan": "wardn-hub-backend"}
+          # renovate: datasource=docker depName=ghcr.io/abhi1693/wardn-hub-backend
+          image: registry.home/ghcr.io/abhi1693/wardn-hub-backend:0.2.66
           imagePullPolicy: IfNotPresent
           command:
             - alembic
@@ -142,7 +144,8 @@ spec:
             claimName: wardn-hub-codex-config
       containers:
         - name: api
-          image: registry.home/ghcr.io/abhi1693/wardn-hub/backend:0.2.59 # {"$imagescan": "wardn-hub-backend"}
+          # renovate: datasource=docker depName=ghcr.io/abhi1693/wardn-hub-backend
+          image: registry.home/ghcr.io/abhi1693/wardn-hub-backend:0.2.66
           imagePullPolicy: IfNotPresent
           envFrom:
             - configMapRef:

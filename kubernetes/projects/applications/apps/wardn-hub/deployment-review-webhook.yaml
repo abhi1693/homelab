@@ -8,7 +8,7 @@ metadata:
     app.kubernetes.io/component: review-webhook
     app.kubernetes.io/part-of: wardn-hub
 spec:
-  replicas: 1
+  replicas: 0
   selector:
     matchLabels:
       app.kubernetes.io/name: wardn-hub-review-webhook
@@ -39,7 +39,8 @@ spec:
         kubernetes.io/arch: arm64
       initContainers:
         - name: wait-for-api-rollout
-          image: registry.home/ghcr.io/abhi1693/wardn-hub/backend:0.2.59 # {"$imagescan": "wardn-hub-backend"}
+          # renovate: datasource=docker depName=ghcr.io/abhi1693/wardn-hub-backend
+          image: registry.home/ghcr.io/abhi1693/wardn-hub-backend:0.2.66
           imagePullPolicy: IfNotPresent
           command:
             - python
@@ -68,7 +69,8 @@ spec:
               mountPath: /var/run/secrets/wardn-hub-api-rollout
               readOnly: true
         - name: wait-for-codex-login
-          image: registry.home/ghcr.io/abhi1693/wardn-hub/backend:0.2.59 # {"$imagescan": "wardn-hub-backend"}
+          # renovate: datasource=docker depName=ghcr.io/abhi1693/wardn-hub-backend
+          image: registry.home/ghcr.io/abhi1693/wardn-hub-backend:0.2.66
           imagePullPolicy: IfNotPresent
           command:
             - sh
@@ -103,7 +105,8 @@ spec:
             - name: codex-config
               mountPath: /app/.codex
         - name: sync-event-rule
-          image: registry.home/ghcr.io/abhi1693/wardn-hub/backend:0.2.59 # {"$imagescan": "wardn-hub-backend"}
+          # renovate: datasource=docker depName=ghcr.io/abhi1693/wardn-hub-backend
+          image: registry.home/ghcr.io/abhi1693/wardn-hub-backend:0.2.66
           imagePullPolicy: IfNotPresent
           command:
             - python
@@ -198,7 +201,7 @@ spec:
             sources:
               - serviceAccountToken:
                   path: token
-                  expirationSeconds: 600
+                  expirationSeconds: 1800
               - configMap:
                   name: kube-root-ca.crt
                   items:
@@ -209,7 +212,8 @@ spec:
             claimName: wardn-hub-codex-config
       containers:
         - name: review-webhook
-          image: registry.home/ghcr.io/abhi1693/wardn-hub/backend:0.2.59 # {"$imagescan": "wardn-hub-backend"}
+          # renovate: datasource=docker depName=ghcr.io/abhi1693/wardn-hub-backend
+          image: registry.home/ghcr.io/abhi1693/wardn-hub-backend:0.2.66
           imagePullPolicy: IfNotPresent
           command:
             - python
@@ -226,6 +230,8 @@ spec:
             - "1200"
             - --review-progress-interval
             - "30"
+            - --auto-publish
+            - --verbose
           envFrom:
             - configMapRef:
                 name: wardn-hub

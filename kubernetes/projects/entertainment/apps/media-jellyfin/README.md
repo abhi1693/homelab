@@ -15,7 +15,7 @@ runs as a single replica on the custom image backed by the shared PostgreSQL
 cluster:
 
 - Image:
-  `registry.home/home-lab/jellyfin:10.11.8-pgsql.10.11.8-1-20260610@sha256:19bc369e8ed16a98b2e1d80c9c26956c20ed239e5654d6131c1e3fac01ef24fc`
+  `registry.home/ghcr.io/abhi1693/home-lab-jellyfin:10.11.8-pgsql.10.11.8-1-cf39083`
 - Plugin binaries: baked into the image from
   `kubernetes/images/jellyfin/required-plugins.txt`
 - Device auth token lookup: patched in `Jellyfin.Server.Implementations.dll`
@@ -154,9 +154,8 @@ kubectl -n media create secret generic jellyfin-plugin-config-seed \
 
 ## Cutover Outline
 
-1. Publish the ARM64 `jellyfin` image from GitHub Actions.
-   Deploy only versioned tags through Fleet image scanning; keep `jellyfin` and
-   `latest` as moving convenience tags, not Fleet values.
+1. Publish the ARM64 Jellyfin image from GitHub Actions.
+   Deploy only release tags through Renovate-managed values.
 2. Create the PostgreSQL role Secret in `postgresql`.
 3. Let Fleet reconcile the shared PostgreSQL role, database, pooler,
    NetworkPolicy, and PDB.

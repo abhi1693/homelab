@@ -55,18 +55,47 @@ alloy:
         }
 
         sourcemaps {
-          download              = true
-          download_from_origins = [
-            "https://abhimanyu-saharan.com",
-            "https://www.abhimanyu-saharan.com",
-            "https://blog.abhimanyu-saharan.com",
-            "https://shipyardhq.dev",
-            "https://www.shipyardhq.dev",
-            "https://hub.wardnai.dev",
-            "https://git-rank.dev",
-            "https://indexly.cc",
-          ]
-          download_timeout      = "2s"
+          download = false
+
+          location {
+            minified_path_prefix = "https://abhimanyu-saharan.com/_next/static/"
+            path                 = "http://portfolio.portfolio.svc.cluster.local:3000/faro-sourcemaps/_next/static/"
+          }
+
+          location {
+            minified_path_prefix = "https://www.abhimanyu-saharan.com/_next/static/"
+            path                 = "http://portfolio.portfolio.svc.cluster.local:3000/faro-sourcemaps/_next/static/"
+          }
+
+          location {
+            minified_path_prefix = "https://blog.abhimanyu-saharan.com/_next/static/"
+            path                 = "http://personal-blog.personal-blog.svc.cluster.local:3000/faro-sourcemaps/_next/static/"
+          }
+
+          location {
+            minified_path_prefix = "https://indexly.cc/_next/static/"
+            path                 = "http://indexly.indexly.svc.cluster.local:3000/faro-sourcemaps/_next/static/"
+          }
+
+          location {
+            minified_path_prefix = "https://shipyardhq.dev/_next/static/"
+            path                 = "http://shipyardhq.shipyardhq.svc.cluster.local:3000/faro-sourcemaps/_next/static/"
+          }
+
+          location {
+            minified_path_prefix = "https://www.shipyardhq.dev/_next/static/"
+            path                 = "http://shipyardhq.shipyardhq.svc.cluster.local:3000/faro-sourcemaps/_next/static/"
+          }
+
+          location {
+            minified_path_prefix = "https://hub.wardnai.dev/_next/static/"
+            path                 = "http://wardn-hub-frontend.wardn.svc.cluster.local:3000/faro-sourcemaps/_next/static/"
+          }
+
+          location {
+            minified_path_prefix = "https://git-rank.dev/_next/static/"
+            path                 = "http://git-rank-frontend.git-rank.svc.cluster.local:3000/faro-sourcemaps/_next/static/"
+          }
 
           cache {
             cleanup_check_interval = "5m"
@@ -86,17 +115,17 @@ alloy:
 
         stage.logfmt {
           mapping = {
-            Application = "",
-            Environment = "",
-            kind = "",
+            app_name        = "",
+            app_environment = "",
+            kind            = "",
           }
         }
 
         stage.labels {
           values = {
-            Application = "",
-            Environment = "",
-            kind = "",
+            app_name        = "",
+            app_environment = "",
+            kind            = "",
           }
         }
       }

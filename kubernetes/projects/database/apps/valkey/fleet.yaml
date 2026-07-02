@@ -7,3 +7,5 @@ labels:
 dependsOn:
   - name: rancher-project-database
   - name: database-helm-repositories
+helm:
+  takeOwnership: true

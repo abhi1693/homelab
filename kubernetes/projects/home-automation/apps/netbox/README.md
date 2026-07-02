@@ -12,7 +12,7 @@ Current choices:
 - chart: `oci://ghcr.io/netbox-community/netbox-chart/netbox`
 - chart version: `8.3.22`
 - NetBox version: `v4.6.3`
-- image: `registry.home/home-lab/netbox:4.6.3-20260628`
+- image: `registry.home/ghcr.io/abhi1693/home-lab-netbox:4.6.3-cf39083`
 - namespace: `netbox`
 - ingress class: `traefik`
 - web replicas: `1`
@@ -84,8 +84,9 @@ from the NetBox Device Type Library instead of seeded by hand.
 `netbox-bgp` are enabled for cabling topology, DNS source-of-truth records,
 hardware lifecycle/procurement tracking, and BGP documentation.
 
-Required plugins are baked into `registry.home/home-lab/netbox:4.6.3-20260628` instead
-of installed at pod startup. Add plugin source archives to
+Required plugins are baked into
+`registry.home/ghcr.io/abhi1693/home-lab-netbox:4.6.3-cf39083` instead of
+installed at pod startup. Add plugin source archives to
 `kubernetes/images/netbox/required-plugins.txt`; the `NetBox App Image` workflow
 builds the image from the Harbor GHCR proxy copy of
 `netbox-community/netbox:v4.6.3` and publishes the `netbox`, date-stamped

@@ -35,6 +35,7 @@ spec:
       fastReplicaRebuildEnabled: {{ longhorn.fast_replica_rebuild_enabled | lower }}
       offlineReplicaRebuilding: {{ longhorn.offline_replica_rebuilding | lower }}
       removeSnapshotsDuringFilesystemTrim: {{ longhorn.remove_snapshots_during_filesystem_trim | lower }}
+      orphanResourceAutoDeletion: {{ longhorn.orphan_resource_auto_deletion | to_json }}
       rwxVolumeFastFailover: {{ longhorn.rwx_volume_fast_failover | lower }}
       storageOverProvisioningPercentage: {{ longhorn.storage_overprovisioning_percentage }}
       storageMinimalAvailablePercentage: {{ longhorn.storage_minimal_available_percentage }}

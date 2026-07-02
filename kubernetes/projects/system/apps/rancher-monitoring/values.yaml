@@ -159,6 +159,9 @@ grafana:
   replicas: 1
   deploymentStrategy:
     type: Recreate
+  grafana.ini:
+    auth.basic:
+      enabled: true
   env:
     HOME_LAB_DATASOURCE_REVISION: "2026-06-30-loki"
   envFromSecret: rancher-monitoring-grafana-llm

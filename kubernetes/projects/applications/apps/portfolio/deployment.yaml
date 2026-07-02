@@ -21,6 +21,8 @@ spec:
       maxUnavailable: 0
   template:
     metadata:
+      annotations:
+        home-lab.io/faro-secret-revision: "2026-07-01-browser-key-data"
       labels:
         app.kubernetes.io/name: portfolio
         app.kubernetes.io/component: web
@@ -51,13 +53,20 @@ spec:
               app.kubernetes.io/component: web
       containers:
         - name: web
-          image: registry.home/portfolio/portfolio:0.1.2 # {"$imagescan": "portfolio"}
+          # renovate: datasource=docker depName=ghcr.io/abhi1693/portfolio
+          image: registry.home/ghcr.io/abhi1693/portfolio:0.1.9
           imagePullPolicy: IfNotPresent
           envFrom:
             - secretRef:
                 name: portfolio
             - configMapRef:
                 name: portfolio
+          env:
+            - name: FARO_API_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: portfolio
+                  key: NEXT_PUBLIC_FARO_API_KEY
           ports:
             - name: http
               containerPort: 3000

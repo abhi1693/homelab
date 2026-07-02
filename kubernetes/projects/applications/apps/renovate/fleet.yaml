@@ -1,0 +1,11 @@
+---
+name: renovate
+defaultNamespace: renovate
+labels:
+  app.kubernetes.io/part-of: renovate
+  home-lab.io/project-slug: applications
+dependsOn:
+  - name: rancher-project-applications
+  - name: harbor
+helm:
+  takeOwnership: true

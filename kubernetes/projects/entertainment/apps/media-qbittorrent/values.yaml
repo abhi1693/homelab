@@ -2,7 +2,8 @@ TZ: Asia/Kolkata
 image:
   repository: registry.home/oci.trueforge.org/containerforge/qbittorrent
   pullPolicy: IfNotPresent
-  tag: "5.2.2" # {"$imagescan": "qbittorrent:tag"}
+  # renovate: datasource=docker depName=oci.trueforge.org/containerforge/qbittorrent
+  tag: "5.2.2"
 imagePullSecret:
   harbor-registry:
     enabled: true
@@ -10,7 +11,8 @@ imagePullSecret:
 qbitConfigImage:
   repository: registry.home/docker.io/curlimages/curl
   pullPolicy: IfNotPresent
-  tag: 8.21.0 # {"$imagescan": "qbittorrent-curl:tag"}
+  # renovate: datasource=docker depName=docker.io/curlimages/curl
+  tag: 8.21.0
 chartContext:
   appUrl: https://qbittorrent.media.home
 global:
