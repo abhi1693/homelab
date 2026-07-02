@@ -59,7 +59,7 @@ Most app directories follow this pattern:
 
 | File | Role |
 | --- | --- |
-| `fleet.yaml` | Fleet bundle metadata, dependencies, namespace defaults, and ImageScan configuration. |
+| `fleet.yaml` | Fleet bundle metadata, dependencies, and namespace defaults. |
 | `deployment*.yaml` / `cronjob*.yaml` / `job*.yaml` | Workload definitions. |
 | `service*.yaml` / `ingress*.yaml` | East-west service discovery and north-south entry points. |
 | `networkpolicy*.yaml` / `*-cnp.yaml` | Allowed traffic paths. |
@@ -79,19 +79,44 @@ declares:
 
 This keeps chart installation declarative while preserving app-local context.
 
-## Fleet ImageScan
+## Image Updates
 
-Fleet ImageScan is enabled through Rancher/Fleet configuration and selected
-project GitRepos. Workloads use marker comments so Fleet can update image tags
-in Git:
+Renovate owns image tag updates. Fleet owns reconciliation. Workloads pull from
+Harbor proxy-cache paths in the cluster, while Renovate checks the upstream
+registry named in the metadata comment.
 
-```yaml
-image: registry.home/example-project/example-app:0.1.0 # {"$imagescan": "example-app"}
+```mermaid
+flowchart LR
+  source["Source registry<br/>ghcr.io, docker.io, quay.io"]
+  harbor["Harbor proxy cache<br/>registry.home/<registry>/<repo>"]
+  manifests["GitOps manifests<br/>kubernetes/projects/**/*.yaml"]
+  renovate["Renovate CronJob<br/>custom regex manager"]
+  git["GitHub repo<br/>abhi1693/home-lab"]
+  fleet["Fleet project GitRepos"]
+  cluster["K3s workloads"]
+
+  source -->|Renovate reads tags from depName| renovate
+  manifests -->|Renovate comment + current tag| renovate
+  renovate -->|commits tag update| git
+  git -->|Fleet watches explicit paths| fleet
+  fleet -->|applies desired state| cluster
+  cluster -->|pulls image| harbor
+  harbor -->|caches upstream artifact| source
 ```
 
-ImageScan should update source files, not mutate live workloads directly. App
-image pipelines should publish semver-style tags when Fleet is expected to
-select newer versions.
+Workloads that need explicit image update metadata carry Renovate comments next
+to the image or tag value:
+
+```yaml
+# renovate: datasource=docker depName=ghcr.io/example-org/example-app
+image: registry.home/ghcr.io/example-org/example-app:0.1.0
+```
+
+The `depName` is the registry/repository Renovate checks for available tags.
+The image value is the path the cluster pulls, usually the same upstream path
+prefixed by `registry.home/` so Harbor serves it from the local proxy cache.
+App image pipelines should publish semver-style tags when Renovate is expected
+to select newer versions.
 
 ## Operating Model
 

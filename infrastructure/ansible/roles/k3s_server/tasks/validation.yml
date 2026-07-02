@@ -13,6 +13,11 @@
     path: /etc/rancher/k3s/registries.yaml
   register: k3s_registries_config_stat
 
+- name: Check K3s kubelet image GC config path
+  ansible.builtin.stat:
+    path: /var/lib/rancher/k3s/agent/etc/kubelet.conf.d/10-home-lab-image-gc.conf
+  register: k3s_kubelet_image_gc_config_stat
+
 - name: Check K3s audit policy path
   ansible.builtin.stat:
     path: "{{ k3s_server.audit_logging.policy_file }}"
@@ -39,6 +44,12 @@
   no_log: true
   when: k3s_registries_config_stat.stat.exists
 
+- name: Read K3s kubelet image GC config file
+  ansible.builtin.slurp:
+    path: /var/lib/rancher/k3s/agent/etc/kubelet.conf.d/10-home-lab-image-gc.conf
+  register: k3s_kubelet_image_gc_config_raw
+  when: k3s_kubelet_image_gc_config_stat.stat.exists
+
 - name: Read K3s audit policy file
   ansible.builtin.slurp:
     path: "{{ k3s_server.audit_logging.policy_file }}"
@@ -58,6 +69,11 @@
     k3s_registries_config_object: "{{ k3s_registries_config_raw.content | b64decode | from_yaml }}"
   no_log: true
   when: k3s_registries_config_stat.stat.exists
+
+- name: Record K3s kubelet image GC config object
+  ansible.builtin.set_fact:
+    k3s_kubelet_image_gc_config_object: "{{ k3s_kubelet_image_gc_config_raw.content | b64decode | from_yaml }}"
+  when: k3s_kubelet_image_gc_config_stat.stat.exists
 
 - name: Record K3s audit policy text
   ansible.builtin.set_fact:
@@ -158,6 +174,16 @@
     fail_msg: "Expected kubelet arg {{ item }} in /etc/rancher/k3s/config.yaml"
     success_msg: "K3s config contains kubelet arg {{ item }}"
   loop: "{{ k3s_expected_kubelet_args }}"
+
+- name: Assert K3s kubelet image GC config matches inventory
+  ansible.builtin.assert:
+    that:
+      - k3s_kubelet_image_gc_config_stat.stat.exists
+      - (k3s_kubelet_image_gc_config_object.apiVersion | default('')) == 'kubelet.config.k8s.io/v1beta1'
+      - (k3s_kubelet_image_gc_config_object.kind | default('')) == 'KubeletConfiguration'
+      - (k3s_kubelet_image_gc_config_object.imageMaximumGCAge | default('')) == k3s_server.kubelet_config.image_maximum_gc_age
+    fail_msg: Expected K3s kubelet image GC config to match inventory.
+    success_msg: "K3s kubelet image GC config matches inventory"
 
 - name: Assert K3s audit logging files exist when enabled
   ansible.builtin.assert:

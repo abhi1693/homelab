@@ -4,23 +4,6 @@ defaultNamespace: git-rank
 labels:
   app.kubernetes.io/part-of: git-rank
   home-lab.io/project-slug: applications
-imageScans:
-  - image: registry.home/git-rank/backend
-    tagName: git-rank-backend
-    interval: 10m0s
-    secretRef:
-      name: harbor-registry
-    policy:
-      semver:
-        range: ">=1.0.0 <2.0.0"
-  - image: registry.home/git-rank/frontend
-    tagName: git-rank-frontend
-    interval: 10m0s
-    secretRef:
-      name: harbor-registry
-    policy:
-      semver:
-        range: ">=1.0.0 <2.0.0"
 dependsOn:
   - name: rancher-project-applications
   - name: postgresql

@@ -68,7 +68,8 @@ spec:
             timeoutSeconds: 5
             failureThreshold: 6
         - name: dispatcharr
-          image: registry.home/ghcr.io/dispatcharr/dispatcharr:0.27.1 # {"$imagescan": "dispatcharr"}
+          # renovate: datasource=docker depName=ghcr.io/dispatcharr/dispatcharr
+          image: registry.home/ghcr.io/dispatcharr/dispatcharr:0.27.2
           imagePullPolicy: IfNotPresent
           envFrom:
             - configMapRef:
@@ -133,7 +134,8 @@ spec:
             - name: tmp
               mountPath: /tmp
         - name: celery
-          image: registry.home/ghcr.io/dispatcharr/dispatcharr:0.27.1 # {"$imagescan": "dispatcharr"}
+          # renovate: datasource=docker depName=ghcr.io/dispatcharr/dispatcharr
+          image: registry.home/ghcr.io/dispatcharr/dispatcharr:0.27.2
           imagePullPolicy: IfNotPresent
           command:
             - /app/docker/entrypoint.celery.sh

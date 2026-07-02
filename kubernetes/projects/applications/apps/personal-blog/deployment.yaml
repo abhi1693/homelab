@@ -20,6 +20,8 @@ spec:
       maxUnavailable: 0
   template:
     metadata:
+      annotations:
+        home-lab.io/faro-secret-revision: "2026-07-01-browser-key-data"
       labels:
         app.kubernetes.io/name: personal-blog
         app.kubernetes.io/component: web
@@ -53,13 +55,20 @@ spec:
               app.kubernetes.io/component: web
       containers:
         - name: web
-          image: registry.home/personal-blog/personal-blog:0.3.10 # {"$imagescan": "personal-blog"}
+          # renovate: datasource=docker depName=ghcr.io/abhi1693/personal-blog
+          image: registry.home/ghcr.io/abhi1693/personal-blog:0.3.15
           imagePullPolicy: IfNotPresent
           envFrom:
             - secretRef:
                 name: personal-blog
             - configMapRef:
                 name: personal-blog
+          env:
+            - name: FARO_API_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: personal-blog
+                  key: NEXT_PUBLIC_FARO_API_KEY
           ports:
             - name: http
               containerPort: 3000

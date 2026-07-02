@@ -115,7 +115,6 @@ spec:
           - postgresql-pooler-harbor-rw
           - postgresql-pooler-jellyfin-rw
           - postgresql-pooler-netbox-rw
-          - postgresql-pooler-registry-artifacts-rw
           - postgresql-pooler-shipyardhq-rw
           - postgresql-pooler-wardn-hub-rw
   egress:
@@ -281,41 +280,6 @@ spec:
           port: 53
         - protocol: TCP
           port: 53
----
-apiVersion: networking.k8s.io/v1
-kind: NetworkPolicy
-metadata:
-  name: postgresql-registry-artifacts-pooler-access
-  namespace: postgresql
-  labels:
-    app.kubernetes.io/name: postgresql-pooler
-    app.kubernetes.io/part-of: postgresql
-    home-lab.io/client: registry-artifacts
-spec:
-  podSelector:
-    matchLabels:
-      cnpg.io/poolerName: postgresql-pooler-registry-artifacts-rw
-  policyTypes:
-    - Ingress
-    - Egress
-  ingress:
-    - from:
-        - namespaceSelector:
-            matchLabels:
-              kubernetes.io/metadata.name: registry-artifacts
-          podSelector:
-            matchLabels:
-              registry-artifacts-psql-client: "true"
-      ports:
-        - protocol: TCP
-          port: 5432
-  egress:
-    - to:
-        - ipBlock:
-            cidr: 10.43.0.1/32
-      ports:
-        - protocol: TCP
-          port: 443
     - to:
         - ipBlock:
             cidr: 192.168.3.108/32

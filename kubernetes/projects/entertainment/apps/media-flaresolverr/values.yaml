@@ -4,7 +4,8 @@ chartContext:
 image:
   repository: registry.home/ghcr.io/flaresolverr/flaresolverr
   pullPolicy: IfNotPresent
-  tag: v3.5.0 # {"$imagescan": "flaresolverr:tag"}
+  # renovate: datasource=docker depName=ghcr.io/flaresolverr/flaresolverr
+  tag: v3.5.0
 imagePullSecret:
   harbor-registry:
     enabled: true

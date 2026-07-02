@@ -88,18 +88,3 @@ spec:
   selector:
     matchLabels:
       cnpg.io/poolerName: postgresql-pooler-harbor-rw
----
-apiVersion: policy/v1
-kind: PodDisruptionBudget
-metadata:
-  name: postgresql-pooler-registry-artifacts-rw
-  namespace: postgresql
-  labels:
-    app.kubernetes.io/name: postgresql-pooler
-    app.kubernetes.io/part-of: postgresql
-    home-lab.io/client: registry-artifacts
-spec:
-  minAvailable: 1
-  selector:
-    matchLabels:
-      cnpg.io/poolerName: postgresql-pooler-registry-artifacts-rw

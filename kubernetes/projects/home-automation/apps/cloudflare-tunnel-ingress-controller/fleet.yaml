@@ -5,23 +5,6 @@ labels:
   app.kubernetes.io/name: cloudflare-tunnel-ingress-controller
   app.kubernetes.io/part-of: cloudflare
   home-lab.io/project-slug: home-automation
-imageScans:
-  - image: registry.home/cr.strrl.dev/strrl/cloudflare-tunnel-ingress-controller
-    tagName: cloudflare-tunnel-ingress-controller
-    interval: 10m0s
-    secretRef:
-      name: harbor-registry
-    policy:
-      semver:
-        range: ">=0.0.0 <1.0.0"
-  - image: registry.home/docker.io/cloudflare/cloudflared
-    tagName: cloudflared
-    interval: 10m0s
-    secretRef:
-      name: harbor-registry
-    policy:
-      semver:
-        range: ">=2026.0.0 <2027.0.0"
 dependsOn:
   - name: rancher-project-home-automation
   - name: home-automation-helm-repositories

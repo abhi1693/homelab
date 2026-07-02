@@ -20,7 +20,7 @@ remain Kubernetes and Fleet concerns.
 - Jellyfin plugin metadata: pinned in `required-plugin-metadata.json`
 - PostgreSQL provider source: `JPVenson/Jellyfin.Pgsql` tag `10.11.8-1`
 - Jellyfin core patch: `patches/001-device-manager-db-source-of-truth.patch`
-- Published image tag family: `ghcr.io/abhi1693/home-lab:jellyfin*`
+- Published image tag family: `ghcr.io/abhi1693/home-lab-jellyfin:*`
 
 ## Runtime Contract
 

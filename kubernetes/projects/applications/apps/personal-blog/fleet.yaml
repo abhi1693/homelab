@@ -4,23 +4,6 @@ defaultNamespace: personal-blog
 labels:
   app.kubernetes.io/part-of: personal-blog
   home-lab.io/project-slug: applications
-imageScans:
-  - image: registry.home/personal-blog/personal-blog
-    tagName: personal-blog
-    interval: 10m0s
-    secretRef:
-      name: harbor-registry
-    policy:
-      semver:
-        range: ">=0.0.0 <1.0.0"
-  - image: registry.home/docker.io/curlimages/curl
-    tagName: personal-blog-curl
-    interval: 10m0s
-    secretRef:
-      name: harbor-registry
-    policy:
-      semver:
-        range: ">=8.0.0 <9.0.0"
 dependsOn:
   - name: rancher-project-applications
 helm:

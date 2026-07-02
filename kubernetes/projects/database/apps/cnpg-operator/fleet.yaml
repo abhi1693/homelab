@@ -1,23 +1,9 @@
 ---
 name: cnpg-operator
 defaultNamespace: cnpg-system
-namespaceLabels:
-  app.kubernetes.io/part-of: cnpg-operator
-  field.cattle.io/projectId: p-database
-namespaceAnnotations:
-  field.cattle.io/projectId: local:p-database
 labels:
   app.kubernetes.io/part-of: cnpg-operator
   home-lab.io/project-slug: database
-imageScans:
-  - image: registry.home/ghcr.io/cloudnative-pg/cloudnative-pg
-    tagName: cnpg-operator
-    interval: 10m0s
-    secretRef:
-      name: harbor-registry
-    policy:
-      semver:
-        range: ">=1.0.0 <2.0.0"
 dependsOn:
   - name: rancher-project-database
   - name: database-helm-repositories
@@ -36,6 +22,7 @@ diff:
 helm:
   releaseName: psql
   chart: ./chart
+  takeOwnership: true
   valuesFiles:
     - values.yaml
   waitForJobs: true

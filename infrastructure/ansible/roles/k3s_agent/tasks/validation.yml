@@ -14,6 +14,11 @@
     path: /etc/rancher/k3s/registries.yaml
   register: k3s_registries_config_stat
 
+- name: Check K3s kubelet image GC config path
+  ansible.builtin.stat:
+    path: /var/lib/rancher/k3s/agent/etc/kubelet.conf.d/10-home-lab-image-gc.conf
+  register: k3s_kubelet_image_gc_config_stat
+
 - name: Read K3s agent config file
   ansible.builtin.slurp:
     path: /etc/rancher/k3s/config.yaml
@@ -28,6 +33,12 @@
   no_log: true
   when: k3s_registries_config_stat.stat.exists
 
+- name: Read K3s kubelet image GC config file
+  ansible.builtin.slurp:
+    path: /var/lib/rancher/k3s/agent/etc/kubelet.conf.d/10-home-lab-image-gc.conf
+  register: k3s_kubelet_image_gc_config_raw
+  when: k3s_kubelet_image_gc_config_stat.stat.exists
+
 - name: Record K3s agent config text
   ansible.builtin.set_fact:
     k3s_config_text: "{{ k3s_config_raw.content | b64decode }}"
@@ -39,6 +50,11 @@
     k3s_registries_config_object: "{{ k3s_registries_config_raw.content | b64decode | from_yaml }}"
   no_log: true
   when: k3s_registries_config_stat.stat.exists
+
+- name: Record K3s kubelet image GC config object
+  ansible.builtin.set_fact:
+    k3s_kubelet_image_gc_config_object: "{{ k3s_kubelet_image_gc_config_raw.content | b64decode | from_yaml }}"
+  when: k3s_kubelet_image_gc_config_stat.stat.exists
 
 - name: Assert K3s binary and agent config exist
   ansible.builtin.assert:
@@ -69,6 +85,16 @@
     fail_msg: "Expected kubelet arg {{ item }} in /etc/rancher/k3s/config.yaml"
     success_msg: "K3s agent config contains kubelet arg {{ item }}"
   loop: "{{ k3s_agent.kubelet_args }}"
+
+- name: Assert K3s agent kubelet image GC config matches inventory
+  ansible.builtin.assert:
+    that:
+      - k3s_kubelet_image_gc_config_stat.stat.exists
+      - (k3s_kubelet_image_gc_config_object.apiVersion | default('')) == 'kubelet.config.k8s.io/v1beta1'
+      - (k3s_kubelet_image_gc_config_object.kind | default('')) == 'KubeletConfiguration'
+      - (k3s_kubelet_image_gc_config_object.imageMaximumGCAge | default('')) == k3s_agent.kubelet_config.image_maximum_gc_age
+    fail_msg: Expected K3s agent kubelet image GC config to match inventory.
+    success_msg: "K3s agent kubelet image GC config matches inventory"
 
 - name: Assert K3s agent registry mirror config matches inventory
   ansible.builtin.assert:

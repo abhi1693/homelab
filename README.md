@@ -315,7 +315,8 @@ Common east-west paths:
 | Apps | OpenTelemetry Collector | OTLP metrics and traces. |
 | Grafana | Prometheus, Loki, Tempo, Pyroscope | Observability queries. |
 | Media apps | Shared media PVCs | Downloads, imports, metadata, and serving. |
-| Fleet | Git repositories and image registries | Desired state sync and ImageScan. |
+| Fleet | Git repositories | Desired state sync. |
+| Renovate | Git repositories and image registries | Container image update commits. |
 
 The repo treats these paths as first-class architecture. Database apps have
 poolers and connection budgets. Media apps separate downloads from final media
@@ -447,7 +448,7 @@ Fleet `GitRepo` resources rather than one repo-wide bundle.
 This split has practical benefits:
 
 - drift and failures are easier to isolate;
-- ImageScan can be scoped per project;
+- image updates are handled centrally by Renovate;
 - project directories can have different reconciliation force settings;
 - app teams or future automation can reason about one project at a time;
 - Rancher project metadata can be treated differently from application bundles.
@@ -590,8 +591,9 @@ Harbor is the local image hub. Workloads can pull from local Harbor projects or
 from Harbor proxy/cache projects such as Docker Hub and GHCR mirrors. This
 reduces external registry dependency and makes ARM64 image choices visible.
 
-The registry-artifacts controller manages parts of Harbor lifecycle behavior,
-including artifact discovery, mirroring, and retention conventions.
+Renovate checks upstream image registries while manifests keep Harbor pull
+paths. Home-built images use GHCR source paths through the Harbor GHCR proxy
+cache, for example `registry.home/ghcr.io/abhi1693/...`.
 
 ### Ingress coupling
 
@@ -646,7 +648,7 @@ Important image patterns:
 - Harbor provides local registry and proxy/cache behavior.
 - App workloads use namespace-scoped pull secrets for private Harbor projects.
 - Public proxy-cache projects can be used for upstream images.
-- Fleet ImageScan annotations let Fleet update selected image tags in Git.
+- Renovate metadata comments let Renovate update selected image tags in Git.
 - Custom images keep patches, plugin lists, and Dockerfiles reviewable.
 
 This makes image supply explicit. The downside is that image build and registry
@@ -839,7 +841,6 @@ App and component deep dives:
 | [coder/templates/python-3-12/README.md](coder/templates/python-3-12/README.md) | Python 3.12 ARM64 Coder workspace. |
 | [coder/templates/ubuntu-desktop/README.md](coder/templates/ubuntu-desktop/README.md) | Ubuntu desktop Coder workspace. |
 | [kubernetes/fleet/fleet-gitjob-webhook/README.md](kubernetes/fleet/fleet-gitjob-webhook/README.md) | Fleet GitJob webhook integration. |
-| [kubernetes/images/fleet/README.md](kubernetes/images/fleet/README.md) | Custom Fleet image context. |
 | [kubernetes/images/jellyfin/README.md](kubernetes/images/jellyfin/README.md) | Custom Jellyfin image context. |
 | [kubernetes/projects/applications/apps/firefly-iii/README.md](kubernetes/projects/applications/apps/firefly-iii/README.md) | Firefly III personal finance app. |
 | [kubernetes/projects/applications/apps/firefly-iii-data-importer/README.md](kubernetes/projects/applications/apps/firefly-iii-data-importer/README.md) | Firefly III importer. |
@@ -850,7 +851,6 @@ App and component deep dives:
 | [kubernetes/projects/applications/apps/openbao/README.md](kubernetes/projects/applications/apps/openbao/README.md) | OpenBao service. |
 | [kubernetes/projects/applications/apps/personal-blog/README.md](kubernetes/projects/applications/apps/personal-blog/README.md) | Personal blog deployment. |
 | [kubernetes/projects/applications/apps/portfolio/README.md](kubernetes/projects/applications/apps/portfolio/README.md) | Portfolio deployment. |
-| [kubernetes/projects/applications/apps/registry-artifacts/README.md](kubernetes/projects/applications/apps/registry-artifacts/README.md) | Harbor artifact automation. |
 | [kubernetes/projects/applications/apps/shipyardhq/README.md](kubernetes/projects/applications/apps/shipyardhq/README.md) | ShipyardHQ deployment. |
 | [kubernetes/projects/applications/apps/wardn-hub/README.md](kubernetes/projects/applications/apps/wardn-hub/README.md) | Wardn Hub deployment. |
 | [kubernetes/projects/database/apps/cnpg-operator/README.md](kubernetes/projects/database/apps/cnpg-operator/README.md) | CloudNativePG operator. |

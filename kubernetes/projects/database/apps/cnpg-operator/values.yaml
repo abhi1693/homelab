@@ -5,7 +5,8 @@ cloudnative-pg:
     create: true
   image:
     repository: registry.home/ghcr.io/cloudnative-pg/cloudnative-pg
-    tag: 1.30.0 # {"$imagescan": "cnpg-operator:tag"}
+    # renovate: datasource=docker depName=ghcr.io/cloudnative-pg/cloudnative-pg
+    tag: 1.30.0
   config:
     clusterWide: true
     maxConcurrentReconciles: 10

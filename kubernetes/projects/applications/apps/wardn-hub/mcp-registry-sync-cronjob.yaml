@@ -39,7 +39,8 @@ spec:
             fsGroupChangePolicy: OnRootMismatch
           initContainers:
             - name: wait-for-api-rollout
-              image: registry.home/ghcr.io/abhi1693/wardn-hub/backend:0.2.59 # {"$imagescan": "wardn-hub-backend"}
+              # renovate: datasource=docker depName=ghcr.io/abhi1693/wardn-hub-backend
+              image: registry.home/ghcr.io/abhi1693/wardn-hub-backend:0.2.66
               imagePullPolicy: IfNotPresent
               command:
                 - python
@@ -69,7 +70,8 @@ spec:
                   readOnly: true
           containers:
             - name: sync-mcp-registry
-              image: registry.home/ghcr.io/abhi1693/wardn-hub/backend:0.2.59 # {"$imagescan": "wardn-hub-backend"}
+              # renovate: datasource=docker depName=ghcr.io/abhi1693/wardn-hub-backend
+              image: registry.home/ghcr.io/abhi1693/wardn-hub-backend:0.2.66
               imagePullPolicy: IfNotPresent
               command:
                 - python
@@ -123,7 +125,7 @@ spec:
                 sources:
                   - serviceAccountToken:
                       path: token
-                      expirationSeconds: 600
+                      expirationSeconds: 1800
                   - configMap:
                       name: kube-root-ca.crt
                       items:

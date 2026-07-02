@@ -37,7 +37,8 @@ spec:
         fsGroupChangePolicy: OnRootMismatch
       initContainers:
         - name: wait-for-api-rollout
-          image: registry.home/ghcr.io/abhi1693/wardn-hub/backend:0.2.59 # {"$imagescan": "wardn-hub-backend"}
+          # renovate: datasource=docker depName=ghcr.io/abhi1693/wardn-hub-backend
+          image: registry.home/ghcr.io/abhi1693/wardn-hub-backend:0.2.66
           imagePullPolicy: IfNotPresent
           command:
             - python
@@ -67,7 +68,8 @@ spec:
               readOnly: true
       containers:
         - name: build-next-app
-          image: registry.home/ghcr.io/abhi1693/wardn-hub/frontend:0.2.60 # {"$imagescan": "wardn-hub-frontend"}
+          # renovate: datasource=docker depName=ghcr.io/abhi1693/wardn-hub-frontend
+          image: registry.home/ghcr.io/abhi1693/wardn-hub-frontend:0.2.66
           imagePullPolicy: IfNotPresent
           command:
             - /bin/sh
@@ -76,7 +78,7 @@ spec:
             - |
               set -eu
 
-              cache_version=next-build-v5
+              cache_version=next-build-v7
               cache_root=/app/hub/frontend/.next-build-cache
               artifact_root="$cache_root/artifacts"
               build_root=/app/hub/frontend/.next
@@ -173,7 +175,7 @@ spec:
             sources:
               - serviceAccountToken:
                   path: token
-                  expirationSeconds: 600
+                  expirationSeconds: 1800
               - configMap:
                   name: kube-root-ca.crt
                   items:

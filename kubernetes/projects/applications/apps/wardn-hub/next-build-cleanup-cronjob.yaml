@@ -35,7 +35,8 @@ spec:
             fsGroupChangePolicy: OnRootMismatch
           containers:
             - name: cleanup-next-build-cache
-              image: registry.home/ghcr.io/abhi1693/wardn-hub/frontend:0.2.60 # {"$imagescan": "wardn-hub-frontend"}
+              # renovate: datasource=docker depName=ghcr.io/abhi1693/wardn-hub-frontend
+              image: registry.home/ghcr.io/abhi1693/wardn-hub-frontend:0.2.66
               imagePullPolicy: IfNotPresent
               command:
                 - /bin/sh
@@ -44,7 +45,7 @@ spec:
                 - |
                   set -eu
 
-                  cache_version=next-build-v5
+                  cache_version=next-build-v7
                   cache_root=/app/hub/frontend/.next-build-cache
                   artifact_root="$cache_root/artifacts"
 

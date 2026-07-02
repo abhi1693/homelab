@@ -9,11 +9,6 @@ metadata:
     home-lab.io/project-slug: system
 spec:
   defaultNamespace: sops
-  namespaceLabels:
-    app.kubernetes.io/part-of: sops-secrets-operator
-    field.cattle.io/projectId: p-zl69x
-  namespaceAnnotations:
-    field.cattle.io/projectId: local:p-zl69x
   dependsOn:
     - name: system-helm-repositories
   labels:

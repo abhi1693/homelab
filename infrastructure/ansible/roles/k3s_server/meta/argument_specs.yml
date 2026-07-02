@@ -110,6 +110,15 @@ argument_specs:
             required: true
             description:
               - Additional kubelet arguments rendered as K3s kubelet-arg list items.
+          kubelet_config:
+            type: dict
+            required: true
+            options:
+              image_maximum_gc_age:
+                type: str
+                required: true
+                description:
+                  - Maximum age before kubelet garbage-collects unused images.
           audit_logging:
             type: dict
             required: true

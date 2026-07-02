@@ -35,7 +35,8 @@ spec:
             fsGroupChangePolicy: OnRootMismatch
           containers:
             - name: cleanup-next-build-cache
-              image: registry.home/ghcr.io/abhi1693/shipyardhq:1.4.78 # {"$imagescan": "shipyardhq"}
+              # renovate: datasource=docker depName=ghcr.io/abhi1693/shipyardhq
+              image: registry.home/ghcr.io/abhi1693/shipyardhq:1.4.83
               imagePullPolicy: IfNotPresent
               command:
                 - /bin/sh
@@ -44,7 +45,7 @@ spec:
                 - |
                   set -eu
 
-                  cache_version=next-build-v8
+                  cache_version=next-build-v10
                   cache_root=/app/.next-build-cache
                   artifact_root="$cache_root/artifacts"
 

@@ -21,7 +21,7 @@ and drift correction easier to reason about than a single flat app directory.
 
 | Project | Path | Owns |
 | --- | --- | --- |
-| Applications | `applications/` | Public apps, personal apps, Harbor, registry automation, and application-specific workers. |
+| Applications | `applications/` | Public apps, personal apps, Harbor, Renovate image automation, and application-specific workers. |
 | Database | `database/` | CloudNativePG, PostgreSQL, Valkey, poolers, and database network boundaries. |
 | Development | `development/` | Development project metadata and future development workloads. |
 | Entertainment | `entertainment/` | Media stack, media storage, torrent/import workflows, and request portals. |
@@ -47,5 +47,5 @@ documentation.
 
 The `kubernetes/fleet/fleet-project-gitrepos/` directory defines one Fleet
 GitRepo per project. Each GitRepo lists the app paths Fleet should reconcile.
-This makes project failures easier to isolate and lets ImageScan cadence differ
-between projects.
+This makes project failures easier to isolate while keeping each project bundle
+small enough to reason about independently.

@@ -5,7 +5,8 @@ version:
 mode: standalone
 cluster:
   instances: 3
-  imageName: registry.home/ghcr.io/cloudnative-pg/postgresql:17.10 # {"$imagescan": "postgresql-17"}
+  # renovate: datasource=docker depName=ghcr.io/cloudnative-pg/postgresql
+  imageName: registry.home/ghcr.io/cloudnative-pg/postgresql:17.10
   imagePullSecrets:
     - name: harbor-registry
   annotations:
@@ -214,18 +215,6 @@ cluster:
       bypassrls: false
       passwordSecret:
         name: harbor-postgresql
-    - name: registry_artifacts
-      ensure: present
-      login: true
-      connectionLimit: 12
-      superuser: false
-      createdb: false
-      createrole: false
-      inherit: true
-      replication: false
-      bypassrls: false
-      passwordSecret:
-        name: registry-artifacts-postgresql
     - name: wardn_hub
       ensure: present
       login: true
@@ -299,9 +288,6 @@ databases:
   - name: harbor
     owner: harbor
     databaseReclaimPolicy: retain
-  - name: registry_artifacts
-    owner: registry_artifacts
-    databaseReclaimPolicy: retain
   - name: wardn_hub
     owner: wardn_hub
     databaseReclaimPolicy: retain
@@ -348,7 +334,8 @@ poolers:
                 topologyKey: kubernetes.io/hostname
         containers:
           - name: pgbouncer
-            image: registry.home/ghcr.io/cloudnative-pg/pgbouncer:1.25.2 # {"$imagescan": "pgbouncer"}
+            # renovate: datasource=docker depName=ghcr.io/cloudnative-pg/pgbouncer
+            image: registry.home/ghcr.io/cloudnative-pg/pgbouncer:1.25.2
             resources:
               requests:
                 cpu: 50m
@@ -394,7 +381,8 @@ poolers:
                 topologyKey: kubernetes.io/hostname
         containers:
           - name: pgbouncer
-            image: registry.home/ghcr.io/cloudnative-pg/pgbouncer:1.25.2 # {"$imagescan": "pgbouncer"}
+            # renovate: datasource=docker depName=ghcr.io/cloudnative-pg/pgbouncer
+            image: registry.home/ghcr.io/cloudnative-pg/pgbouncer:1.25.2
             resources:
               requests:
                 cpu: 50m
@@ -440,7 +428,8 @@ poolers:
                 topologyKey: kubernetes.io/hostname
         containers:
           - name: pgbouncer
-            image: registry.home/ghcr.io/cloudnative-pg/pgbouncer:1.25.2 # {"$imagescan": "pgbouncer"}
+            # renovate: datasource=docker depName=ghcr.io/cloudnative-pg/pgbouncer
+            image: registry.home/ghcr.io/cloudnative-pg/pgbouncer:1.25.2
             resources:
               requests:
                 cpu: 50m
@@ -486,7 +475,8 @@ poolers:
                 topologyKey: kubernetes.io/hostname
         containers:
           - name: pgbouncer
-            image: registry.home/ghcr.io/cloudnative-pg/pgbouncer:1.25.2 # {"$imagescan": "pgbouncer"}
+            # renovate: datasource=docker depName=ghcr.io/cloudnative-pg/pgbouncer
+            image: registry.home/ghcr.io/cloudnative-pg/pgbouncer:1.25.2
             resources:
               requests:
                 cpu: 50m
@@ -532,7 +522,8 @@ poolers:
                 topologyKey: kubernetes.io/hostname
         containers:
           - name: pgbouncer
-            image: registry.home/ghcr.io/cloudnative-pg/pgbouncer:1.25.2 # {"$imagescan": "pgbouncer"}
+            # renovate: datasource=docker depName=ghcr.io/cloudnative-pg/pgbouncer
+            image: registry.home/ghcr.io/cloudnative-pg/pgbouncer:1.25.2
             resources:
               requests:
                 cpu: 50m
@@ -578,53 +569,8 @@ poolers:
                 topologyKey: kubernetes.io/hostname
         containers:
           - name: pgbouncer
-            image: registry.home/ghcr.io/cloudnative-pg/pgbouncer:1.25.2 # {"$imagescan": "pgbouncer"}
-            resources:
-              requests:
-                cpu: 50m
-                memory: 128Mi
-              limits:
-                memory: 192Mi
-  - name: registry-artifacts-rw
-    type: rw
-    poolMode: session
-    instances: 2
-    monitoring:
-      enabled: true
-      podMonitor:
-        enabled: true
-    parameters:
-      max_client_conn: "30"
-      default_pool_size: "6"
-    template:
-      metadata:
-        labels:
-          app.kubernetes.io/part-of: postgresql
-          home-lab.io/client: registry-artifacts
-      spec:
-        nodeSelector:
-          kubernetes.io/arch: arm64
-        topologySpreadConstraints:
-          - maxSkew: 1
-            topologyKey: kubernetes.io/hostname
-            whenUnsatisfiable: DoNotSchedule
-            labelSelector:
-              matchLabels:
-                cnpg.io/poolerName: postgresql-pooler-registry-artifacts-rw
-            matchLabelKeys:
-              - pod-template-hash
-        affinity:
-          podAntiAffinity:
-            requiredDuringSchedulingIgnoredDuringExecution:
-              - labelSelector:
-                  matchLabels:
-                    cnpg.io/poolerName: postgresql-pooler-registry-artifacts-rw
-                matchLabelKeys:
-                  - pod-template-hash
-                topologyKey: kubernetes.io/hostname
-        containers:
-          - name: pgbouncer
-            image: registry.home/ghcr.io/cloudnative-pg/pgbouncer:1.25.2 # {"$imagescan": "pgbouncer"}
+            # renovate: datasource=docker depName=ghcr.io/cloudnative-pg/pgbouncer
+            image: registry.home/ghcr.io/cloudnative-pg/pgbouncer:1.25.2
             resources:
               requests:
                 cpu: 50m
@@ -670,7 +616,8 @@ poolers:
                 topologyKey: kubernetes.io/hostname
         containers:
           - name: pgbouncer
-            image: registry.home/ghcr.io/cloudnative-pg/pgbouncer:1.25.2 # {"$imagescan": "pgbouncer"}
+            # renovate: datasource=docker depName=ghcr.io/cloudnative-pg/pgbouncer
+            image: registry.home/ghcr.io/cloudnative-pg/pgbouncer:1.25.2
             resources:
               requests:
                 cpu: 50m
@@ -716,7 +663,8 @@ poolers:
                 topologyKey: kubernetes.io/hostname
         containers:
           - name: pgbouncer
-            image: registry.home/ghcr.io/cloudnative-pg/pgbouncer:1.25.2 # {"$imagescan": "pgbouncer"}
+            # renovate: datasource=docker depName=ghcr.io/cloudnative-pg/pgbouncer
+            image: registry.home/ghcr.io/cloudnative-pg/pgbouncer:1.25.2
             resources:
               requests:
                 cpu: 50m

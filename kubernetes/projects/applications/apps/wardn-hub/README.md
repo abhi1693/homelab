@@ -1,7 +1,8 @@
 # Wardn Hub
 
-Wardn Hub is deployed in the `wardn` namespace with separate backend and
-frontend images from `ghcr.io/abhi1693/wardn-hub`. Webhook event deliveries are
+Wardn Hub is deployed in the `wardn` namespace with separate
+`ghcr.io/abhi1693/wardn-hub-backend` and
+`ghcr.io/abhi1693/wardn-hub-frontend` images. Webhook event deliveries are
 processed by the `wardn-hub-events-worker` Deployment, which runs from the
 backend image.
 
@@ -23,10 +24,12 @@ API token and event signing secret are stored in
 `review-webhook-secrets.sops.yaml`; the webhook pod syncs the
 `submission.submitted` event rule on startup using those encrypted values.
 
-Codex login is checked by the `wardn-hub-codex-login` Helm pre-install/pre-upgrade
-Job. It mounts `wardn-hub-codex-config` at `/app/.codex` and runs device auth
-only when the shared Codex state is missing. Backend automation pods mount the
-same PVC and wait for that login state before starting Codex-backed review work.
+Codex login is checked by the `wardn-hub-codex-login` Helm pre-install Job. It
+mounts `wardn-hub-codex-config` at `/app/.codex` and runs device auth only when
+the shared Codex state is missing. Backend automation pods mount the same PVC
+and wait for that login state before starting Codex-backed review work. The Job
+is intentionally not a pre-upgrade hook so routine image rollouts cannot block
+on interactive device auth.
 
 ## Observability
 

@@ -64,7 +64,6 @@ declared app-side maximum connection demand.
 | `shipyardhq` | `shipyardhq-rw` | 16 | 32 | 32 |
 | `harbor` | `harbor-rw` | chart-managed | 36 | 36 |
 | `netbox` | `netbox-rw` | disabled | 6 | 10 |
-| `registry_artifacts` | `registry-artifacts-rw` | 12 | 12 | 12 |
 | `firefly` | `firefly-iii-rw` | implicit | 8 | 10 |
 
 ## Valkey Contract

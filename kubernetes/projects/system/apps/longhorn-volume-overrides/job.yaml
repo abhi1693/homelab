@@ -1,0 +1,54 @@
+---
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: longhorn-build-cache-data-locality-20260701
+  namespace: longhorn-system
+  labels:
+    app.kubernetes.io/name: longhorn-volume-overrides
+    app.kubernetes.io/component: data-locality
+    app.kubernetes.io/part-of: longhorn
+spec:
+  activeDeadlineSeconds: 300
+  backoffLimit: 1
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: longhorn-volume-overrides
+        app.kubernetes.io/component: data-locality
+        app.kubernetes.io/part-of: longhorn
+    spec:
+      serviceAccountName: longhorn-volume-overrides
+      restartPolicy: Never
+      automountServiceAccountToken: true
+      nodeSelector:
+        kubernetes.io/arch: arm64
+      containers:
+        - name: disable-build-cache-data-locality
+          image: rancher/kuberlr-kubectl:v7.0.1
+          imagePullPolicy: IfNotPresent
+          command:
+            - /bin/sh
+            - -c
+          args:
+            - |
+              set -eu
+
+              for volume in \
+                pvc-c5b21dec-fcc9-4653-a906-72c3acd81af9 \
+                pvc-76a352e4-379b-40de-9624-46499a59b0cf
+              do
+                current="$(
+                  kubectl -n longhorn-system get volumes.longhorn.io "$volume" \
+                    -o jsonpath='{.spec.dataLocality}'
+                )"
+
+                if [ "$current" = "disabled" ]; then
+                  echo "$volume already has dataLocality=disabled"
+                  continue
+                fi
+
+                kubectl -n longhorn-system patch volumes.longhorn.io "$volume" \
+                  --type=merge \
+                  -p '{"spec":{"dataLocality":"disabled"}}'
+              done

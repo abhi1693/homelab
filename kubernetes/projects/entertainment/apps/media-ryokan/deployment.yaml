@@ -42,7 +42,8 @@ spec:
           type: RuntimeDefault
       containers:
         - name: ryokan
-          image: registry.home/ghcr.io/johnthreekay/ryokan:1.8 # {"$imagescan": "ryokan"}
+          # renovate: datasource=docker depName=ghcr.io/johnthreekay/ryokan
+          image: registry.home/ghcr.io/johnthreekay/ryokan:1.8
           imagePullPolicy: IfNotPresent
           envFrom:
             - configMapRef:

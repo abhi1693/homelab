@@ -37,7 +37,8 @@ spec:
         kubernetes.io/arch: arm64
       initContainers:
         - name: wait-for-api-rollout
-          image: registry.home/ghcr.io/abhi1693/wardn-hub/backend:0.2.59 # {"$imagescan": "wardn-hub-backend"}
+          # renovate: datasource=docker depName=ghcr.io/abhi1693/wardn-hub-backend
+          image: registry.home/ghcr.io/abhi1693/wardn-hub-backend:0.2.66
           imagePullPolicy: IfNotPresent
           command:
             - python
@@ -66,7 +67,8 @@ spec:
               mountPath: /var/run/secrets/wardn-hub-api-rollout
               readOnly: true
         - name: wait-for-codex-login
-          image: registry.home/ghcr.io/abhi1693/wardn-hub/backend:0.2.59 # {"$imagescan": "wardn-hub-backend"}
+          # renovate: datasource=docker depName=ghcr.io/abhi1693/wardn-hub-backend
+          image: registry.home/ghcr.io/abhi1693/wardn-hub-backend:0.2.66
           imagePullPolicy: IfNotPresent
           command:
             - sh
@@ -111,7 +113,7 @@ spec:
             sources:
               - serviceAccountToken:
                   path: token
-                  expirationSeconds: 600
+                  expirationSeconds: 1800
               - configMap:
                   name: kube-root-ca.crt
                   items:
@@ -122,7 +124,8 @@ spec:
             claimName: wardn-hub-codex-config
       containers:
         - name: events-worker
-          image: registry.home/ghcr.io/abhi1693/wardn-hub/backend:0.2.59 # {"$imagescan": "wardn-hub-backend"}
+          # renovate: datasource=docker depName=ghcr.io/abhi1693/wardn-hub-backend
+          image: registry.home/ghcr.io/abhi1693/wardn-hub-backend:0.2.66
           imagePullPolicy: IfNotPresent
           command:
             - python

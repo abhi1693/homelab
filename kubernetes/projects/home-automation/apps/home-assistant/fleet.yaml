@@ -4,15 +4,6 @@ labels:
   app.kubernetes.io/name: home-assistant
   app.kubernetes.io/part-of: home-automation
   home-lab.io/project-slug: home-automation
-imageScans:
-  - image: registry.home/ghcr.io/home-assistant/home-assistant
-    tagName: home-assistant
-    interval: 10m0s
-    secretRef:
-      name: harbor-registry
-    policy:
-      semver:
-        range: ">=2026.0.0 <2027.0.0"
 dependsOn:
   - name: rancher-project-home-automation
   - name: home-automation-helm-repositories

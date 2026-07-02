@@ -35,7 +35,8 @@ spec:
             kubernetes.io/arch: arm64
           containers:
             - name: trigger
-              image: registry.home/git-rank/backend:1.2.24 # {"$imagescan": "git-rank-backend"}
+              # renovate: datasource=docker depName=ghcr.io/abhi1693/git-rank-backend
+              image: registry.home/ghcr.io/abhi1693/git-rank-backend:1.2.34
               imagePullPolicy: IfNotPresent
               command:
                 - python
@@ -110,7 +111,8 @@ spec:
             kubernetes.io/arch: arm64
           containers:
             - name: trigger
-              image: registry.home/git-rank/backend:1.2.24 # {"$imagescan": "git-rank-backend"}
+              # renovate: datasource=docker depName=ghcr.io/abhi1693/git-rank-backend
+              image: registry.home/ghcr.io/abhi1693/git-rank-backend:1.2.34
               imagePullPolicy: IfNotPresent
               command:
                 - python
@@ -184,7 +186,8 @@ spec:
             kubernetes.io/arch: arm64
           containers:
             - name: trigger
-              image: registry.home/git-rank/backend:1.2.24 # {"$imagescan": "git-rank-backend"}
+              # renovate: datasource=docker depName=ghcr.io/abhi1693/git-rank-backend
+              image: registry.home/ghcr.io/abhi1693/git-rank-backend:1.2.34
               imagePullPolicy: IfNotPresent
               command:
                 - python
@@ -258,7 +261,8 @@ spec:
             kubernetes.io/arch: arm64
           containers:
             - name: trigger
-              image: registry.home/git-rank/backend:1.2.24 # {"$imagescan": "git-rank-backend"}
+              # renovate: datasource=docker depName=ghcr.io/abhi1693/git-rank-backend
+              image: registry.home/ghcr.io/abhi1693/git-rank-backend:1.2.34
               imagePullPolicy: IfNotPresent
               command:
                 - python

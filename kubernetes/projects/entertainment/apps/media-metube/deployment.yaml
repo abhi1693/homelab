@@ -43,7 +43,8 @@ spec:
           type: RuntimeDefault
       initContainers:
         - name: prepare-youtube-library
-          image: registry.home/docker.io/library/busybox:1.38 # {"$imagescan": "metube-busybox"}
+          # renovate: datasource=docker depName=docker.io/library/busybox
+          image: registry.home/docker.io/library/busybox:1.38
           imagePullPolicy: IfNotPresent
           command:
             - /bin/sh
@@ -67,7 +68,8 @@ spec:
               mountPath: /media
       containers:
         - name: metube
-          image: registry.home/ghcr.io/alexta69/metube:2026.06.28 # {"$imagescan": "metube"}
+          # renovate: datasource=docker depName=ghcr.io/alexta69/metube
+          image: registry.home/ghcr.io/alexta69/metube:2026.06.28
           imagePullPolicy: IfNotPresent
           envFrom:
             - configMapRef:

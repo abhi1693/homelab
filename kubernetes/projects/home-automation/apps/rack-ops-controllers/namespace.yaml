@@ -1,0 +1,14 @@
+---
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: rack-ops
+  labels:
+    app.kubernetes.io/name: rack-ops-controllers
+    app.kubernetes.io/part-of: rack-ops
+    field.cattle.io/projectId: p-qqtgt
+    kubernetes.io/metadata.name: rack-ops
+    pod-security.kubernetes.io/audit: restricted
+    pod-security.kubernetes.io/warn: restricted
+  annotations:
+    field.cattle.io/projectId: local:p-qqtgt

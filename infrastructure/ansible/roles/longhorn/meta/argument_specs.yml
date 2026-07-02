@@ -150,6 +150,11 @@ argument_specs:
             required: true
             description:
               - Whether Longhorn should mark eligible snapshot chains as removed during filesystem trim.
+          orphan_resource_auto_deletion:
+            type: str
+            required: true
+            description:
+              - Semicolon-separated Longhorn orphan resource types to delete automatically.
           rwx_volume_fast_failover:
             type: bool
             required: true

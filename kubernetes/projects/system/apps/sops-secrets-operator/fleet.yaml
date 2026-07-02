@@ -7,3 +7,5 @@ labels:
   home-lab.io/project-slug: system
 dependsOn:
   - name: system-helm-repositories
+helm:
+  takeOwnership: true

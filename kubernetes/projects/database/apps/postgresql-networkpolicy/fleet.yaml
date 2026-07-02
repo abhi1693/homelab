@@ -1,11 +1,6 @@
 ---
 name: postgresql-networkpolicy
 defaultNamespace: postgresql
-namespaceLabels:
-  app.kubernetes.io/part-of: postgresql
-  field.cattle.io/projectId: p-database
-namespaceAnnotations:
-  field.cattle.io/projectId: local:p-database
 labels:
   app.kubernetes.io/part-of: postgresql
   home-lab.io/project-slug: database

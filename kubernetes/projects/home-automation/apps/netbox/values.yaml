@@ -4,8 +4,9 @@ commonLabels:
   app.kubernetes.io/part-of: netbox
 image:
   registry: registry.home
-  repository: home-lab/netbox
-  tag: 4.6.3-20260628 # {"$imagescan": "netbox:tag"}
+  repository: ghcr.io/abhi1693/home-lab-netbox
+  # renovate: datasource=docker depName=ghcr.io/abhi1693/home-lab-netbox
+  tag: 4.6.3-cf39083
   pullPolicy: IfNotPresent
   pullSecrets:
     - harbor-registry

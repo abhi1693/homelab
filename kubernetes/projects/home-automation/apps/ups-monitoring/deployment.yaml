@@ -28,7 +28,8 @@ spec:
         fsGroupChangePolicy: OnRootMismatch
       initContainers:
         - name: prepare-runtime-config
-          image: registry.home/docker.io/library/busybox:1.38 # {"$imagescan": "ups-busybox"}
+          # renovate: datasource=docker depName=docker.io/library/busybox
+          image: registry.home/docker.io/library/busybox:1.38
           imagePullPolicy: IfNotPresent
           command:
             - /bin/sh
@@ -75,7 +76,8 @@ spec:
               readOnly: true
       containers:
         - name: nut-upsd
-          image: registry.home/docker.io/instantlinux/nut-upsd:2.8.3-r4 # {"$imagescan": "nut-upsd"}
+          # renovate: datasource=docker depName=docker.io/instantlinux/nut-upsd
+          image: registry.home/docker.io/instantlinux/nut-upsd:2.8.3-r4
           imagePullPolicy: IfNotPresent
           env:
             - name: NAME
@@ -147,7 +149,8 @@ spec:
             - name: nut-local-config
               mountPath: /etc/nut/local
         - name: peanut
-          image: registry.home/docker.io/brandawg93/peanut:6.0.0 # {"$imagescan": "peanut"}
+          # renovate: datasource=docker depName=docker.io/brandawg93/peanut
+          image: registry.home/docker.io/brandawg93/peanut:6.0.0
           imagePullPolicy: IfNotPresent
           env:
             - name: WEB_HOST
@@ -201,7 +204,8 @@ spec:
             - name: peanut-config
               mountPath: /config
         - name: nut-exporter
-          image: registry.home/ghcr.io/druggeri/nut_exporter:3.3 # {"$imagescan": "nut-exporter"}
+          # renovate: datasource=docker depName=ghcr.io/druggeri/nut_exporter
+          image: registry.home/ghcr.io/druggeri/nut_exporter:3.3
           imagePullPolicy: IfNotPresent
           args:
             - --nut.server=127.0.0.1

@@ -21,7 +21,7 @@ subsystem.
 | `cilium.yml` | Cilium install, upgrade, LB IPAM, BGP, Hubble, and Traefik LoadBalancer config. |
 | `longhorn.yml` | Longhorn CRD and chart install. |
 | `cert_manager.yml` | cert-manager chart and ClusterIssuer bootstrap. |
-| `rancher.yml` | Rancher install and Fleet ImageScan settings. |
+| `rancher.yml` | Rancher install and Fleet settings. |
 | `fleet_apps.yml` | Fleet GitRepo bootstrap for app and project bundles. |
 | `smartctl_exporter.yml` | Host-level S.M.A.R.T. metrics service setup. |
 

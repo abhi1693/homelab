@@ -9,11 +9,6 @@ metadata:
     home-lab.io/project-slug: database
 spec:
   defaultNamespace: valkey
-  namespaceLabels:
-    app.kubernetes.io/part-of: valkey
-    field.cattle.io/projectId: p-database
-  namespaceAnnotations:
-    field.cattle.io/projectId: local:p-database
   dependsOn:
     - name: rancher-project-database
     - name: database-helm-repositories

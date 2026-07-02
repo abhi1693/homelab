@@ -23,6 +23,7 @@
       - not longhorn.fast_replica_rebuild_enabled | bool
       - longhorn.offline_replica_rebuilding | bool
       - longhorn.remove_snapshots_during_filesystem_trim | bool
+      - longhorn.orphan_resource_auto_deletion in ['replica-data']
       - longhorn.rwx_volume_fast_failover | bool
       - longhorn.replica_file_sync_http_client_timeout | int >= 120
       - longhorn.concurrent_replica_rebuild_per_node_limit | int >= 1
@@ -272,6 +273,7 @@
       - --for=condition=Ready
       - pod
       - --all
+      - --field-selector=status.phase!=Succeeded
       - --timeout=600s
   environment:
     KUBECONFIG: /etc/rancher/k3s/k3s.yaml

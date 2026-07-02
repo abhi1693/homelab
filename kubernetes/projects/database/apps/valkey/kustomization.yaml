@@ -12,6 +12,7 @@ generatorOptions:
 configurations:
   - kustomizeconfig.yaml
 resources:
+  - namespace.yaml
   - grafana-dashboard.yaml
   - registry-secrets.sops.yaml
   - helmop.yaml
