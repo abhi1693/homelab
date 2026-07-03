@@ -60,8 +60,8 @@ spec:
               app.kubernetes.io/component: frontend
       initContainers:
         - name: wait-for-api-rollout
-          # renovate: datasource=docker depName=ghcr.io/abhi1693/wardn-hub-backend
-          image: registry.home/ghcr.io/abhi1693/wardn-hub-backend:0.2.66
+          # renovate: datasource=github-releases depName=abhi1693/wardn-hub
+          image: registry.home/ghcr.io/abhi1693/wardn-hub-backend:0.2.69
           imagePullPolicy: IfNotPresent
           command:
             - python
@@ -90,8 +90,8 @@ spec:
               mountPath: /var/run/secrets/wardn-hub-api-rollout
               readOnly: true
         - name: restore-next-build
-          # renovate: datasource=docker depName=ghcr.io/abhi1693/wardn-hub-frontend
-          image: registry.home/ghcr.io/abhi1693/wardn-hub-frontend:0.2.66
+          # renovate: datasource=github-releases depName=abhi1693/wardn-hub
+          image: registry.home/ghcr.io/abhi1693/wardn-hub-frontend:0.2.69
           imagePullPolicy: IfNotPresent
           command:
             - /bin/sh
@@ -192,8 +192,8 @@ spec:
               mountPath: /app/hub/frontend/.next-build-cache
       containers:
         - name: frontend
-          # renovate: datasource=docker depName=ghcr.io/abhi1693/wardn-hub-frontend
-          image: registry.home/ghcr.io/abhi1693/wardn-hub-frontend:0.2.66
+          # renovate: datasource=github-releases depName=abhi1693/wardn-hub
+          image: registry.home/ghcr.io/abhi1693/wardn-hub-frontend:0.2.69
           imagePullPolicy: IfNotPresent
           command:
             - node

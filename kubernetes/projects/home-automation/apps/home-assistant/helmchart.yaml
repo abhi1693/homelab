@@ -19,7 +19,7 @@ spec:
     image:
       repository: registry.home/ghcr.io/home-assistant/home-assistant
       pullPolicy: IfNotPresent
-      # renovate: datasource=docker depName=ghcr.io/home-assistant/home-assistant
+      # renovate: datasource=github-releases depName=home-assistant/core
       tag: "2026.7.0"
     env:
       - name: TZ
@@ -50,7 +50,7 @@ spec:
       tls: []
     initContainers:
       - name: install-hacs
-        # renovate: datasource=docker depName=ghcr.io/home-assistant/home-assistant
+        # renovate: datasource=github-releases depName=home-assistant/core
         image: registry.home/ghcr.io/home-assistant/home-assistant:2026.7.0
         imagePullPolicy: IfNotPresent
         securityContext:

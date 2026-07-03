@@ -1,0 +1,25 @@
+---
+extends: default
+
+ignore: |
+  .git/
+  .idea/
+  .local/
+  **/*.sops.yml
+  **/*.sops.yaml
+  coder/templates/**/.terraform/
+  kubernetes/projects/database/apps/cnpg-operator/chart/templates/
+
+rules:
+  comments:
+    min-spaces-from-content: 1
+  document-start: disable
+  empty-lines: disable
+  key-duplicates: disable
+  line-length: disable
+  truthy:
+    allowed-values:
+      - "true"
+      - "false"
+      - "on"
+      - "off"

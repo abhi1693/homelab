@@ -149,7 +149,7 @@ spec:
             - name: nut-local-config
               mountPath: /etc/nut/local
         - name: peanut
-          # renovate: datasource=docker depName=docker.io/brandawg93/peanut
+          # renovate: datasource=github-releases depName=Brandawg93/PeaNUT
           image: registry.home/docker.io/brandawg93/peanut:6.0.0
           imagePullPolicy: IfNotPresent
           env:

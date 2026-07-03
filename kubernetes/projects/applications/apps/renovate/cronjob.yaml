@@ -39,8 +39,8 @@ spec:
               type: RuntimeDefault
           containers:
             - name: renovate
-              # renovate: datasource=docker depName=docker.io/renovate/renovate
-              image: registry.home/docker.io/renovate/renovate:43.250.0
+              # renovate: datasource=github-releases depName=renovatebot/renovate
+              image: registry.home/docker.io/renovate/renovate:43.251.0
               imagePullPolicy: IfNotPresent
               env:
                 - name: LOG_LEVEL

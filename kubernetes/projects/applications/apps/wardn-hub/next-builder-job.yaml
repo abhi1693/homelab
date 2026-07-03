@@ -37,8 +37,8 @@ spec:
         fsGroupChangePolicy: OnRootMismatch
       initContainers:
         - name: wait-for-api-rollout
-          # renovate: datasource=docker depName=ghcr.io/abhi1693/wardn-hub-backend
-          image: registry.home/ghcr.io/abhi1693/wardn-hub-backend:0.2.66
+          # renovate: datasource=github-releases depName=abhi1693/wardn-hub
+          image: registry.home/ghcr.io/abhi1693/wardn-hub-backend:0.2.69
           imagePullPolicy: IfNotPresent
           command:
             - python
@@ -68,8 +68,8 @@ spec:
               readOnly: true
       containers:
         - name: build-next-app
-          # renovate: datasource=docker depName=ghcr.io/abhi1693/wardn-hub-frontend
-          image: registry.home/ghcr.io/abhi1693/wardn-hub-frontend:0.2.66
+          # renovate: datasource=github-releases depName=abhi1693/wardn-hub
+          image: registry.home/ghcr.io/abhi1693/wardn-hub-frontend:0.2.69
           imagePullPolicy: IfNotPresent
           command:
             - /bin/sh

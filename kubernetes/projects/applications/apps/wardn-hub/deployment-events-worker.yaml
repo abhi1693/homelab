@@ -37,8 +37,8 @@ spec:
         kubernetes.io/arch: arm64
       initContainers:
         - name: wait-for-api-rollout
-          # renovate: datasource=docker depName=ghcr.io/abhi1693/wardn-hub-backend
-          image: registry.home/ghcr.io/abhi1693/wardn-hub-backend:0.2.66
+          # renovate: datasource=github-releases depName=abhi1693/wardn-hub
+          image: registry.home/ghcr.io/abhi1693/wardn-hub-backend:0.2.69
           imagePullPolicy: IfNotPresent
           command:
             - python
@@ -66,42 +66,6 @@ spec:
             - name: api-rollout-token
               mountPath: /var/run/secrets/wardn-hub-api-rollout
               readOnly: true
-        - name: wait-for-codex-login
-          # renovate: datasource=docker depName=ghcr.io/abhi1693/wardn-hub-backend
-          image: registry.home/ghcr.io/abhi1693/wardn-hub-backend:0.2.66
-          imagePullPolicy: IfNotPresent
-          command:
-            - sh
-            - -ec
-          args:
-            - |
-              for attempt in $(seq 1 180); do
-                if codex login status; then
-                  exit 0
-                fi
-                echo "Waiting for shared Codex login in /app/.codex (${attempt}/180)..."
-                sleep 10
-              done
-              echo "Timed out waiting for shared Codex login."
-              exit 1
-          resources:
-            requests:
-              cpu: 25m
-              memory: 128Mi
-            limits:
-              cpu: 250m
-              memory: 256Mi
-          securityContext:
-            allowPrivilegeEscalation: false
-            capabilities:
-              drop:
-                - ALL
-            runAsGroup: 999
-            runAsNonRoot: true
-            runAsUser: 999
-          volumeMounts:
-            - name: codex-config
-              mountPath: /app/.codex
       volumes:
         - name: api-rollout-script
           configMap:
@@ -119,13 +83,10 @@ spec:
                   items:
                     - key: ca.crt
                       path: ca.crt
-        - name: codex-config
-          persistentVolumeClaim:
-            claimName: wardn-hub-codex-config
       containers:
         - name: events-worker
-          # renovate: datasource=docker depName=ghcr.io/abhi1693/wardn-hub-backend
-          image: registry.home/ghcr.io/abhi1693/wardn-hub-backend:0.2.66
+          # renovate: datasource=github-releases depName=abhi1693/wardn-hub
+          image: registry.home/ghcr.io/abhi1693/wardn-hub-backend:0.2.69
           imagePullPolicy: IfNotPresent
           command:
             - python

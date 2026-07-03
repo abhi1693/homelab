@@ -5,7 +5,7 @@ cloudnative-pg:
     create: true
   image:
     repository: registry.home/ghcr.io/cloudnative-pg/cloudnative-pg
-    # renovate: datasource=docker depName=ghcr.io/cloudnative-pg/cloudnative-pg
+    # renovate: datasource=github-releases depName=cloudnative-pg/cloudnative-pg
     tag: 1.30.0
   config:
     clusterWide: true

@@ -11,7 +11,7 @@ imagePullSecret:
 qbitConfigImage:
   repository: registry.home/docker.io/curlimages/curl
   pullPolicy: IfNotPresent
-  # renovate: datasource=docker depName=docker.io/curlimages/curl
+  # renovate: datasource=github-releases depName=curl/curl-container
   tag: 8.21.0
 chartContext:
   appUrl: https://qbittorrent.media.home

@@ -62,41 +62,21 @@ spec:
 apiVersion: v1
 kind: Service
 metadata:
-  name: wardn-hub-fix-rejected-webhook
+  name: wardn-hub-codex-app-server
   namespace: wardn
   labels:
-    app.kubernetes.io/name: wardn-hub-fix-rejected-webhook
-    app.kubernetes.io/component: fix-rejected-webhook
+    app.kubernetes.io/name: wardn-hub-codex-app-server
+    app.kubernetes.io/component: codex-app-server
     app.kubernetes.io/part-of: wardn-hub
 spec:
   type: ClusterIP
   selector:
-    app.kubernetes.io/name: wardn-hub-fix-rejected-webhook
-    app.kubernetes.io/component: fix-rejected-webhook
+    app.kubernetes.io/name: wardn-hub-codex-app-server
+    app.kubernetes.io/component: codex-app-server
   ports:
-    - name: http
-      port: 8091
-      targetPort: http
-      protocol: TCP
----
-apiVersion: v1
-kind: Service
-metadata:
-  name: wardn-hub-review-webhook
-  namespace: wardn
-  labels:
-    app.kubernetes.io/name: wardn-hub-review-webhook
-    app.kubernetes.io/component: review-webhook
-    app.kubernetes.io/part-of: wardn-hub
-spec:
-  type: ClusterIP
-  selector:
-    app.kubernetes.io/name: wardn-hub-review-webhook
-    app.kubernetes.io/component: review-webhook
-  ports:
-    - name: http
-      port: 8090
-      targetPort: http
+    - name: websocket
+      port: 41237
+      targetPort: websocket
       protocol: TCP
 ---
 apiVersion: v1

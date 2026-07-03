@@ -159,16 +159,18 @@ spec:
         operator: In
         values:
           - wardn-hub-api
+          - wardn-hub-codex-app-server
           - wardn-hub-events-worker
-          - wardn-hub-fix-rejected-webhook
-          - wardn-hub-review-webhook
+          - wardn-hub-fix-rejected-worker
+          - wardn-hub-review-worker
       - key: app.kubernetes.io/component
         operator: In
         values:
           - api
+          - codex-app-server
           - events-worker
-          - fix-rejected-webhook
-          - review-webhook
+          - fix-rejected-worker
+          - review-worker
   policyTypes:
     - Egress
   egress:
@@ -218,22 +220,6 @@ spec:
       ports:
         - protocol: TCP
           port: 8080
-    - to:
-        - podSelector:
-            matchLabels:
-              app.kubernetes.io/name: wardn-hub-review-webhook
-              app.kubernetes.io/component: review-webhook
-      ports:
-        - protocol: TCP
-          port: 8090
-    - to:
-        - podSelector:
-            matchLabels:
-              app.kubernetes.io/name: wardn-hub-fix-rejected-webhook
-              app.kubernetes.io/component: fix-rejected-webhook
-      ports:
-        - protocol: TCP
-          port: 8091
     - to:
         - ipBlock:
             cidr: 0.0.0.0/0
@@ -289,172 +275,6 @@ spec:
 apiVersion: networking.k8s.io/v1
 kind: NetworkPolicy
 metadata:
-  name: wardn-hub-fix-rejected-webhook-ingress
-  namespace: wardn
-  labels:
-    app.kubernetes.io/name: wardn-hub-fix-rejected-webhook
-    app.kubernetes.io/part-of: wardn-hub
-spec:
-  podSelector:
-    matchLabels:
-      app.kubernetes.io/name: wardn-hub-fix-rejected-webhook
-      app.kubernetes.io/component: fix-rejected-webhook
-  policyTypes:
-    - Ingress
-  ingress:
-    - from:
-        - podSelector:
-            matchLabels:
-              app.kubernetes.io/name: wardn-hub-events-worker
-              app.kubernetes.io/component: events-worker
-        - namespaceSelector:
-            matchLabels:
-              kubernetes.io/metadata.name: cattle-monitoring-system
-          podSelector:
-            matchLabels:
-              app.kubernetes.io/name: prometheus
-              prometheus: rancher-monitoring-prometheus
-      ports:
-        - protocol: TCP
-          port: 8091
----
-apiVersion: networking.k8s.io/v1
-kind: NetworkPolicy
-metadata:
-  name: wardn-hub-fix-rejected-webhook-egress
-  namespace: wardn
-  labels:
-    app.kubernetes.io/name: wardn-hub-fix-rejected-webhook
-    app.kubernetes.io/part-of: wardn-hub
-spec:
-  podSelector:
-    matchLabels:
-      app.kubernetes.io/name: wardn-hub-fix-rejected-webhook
-      app.kubernetes.io/component: fix-rejected-webhook
-  policyTypes:
-    - Egress
-  egress:
-    - to:
-        - podSelector:
-            matchLabels:
-              app.kubernetes.io/name: wardn-hub-api
-              app.kubernetes.io/component: api
-      ports:
-        - protocol: TCP
-          port: 8080
-    - to:
-        - namespaceSelector:
-            matchLabels:
-              kubernetes.io/metadata.name: valkey
-          podSelector:
-            matchLabels:
-              app.kubernetes.io/instance: valkey
-              app.kubernetes.io/name: valkey
-      ports:
-        - protocol: TCP
-          port: 6379
-        - protocol: TCP
-          port: 26379
-    - to:
-        - ipBlock:
-            cidr: 0.0.0.0/0
-            except:
-              - 10.0.0.0/8
-              - 100.64.0.0/10
-              - 172.16.0.0/12
-              - 192.168.0.0/16
-      ports:
-        - protocol: TCP
-          port: 80
-        - protocol: TCP
-          port: 443
----
-apiVersion: networking.k8s.io/v1
-kind: NetworkPolicy
-metadata:
-  name: wardn-hub-review-webhook-ingress
-  namespace: wardn
-  labels:
-    app.kubernetes.io/name: wardn-hub-review-webhook
-    app.kubernetes.io/part-of: wardn-hub
-spec:
-  podSelector:
-    matchLabels:
-      app.kubernetes.io/name: wardn-hub-review-webhook
-      app.kubernetes.io/component: review-webhook
-  policyTypes:
-    - Ingress
-  ingress:
-    - from:
-        - podSelector:
-            matchLabels:
-              app.kubernetes.io/name: wardn-hub-events-worker
-              app.kubernetes.io/component: events-worker
-        - namespaceSelector:
-            matchLabels:
-              kubernetes.io/metadata.name: cattle-monitoring-system
-          podSelector:
-            matchLabels:
-              app.kubernetes.io/name: prometheus
-              prometheus: rancher-monitoring-prometheus
-      ports:
-        - protocol: TCP
-          port: 8090
----
-apiVersion: networking.k8s.io/v1
-kind: NetworkPolicy
-metadata:
-  name: wardn-hub-review-webhook-egress
-  namespace: wardn
-  labels:
-    app.kubernetes.io/name: wardn-hub-review-webhook
-    app.kubernetes.io/part-of: wardn-hub
-spec:
-  podSelector:
-    matchLabels:
-      app.kubernetes.io/name: wardn-hub-review-webhook
-      app.kubernetes.io/component: review-webhook
-  policyTypes:
-    - Egress
-  egress:
-    - to:
-        - podSelector:
-            matchLabels:
-              app.kubernetes.io/name: wardn-hub-api
-              app.kubernetes.io/component: api
-      ports:
-        - protocol: TCP
-          port: 8080
-    - to:
-        - namespaceSelector:
-            matchLabels:
-              kubernetes.io/metadata.name: valkey
-          podSelector:
-            matchLabels:
-              app.kubernetes.io/instance: valkey
-              app.kubernetes.io/name: valkey
-      ports:
-        - protocol: TCP
-          port: 6379
-        - protocol: TCP
-          port: 26379
-    - to:
-        - ipBlock:
-            cidr: 0.0.0.0/0
-            except:
-              - 10.0.0.0/8
-              - 100.64.0.0/10
-              - 172.16.0.0/12
-              - 192.168.0.0/16
-      ports:
-        - protocol: TCP
-          port: 80
-        - protocol: TCP
-          port: 443
----
-apiVersion: networking.k8s.io/v1
-kind: NetworkPolicy
-metadata:
   name: wardn-hub-prometheus-metrics-ingress
   namespace: wardn
   labels:
@@ -493,16 +313,88 @@ spec:
 apiVersion: networking.k8s.io/v1
 kind: NetworkPolicy
 metadata:
-  name: wardn-hub-codex-login-egress
+  name: wardn-hub-submission-worker-egress
   namespace: wardn
   labels:
-    app.kubernetes.io/name: wardn-hub-codex-login
+    app.kubernetes.io/name: wardn-hub-submission-worker
+    app.kubernetes.io/part-of: wardn-hub
+spec:
+  podSelector:
+    matchExpressions:
+      - key: app.kubernetes.io/name
+        operator: In
+        values:
+          - wardn-hub-fix-rejected-worker
+          - wardn-hub-review-worker
+      - key: app.kubernetes.io/component
+        operator: In
+        values:
+          - fix-rejected-worker
+          - review-worker
+  policyTypes:
+    - Egress
+  egress:
+    - to:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: postgresql
+          podSelector:
+            matchLabels:
+              cnpg.io/poolerName: postgresql-pooler-wardn-hub-rw
+      ports:
+        - protocol: TCP
+          port: 5432
+    - to:
+        - podSelector:
+            matchLabels:
+              app.kubernetes.io/name: wardn-hub-codex-app-server
+              app.kubernetes.io/component: codex-app-server
+      ports:
+        - protocol: TCP
+          port: 41237
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: wardn-hub-codex-app-server-ingress
+  namespace: wardn
+  labels:
+    app.kubernetes.io/name: wardn-hub-codex-app-server
     app.kubernetes.io/part-of: wardn-hub
 spec:
   podSelector:
     matchLabels:
-      app.kubernetes.io/name: wardn-hub-codex-login
-      app.kubernetes.io/component: codex-login
+      app.kubernetes.io/name: wardn-hub-codex-app-server
+      app.kubernetes.io/component: codex-app-server
+  policyTypes:
+    - Ingress
+  ingress:
+    - from:
+        - podSelector:
+            matchLabels:
+              app.kubernetes.io/name: wardn-hub-review-worker
+              app.kubernetes.io/component: review-worker
+        - podSelector:
+            matchLabels:
+              app.kubernetes.io/name: wardn-hub-fix-rejected-worker
+              app.kubernetes.io/component: fix-rejected-worker
+      ports:
+        - protocol: TCP
+          port: 41237
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: wardn-hub-codex-app-server-egress
+  namespace: wardn
+  labels:
+    app.kubernetes.io/name: wardn-hub-codex-app-server
+    app.kubernetes.io/part-of: wardn-hub
+spec:
+  podSelector:
+    matchLabels:
+      app.kubernetes.io/name: wardn-hub-codex-app-server
+      app.kubernetes.io/component: codex-app-server
   policyTypes:
     - Egress
   egress:
@@ -514,6 +406,14 @@ spec:
               - 100.64.0.0/10
               - 172.16.0.0/12
               - 192.168.0.0/16
+      ports:
+        - protocol: TCP
+          port: 80
+        - protocol: TCP
+          port: 443
+    - to:
+        - ipBlock:
+            cidr: ::/0
       ports:
         - protocol: TCP
           port: 80

@@ -32,7 +32,7 @@ spec:
             kubernetes.io/arch: arm64
           containers:
             - name: curl
-              # renovate: datasource=docker depName=docker.io/curlimages/curl
+              # renovate: datasource=github-releases depName=curl/curl-container
               image: registry.home/docker.io/curlimages/curl:8.21.0
               imagePullPolicy: IfNotPresent
               env:

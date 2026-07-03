@@ -1,0 +1,12 @@
+---
+exclude_paths:
+  - .cache/
+  - collections/
+  - infrastructure/ansible/collections/
+  - infrastructure/ansible/inventories/home/group_vars/*.sops.yml
+  - infrastructure/ansible/inventories/home/host_vars/*.sops.yml
+  - inventories/home/group_vars/*.sops.yml
+  - inventories/home/host_vars/*.sops.yml
+
+skip_list:
+  - yaml[line-length]
