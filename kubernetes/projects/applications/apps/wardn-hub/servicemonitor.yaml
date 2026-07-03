@@ -21,8 +21,6 @@ spec:
         values:
           - wardn-hub-api
           - wardn-hub-events-worker
-          - wardn-hub-review-webhook
-          - wardn-hub-fix-rejected-webhook
   endpoints:
     - port: http
       path: /metrics

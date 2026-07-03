@@ -1,0 +1,5 @@
+---
+ignored:
+  # This repo intentionally pins image tags and relies on upstream package
+  # repositories for fast-moving workspace and app image build dependencies.
+  - DL3008

@@ -59,7 +59,7 @@ spec:
               app.kubernetes.io/component: image-proxy
       containers:
         - name: imgproxy
-          # renovate: datasource=docker depName=ghcr.io/imgproxy/imgproxy
+          # renovate: datasource=github-releases depName=imgproxy/imgproxy
           image: registry.home/ghcr.io/imgproxy/imgproxy:v4.0.11
           imagePullPolicy: IfNotPresent
           envFrom:

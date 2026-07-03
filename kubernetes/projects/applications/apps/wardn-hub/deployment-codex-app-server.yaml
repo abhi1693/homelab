@@ -1,0 +1,209 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: wardn-hub-codex-app-server
+  namespace: wardn
+  labels:
+    app.kubernetes.io/name: wardn-hub-codex-app-server
+    app.kubernetes.io/component: codex-app-server
+    app.kubernetes.io/part-of: wardn-hub
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: wardn-hub-codex-app-server
+      app.kubernetes.io/component: codex-app-server
+  strategy:
+    type: Recreate
+  template:
+    metadata:
+      annotations:
+        home-lab.io/codex-app-server-wrapper-revision: "2026-07-03-otel-toml"
+      labels:
+        app.kubernetes.io/name: wardn-hub-codex-app-server
+        app.kubernetes.io/component: codex-app-server
+        app.kubernetes.io/part-of: wardn-hub
+    spec:
+      automountServiceAccountToken: false
+      securityContext:
+        fsGroup: 999
+        fsGroupChangePolicy: OnRootMismatch
+        seccompProfile:
+          type: RuntimeDefault
+      nodeSelector:
+        kubernetes.io/arch: arm64
+      hostAliases:
+        - ip: "172.64.146.15"
+          hostnames:
+            - auth.openai.com
+        - ip: "104.18.41.241"
+          hostnames:
+            - auth.openai.com
+      volumes:
+        - name: codex-runtime-home
+          emptyDir:
+            medium: Memory
+            sizeLimit: 512Mi
+        - name: codex-home
+          persistentVolumeClaim:
+            claimName: wardn-hub-codex-home
+        - name: codex-bwrap
+          emptyDir: {}
+        - name: codex-app-server-wrapper
+          configMap:
+            name: wardn-hub-codex-app-server-wrapper-v2
+            defaultMode: 0555
+      initContainers:
+        - name: install-codex-bubblewrap
+          image: node:24-bookworm-slim
+          imagePullPolicy: IfNotPresent
+          command:
+            - sh
+            - -ec
+          args:
+            - |
+              apt-get update
+              apt-get install -y --no-install-recommends bubblewrap
+              cp /usr/bin/bwrap /codex-bwrap/bwrap
+              chmod 0555 /codex-bwrap/bwrap
+          env:
+            - name: DEBIAN_FRONTEND
+              value: noninteractive
+          resources:
+            requests:
+              cpu: 100m
+              memory: 128Mi
+            limits:
+              memory: 512Mi
+          securityContext:
+            allowPrivilegeEscalation: false
+            runAsGroup: 0
+            runAsUser: 0
+            seccompProfile:
+              type: RuntimeDefault
+          volumeMounts:
+            - name: codex-bwrap
+              mountPath: /codex-bwrap
+      containers:
+        - name: codex-app-server
+          image: node:24-bookworm
+          imagePullPolicy: IfNotPresent
+          command:
+            - /opt/wardn/bin/codex-app-server-wrapper
+          env:
+            - name: CODEX_HOME
+              value: /codex-home
+            - name: CODEX_PERSISTENT_HOME
+              value: /codex-auth
+            - name: HOME
+              value: /tmp/codex-user
+            - name: NPM_CONFIG_PREFIX
+              value: /tmp/npm-global
+            - name: NPM_CONFIG_CACHE
+              value: /tmp/npm-cache
+            - name: NPM_CONFIG_AUDIT
+              value: "false"
+            - name: NPM_CONFIG_FUND
+              value: "false"
+            - name: NPM_CONFIG_UPDATE_NOTIFIER
+              value: "false"
+            - name: NO_UPDATE_NOTIFIER
+              value: "1"
+            - name: TMPDIR
+              value: /tmp/codex-tmp
+            - name: CODEX_VERSION
+              # renovate: datasource=npm depName=@openai/codex versioning=npm
+              value: 0.142.3
+            - name: CODEX_JQ_VERSION
+              # renovate: datasource=github-releases depName=jqlang/jq extractVersion=^jq-(?<version>.*)$
+              value: 1.8.2
+            - name: CODEX_JQ_SHA256
+              value: 8b85c817833814ddca00a144c33705546355afccf0cf39b188f3cdb48b852309
+            - name: CODEX_MODEL
+              value: gpt-5.4-mini
+            - name: CODEX_MODEL_REASONING_EFFORT
+              value: medium
+            - name: CODEX_WEB_SEARCH_MODE
+              value: live
+            - name: CODEX_HISTORY_PERSISTENCE
+              value: none
+            - name: CODEX_UNIFIED_EXEC
+              value: "false"
+            - name: CODEX_SHELL_SNAPSHOT
+              value: "false"
+            - name: CODEX_OTEL_ENVIRONMENT
+              value: production
+            - name: CODEX_OTEL_LOG_USER_PROMPT
+              value: "false"
+            - name: CODEX_OTEL_TRACE_EXPORTER
+              value: otlp-http
+            - name: CODEX_OTEL_TRACE_ENDPOINT
+              value: http://opentelemetry-collector.cattle-monitoring-system.svc.cluster.local:4318/v1/traces
+            - name: CODEX_OTEL_TRACE_PROTOCOL
+              value: binary
+            - name: CODEX_OTEL_METRICS_EXPORTER
+              value: otlp-http
+            - name: CODEX_OTEL_METRICS_ENDPOINT
+              value: http://opentelemetry-collector.cattle-monitoring-system.svc.cluster.local:4318/v1/metrics
+            - name: CODEX_OTEL_METRICS_PROTOCOL
+              value: binary
+            - name: RUST_LOG
+              value: codex_app_server=debug,codex_core=debug,codex_api=debug,codex_models_manager=debug,rmcp=info,warn
+            - name: CODEX_STATUS_TIMEOUT_SECONDS
+              value: "15"
+            - name: CODEX_LOGIN_FAILURE_SLEEP_SECONDS
+              value: "600"
+            - name: WARDN_HUB_CODEX_APP_SERVER_AUTH_TOKEN
+              valueFrom:
+                secretKeyRef:
+                  name: wardn-hub
+                  key: WARDN_HUB_CODEX_APP_SERVER_AUTH_TOKEN
+          ports:
+            - name: websocket
+              containerPort: 41237
+              protocol: TCP
+          resources:
+            requests:
+              cpu: 100m
+              memory: 256Mi
+            limits:
+              cpu: "1"
+              memory: 1Gi
+          startupProbe:
+            tcpSocket:
+              port: websocket
+            periodSeconds: 5
+            timeoutSeconds: 3
+            failureThreshold: 720
+          readinessProbe:
+            tcpSocket:
+              port: websocket
+            periodSeconds: 10
+            timeoutSeconds: 3
+            failureThreshold: 3
+          livenessProbe:
+            tcpSocket:
+              port: websocket
+            periodSeconds: 30
+            timeoutSeconds: 5
+            failureThreshold: 4
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop:
+                - ALL
+            runAsGroup: 999
+            runAsNonRoot: true
+            runAsUser: 999
+          volumeMounts:
+            - name: codex-runtime-home
+              mountPath: /codex-home
+            - name: codex-home
+              mountPath: /codex-auth
+            - name: codex-bwrap
+              mountPath: /usr/bin/bwrap
+              subPath: bwrap
+              readOnly: true
+            - name: codex-app-server-wrapper
+              mountPath: /opt/wardn/bin
+              readOnly: true

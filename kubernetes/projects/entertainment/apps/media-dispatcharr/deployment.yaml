@@ -68,7 +68,7 @@ spec:
             timeoutSeconds: 5
             failureThreshold: 6
         - name: dispatcharr
-          # renovate: datasource=docker depName=ghcr.io/dispatcharr/dispatcharr
+          # renovate: datasource=github-releases depName=Dispatcharr/Dispatcharr
           image: registry.home/ghcr.io/dispatcharr/dispatcharr:0.27.2
           imagePullPolicy: IfNotPresent
           envFrom:
@@ -134,7 +134,7 @@ spec:
             - name: tmp
               mountPath: /tmp
         - name: celery
-          # renovate: datasource=docker depName=ghcr.io/dispatcharr/dispatcharr
+          # renovate: datasource=github-releases depName=Dispatcharr/Dispatcharr
           image: registry.home/ghcr.io/dispatcharr/dispatcharr:0.27.2
           imagePullPolicy: IfNotPresent
           command:

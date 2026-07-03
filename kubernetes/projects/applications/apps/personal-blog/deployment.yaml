@@ -55,7 +55,7 @@ spec:
               app.kubernetes.io/component: web
       containers:
         - name: web
-          # renovate: datasource=docker depName=ghcr.io/abhi1693/personal-blog
+          # renovate: datasource=github-releases depName=abhi1693/personal-blog
           image: registry.home/ghcr.io/abhi1693/personal-blog:0.3.15
           imagePullPolicy: IfNotPresent
           envFrom:

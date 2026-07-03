@@ -32,3 +32,20 @@ spec:
   resources:
     requests:
       storage: 1Gi
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: wardn-hub-codex-home
+  namespace: wardn
+  labels:
+    app.kubernetes.io/name: wardn-hub-api
+    app.kubernetes.io/component: review-automation
+    app.kubernetes.io/part-of: wardn-hub
+spec:
+  accessModes:
+    - ReadWriteMany
+  storageClassName: longhorn
+  resources:
+    requests:
+      storage: 512Mi

@@ -1,0 +1,95 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: wardn-hub-review-worker
+  namespace: wardn
+  labels:
+    app.kubernetes.io/name: wardn-hub-review-worker
+    app.kubernetes.io/component: review-worker
+    app.kubernetes.io/part-of: wardn-hub
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: wardn-hub-review-worker
+      app.kubernetes.io/component: review-worker
+  strategy:
+    type: Recreate
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: wardn-hub-review-worker
+        app.kubernetes.io/component: review-worker
+        app.kubernetes.io/part-of: wardn-hub
+        wardn-hub-psql-client: "true"
+    spec:
+      automountServiceAccountToken: false
+      imagePullSecrets:
+        - name: harbor-registry
+      nodeSelector:
+        kubernetes.io/arch: arm64
+      containers:
+        - name: review-worker
+          # renovate: datasource=github-releases depName=abhi1693/wardn-hub
+          image: registry.home/ghcr.io/abhi1693/wardn-hub-backend:0.2.69
+          imagePullPolicy: IfNotPresent
+          command:
+            - sh
+            - -ec
+          args:
+            - |
+              while true; do
+                python -m app.cli.review_pending_submissions \
+                  --review-timeout 1200 \
+                  --auto-publish \
+                  --non-interactive \
+                  --verbose || true
+                sleep 60
+              done
+          envFrom:
+            - configMapRef:
+                name: wardn-hub
+            - secretRef:
+                name: wardn-hub
+          env:
+            - name: POSTGRES_USER
+              valueFrom:
+                secretKeyRef:
+                  name: wardn-hub-postgresql
+                  key: username
+            - name: POSTGRES_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: wardn-hub-postgresql
+                  key: password
+            - name: POSTGRES_DB
+              valueFrom:
+                secretKeyRef:
+                  name: wardn-hub-postgresql
+                  key: dbname
+            - name: WARDN_HUB_DATABASE_URL
+              value: postgresql+asyncpg://$(POSTGRES_USER):$(POSTGRES_PASSWORD)@postgresql-pooler-wardn-hub-rw.postgresql.svc.cluster.local:5432/$(POSTGRES_DB)
+            - name: WARDN_HUB_CODEX_APP_SERVER_URL
+              value: ws://wardn-hub-codex-app-server.wardn.svc.cluster.local:41237
+            - name: POD_NAME
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.name
+            - name: WARDN_HUB_OTEL_SERVICE_NAME
+              value: wardn-hub-review-worker
+            - name: WARDN_HUB_OTEL_RESOURCE_ATTRIBUTES
+              value: service.namespace=wardn-hub,deployment.environment.name=production,service.instance.id=$(POD_NAME),k8s.namespace.name=wardn,k8s.deployment.name=wardn-hub-review-worker,k8s.pod.name=$(POD_NAME),k8s.container.name=review-worker
+          resources:
+            requests:
+              cpu: 100m
+              memory: 512Mi
+            limits:
+              memory: 1Gi
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop:
+                - ALL
+            runAsGroup: 999
+            runAsNonRoot: true
+            runAsUser: 999

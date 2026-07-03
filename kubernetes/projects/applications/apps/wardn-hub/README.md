@@ -19,17 +19,39 @@ Authentication is configured for Clerk only through:
 Runtime secrets, Clerk keys, and PostgreSQL credentials are managed through
 `secrets.sops.yaml`.
 
-Submission review automation runs as `wardn-hub-review-webhook`. Its Wardn Hub
-API token and event signing secret are stored in
-`review-webhook-secrets.sops.yaml`; the webhook pod syncs the
-`submission.submitted` event rule on startup using those encrypted values.
+Submission review automation is DB-driven in Wardn Hub. Home-lab runs
+`wardn-hub-review-worker` and `wardn-hub-fix-rejected-worker` as long-lived
+worker Deployments. They do not expose webhook endpoints; each worker drains
+eligible submissions from PostgreSQL, talks to Codex app-server, then sleeps and
+checks again.
 
-Codex login is checked by the `wardn-hub-codex-login` Helm pre-install Job. It
-mounts `wardn-hub-codex-config` at `/app/.codex` and runs device auth only when
-the shared Codex state is missing. Backend automation pods mount the same PVC
-and wait for that login state before starting Codex-backed review work. The Job
-is intentionally not a pre-upgrade hook so routine image rollouts cannot block
-on interactive device auth.
+Codex review automation talks to `wardn-hub-codex-app-server` over its internal
+WebSocket service. The app-server pod uses the public Node image, installs the
+pinned `@openai/codex` version and checksum-verified `jq` release binary at
+startup, and stores device-auth state on the 512Mi `wardn-hub-codex-home` PVC
+through `CODEX_PERSISTENT_HOME=/codex-auth`.
+`CODEX_HOME=/codex-home` is an in-memory runtime volume, and the startup wrapper
+copies only `auth.json` from the PVC before launching Codex. `CODEX_MODEL`,
+`CODEX_MODEL_REASONING_EFFORT`, `CODEX_WEB_SEARCH_MODE`, and
+`CODEX_HISTORY_PERSISTENCE` are passed to Codex app-server as `model`,
+`model_reasoning_effort`, `web_search`, and `history.persistence` config
+overrides, so model selection, thinking level, first-party web search mode, and
+local history retention are controlled at the app-server boundary. `RUST_LOG`
+sets targeted app-server debug logging to stdout/stderr for `kubectl logs`;
+plaintext Codex log files are not enabled. `CODEX_UNIFIED_EXEC=false` and
+`CODEX_SHELL_SNAPSHOT=false` keep Codex on the non-unified shell runner because
+the unified exec path has failed pre-shell process creation in this container
+runtime.
+
+When the PVC has no valid login, the app-server pod stays unready while the
+Codex startup wrapper runs device authorization. The wrapper bounds
+`codex login status` checks, runs one foreground Node device-auth flow, and only
+continues into `codex app-server --listen ws://0.0.0.0:41237 --ws-auth
+capability-token` after auth validates. Watch the pod logs for the device code,
+complete the login, and the same container starts the WebSocket server. Review
+and rejected-submission fixer pods use `WARDN_HUB_CODEX_APP_SERVER_URL` and the
+shared `WARDN_HUB_CODEX_APP_SERVER_AUTH_TOKEN` secret to reach that service.
+They do not mount Codex credentials themselves.
 
 ## Observability
 

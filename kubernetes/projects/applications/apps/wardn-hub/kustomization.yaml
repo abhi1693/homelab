@@ -4,26 +4,26 @@ kind: Kustomization
 resources:
   - namespace.yaml
   - registry-secrets.sops.yaml
-  - fix-rejected-webhook-secrets.sops.yaml
   - mcp-registry-sync-secrets.sops.yaml
-  - review-webhook-secrets.sops.yaml
   - secrets.sops.yaml
   - scoring-secrets.sops.yaml
   - pvc.yaml
   - configmap.yaml
+  - configmap-codex-app-server-wrapper.yaml
   - api-rollout-waiter.yaml
   - next-builder-job.yaml
   - next-build-cleanup-cronjob.yaml
   - mcp-registry-sync-cronjob.yaml
-  - codex-login-job.yaml
+  - deployment-codex-app-server.yaml
   - deployment-api.yaml
   - deployment-events-worker.yaml
-  - deployment-fix-rejected-webhook.yaml
-  - deployment-review-webhook.yaml
+  - deployment-fix-rejected-worker.yaml
+  - deployment-review-worker.yaml
   - deployment-scoring.yaml
   - deployment-frontend.yaml
   - service.yaml
   - servicemonitor.yaml
   - grafana-dashboard.yaml
+  - grafana-codex-app-server-dashboard.yaml
   - ingress.yaml
   - networkpolicy.yaml

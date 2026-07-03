@@ -14,7 +14,7 @@ leaderElection:
 image:
   repository: registry.home/cr.strrl.dev/strrl/cloudflare-tunnel-ingress-controller
   pullPolicy: IfNotPresent
-  # renovate: datasource=docker depName=cr.strrl.dev/strrl/cloudflare-tunnel-ingress-controller
+  # renovate: datasource=github-releases depName=STRRL/cloudflare-tunnel-ingress-controller
   tag: 0.0.23
 imagePullSecrets:
   - name: harbor-registry
@@ -24,7 +24,7 @@ cloudflared:
   image:
     repository: registry.home/docker.io/cloudflare/cloudflared
     pullPolicy: IfNotPresent
-    # renovate: datasource=docker depName=docker.io/cloudflare/cloudflared
+    # renovate: datasource=github-releases depName=cloudflare/cloudflared
     tag: 2026.6.1
   resources:
     requests:
