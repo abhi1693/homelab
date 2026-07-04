@@ -60,3 +60,27 @@ HTTP/protobuf to the in-cluster `opentelemetry-collector` service in
 `cattle-monitoring-system`. The app-level ConfigMap enables tracing and defines
 the collector endpoint; each backend container sets its own service name and
 Kubernetes resource attributes so traces appear separately in Grafana Tempo.
+
+The Codex app-server wrapper writes `[analytics] enabled = true` and `[otel]`
+settings into the runtime `config.toml`. Codex log export is disabled with
+`CODEX_OTEL_EXPORTER=none`, user prompt export remains redacted, and Codex
+metrics are exported to the collector with `CODEX_OTEL_METRICS_EXPORTER=otlp-http`
+over HTTP/protobuf. The metrics of primary interest are:
+
+- `codex.api_request` and `codex.api_request.duration_ms`
+- `codex.sse_event` and `codex.sse_event.duration_ms`
+- `codex.websocket.request` and `codex.websocket.request.duration_ms`
+- `codex.websocket.event` and `codex.websocket.event.duration_ms`
+- `codex.tool.call` and `codex.tool.call.duration_ms`
+- turn-level metrics such as `codex.turn.e2e_duration_ms`,
+  `codex.turn.ttft.duration_ms`, `codex.turn.tool.call`, and
+  `codex.turn.token_usage`
+
+The collector forwards those OTLP metrics to Prometheus. Prometheus may expose
+the metric names with its OTLP name normalization, for example by translating
+dots to underscores. Unit-normalized duration names may also include an extra
+unit segment such as `_milliseconds` before Prometheus histogram suffixes.
+
+The shared OpenTelemetry collector converts delta-temporality metrics to
+cumulative before forwarding them to Prometheus. Without that conversion,
+Prometheus rejects Codex metric batches with invalid temporality/type errors.

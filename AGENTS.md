@@ -3,8 +3,8 @@
 ## Project Structure & Module Organization
 
 - `infrastructure/ansible/` owns cluster bootstrap and host configuration. Playbooks are in `playbooks/`, roles in `roles/<name>/`, and the home inventory in `inventories/home/`.
-- `kubernetes/` is the post-bootstrap desired state reconciled by Rancher Fleet. Project-scoped apps live in `kubernetes/projects/<project-slug>/apps/<app>/`, project metadata lives in `kubernetes/projects/<project-slug>/_project/`, Fleet control-plane bundles live in `kubernetes/fleet/<app>/`, and legacy app bundles still live in `kubernetes/apps/<app>/` while they are being migrated.
-- `coder/templates/python-3-12/` contains the Coder Terraform template for ARM64 Python 3.12 Kubernetes workspaces.
+- `kubernetes/` is the post-bootstrap desired state reconciled by Rancher Fleet. Project-scoped apps live in `kubernetes/projects/<project-slug>/apps/<app>/`, project metadata lives in `kubernetes/projects/<project-slug>/_project/`, and Fleet control-plane bundles live in `kubernetes/fleet/<app>/`.
+- `coder/templates/` contains ARM64 Coder Terraform templates for Node.js 22/24/26, NetBox plugin development, Python 3.12, and Ubuntu Desktop Kubernetes workspaces.
 - `infrastructure/network/unifi/` contains manual UniFi BGP configuration and operational notes.
 
 ## Build, Test, and Development Commands
@@ -27,7 +27,7 @@
 ## Testing Guidelines
 
 - This repo uses validation tasks rather than unit tests. Add or update `roles/<role>/tasks/validation.yml` when role behavior changes.
-- For Kubernetes manifests, prefer server-side dry runs when a cluster context is available: `kubectl apply --dry-run=server -f kubernetes/projects/<project>/apps/<app>/` or `kubectl apply --dry-run=server -f kubernetes/apps/<app>/` for legacy bundles.
+- For Kubernetes manifests, prefer server-side dry runs when a cluster context is available: `kubectl apply --dry-run=server -f kubernetes/projects/<project>/apps/<app>/`.
 - For Fleet apps, validate `fleet.yaml` together with referenced values and manifests.
 
 ## Cluster Change Policy

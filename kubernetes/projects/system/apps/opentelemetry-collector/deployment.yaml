@@ -36,7 +36,7 @@ spec:
   template:
     metadata:
       annotations:
-        home-lab.io/collector-config-revision: "2026-06-21-traces"
+        home-lab.io/collector-config-revision: "2026-07-03-delta-metrics"
       labels:
         app.kubernetes.io/name: opentelemetry-collector
         app.kubernetes.io/component: telemetry-pipeline

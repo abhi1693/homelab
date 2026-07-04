@@ -80,31 +80,28 @@ spec:
               protocol: TCP
           resources:
             requests:
-              cpu: 10m
-              memory: 128Mi
+              cpu: 25m
+              memory: 256Mi
             limits:
-              memory: 192Mi
+              memory: 768Mi
           startupProbe:
-            httpGet:
-              path: /
+            tcpSocket:
               port: http
             periodSeconds: 5
-            timeoutSeconds: 5
+            timeoutSeconds: 10
             failureThreshold: 60
           readinessProbe:
-            httpGet:
-              path: /
+            tcpSocket:
               port: http
             periodSeconds: 10
-            timeoutSeconds: 5
-            failureThreshold: 6
+            timeoutSeconds: 10
+            failureThreshold: 12
           livenessProbe:
-            httpGet:
-              path: /
+            tcpSocket:
               port: http
             periodSeconds: 30
-            timeoutSeconds: 5
-            failureThreshold: 4
+            timeoutSeconds: 10
+            failureThreshold: 10
           securityContext:
             allowPrivilegeEscalation: false
           volumeMounts:
