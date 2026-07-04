@@ -18,7 +18,7 @@ spec:
   template:
     metadata:
       annotations:
-        home-lab.io/codex-app-server-wrapper-revision: "2026-07-03-otel-toml"
+        home-lab.io/codex-app-server-wrapper-revision: "2026-07-03-otel-metrics"
       labels:
         app.kubernetes.io/name: wardn-hub-codex-app-server
         app.kubernetes.io/component: codex-app-server
@@ -131,8 +131,12 @@ spec:
               value: "false"
             - name: CODEX_SHELL_SNAPSHOT
               value: "false"
+            - name: CODEX_ANALYTICS_ENABLED
+              value: "true"
             - name: CODEX_OTEL_ENVIRONMENT
               value: production
+            - name: CODEX_OTEL_EXPORTER
+              value: none
             - name: CODEX_OTEL_LOG_USER_PROMPT
               value: "false"
             - name: CODEX_OTEL_TRACE_EXPORTER

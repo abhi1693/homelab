@@ -468,7 +468,6 @@ These services are not just "apps"; they are the platform other apps depend on.
 | PostgreSQL | Database | Shared relational database with app-specific roles and poolers. |
 | Valkey | Database | Shared cache/queue service with Sentinel. |
 | Harbor | Applications | Local registry and proxy/cache layer for images. |
-| Registry Artifacts | Applications | Controller for Harbor artifact discovery, retention, and mirroring. |
 | SOPS Secrets Operator | System | Converts encrypted SOPS resources into native Kubernetes Secrets. |
 | Rancher Monitoring | System | Prometheus, Grafana, Alertmanager, dashboards, and alert rules. |
 | Loki | System | Log aggregation. |
@@ -491,7 +490,6 @@ These services are not just "apps"; they are the platform other apps depend on.
 | OpenBao | Lightweight secret-management experiment for the Wardn namespace. | Longhorn PVC, Traefik ingress. |
 | Personal Blog | Public blog deployment. | Harbor image, Cloudflare Tunnel, Sanity revalidation secret. |
 | Portfolio | Public portfolio deployment. | Harbor image, Cloudflare Tunnel. |
-| Registry Artifacts | Controller for local Harbor artifact retention and mirroring. | Harbor API, PostgreSQL, GHCR credentials, local Traefik ingress. |
 | ShipyardHQ | Public commerce/content application with web, worker, image proxy, and build jobs. | PostgreSQL, Valkey, R2, Harbor, Longhorn build cache, Cloudflare Tunnel. |
 | Wardn Hub | Public AI/review platform with backend, frontend, workers, webhooks, and Codex login state. | PostgreSQL, OpenTelemetry, Harbor, Cloudflare Tunnel, Longhorn PVC. |
 
@@ -856,23 +854,33 @@ App and component deep dives:
 | [kubernetes/projects/database/apps/cnpg-operator/README.md](kubernetes/projects/database/apps/cnpg-operator/README.md) | CloudNativePG operator. |
 | [kubernetes/projects/database/apps/database-helm-repositories/README.md](kubernetes/projects/database/apps/database-helm-repositories/README.md) | Database Helm repository registrations. |
 | [kubernetes/projects/database/apps/postgresql/README.md](kubernetes/projects/database/apps/postgresql/README.md) | PostgreSQL cluster, roles, and poolers. |
+| [kubernetes/projects/database/apps/valkey/README.md](kubernetes/projects/database/apps/valkey/README.md) | Shared Valkey cache and queue service. |
 | [kubernetes/projects/entertainment/apps/media-dispatcharr/README.md](kubernetes/projects/entertainment/apps/media-dispatcharr/README.md) | Dispatcharr media workflow. |
 | [kubernetes/projects/entertainment/apps/media-do-squid-firewall/README.md](kubernetes/projects/entertainment/apps/media-do-squid-firewall/README.md) | Remote Squid allowlist automation. |
+| [kubernetes/projects/entertainment/apps/media-flaresolverr/README.md](kubernetes/projects/entertainment/apps/media-flaresolverr/README.md) | FlareSolverr indexer challenge helper. |
 | [kubernetes/projects/entertainment/apps/media-helm-repositories/README.md](kubernetes/projects/entertainment/apps/media-helm-repositories/README.md) | Media Helm repository registrations. |
 | [kubernetes/projects/entertainment/apps/media-jellyfin/README.md](kubernetes/projects/entertainment/apps/media-jellyfin/README.md) | Jellyfin media server. |
+| [kubernetes/projects/entertainment/apps/media-jellyseerr/README.md](kubernetes/projects/entertainment/apps/media-jellyseerr/README.md) | Jellyseerr media request portal. |
 | [kubernetes/projects/entertainment/apps/media-metube/README.md](kubernetes/projects/entertainment/apps/media-metube/README.md) | MeTube download UI. |
 | [kubernetes/projects/entertainment/apps/media-profilarr/README.md](kubernetes/projects/entertainment/apps/media-profilarr/README.md) | Profilarr media profile automation. |
+| [kubernetes/projects/entertainment/apps/media-prowlarr/README.md](kubernetes/projects/entertainment/apps/media-prowlarr/README.md) | Prowlarr indexer management. |
 | [kubernetes/projects/entertainment/apps/media-qbittorrent/README.md](kubernetes/projects/entertainment/apps/media-qbittorrent/README.md) | qBittorrent peer traffic and automation. |
+| [kubernetes/projects/entertainment/apps/media-radarr/README.md](kubernetes/projects/entertainment/apps/media-radarr/README.md) | Radarr movie library automation. |
 | [kubernetes/projects/entertainment/apps/media-ryokan/README.md](kubernetes/projects/entertainment/apps/media-ryokan/README.md) | Ryokan anime workflow. |
 | [kubernetes/projects/entertainment/apps/media-shoko/README.md](kubernetes/projects/entertainment/apps/media-shoko/README.md) | Shoko anime metadata workflow. |
+| [kubernetes/projects/entertainment/apps/media-sonarr/README.md](kubernetes/projects/entertainment/apps/media-sonarr/README.md) | Sonarr TV library automation. |
 | [kubernetes/projects/entertainment/apps/media-storage/README.md](kubernetes/projects/entertainment/apps/media-storage/README.md) | Media storage, libraries, and first-run wiring. |
 | [kubernetes/projects/home-automation/apps/cloudflare-tunnel-ingress-controller/README.md](kubernetes/projects/home-automation/apps/cloudflare-tunnel-ingress-controller/README.md) | Cloudflare Tunnel ingress controller. |
 | [kubernetes/projects/home-automation/apps/home-assistant/README.md](kubernetes/projects/home-automation/apps/home-assistant/README.md) | Home Assistant deployment. |
 | [kubernetes/projects/home-automation/apps/home-automation-helm-repositories/README.md](kubernetes/projects/home-automation/apps/home-automation-helm-repositories/README.md) | Home automation Helm repository registrations. |
 | [kubernetes/projects/home-automation/apps/netbox/README.md](kubernetes/projects/home-automation/apps/netbox/README.md) | NetBox application deployment. |
+| [kubernetes/projects/home-automation/apps/rack-ops-controllers/README.md](kubernetes/projects/home-automation/apps/rack-ops-controllers/README.md) | Rack and node automation controllers. |
 | [kubernetes/projects/home-automation/apps/ups-monitoring/README.md](kubernetes/projects/home-automation/apps/ups-monitoring/README.md) | UPS monitoring. |
+| [kubernetes/projects/system/apps/alloy-faro/README.md](kubernetes/projects/system/apps/alloy-faro/README.md) | Alloy Faro frontend telemetry collector. |
+| [kubernetes/projects/system/apps/alloy-logs/README.md](kubernetes/projects/system/apps/alloy-logs/README.md) | Alloy application log collector. |
 | [kubernetes/projects/system/apps/descheduler/README.md](kubernetes/projects/system/apps/descheduler/README.md) | Descheduler policy. |
 | [kubernetes/projects/system/apps/external-dns-unifi/README.md](kubernetes/projects/system/apps/external-dns-unifi/README.md) | ExternalDNS integration for UniFi DNS. |
+| [kubernetes/projects/system/apps/loki/README.md](kubernetes/projects/system/apps/loki/README.md) | Loki log backend. |
 | [kubernetes/projects/system/apps/opentelemetry-collector/README.md](kubernetes/projects/system/apps/opentelemetry-collector/README.md) | OpenTelemetry Collector. |
 | [kubernetes/projects/system/apps/pyroscope/README.md](kubernetes/projects/system/apps/pyroscope/README.md) | Pyroscope profiling. |
 | [kubernetes/projects/system/apps/rancher-backup/README.md](kubernetes/projects/system/apps/rancher-backup/README.md) | Rancher backup. |
@@ -890,6 +898,8 @@ Runbooks and architecture decisions:
 | [docs/architecture/adr-001-jellyfin-horizontal-scaling.md](docs/architecture/adr-001-jellyfin-horizontal-scaling.md) | Jellyfin horizontal scaling architecture decision. |
 | [docs/runbooks/fleet-namespace-psa-labels.md](docs/runbooks/fleet-namespace-psa-labels.md) | Fleet namespace ownership and Pod Security Admission label rollout guidance. |
 | [docs/runbooks/jellyfin-sqlite-to-postgresql-migration.md](docs/runbooks/jellyfin-sqlite-to-postgresql-migration.md) | Jellyfin SQLite-to-PostgreSQL migration rehearsal notes. |
+| [docs/runbooks/networking/laptop-wireguard-mtu-tls-handshake-timeouts.md](docs/runbooks/networking/laptop-wireguard-mtu-tls-handshake-timeouts.md) | WireGuard MTU diagnosis for Kubernetes API and `*.home` TLS timeouts. |
+| [docs/runbooks/storage/longhorn-disk-available-space-alerts.md](docs/runbooks/storage/longhorn-disk-available-space-alerts.md) | Longhorn disk schedulable-space alert diagnosis and mitigation. |
 
 ## Conventions
 

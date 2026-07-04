@@ -28,6 +28,7 @@ spec:
         app.kubernetes.io/part-of: wardn-hub
         wardn-hub-api-client: "true"
         wardn-hub-psql-client: "true"
+        wardn-hub-valkey-client: "true"
     spec:
       automountServiceAccountToken: false
       securityContext:
@@ -58,7 +59,7 @@ spec:
       initContainers:
         - name: migrate-db
           # renovate: datasource=github-releases depName=abhi1693/wardn-hub
-          image: registry.home/ghcr.io/abhi1693/wardn-hub-backend:0.2.69
+          image: registry.home/ghcr.io/abhi1693/wardn-hub-backend:0.2.82
           imagePullPolicy: IfNotPresent
           command:
             - alembic
@@ -105,7 +106,7 @@ spec:
       containers:
         - name: api
           # renovate: datasource=github-releases depName=abhi1693/wardn-hub
-          image: registry.home/ghcr.io/abhi1693/wardn-hub-backend:0.2.69
+          image: registry.home/ghcr.io/abhi1693/wardn-hub-backend:0.2.82
           imagePullPolicy: IfNotPresent
           envFrom:
             - configMapRef:
