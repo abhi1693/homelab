@@ -26,12 +26,20 @@ eligible submissions from PostgreSQL, talks to Codex app-server, then sleeps and
 checks again.
 
 Codex review automation talks to `wardn-hub-codex-app-server` over its internal
-WebSocket service. The app-server pod uses the public Node image, installs the
-pinned `@openai/codex` version and checksum-verified `jq` release binary at
-startup, and stores device-auth state on the 512Mi `wardn-hub-codex-home` PVC
-through `CODEX_PERSISTENT_HOME=/codex-auth`.
-`CODEX_HOME=/codex-home` is an in-memory runtime volume, and the startup wrapper
-copies only `auth.json` from the PVC before launching Codex. `CODEX_MODEL`,
+WebSocket service. The app-server pod uses the dedicated
+`ghcr.io/abhi1693/wardn-hub-codex-app-server` image, which preinstalls the
+pinned `@openai/codex` version plus `bubblewrap`, `ca-certificates`, `curl`,
+`git`, `ripgrep`, `jq`, and `python3`. Runtime auth and configuration are still
+injected only through environment variables, the `wardn-hub` secret, and the
+512Mi `wardn-hub-codex-home` PVC through `CODEX_PERSISTENT_HOME=/codex-auth`.
+`CODEX_HOME=/codex-home` is an ephemeral disk-backed runtime volume, and the
+startup wrapper copies only `auth.json` from the PVC before launching Codex.
+The image creates a writable `CODEX_WORKDIR=/tmp/codex-work` and starts Codex
+from there. The Codex container still runs privileged with an unconfined seccomp
+profile. This is required on the current Raspberry Pi/K3s nodes because
+unprivileged and setuid `bubblewrap` profiles cannot create the namespaces
+Codex needs for read-only tool sandboxes.
+`CODEX_MODEL`,
 `CODEX_MODEL_REASONING_EFFORT`, `CODEX_WEB_SEARCH_MODE`, and
 `CODEX_HISTORY_PERSISTENCE` are passed to Codex app-server as `model`,
 `model_reasoning_effort`, `web_search`, and `history.persistence` config

@@ -8,7 +8,7 @@ metadata:
     app.kubernetes.io/component: review-worker
     app.kubernetes.io/part-of: wardn-hub
 spec:
-  replicas: 1
+  replicas: 4
   selector:
     matchLabels:
       app.kubernetes.io/name: wardn-hub-review-worker
@@ -31,7 +31,7 @@ spec:
       containers:
         - name: review-worker
           # renovate: datasource=github-releases depName=abhi1693/wardn-hub
-          image: registry.home/ghcr.io/abhi1693/wardn-hub-backend:0.2.82
+          image: registry.home/ghcr.io/abhi1693/wardn-hub-backend:0.2.88
           imagePullPolicy: IfNotPresent
           command:
             - sh

@@ -9,7 +9,6 @@ resources:
   - scoring-secrets.sops.yaml
   - pvc.yaml
   - configmap.yaml
-  - configmap-codex-app-server-wrapper.yaml
   - api-rollout-waiter.yaml
   - next-builder-job.yaml
   - next-build-cleanup-cronjob.yaml

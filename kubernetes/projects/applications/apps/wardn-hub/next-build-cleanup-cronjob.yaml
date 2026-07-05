@@ -36,7 +36,7 @@ spec:
           containers:
             - name: cleanup-next-build-cache
               # renovate: datasource=github-releases depName=abhi1693/wardn-hub
-              image: registry.home/ghcr.io/abhi1693/wardn-hub-frontend:0.2.82
+              image: registry.home/ghcr.io/abhi1693/wardn-hub-frontend:0.2.88
               imagePullPolicy: IfNotPresent
               command:
                 - /bin/sh

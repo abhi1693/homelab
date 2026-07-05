@@ -18,7 +18,7 @@ spec:
   template:
     metadata:
       annotations:
-        home-lab.io/codex-app-server-wrapper-revision: "2026-07-03-otel-metrics"
+        home-lab.io/codex-app-server-wrapper-revision: "2026-07-04-dedicated-image"
       labels:
         app.kubernetes.io/name: wardn-hub-codex-app-server
         app.kubernetes.io/component: codex-app-server
@@ -42,54 +42,17 @@ spec:
       volumes:
         - name: codex-runtime-home
           emptyDir:
-            medium: Memory
-            sizeLimit: 512Mi
+            sizeLimit: 2Gi
         - name: codex-home
           persistentVolumeClaim:
             claimName: wardn-hub-codex-home
-        - name: codex-bwrap
-          emptyDir: {}
-        - name: codex-app-server-wrapper
-          configMap:
-            name: wardn-hub-codex-app-server-wrapper-v2
-            defaultMode: 0555
-      initContainers:
-        - name: install-codex-bubblewrap
-          image: node:24-bookworm-slim
-          imagePullPolicy: IfNotPresent
-          command:
-            - sh
-            - -ec
-          args:
-            - |
-              apt-get update
-              apt-get install -y --no-install-recommends bubblewrap
-              cp /usr/bin/bwrap /codex-bwrap/bwrap
-              chmod 0555 /codex-bwrap/bwrap
-          env:
-            - name: DEBIAN_FRONTEND
-              value: noninteractive
-          resources:
-            requests:
-              cpu: 100m
-              memory: 128Mi
-            limits:
-              memory: 512Mi
-          securityContext:
-            allowPrivilegeEscalation: false
-            runAsGroup: 0
-            runAsUser: 0
-            seccompProfile:
-              type: RuntimeDefault
-          volumeMounts:
-            - name: codex-bwrap
-              mountPath: /codex-bwrap
       containers:
         - name: codex-app-server
-          image: node:24-bookworm
+          # renovate: datasource=docker depName=ghcr.io/abhi1693/wardn-hub-codex-app-server
+          image: registry.home/ghcr.io/abhi1693/wardn-hub-codex-app-server:0.2.87
           imagePullPolicy: IfNotPresent
           command:
-            - /opt/wardn/bin/codex-app-server-wrapper
+            - /usr/local/bin/codex-app-server-wrapper
           env:
             - name: CODEX_HOME
               value: /codex-home
@@ -97,28 +60,12 @@ spec:
               value: /codex-auth
             - name: HOME
               value: /tmp/codex-user
-            - name: NPM_CONFIG_PREFIX
-              value: /tmp/npm-global
-            - name: NPM_CONFIG_CACHE
-              value: /tmp/npm-cache
-            - name: NPM_CONFIG_AUDIT
-              value: "false"
-            - name: NPM_CONFIG_FUND
-              value: "false"
-            - name: NPM_CONFIG_UPDATE_NOTIFIER
-              value: "false"
             - name: NO_UPDATE_NOTIFIER
               value: "1"
             - name: TMPDIR
               value: /tmp/codex-tmp
-            - name: CODEX_VERSION
-              # renovate: datasource=npm depName=@openai/codex versioning=npm
-              value: 0.142.3
-            - name: CODEX_JQ_VERSION
-              # renovate: datasource=github-releases depName=jqlang/jq extractVersion=^jq-(?<version>.*)$
-              value: 1.8.2
-            - name: CODEX_JQ_SHA256
-              value: 8b85c817833814ddca00a144c33705546355afccf0cf39b188f3cdb48b852309
+            - name: CODEX_WORKDIR
+              value: /tmp/codex-work
             - name: CODEX_MODEL
               value: gpt-5.4-mini
             - name: CODEX_MODEL_REASONING_EFFORT
@@ -192,22 +139,13 @@ spec:
             timeoutSeconds: 5
             failureThreshold: 4
           securityContext:
-            allowPrivilegeEscalation: false
-            capabilities:
-              drop:
-                - ALL
-            runAsGroup: 999
-            runAsNonRoot: true
-            runAsUser: 999
+            privileged: true
+            runAsGroup: 0
+            runAsUser: 0
+            seccompProfile:
+              type: Unconfined
           volumeMounts:
             - name: codex-runtime-home
               mountPath: /codex-home
             - name: codex-home
               mountPath: /codex-auth
-            - name: codex-bwrap
-              mountPath: /usr/bin/bwrap
-              subPath: bwrap
-              readOnly: true
-            - name: codex-app-server-wrapper
-              mountPath: /opt/wardn/bin
-              readOnly: true
