@@ -117,6 +117,7 @@ spec:
           - postgresql-pooler-netbox-rw
           - postgresql-pooler-shipyardhq-rw
           - postgresql-pooler-wardn-hub-rw
+          - postgresql-pooler-zitadel-rw
   egress:
     - toEntities:
         - kube-apiserver
@@ -281,6 +282,71 @@ spec:
           port: 53
         - protocol: TCP
           port: 53
+    - to:
+        - ipBlock:
+            cidr: 192.168.3.108/32
+        - ipBlock:
+            cidr: 192.168.3.191/32
+        - ipBlock:
+            cidr: 192.168.3.243/32
+      ports:
+        - protocol: TCP
+          port: 6443
+    - to:
+        - podSelector:
+            matchLabels:
+              cnpg.io/cluster: postgresql
+              cnpg.io/podRole: instance
+      ports:
+        - protocol: TCP
+          port: 5432
+    - to:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: kube-system
+          podSelector:
+            matchLabels:
+              k8s-app: kube-dns
+      ports:
+        - protocol: UDP
+          port: 53
+        - protocol: TCP
+          port: 53
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: postgresql-zitadel-pooler-access
+  namespace: postgresql
+  labels:
+    app.kubernetes.io/name: postgresql-pooler
+    app.kubernetes.io/part-of: postgresql
+    home-lab.io/client: zitadel
+spec:
+  podSelector:
+    matchLabels:
+      cnpg.io/poolerName: postgresql-pooler-zitadel-rw
+  policyTypes:
+    - Ingress
+    - Egress
+  ingress:
+    - from:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: zitadel
+          podSelector:
+            matchLabels:
+              app.kubernetes.io/instance: zitadel
+      ports:
+        - protocol: TCP
+          port: 5432
+  egress:
+    - to:
+        - ipBlock:
+            cidr: 10.43.0.1/32
+      ports:
+        - protocol: TCP
+          port: 443
     - to:
         - ipBlock:
             cidr: 192.168.3.108/32

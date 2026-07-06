@@ -17,6 +17,7 @@ spec:
     - kubernetes/projects/database/apps/cnpg-operator
     - kubernetes/projects/database/apps/cnpg-operator-registry-secrets
     - kubernetes/projects/database/apps/database-helm-repositories
+    - kubernetes/projects/database/apps/postgresql-zitadel-secrets
     - kubernetes/projects/database/apps/postgresql
     - kubernetes/projects/database/apps/postgresql-networkpolicy
     - kubernetes/projects/database/apps/postgresql-pooler-pdb

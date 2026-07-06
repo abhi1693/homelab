@@ -27,6 +27,7 @@ spec:
     - kubernetes/projects/applications/apps/renovate
     - kubernetes/projects/applications/apps/shipyardhq
     - kubernetes/projects/applications/apps/wardn-hub
+    - kubernetes/projects/applications/apps/zitadel
   correctDrift:
     enabled: true
     keepFailHistory: true

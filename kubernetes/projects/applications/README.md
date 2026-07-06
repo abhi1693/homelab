@@ -32,6 +32,7 @@ secret contract each app expects.
 | `portfolio` | Public portfolio site. | Cloudflare Tunnel at `abhimanyu-saharan.com`. | Harbor image, runtime config. |
 | `shipyardhq` | Public app with web, worker, image proxy, build job, and media storage. | Cloudflare Tunnel at `shipyardhq.dev` and image hostnames. | PostgreSQL, Valkey, R2, Longhorn build cache, Harbor image. |
 | `wardn-hub` | Wardn Hub backend, frontend, events worker, review webhook, and Codex-backed automation. | Cloudflare Tunnel at `hub.wardnai.dev`. | PostgreSQL, OpenTelemetry, Longhorn Codex state, Harbor image. |
+| `zitadel` | Central identity provider for app OIDC/SAML authentication. | Cloudflare Tunnel at `auth.abhimanyu-saharan.com`. | PostgreSQL, SOPS bootstrap secrets, monitoring. |
 
 ## Coupling Patterns
 

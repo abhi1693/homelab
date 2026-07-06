@@ -169,6 +169,18 @@ spec:
     - to:
         - namespaceSelector:
             matchLabels:
+              kubernetes.io/metadata.name: zitadel
+          podSelector:
+            matchLabels:
+              app.kubernetes.io/instance: zitadel
+      ports:
+        - protocol: TCP
+          port: 8080
+        - protocol: TCP
+          port: 3000
+    - to:
+        - namespaceSelector:
+            matchLabels:
               kubernetes.io/metadata.name: harbor
           podSelector:
             matchLabels:

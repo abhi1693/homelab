@@ -13,6 +13,7 @@ cluster:
     home-lab.io/firefly-role-reconcile: "20260614T085757Z"
     home-lab.io/harbor-postgresql-secret: external
     home-lab.io/postgresql-pvc-resize: "20260630T071000Z"
+    home-lab.io/zitadel-role-reconcile: "20260706T004400Z"
   primaryUpdateMethod: switchover
   primaryUpdateStrategy: unsupervised
   storage:
@@ -239,6 +240,18 @@ cluster:
       bypassrls: false
       passwordSecret:
         name: firefly-postgresql
+    - name: zitadel
+      ensure: present
+      login: true
+      connectionLimit: 24
+      superuser: false
+      createdb: false
+      createrole: false
+      inherit: true
+      replication: false
+      bypassrls: false
+      passwordSecret:
+        name: zitadel-postgresql
 backups:
   enabled: true
   endpointURL: https://492e25f5f18ef59e38763f58a78362f7.r2.cloudflarestorage.com
@@ -293,6 +306,9 @@ databases:
     databaseReclaimPolicy: retain
   - name: firefly
     owner: firefly
+    databaseReclaimPolicy: retain
+  - name: zitadel
+    owner: zitadel
     databaseReclaimPolicy: retain
 poolers:
   - name: jellyfin-rw
@@ -658,6 +674,53 @@ poolers:
               - labelSelector:
                   matchLabels:
                     cnpg.io/poolerName: postgresql-pooler-firefly-iii-rw
+                matchLabelKeys:
+                  - pod-template-hash
+                topologyKey: kubernetes.io/hostname
+        containers:
+          - name: pgbouncer
+            # renovate: datasource=docker depName=ghcr.io/cloudnative-pg/pgbouncer
+            image: registry.home/ghcr.io/cloudnative-pg/pgbouncer:1.25.2
+            resources:
+              requests:
+                cpu: 50m
+                memory: 128Mi
+              limits:
+                memory: 192Mi
+  - name: zitadel-rw
+    type: rw
+    poolMode: session
+    instances: 2
+    monitoring:
+      enabled: true
+      podMonitor:
+        enabled: true
+    parameters:
+      max_client_conn: "80"
+      default_pool_size: "8"
+    template:
+      metadata:
+        labels:
+          app.kubernetes.io/part-of: postgresql
+          home-lab.io/client: zitadel
+      spec:
+        nodeSelector:
+          kubernetes.io/arch: arm64
+        topologySpreadConstraints:
+          - maxSkew: 1
+            topologyKey: kubernetes.io/hostname
+            whenUnsatisfiable: DoNotSchedule
+            labelSelector:
+              matchLabels:
+                cnpg.io/poolerName: postgresql-pooler-zitadel-rw
+            matchLabelKeys:
+              - pod-template-hash
+        affinity:
+          podAntiAffinity:
+            requiredDuringSchedulingIgnoredDuringExecution:
+              - labelSelector:
+                  matchLabels:
+                    cnpg.io/poolerName: postgresql-pooler-zitadel-rw
                 matchLabelKeys:
                   - pod-template-hash
                 topologyKey: kubernetes.io/hostname

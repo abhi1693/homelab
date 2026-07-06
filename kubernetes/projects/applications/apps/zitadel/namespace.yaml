@@ -1,0 +1,17 @@
+---
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: zitadel
+  labels:
+    app.kubernetes.io/managed-by: Helm
+    app.kubernetes.io/part-of: zitadel
+    field.cattle.io/projectId: p-applications
+    kubernetes.io/metadata.name: zitadel
+    pod-security.kubernetes.io/audit: restricted
+    pod-security.kubernetes.io/warn: restricted
+  annotations:
+    field.cattle.io/projectId: local:p-applications
+    helm.sh/resource-policy: keep
+    meta.helm.sh/release-name: zitadel-helmop
+    meta.helm.sh/release-namespace: fleet-local

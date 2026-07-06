@@ -1,0 +1,174 @@
+replicaCount: 2
+
+imageRegistry: registry.home/docker.io
+
+image:
+  repository: registry.home/ghcr.io/zitadel/zitadel
+  # renovate: datasource=docker depName=ghcr.io/zitadel/zitadel
+  tag: v4.15.3
+  pullPolicy: IfNotPresent
+
+imagePullSecrets: []
+
+zitadel:
+  masterkeySecretName: zitadel-masterkey
+  configmapConfig:
+    ExternalDomain: auth.abhimanyu-saharan.com
+    ExternalPort: 443
+    ExternalSecure: true
+    TLS:
+      Enabled: false
+    FirstInstance:
+      Org:
+        Human:
+          UserName: admin
+          FirstName: Home
+          LastName: Lab Admin
+          Email: admin@abhimanyu-saharan.com
+          PasswordChangeRequired: true
+
+envVarsSecret: zitadel-env
+
+postgresql:
+  enabled: false
+
+initJob:
+  command: zitadel
+  activeDeadlineSeconds: 600
+  resources:
+    requests:
+      cpu: 100m
+      memory: 128Mi
+    limits:
+      memory: 256Mi
+
+setupJob:
+  activeDeadlineSeconds: 600
+  resources:
+    requests:
+      cpu: 150m
+      memory: 192Mi
+    limits:
+      memory: 384Mi
+  machinekeyWriter:
+    resources:
+      requests:
+        cpu: 25m
+        memory: 32Mi
+      limits:
+        memory: 96Mi
+
+cleanupJob:
+  resources:
+    requests:
+      cpu: 25m
+      memory: 32Mi
+    limits:
+      memory: 96Mi
+
+service:
+  type: ClusterIP
+  port: 8080
+  protocol: http2
+  appProtocol: kubernetes.io/h2c
+  annotations:
+    traefik.ingress.kubernetes.io/service.serversscheme: h2c
+
+ingress:
+  enabled: true
+  className: cloudflare-tunnel
+  hosts:
+    - host: auth.abhimanyu-saharan.com
+      paths:
+        - path: /
+          pathType: Prefix
+
+login:
+  enabled: true
+  replicaCount: 2
+  image:
+    repository: registry.home/ghcr.io/zitadel/zitadel-login
+    # renovate: datasource=docker depName=ghcr.io/zitadel/zitadel-login
+    tag: v4.15.3
+    pullPolicy: IfNotPresent
+  service:
+    type: ClusterIP
+    port: 3000
+    protocol: http
+    appProtocol: kubernetes.io/http
+  ingress:
+    enabled: true
+    className: cloudflare-tunnel
+    hosts:
+      - host: auth.abhimanyu-saharan.com
+        paths:
+          - path: /ui/v2/login
+            pathType: Prefix
+  pdb:
+    enabled: true
+    minAvailable: 1
+  metrics:
+    enabled: true
+    serviceMonitor:
+      enabled: true
+      scrapeInterval: 60s
+      scrapeTimeout: 10s
+  resources:
+    requests:
+      cpu: 50m
+      memory: 128Mi
+    limits:
+      memory: 256Mi
+  nodeSelector:
+    kubernetes.io/arch: arm64
+  topologySpreadConstraints:
+    - maxSkew: 1
+      topologyKey: kubernetes.io/hostname
+      whenUnsatisfiable: ScheduleAnyway
+      labelSelector:
+        matchLabels:
+          app.kubernetes.io/instance: zitadel
+
+resources:
+  requests:
+    cpu: 150m
+    memory: 384Mi
+  limits:
+    memory: 768Mi
+
+nodeSelector:
+  kubernetes.io/arch: arm64
+
+topologySpreadConstraints:
+  - maxSkew: 1
+    topologyKey: kubernetes.io/hostname
+    whenUnsatisfiable: ScheduleAnyway
+    labelSelector:
+      matchLabels:
+        app.kubernetes.io/instance: zitadel
+
+readinessProbe:
+  enabled: true
+  periodSeconds: 10
+  failureThreshold: 6
+
+livenessProbe:
+  enabled: true
+  periodSeconds: 10
+  failureThreshold: 6
+
+startupProbe:
+  enabled: true
+  periodSeconds: 5
+  failureThreshold: 60
+
+metrics:
+  enabled: true
+  serviceMonitor:
+    enabled: true
+    scrapeInterval: 60s
+    scrapeTimeout: 10s
+
+pdb:
+  enabled: true
+  minAvailable: 1
