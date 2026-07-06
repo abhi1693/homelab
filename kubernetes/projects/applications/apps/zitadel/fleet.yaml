@@ -1,0 +1,8 @@
+---
+name: zitadel-helmop
+defaultNamespace: fleet-local
+labels:
+  app.kubernetes.io/part-of: zitadel
+  home-lab.io/project-slug: applications
+helm:
+  takeOwnership: true

@@ -23,3 +23,16 @@ metadata:
 spec:
   enabled: true
   url: https://openbao.github.io/openbao-helm
+---
+apiVersion: catalog.cattle.io/v1
+kind: ClusterRepo
+metadata:
+  name: zitadel
+  labels:
+    app.kubernetes.io/name: zitadel
+    app.kubernetes.io/part-of: applications
+    app.kubernetes.io/component: helm-repository
+    home-lab.io/project-slug: applications
+spec:
+  enabled: true
+  url: https://charts.zitadel.com

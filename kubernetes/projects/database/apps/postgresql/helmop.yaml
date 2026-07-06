@@ -12,6 +12,7 @@ spec:
   dependsOn:
     - name: rancher-project-database
     - name: database-helm-repositories
+    - name: postgresql-zitadel-secrets
   labels:
     app.kubernetes.io/part-of: postgresql
     home-lab.io/project-slug: database

@@ -1,0 +1,46 @@
+---
+apiVersion: fleet.cattle.io/v1alpha1
+kind: HelmOp
+metadata:
+  name: zitadel
+  labels:
+    app.kubernetes.io/name: zitadel
+    app.kubernetes.io/part-of: zitadel
+    home-lab.io/project-slug: applications
+spec:
+  defaultNamespace: zitadel
+  dependsOn:
+    - name: rancher-project-applications
+    - name: applications-helm-repositories
+    - name: postgresql
+    - name: postgresql-networkpolicy
+    - name: postgresql-pooler-pdb
+  labels:
+    app.kubernetes.io/name: zitadel
+    app.kubernetes.io/part-of: zitadel
+    home-lab.io/project-slug: applications
+  targets:
+    - name: default
+      clusterGroup: default
+  targetRestrictions:
+    - name: default
+      clusterGroup: default
+  correctDrift:
+    enabled: true
+    keepFailHistory: true
+  downstreamResources:
+    - kind: ConfigMap
+      name: zitadel-values
+  helm:
+    releaseName: zitadel
+    repo: https://charts.zitadel.com
+    chart: zitadel
+    version: 10.0.4
+    timeoutSeconds: 900
+    takeOwnership: true
+    valuesFrom:
+      - configMapKeyRef:
+          name: zitadel-values
+          namespace: fleet-local
+          key: values.yaml
+    waitForJobs: true
