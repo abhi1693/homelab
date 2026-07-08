@@ -3,7 +3,7 @@ image:
   repository: registry.home/oci.trueforge.org/containerforge/qbittorrent
   pullPolicy: IfNotPresent
   # renovate: datasource=docker depName=oci.trueforge.org/containerforge/qbittorrent
-  tag: "5.2.2"
+  tag: "5.2.3"
 imagePullSecret:
   harbor-registry:
     enabled: true

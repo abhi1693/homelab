@@ -37,6 +37,7 @@ operator lifecycle.
 | `rancher-compliance-scans` | One-time and scheduled scan definitions. | Keeps compliance scan cadence in Git. |
 | `descheduler` | Periodic workload rebalancing. | Moves safe workloads away from overloaded nodes. |
 | `longhorn-recurring-jobs` | Recurring Longhorn jobs such as filesystem trim. | Handles storage maintenance policy. |
+| `longhorn-fstrim-labeler` | Labels Longhorn PVCs for recurring filesystem trim. | Ensures Helm and StatefulSet-created volumes participate in fstrim. |
 | `longhorn-volume-overrides` | One-time Longhorn volume policy corrections. | Applies narrow volume-level fixes without changing global Longhorn defaults. |
 
 ## Observability Coupling

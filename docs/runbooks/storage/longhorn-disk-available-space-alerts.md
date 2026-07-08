@@ -222,22 +222,54 @@ For active Longhorn data growth:
 - Avoid reducing Longhorn's disk reservation just to silence the alert. The
   current `25%` reservation is intentional root-disk headroom.
 
-For node-local containerd image cache growth, prune unused images on the
-affected hosts. This changes only node-local cache; running containers continue
-to use their images, and future starts may need to re-pull images.
+For node-local containerd image cache growth, prefer kubelet-managed image
+garbage collection over direct runtime cleanup. Kubernetes documents `crictl`
+as a node debugging tool and recommends configuring unused image cleanup through
+the kubelet configuration; external image garbage collection can interfere with
+kubelet behavior. In this repo, kubelet image age GC is managed by
+`k3s_server.kubelet_config.image_maximum_gc_age` and
+`k3s_agent.kubelet_config.image_maximum_gc_age` in
+`infrastructure/ansible/inventories/home/group_vars/k3s_nodes.yml`, rendered by
+the `k3s_server` and `k3s_agent` roles.
 
 ```sh
 cd infrastructure/ansible
 
-ansible 'server-1,server-3' \
-  -m ansible.builtin.shell \
-  -a 'sudo k3s crictl rmi --prune'
+ansible-playbook playbooks/k3s_server.yml \
+  -e k3s_server_target_hosts=server-2 \
+  -e k3s_server_entrypoint=validation
+ansible-playbook playbooks/k3s_agent.yml \
+  -e k3s_agent_target_hosts=worker-1 \
+  -e k3s_agent_entrypoint=validation
 ```
 
-If image cache growth repeats, add durable kubelet image garbage collection
-settings through `k3s_server.kubelet_args` and `k3s_agent.kubelet_args` in
-Ansible after validating the current K3s kubelet flags. Apply the K3s role only
-through the existing Ansible playbooks.
+If image cache growth repeats, tune the kubelet image GC policy in Git and
+apply it through the existing K3s playbooks. Prefer kubelet configuration fields
+over deprecated kubelet CLI flags.
+
+Treat direct CRI image pruning as a last-resort, break-glass action only. It is
+acceptable when all of the following are true:
+
+- Longhorn is close to losing scheduling or rebuild headroom on an affected
+  node.
+- Longhorn volumes are healthy, and active application data cleanup or capacity
+  expansion cannot reduce pressure quickly enough.
+- The local registry and upstream registry path are healthy enough to re-pull
+  images if a workload starts on the node after cleanup.
+- The target host pattern is narrow and explicit.
+
+This action changes only node-local runtime cache. It does not change Git state
+or Kubernetes workload objects, but it bypasses normal kubelet image lifecycle
+management and may increase image pull latency after cleanup.
+
+```sh
+cd infrastructure/ansible
+
+ansible-playbook playbooks/node_image_cache_prune.yml \
+  -e node_image_cache_prune_target_hosts=worker-1 \
+  -e node_image_cache_prune_confirm=true \
+  -e 'node_image_cache_prune_reason=Longhorn schedulable space below alert threshold'
+```
 
 If the alert remains after cache cleanup and app-level data cleanup, treat it
 as a capacity issue:
@@ -318,3 +350,6 @@ revert that commit and let Fleet reconcile the affected app.
 - `kubernetes/projects/system/apps/rancher-monitoring/longhorn-rules.yaml`
 - `infrastructure/ansible/inventories/home/group_vars/k3s_nodes.yml`
 - `infrastructure/ansible/roles/longhorn/templates/longhorn-helmchart.yaml.j2`
+- Kubernetes Garbage Collection: <https://kubernetes.io/docs/concepts/architecture/garbage-collection/>
+- Kubernetes crictl node debugging: <https://kubernetes.io/docs/tasks/debug/debug-cluster/crictl/>
+- Kubernetes KubeletConfiguration image GC fields: <https://kubernetes.io/docs/reference/config-api/kubelet-config.v1beta1/>

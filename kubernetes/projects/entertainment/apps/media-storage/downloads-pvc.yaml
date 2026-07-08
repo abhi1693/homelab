@@ -10,7 +10,7 @@ metadata:
     app.kubernetes.io/name: media-downloads
     app.kubernetes.io/part-of: media-stack
     recurring-job.longhorn.io/source: enabled
-    recurring-job.longhorn.io/weekly-filesystem-trim: enabled
+    recurring-job.longhorn.io/daily-filesystem-trim: enabled
 spec:
   accessModes:
     - ReadWriteMany
