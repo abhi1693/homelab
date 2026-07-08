@@ -60,10 +60,10 @@ directories (`/downloads/tv`, `/downloads/movies`, `/downloads/anime`,
 apps' UID/GID so qBittorrent category paths and Sonarr/Radarr remote-path
 health checks stay aligned.
 
-The `media-downloads` PVC opts into Longhorn's `weekly-filesystem-trim`
-RecurringJob. The job is declared in the system project and runs filesystem trim
-against attached Longhorn volumes that carry the matching recurring-job label,
-allowing Longhorn to reclaim blocks freed by torrent imports and cleanup.
+The `media-downloads` PVC opts into Longhorn's `daily-filesystem-trim`
+RecurringJob. The system project's `longhorn-fstrim-labeler` bundle also labels
+all Longhorn PVCs and matching Longhorn volumes for the same job, allowing
+Longhorn to reclaim blocks freed by torrent imports and cleanup.
 
 The qBittorrent clients also auto-add the `ngosang/trackerslist`
 `trackers_all.txt` public tracker fallback list to new downloads. This can help

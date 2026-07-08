@@ -1,0 +1,78 @@
+---
+- name: Confirm node image cache prune is intentional
+  hosts: localhost
+  gather_facts: false
+
+  pre_tasks:
+    - name: Assert node image cache prune target is explicit
+      ansible.builtin.assert:
+        that:
+          - node_image_cache_prune_target_hosts is defined
+          - node_image_cache_prune_target_hosts | trim != ''
+          - (node_image_cache_prune_target_hosts | trim) not in ['all', 'k3s_nodes', 'k3s_servers', 'k3s_workers']
+        fail_msg: >-
+          Set node_image_cache_prune_target_hosts to the specific affected host
+          pattern. Do not run this break-glass cleanup against broad inventory
+          groups such as all, k3s_nodes, k3s_servers, or k3s_workers.
+        success_msg: "Node image cache prune target is {{ node_image_cache_prune_target_hosts | default('unset') }}"
+
+    - name: Assert node image cache prune is confirmed
+      ansible.builtin.assert:
+        that:
+          - node_image_cache_prune_confirm | default(false) | bool
+          - node_image_cache_prune_reason is defined
+          - node_image_cache_prune_reason | trim != ''
+        fail_msg: >-
+          This playbook is a break-glass fallback for node-local image cache
+          pressure. Set node_image_cache_prune_confirm=true and provide
+          node_image_cache_prune_reason only after kubelet GC, application data
+          cleanup, and capacity options have been considered.
+        success_msg: "Node image cache prune confirmed: {{ node_image_cache_prune_reason | default('unset') }}"
+
+- name: Prune unused K3s image cache on selected nodes
+  hosts: "{{ node_image_cache_prune_target_hosts | default('k3s_nodes') }}"
+  become: true
+  gather_facts: false
+  serial: 1
+
+  tasks:
+    - name: Capture image cache usage before prune
+      ansible.builtin.shell: |
+        set -eu
+        hostname
+        df -h /var/lib/rancher/k3s/agent/containerd 2>/dev/null || true
+        du -xsh /var/lib/rancher/k3s/agent/containerd 2>/dev/null || true
+        /usr/local/bin/k3s crictl images -q 2>/dev/null | wc -l
+      args:
+        executable: /bin/sh
+      changed_when: false
+      register: node_image_cache_prune_before
+
+    - name: Show image cache usage before prune
+      ansible.builtin.debug:
+        var: node_image_cache_prune_before.stdout_lines
+
+    - name: Prune unused CRI images
+      ansible.builtin.command: /usr/local/bin/k3s crictl rmi --prune
+      register: node_image_cache_prune_result
+      changed_when: true
+
+    - name: Show prune result
+      ansible.builtin.debug:
+        var: node_image_cache_prune_result.stdout_lines
+
+    - name: Capture image cache usage after prune
+      ansible.builtin.shell: |
+        set -eu
+        hostname
+        df -h /var/lib/rancher/k3s/agent/containerd 2>/dev/null || true
+        du -xsh /var/lib/rancher/k3s/agent/containerd 2>/dev/null || true
+        /usr/local/bin/k3s crictl images -q 2>/dev/null | wc -l
+      args:
+        executable: /bin/sh
+      changed_when: false
+      register: node_image_cache_prune_after
+
+    - name: Show image cache usage after prune
+      ansible.builtin.debug:
+        var: node_image_cache_prune_after.stdout_lines

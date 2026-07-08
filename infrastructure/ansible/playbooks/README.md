@@ -24,6 +24,7 @@ subsystem.
 | `rancher.yml` | Rancher install and Fleet settings. |
 | `fleet_apps.yml` | Fleet GitRepo bootstrap for app and project bundles. |
 | `smartctl_exporter.yml` | Host-level S.M.A.R.T. metrics service setup. |
+| `node_image_cache_prune.yml` | Break-glass prune of unused K3s image cache on explicitly selected nodes. |
 
 ## How To Use Them
 
@@ -43,6 +44,15 @@ Run a validation entrypoint:
 
 ```sh
 ansible-playbook playbooks/cilium.yml -e cilium_entrypoint=validation
+```
+
+Run the node image cache prune playbook only as a targeted break-glass action:
+
+```sh
+ansible-playbook playbooks/node_image_cache_prune.yml \
+  -e node_image_cache_prune_target_hosts=worker-1 \
+  -e node_image_cache_prune_confirm=true \
+  -e 'node_image_cache_prune_reason=Longhorn schedulable space below alert threshold'
 ```
 
 ## Why Separate Playbooks Exist

@@ -1,0 +1,43 @@
+---
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: longhorn-fstrim-labeler-20260707
+  namespace: longhorn-system
+  labels:
+    app.kubernetes.io/name: longhorn-fstrim-labeler
+    app.kubernetes.io/component: one-time-labeler
+    app.kubernetes.io/part-of: longhorn
+    home-lab.io/project-slug: system
+spec:
+  activeDeadlineSeconds: 300
+  backoffLimit: 1
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: longhorn-fstrim-labeler
+        app.kubernetes.io/component: one-time-labeler
+        app.kubernetes.io/part-of: longhorn
+        home-lab.io/project-slug: system
+    spec:
+      serviceAccountName: longhorn-fstrim-labeler
+      restartPolicy: Never
+      automountServiceAccountToken: true
+      nodeSelector:
+        kubernetes.io/arch: arm64
+      containers:
+        - name: label-longhorn-fstrim-pvcs
+          image: rancher/kuberlr-kubectl:v7.0.1
+          imagePullPolicy: IfNotPresent
+          command:
+            - /bin/sh
+            - /scripts/label-longhorn-fstrim-pvcs.sh
+          volumeMounts:
+            - name: labeler-script
+              mountPath: /scripts
+              readOnly: true
+      volumes:
+        - name: labeler-script
+          configMap:
+            name: longhorn-fstrim-labeler
+            defaultMode: 0555
