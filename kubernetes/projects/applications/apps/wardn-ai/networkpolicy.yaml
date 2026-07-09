@@ -1,0 +1,188 @@
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: wardn-ai-api-ingress
+  namespace: wardn
+  labels:
+    app.kubernetes.io/name: wardn-ai-api
+    app.kubernetes.io/part-of: wardn-ai
+spec:
+  podSelector:
+    matchLabels:
+      app.kubernetes.io/name: wardn-ai-api
+      app.kubernetes.io/component: api
+  policyTypes:
+    - Ingress
+  ingress:
+    - from:
+        - podSelector:
+            matchLabels:
+              wardn-ai-api-client: "true"
+      ports:
+        - protocol: TCP
+          port: 8000
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: wardn-ai-frontend-ingress
+  namespace: wardn
+  labels:
+    app.kubernetes.io/name: wardn-ai-frontend
+    app.kubernetes.io/part-of: wardn-ai
+spec:
+  podSelector:
+    matchLabels:
+      app.kubernetes.io/name: wardn-ai-frontend
+      app.kubernetes.io/component: frontend
+  policyTypes:
+    - Ingress
+  ingress:
+    - from:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: kube-system
+          podSelector:
+            matchLabels:
+              app.kubernetes.io/name: traefik
+      ports:
+        - protocol: TCP
+          port: 3000
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: wardn-ai-api-egress
+  namespace: wardn
+  labels:
+    app.kubernetes.io/name: wardn-ai-api
+    app.kubernetes.io/part-of: wardn-ai
+spec:
+  podSelector:
+    matchLabels:
+      app.kubernetes.io/name: wardn-ai-api
+      app.kubernetes.io/component: api
+  policyTypes:
+    - Egress
+  egress:
+    - to:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: postgresql
+          podSelector:
+            matchLabels:
+              cnpg.io/poolerName: postgresql-pooler-wardn-ai-rw
+      ports:
+        - protocol: TCP
+          port: 5432
+    - to:
+        - podSelector:
+            matchLabels:
+              app.kubernetes.io/name: openbao
+              app.kubernetes.io/instance: openbao
+              component: server
+      ports:
+        - protocol: TCP
+          port: 8200
+    - to:
+        - ipBlock:
+            cidr: 0.0.0.0/0
+            except:
+              - 10.0.0.0/8
+              - 100.64.0.0/10
+              - 172.16.0.0/12
+              - 192.168.0.0/16
+      ports:
+        - protocol: TCP
+          port: 80
+        - protocol: TCP
+          port: 443
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: wardn-ai-openbao-ingress
+  namespace: wardn
+  labels:
+    app.kubernetes.io/name: wardn-ai-api
+    app.kubernetes.io/part-of: wardn-ai
+spec:
+  podSelector:
+    matchLabels:
+      app.kubernetes.io/name: openbao
+      app.kubernetes.io/instance: openbao
+      component: server
+  policyTypes:
+    - Ingress
+  ingress:
+    - from:
+        - podSelector:
+            matchLabels:
+              app.kubernetes.io/name: wardn-ai-api
+              app.kubernetes.io/component: api
+      ports:
+        - protocol: TCP
+          port: 8200
+---
+apiVersion: cilium.io/v2
+kind: CiliumNetworkPolicy
+metadata:
+  name: wardn-ai-openbao-kube-api-egress
+  namespace: wardn
+  labels:
+    app.kubernetes.io/name: wardn-ai-api
+    app.kubernetes.io/part-of: wardn-ai
+spec:
+  endpointSelector:
+    matchLabels:
+      app.kubernetes.io/name: openbao
+      app.kubernetes.io/instance: openbao
+      component: server
+  egress:
+    - toEntities:
+        - kube-apiserver
+      toPorts:
+        - ports:
+            - protocol: TCP
+              port: "443"
+            - protocol: TCP
+              port: "6443"
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: wardn-ai-frontend-egress
+  namespace: wardn
+  labels:
+    app.kubernetes.io/name: wardn-ai-frontend
+    app.kubernetes.io/part-of: wardn-ai
+spec:
+  podSelector:
+    matchLabels:
+      app.kubernetes.io/name: wardn-ai-frontend
+      app.kubernetes.io/component: frontend
+  policyTypes:
+    - Egress
+  egress:
+    - to:
+        - podSelector:
+            matchLabels:
+              app.kubernetes.io/name: wardn-ai-api
+              app.kubernetes.io/component: api
+      ports:
+        - protocol: TCP
+          port: 8000
+    - to:
+        - ipBlock:
+            cidr: 0.0.0.0/0
+            except:
+              - 10.0.0.0/8
+              - 100.64.0.0/10
+              - 172.16.0.0/12
+              - 192.168.0.0/16
+      ports:
+        - protocol: TCP
+          port: 80
+        - protocol: TCP
+          port: 443

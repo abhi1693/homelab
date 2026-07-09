@@ -36,3 +36,9 @@ Images are pulled through the local Harbor proxy cache:
 These proxy-cache projects are public in Harbor, so the controller and
 controller-managed `cloudflared` connector pods do not need an image pull
 Secret.
+
+The chart exposes connector metrics through the controller-managed
+`cloudflared` pods on port `44483`. `cloudflaredServiceMonitor.create` is enabled
+so Rancher Monitoring scrapes those metrics through a Prometheus Operator
+`ServiceMonitor`; the companion NetworkPolicy allows only the Rancher Monitoring
+Prometheus pods to reach that metrics port.

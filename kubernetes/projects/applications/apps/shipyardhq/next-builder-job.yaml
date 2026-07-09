@@ -33,10 +33,12 @@ spec:
       securityContext:
         fsGroup: 1001
         fsGroupChangePolicy: OnRootMismatch
+        seccompProfile:
+          type: RuntimeDefault
       containers:
         - name: build-next-app
           # renovate: datasource=docker depName=ghcr.io/abhi1693/shipyardhq
-          image: registry.home/ghcr.io/abhi1693/shipyardhq:1.4.87
+          image: registry.home/ghcr.io/abhi1693/shipyardhq:1.4.94
           imagePullPolicy: IfNotPresent
           command:
             - /bin/sh

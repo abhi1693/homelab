@@ -1,0 +1,26 @@
+---
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: wardn-ai-internal
+  namespace: wardn
+  labels:
+    app.kubernetes.io/name: wardn-ai-frontend
+    app.kubernetes.io/component: frontend
+    app.kubernetes.io/part-of: wardn-ai
+spec:
+  ingressClassName: traefik
+  rules:
+    - host: ai.home
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: wardn-ai-frontend
+                port:
+                  name: http
+  tls:
+    - hosts:
+        - ai.home

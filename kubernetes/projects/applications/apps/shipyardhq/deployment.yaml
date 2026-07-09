@@ -37,6 +37,8 @@ spec:
       securityContext:
         fsGroup: 1001
         fsGroupChangePolicy: OnRootMismatch
+        seccompProfile:
+          type: RuntimeDefault
       affinity:
         podAntiAffinity:
           preferredDuringSchedulingIgnoredDuringExecution:
@@ -58,7 +60,7 @@ spec:
       initContainers:
         - name: restore-next-build
           # renovate: datasource=docker depName=ghcr.io/abhi1693/shipyardhq
-          image: registry.home/ghcr.io/abhi1693/shipyardhq:1.4.87
+          image: registry.home/ghcr.io/abhi1693/shipyardhq:1.4.94
           imagePullPolicy: IfNotPresent
           command:
             - /bin/sh
@@ -294,7 +296,7 @@ spec:
       containers:
         - name: web
           # renovate: datasource=docker depName=ghcr.io/abhi1693/shipyardhq
-          image: registry.home/ghcr.io/abhi1693/shipyardhq:1.4.87
+          image: registry.home/ghcr.io/abhi1693/shipyardhq:1.4.94
           imagePullPolicy: IfNotPresent
           command:
             - node
@@ -370,9 +372,9 @@ spec:
               protocol: TCP
           resources:
             requests:
-              cpu: 700m
+              cpu: 490m
               ephemeral-storage: 2Gi
-              memory: 5Gi
+              memory: 3892Mi
             limits:
               ephemeral-storage: 6Gi
               memory: 8Gi
@@ -449,6 +451,9 @@ spec:
         - name: harbor-registry
       nodeSelector:
         kubernetes.io/arch: arm64
+      securityContext:
+        seccompProfile:
+          type: RuntimeDefault
       initContainers:
         - name: wait-for-web-rollout
           image: rancher/kubectl:v1.35.2
@@ -481,7 +486,7 @@ spec:
       containers:
         - name: worker
           # renovate: datasource=docker depName=ghcr.io/abhi1693/shipyardhq
-          image: registry.home/ghcr.io/abhi1693/shipyardhq:1.4.87
+          image: registry.home/ghcr.io/abhi1693/shipyardhq:1.4.94
           imagePullPolicy: IfNotPresent
           command:
             - npm
@@ -552,7 +557,7 @@ spec:
               value: postgresql://$(POSTGRES_USER):$(POSTGRES_PASSWORD)@postgresql-pooler-shipyardhq-rw.postgresql.svc.cluster.local:5432/$(POSTGRES_DB)?sslmode=disable
           resources:
             requests:
-              cpu: 140m
+              cpu: 110m
               memory: 608Mi
             limits:
               memory: 896Mi

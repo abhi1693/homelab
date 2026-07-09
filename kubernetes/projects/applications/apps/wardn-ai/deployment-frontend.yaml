@@ -1,18 +1,19 @@
+---
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: shipyardhq-imgproxy
-  namespace: shipyardhq
+  name: wardn-ai-frontend
+  namespace: wardn
   labels:
-    app.kubernetes.io/name: shipyardhq-imgproxy
-    app.kubernetes.io/component: image-proxy
-    app.kubernetes.io/part-of: shipyardhq
+    app.kubernetes.io/name: wardn-ai-frontend
+    app.kubernetes.io/component: frontend
+    app.kubernetes.io/part-of: wardn-ai
 spec:
-  replicas: 2
+  replicas: 1
   selector:
     matchLabels:
-      app.kubernetes.io/name: shipyardhq-imgproxy
-      app.kubernetes.io/component: image-proxy
+      app.kubernetes.io/name: wardn-ai-frontend
+      app.kubernetes.io/component: frontend
   strategy:
     type: RollingUpdate
     rollingUpdate:
@@ -21,22 +22,19 @@ spec:
   template:
     metadata:
       labels:
-        app.kubernetes.io/name: shipyardhq-imgproxy
-        app.kubernetes.io/component: image-proxy
-        app.kubernetes.io/part-of: shipyardhq
+        app.kubernetes.io/name: wardn-ai-frontend
+        app.kubernetes.io/component: frontend
+        app.kubernetes.io/part-of: wardn-ai
+        wardn-ai-api-client: "true"
     spec:
       automountServiceAccountToken: false
       imagePullSecrets:
         - name: harbor-registry
-      priorityClassName: shipyardhq-critical
       nodeSelector:
         kubernetes.io/arch: arm64
       securityContext:
-        fsGroup: 999
+        fsGroup: 1000
         fsGroupChangePolicy: OnRootMismatch
-        runAsGroup: 999
-        runAsNonRoot: true
-        runAsUser: 999
         seccompProfile:
           type: RuntimeDefault
       affinity:
@@ -46,8 +44,8 @@ spec:
               podAffinityTerm:
                 labelSelector:
                   matchLabels:
-                    app.kubernetes.io/name: shipyardhq-imgproxy
-                    app.kubernetes.io/component: image-proxy
+                    app.kubernetes.io/name: wardn-ai-frontend
+                    app.kubernetes.io/component: frontend
                 topologyKey: kubernetes.io/hostname
       topologySpreadConstraints:
         - maxSkew: 1
@@ -55,49 +53,43 @@ spec:
           whenUnsatisfiable: ScheduleAnyway
           labelSelector:
             matchLabels:
-              app.kubernetes.io/name: shipyardhq-imgproxy
-              app.kubernetes.io/component: image-proxy
+              app.kubernetes.io/name: wardn-ai-frontend
+              app.kubernetes.io/component: frontend
       containers:
-        - name: imgproxy
-          # renovate: datasource=github-releases depName=imgproxy/imgproxy
-          image: registry.home/ghcr.io/imgproxy/imgproxy:v4.0.11
+        - name: frontend
+          # renovate: datasource=github-releases depName=abhi1693/wardn-ai
+          image: registry.home/ghcr.io/abhi1693/wardn-ai-frontend:0.0.7
           imagePullPolicy: IfNotPresent
           envFrom:
             - configMapRef:
-                name: shipyardhq-imgproxy
-            - secretRef:
-                name: shipyardhq-imgproxy
+                name: wardn-ai-frontend
           ports:
             - name: http
-              containerPort: 8080
-              protocol: TCP
-            - name: metrics
-              containerPort: 9090
+              containerPort: 3000
               protocol: TCP
           resources:
             requests:
-              cpu: 40m
-              memory: 94Mi
+              cpu: 60m
+              memory: 304Mi
             limits:
-              cpu: 200m
-              memory: 192Mi
+              memory: 448Mi
           startupProbe:
             httpGet:
-              path: /health
+              path: /
               port: http
             periodSeconds: 5
             timeoutSeconds: 3
-            failureThreshold: 24
+            failureThreshold: 120
           readinessProbe:
             httpGet:
-              path: /health
+              path: /
               port: http
             periodSeconds: 10
             timeoutSeconds: 3
-            failureThreshold: 3
+            failureThreshold: 6
           livenessProbe:
             httpGet:
-              path: /health
+              path: /
               port: http
             periodSeconds: 30
             timeoutSeconds: 5
@@ -107,11 +99,6 @@ spec:
             capabilities:
               drop:
                 - ALL
-            readOnlyRootFilesystem: true
-          volumeMounts:
-            - name: tmp
-              mountPath: /tmp
-      volumes:
-        - name: tmp
-          emptyDir:
-            sizeLimit: 256Mi
+            runAsGroup: 1000
+            runAsNonRoot: true
+            runAsUser: 1000

@@ -25,13 +25,17 @@ cloudflared:
     repository: registry.home/docker.io/cloudflare/cloudflared
     pullPolicy: IfNotPresent
     # renovate: datasource=github-releases depName=cloudflare/cloudflared
-    tag: 2026.6.1
+    tag: 2026.7.0
   resources:
     requests:
       cpu: 65m
       memory: 48Mi
     limits:
       memory: 112Mi
+cloudflaredServiceMonitor:
+  create: true
+  interval: 30s
+  scrapeTimeout: 10s
 nodeSelector:
   kubernetes.io/arch: arm64
 affinity:
