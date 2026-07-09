@@ -1,0 +1,201 @@
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: wardn-ai-api
+  namespace: wardn
+  labels:
+    app.kubernetes.io/name: wardn-ai-api
+    app.kubernetes.io/component: api
+    app.kubernetes.io/part-of: wardn-ai
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: wardn-ai-api
+      app.kubernetes.io/component: api
+  strategy:
+    type: Recreate
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: wardn-ai-api
+        app.kubernetes.io/component: api
+        app.kubernetes.io/part-of: wardn-ai
+        wardn-ai-api-client: "true"
+        wardn-ai-psql-client: "true"
+    spec:
+      serviceAccountName: wardn-ai-api
+      automountServiceAccountToken: false
+      securityContext:
+        fsGroup: 1000
+        fsGroupChangePolicy: OnRootMismatch
+        seccompProfile:
+          type: RuntimeDefault
+      imagePullSecrets:
+        - name: harbor-registry
+      nodeSelector:
+        kubernetes.io/arch: arm64
+      affinity:
+        podAntiAffinity:
+          preferredDuringSchedulingIgnoredDuringExecution:
+            - weight: 100
+              podAffinityTerm:
+                labelSelector:
+                  matchLabels:
+                    app.kubernetes.io/name: wardn-ai-api
+                    app.kubernetes.io/component: api
+                topologyKey: kubernetes.io/hostname
+      topologySpreadConstraints:
+        - maxSkew: 1
+          topologyKey: kubernetes.io/hostname
+          whenUnsatisfiable: ScheduleAnyway
+          labelSelector:
+            matchLabels:
+              app.kubernetes.io/name: wardn-ai-api
+              app.kubernetes.io/component: api
+      initContainers:
+        - name: migrate-db
+          # renovate: datasource=github-releases depName=abhi1693/wardn-ai
+          image: registry.home/ghcr.io/abhi1693/wardn-ai-backend:0.0.7
+          imagePullPolicy: IfNotPresent
+          command:
+            - alembic
+            - upgrade
+            - head
+          envFrom:
+            - configMapRef:
+                name: wardn-ai-api
+            - secretRef:
+                name: wardn-ai
+          env:
+            - name: POSTGRES_USER
+              valueFrom:
+                secretKeyRef:
+                  name: wardn-ai-postgresql
+                  key: username
+            - name: POSTGRES_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: wardn-ai-postgresql
+                  key: password
+            - name: POSTGRES_DB
+              valueFrom:
+                secretKeyRef:
+                  name: wardn-ai-postgresql
+                  key: dbname
+            - name: WARDN_DATABASE_URL
+              value: postgresql+asyncpg://$(POSTGRES_USER):$(POSTGRES_PASSWORD)@postgresql-pooler-wardn-ai-rw.postgresql.svc.cluster.local:5432/$(POSTGRES_DB)
+          resources:
+            requests:
+              cpu: 50m
+              memory: 256Mi
+            limits:
+              cpu: 500m
+              memory: 512Mi
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop:
+                - ALL
+            runAsGroup: 1000
+            runAsNonRoot: true
+            runAsUser: 1000
+          volumeMounts:
+            - name: data
+              mountPath: /app/data
+      containers:
+        - name: api
+          # renovate: datasource=github-releases depName=abhi1693/wardn-ai
+          image: registry.home/ghcr.io/abhi1693/wardn-ai-backend:0.0.7
+          imagePullPolicy: IfNotPresent
+          envFrom:
+            - configMapRef:
+                name: wardn-ai-api
+            - secretRef:
+                name: wardn-ai
+          env:
+            - name: POSTGRES_USER
+              valueFrom:
+                secretKeyRef:
+                  name: wardn-ai-postgresql
+                  key: username
+            - name: POSTGRES_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: wardn-ai-postgresql
+                  key: password
+            - name: POSTGRES_DB
+              valueFrom:
+                secretKeyRef:
+                  name: wardn-ai-postgresql
+                  key: dbname
+            - name: WARDN_DATABASE_URL
+              value: postgresql+asyncpg://$(POSTGRES_USER):$(POSTGRES_PASSWORD)@postgresql-pooler-wardn-ai-rw.postgresql.svc.cluster.local:5432/$(POSTGRES_DB)
+          ports:
+            - name: http
+              containerPort: 8000
+              protocol: TCP
+          resources:
+            requests:
+              cpu: 100m
+              memory: 512Mi
+            limits:
+              cpu: "1"
+              memory: 1Gi
+          startupProbe:
+            httpGet:
+              path: /api/v1/health/ready
+              port: http
+            periodSeconds: 5
+            timeoutSeconds: 3
+            failureThreshold: 60
+          readinessProbe:
+            httpGet:
+              path: /api/v1/health/ready
+              port: http
+            periodSeconds: 10
+            timeoutSeconds: 3
+            failureThreshold: 6
+          livenessProbe:
+            httpGet:
+              path: /api/v1/health/live
+              port: http
+            periodSeconds: 30
+            timeoutSeconds: 5
+            failureThreshold: 4
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop:
+                - ALL
+            runAsGroup: 1000
+            runAsNonRoot: true
+            runAsUser: 1000
+          volumeMounts:
+            - name: data
+              mountPath: /app/data
+            - name: kubernetes-service-account
+              mountPath: /var/run/secrets/kubernetes.io/serviceaccount
+              readOnly: true
+      volumes:
+        - name: data
+          persistentVolumeClaim:
+            claimName: wardn-ai-data
+        - name: kubernetes-service-account
+          projected:
+            defaultMode: 0440
+            sources:
+              - serviceAccountToken:
+                  path: token
+                  expirationSeconds: 3600
+              - configMap:
+                  name: kube-root-ca.crt
+                  items:
+                    - key: ca.crt
+                      path: ca.crt
+              - downwardAPI:
+                  items:
+                    - path: namespace
+                      fieldRef:
+                        fieldPath: metadata.namespace

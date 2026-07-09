@@ -1,0 +1,16 @@
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: wardn-ai-data
+  namespace: wardn
+  labels:
+    app.kubernetes.io/name: wardn-ai
+    app.kubernetes.io/part-of: wardn-ai
+spec:
+  accessModes:
+    - ReadWriteMany
+  storageClassName: longhorn
+  resources:
+    requests:
+      storage: 5Gi

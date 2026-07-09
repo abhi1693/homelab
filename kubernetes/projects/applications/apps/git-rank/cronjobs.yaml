@@ -33,6 +33,10 @@ spec:
             - name: harbor-registry
           nodeSelector:
             kubernetes.io/arch: arm64
+          securityContext:
+            runAsNonRoot: true
+            seccompProfile:
+              type: RuntimeDefault
           containers:
             - name: trigger
               # renovate: datasource=docker depName=ghcr.io/abhi1693/git-rank-backend
@@ -73,6 +77,12 @@ spec:
                 limits:
                   cpu: 500m
                   memory: 512Mi
+              securityContext:
+                allowPrivilegeEscalation: false
+                capabilities:
+                  drop:
+                    - ALL
+                runAsNonRoot: true
 ---
 apiVersion: batch/v1
 kind: CronJob
@@ -109,6 +119,10 @@ spec:
             - name: harbor-registry
           nodeSelector:
             kubernetes.io/arch: arm64
+          securityContext:
+            runAsNonRoot: true
+            seccompProfile:
+              type: RuntimeDefault
           containers:
             - name: trigger
               # renovate: datasource=docker depName=ghcr.io/abhi1693/git-rank-backend
@@ -148,6 +162,12 @@ spec:
                 limits:
                   cpu: 500m
                   memory: 512Mi
+              securityContext:
+                allowPrivilegeEscalation: false
+                capabilities:
+                  drop:
+                    - ALL
+                runAsNonRoot: true
 ---
 apiVersion: batch/v1
 kind: CronJob
@@ -184,6 +204,10 @@ spec:
             - name: harbor-registry
           nodeSelector:
             kubernetes.io/arch: arm64
+          securityContext:
+            runAsNonRoot: true
+            seccompProfile:
+              type: RuntimeDefault
           containers:
             - name: trigger
               # renovate: datasource=docker depName=ghcr.io/abhi1693/git-rank-backend
@@ -223,6 +247,12 @@ spec:
                 limits:
                   cpu: 500m
                   memory: 512Mi
+              securityContext:
+                allowPrivilegeEscalation: false
+                capabilities:
+                  drop:
+                    - ALL
+                runAsNonRoot: true
 ---
 apiVersion: batch/v1
 kind: CronJob
@@ -259,6 +289,10 @@ spec:
             - name: harbor-registry
           nodeSelector:
             kubernetes.io/arch: arm64
+          securityContext:
+            runAsNonRoot: true
+            seccompProfile:
+              type: RuntimeDefault
           containers:
             - name: trigger
               # renovate: datasource=docker depName=ghcr.io/abhi1693/git-rank-backend
@@ -299,3 +333,9 @@ spec:
                 limits:
                   cpu: 500m
                   memory: 512Mi
+              securityContext:
+                allowPrivilegeEscalation: false
+                capabilities:
+                  drop:
+                    - ALL
+                runAsNonRoot: true

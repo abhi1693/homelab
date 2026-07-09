@@ -33,6 +33,9 @@ spec:
         - name: harbor-registry
       nodeSelector:
         kubernetes.io/arch: arm64
+      securityContext:
+        seccompProfile:
+          type: RuntimeDefault
       affinity:
         podAntiAffinity:
           preferredDuringSchedulingIgnoredDuringExecution:

@@ -35,6 +35,11 @@ The Prometheus selectors are left open so later app bundles can add
 `ServiceMonitor`, `PodMonitor`, `Probe`, `ScrapeConfig`, and `PrometheusRule`
 resources without changing the base monitoring install.
 
+`traefik-podmonitor` scrapes the bundled K3s Traefik pods in `kube-system` on
+their existing internal Prometheus metrics port, `9100`. The metrics port is not
+added to the public Traefik LoadBalancer service. `traefik-dashboard` provisions
+the official Kubernetes Traefik Grafana dashboard in `cattle-dashboards`.
+
 `cluster-capacity-planning-dashboard` is a Grafana dashboard for node purchase
 planning. It separates scheduler pressure from runtime pressure by comparing
 CPU/memory requests, limits, and actual usage against live allocatable node

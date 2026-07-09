@@ -26,6 +26,7 @@ spec:
     - kubernetes/projects/applications/apps/portfolio
     - kubernetes/projects/applications/apps/renovate
     - kubernetes/projects/applications/apps/shipyardhq
+    - kubernetes/projects/applications/apps/wardn-ai
     - kubernetes/projects/applications/apps/wardn-hub
     - kubernetes/projects/applications/apps/zitadel
   correctDrift:

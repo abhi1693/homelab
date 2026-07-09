@@ -33,7 +33,18 @@ spec:
   policyTypes:
     - Ingress
     - Egress
-  ingress: []
+  ingress:
+    - from:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: cattle-monitoring-system
+          podSelector:
+            matchLabels:
+              app.kubernetes.io/name: prometheus
+              prometheus: rancher-monitoring-prometheus
+      ports:
+        - protocol: TCP
+          port: 44483
   egress: []
 ---
 apiVersion: networking.k8s.io/v1

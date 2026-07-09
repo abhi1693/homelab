@@ -1,0 +1,17 @@
+---
+name: wardn-ai
+defaultNamespace: wardn
+labels:
+  app.kubernetes.io/part-of: wardn-ai
+  home-lab.io/project-slug: applications
+dependsOn:
+  - name: rancher-project-applications
+  - name: postgresql
+  - name: postgresql-networkpolicy
+  - name: postgresql-pooler-pdb
+  - name: wardn-hub
+helm:
+  takeOwnership: true
+  timeoutSeconds: 900
+  waitForJobs: true
+forceSyncGeneration: 1

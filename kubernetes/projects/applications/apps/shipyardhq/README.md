@@ -104,9 +104,8 @@ optimization.
 ## Availability
 
 The public web and imgproxy Deployments run two replicas with `maxUnavailable:
-0`, PodDisruptionBudgets requiring both replicas to stay available, and the
-`shipyardhq-critical` PriorityClass. That priority stays below system, Rancher,
-and Longhorn priorities but above normal application pods.
+0` and the `shipyardhq-critical` PriorityClass. That priority stays below
+system, Rancher, and Longhorn priorities but above normal application pods.
 
 The web pod's `next-build` `emptyDir` is sized for transient Next.js build
 output, not just the final restored artifact. Keep its ephemeral-storage
