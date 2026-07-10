@@ -1,0 +1,19 @@
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: k8s-recommendation-engine-shipyard-state
+  namespace: cluster-ops
+  labels:
+    app.kubernetes.io/name: k8s-recommendation-engine
+    app.kubernetes.io/instance: shipyard
+    app.kubernetes.io/part-of: cluster-ops
+    home-lab.io/project-slug: home-automation
+spec:
+  accessModes:
+    - ReadWriteOnce
+  storageClassName: longhorn
+  volumeName: pvc-c3df9932-c01e-4a67-a320-57a97ec455a6
+  resources:
+    requests:
+      storage: 1Gi

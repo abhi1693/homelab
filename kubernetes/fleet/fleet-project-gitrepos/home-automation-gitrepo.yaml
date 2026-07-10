@@ -17,6 +17,7 @@ spec:
     - kubernetes/projects/home-automation/apps/cloudflare-tunnel-ingress-controller
     - kubernetes/projects/home-automation/apps/cloudflare-tunnel-ingress-controller-networkpolicy
     - kubernetes/projects/home-automation/apps/cloudflare-tunnel-ingress-controller-secrets
+    - kubernetes/projects/home-automation/apps/cluster-ops
     - kubernetes/projects/home-automation/apps/home-assistant
     - kubernetes/projects/home-automation/apps/home-automation-helm-repositories
     - kubernetes/projects/home-automation/apps/rack-ops-controllers

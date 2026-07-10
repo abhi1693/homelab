@@ -59,7 +59,7 @@ spec:
       initContainers:
         - name: migrate-db
           # renovate: datasource=github-releases depName=abhi1693/wardn-hub
-          image: registry.home/ghcr.io/abhi1693/wardn-hub-backend:0.2.89
+          image: registry.home/ghcr.io/abhi1693/wardn-hub-backend:0.2.90
           imagePullPolicy: IfNotPresent
           command:
             - alembic
@@ -106,7 +106,7 @@ spec:
       containers:
         - name: api
           # renovate: datasource=github-releases depName=abhi1693/wardn-hub
-          image: registry.home/ghcr.io/abhi1693/wardn-hub-backend:0.2.89
+          image: registry.home/ghcr.io/abhi1693/wardn-hub-backend:0.2.90
           imagePullPolicy: IfNotPresent
           envFrom:
             - configMapRef:

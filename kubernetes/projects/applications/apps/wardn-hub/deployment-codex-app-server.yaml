@@ -18,7 +18,7 @@ spec:
   template:
     metadata:
       annotations:
-        home-lab.io/codex-app-server-wrapper-revision: "2026-07-04-dedicated-image"
+        home-lab.io/codex-app-server-wrapper-revision: "2026-07-10-tini-reaper"
       labels:
         app.kubernetes.io/name: wardn-hub-codex-app-server
         app.kubernetes.io/component: codex-app-server
@@ -49,10 +49,8 @@ spec:
       containers:
         - name: codex-app-server
           # renovate: datasource=docker depName=ghcr.io/abhi1693/wardn-hub-codex-app-server
-          image: registry.home/ghcr.io/abhi1693/wardn-hub-codex-app-server:0.2.87
+          image: registry.home/ghcr.io/abhi1693/wardn-hub-codex-app-server:0.2.90
           imagePullPolicy: IfNotPresent
-          command:
-            - /usr/local/bin/codex-app-server-wrapper
           env:
             - name: CODEX_HOME
               value: /codex-home

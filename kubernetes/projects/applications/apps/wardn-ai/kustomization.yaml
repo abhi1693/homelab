@@ -9,5 +9,6 @@ resources:
   - deployment-api.yaml
   - deployment-frontend.yaml
   - service.yaml
+  - certificate.yaml
   - ingress.yaml
   - networkpolicy.yaml
