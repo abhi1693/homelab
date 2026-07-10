@@ -58,7 +58,7 @@ spec:
       containers:
         - name: frontend
           # renovate: datasource=github-releases depName=abhi1693/wardn-ai
-          image: registry.home/ghcr.io/abhi1693/wardn-ai-frontend:0.0.7
+          image: registry.home/ghcr.io/abhi1693/wardn-ai-frontend:0.0.9
           imagePullPolicy: IfNotPresent
           envFrom:
             - configMapRef:

@@ -1,0 +1,46 @@
+---
+apiVersion: cert-manager.io/v1
+kind: ClusterIssuer
+metadata:
+  name: home-selfsigned
+  labels:
+    app.kubernetes.io/name: cert-manager-local-ca
+    app.kubernetes.io/part-of: cert-manager
+spec:
+  selfSigned: {}
+---
+apiVersion: cert-manager.io/v1
+kind: Certificate
+metadata:
+  name: home-local-ca
+  namespace: cert-manager
+  labels:
+    app.kubernetes.io/name: cert-manager-local-ca
+    app.kubernetes.io/part-of: cert-manager
+spec:
+  isCA: true
+  commonName: Home Lab Local CA
+  secretName: home-local-ca
+  duration: 87600h
+  renewBefore: 720h
+  privateKey:
+    algorithm: ECDSA
+    size: 256
+  usages:
+    - cert sign
+    - crl sign
+  issuerRef:
+    name: home-selfsigned
+    kind: ClusterIssuer
+    group: cert-manager.io
+---
+apiVersion: cert-manager.io/v1
+kind: ClusterIssuer
+metadata:
+  name: home-local-ca
+  labels:
+    app.kubernetes.io/name: cert-manager-local-ca
+    app.kubernetes.io/part-of: cert-manager
+spec:
+  ca:
+    secretName: home-local-ca

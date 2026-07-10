@@ -61,7 +61,7 @@ spec:
       initContainers:
         - name: wait-for-api-rollout
           # renovate: datasource=github-releases depName=abhi1693/wardn-hub
-          image: registry.home/ghcr.io/abhi1693/wardn-hub-backend:0.2.89
+          image: registry.home/ghcr.io/abhi1693/wardn-hub-backend:0.2.90
           imagePullPolicy: IfNotPresent
           command:
             - python
@@ -91,7 +91,7 @@ spec:
               readOnly: true
         - name: restore-next-build
           # renovate: datasource=github-releases depName=abhi1693/wardn-hub
-          image: registry.home/ghcr.io/abhi1693/wardn-hub-frontend:0.2.89
+          image: registry.home/ghcr.io/abhi1693/wardn-hub-frontend:0.2.90
           imagePullPolicy: IfNotPresent
           command:
             - /bin/sh
@@ -193,7 +193,7 @@ spec:
       containers:
         - name: frontend
           # renovate: datasource=github-releases depName=abhi1693/wardn-hub
-          image: registry.home/ghcr.io/abhi1693/wardn-hub-frontend:0.2.89
+          image: registry.home/ghcr.io/abhi1693/wardn-hub-frontend:0.2.90
           imagePullPolicy: IfNotPresent
           command:
             - node

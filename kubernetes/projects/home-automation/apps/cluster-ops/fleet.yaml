@@ -1,0 +1,19 @@
+---
+name: cluster-ops
+defaultNamespace: cluster-ops
+labels:
+  app.kubernetes.io/name: cluster-ops
+  app.kubernetes.io/part-of: home-automation
+  home-lab.io/project-slug: home-automation
+dependsOn:
+  - name: rancher-project-home-automation
+diff:
+  comparePatches:
+    - apiVersion: v1
+      kind: PersistentVolumeClaim
+      name: k8s-recommendation-engine-shipyard-state
+      namespace: cluster-ops
+      jsonPointers:
+        - /spec/volumeName
+helm:
+  takeOwnership: true

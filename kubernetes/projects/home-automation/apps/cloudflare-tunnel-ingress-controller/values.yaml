@@ -25,7 +25,7 @@ cloudflared:
     repository: registry.home/docker.io/cloudflare/cloudflared
     pullPolicy: IfNotPresent
     # renovate: datasource=github-releases depName=cloudflare/cloudflared
-    tag: 2026.7.0
+    tag: 2026.7.1
   resources:
     requests:
       cpu: 65m

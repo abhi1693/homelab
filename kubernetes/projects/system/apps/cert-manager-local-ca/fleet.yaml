@@ -1,0 +1,7 @@
+---
+name: cert-manager-local-ca
+defaultNamespace: cert-manager
+labels:
+  app.kubernetes.io/name: cert-manager-local-ca
+  app.kubernetes.io/part-of: cert-manager
+  home-lab.io/project-slug: system

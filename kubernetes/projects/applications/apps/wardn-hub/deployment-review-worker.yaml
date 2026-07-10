@@ -31,7 +31,7 @@ spec:
       containers:
         - name: review-worker
           # renovate: datasource=github-releases depName=abhi1693/wardn-hub
-          image: registry.home/ghcr.io/abhi1693/wardn-hub-backend:0.2.89
+          image: registry.home/ghcr.io/abhi1693/wardn-hub-backend:0.2.90
           imagePullPolicy: IfNotPresent
           command:
             - sh
