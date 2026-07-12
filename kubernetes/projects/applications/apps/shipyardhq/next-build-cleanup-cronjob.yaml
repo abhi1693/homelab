@@ -38,7 +38,7 @@ spec:
           containers:
             - name: cleanup-next-build-cache
               # renovate: datasource=docker depName=ghcr.io/abhi1693/shipyardhq
-              image: registry.home/ghcr.io/abhi1693/shipyardhq:1.4.95
+              image: registry.home/ghcr.io/abhi1693/shipyardhq:1.4.96
               imagePullPolicy: IfNotPresent
               command:
                 - /bin/sh

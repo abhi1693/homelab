@@ -114,6 +114,11 @@ spec:
             - secretRef:
                 name: wardn-hub
           env:
+            - name: GITHUB_TOKEN
+              valueFrom:
+                secretKeyRef:
+                  name: wardn-hub-github
+                  key: GITHUB_TOKEN
             - name: POSTGRES_USER
               valueFrom:
                 secretKeyRef:
