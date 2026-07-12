@@ -86,6 +86,11 @@ spec:
                 - "100"
                 - --verbose
               env:
+                - name: GITHUB_TOKEN
+                  valueFrom:
+                    secretKeyRef:
+                      name: wardn-hub-github
+                      key: GITHUB_TOKEN
                 - name: WARDN_HUB_TOKEN
                   valueFrom:
                     secretKeyRef:
