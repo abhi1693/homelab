@@ -118,6 +118,8 @@ extraConfig:
 housekeeping:
   enabled: true
   timezone: Asia/Kolkata
+  successfulJobsHistoryLimit: 0
+  failedJobsHistoryLimit: 0
   nodeSelector:
     kubernetes.io/arch: arm64
   resources:

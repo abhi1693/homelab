@@ -64,3 +64,13 @@ spec:
           annotations:
             summary: qBittorrent Smart Queues selected workers are effectively idle
             description: Smart Queues has selectable torrents, no selected worker is meeting the productive threshold, and aggregate selected throughput is below half of one productive worker.
+        - alert: QbittorrentSmartQueuesMetadataBacklogStuck
+          expr: |
+            max(qbt_guard_candidate_count{namespace="media", job="qbittorrent-smart-queues", type="metadata_unknown"}) > 0
+            and max(qbt_guard_candidate_count{namespace="media", job="qbittorrent-smart-queues", type="metadata_bootstrap_available"}) == 0
+          for: 2h
+          labels:
+            severity: warning
+          annotations:
+            summary: qBittorrent Smart Queues metadata backlog is stuck
+            description: Unknown-size magnets remain queued, but none has been available for metadata discovery for two hours. Check storage reserve, metadata cooldowns, qBittorrent preallocation, and tracker reachability.

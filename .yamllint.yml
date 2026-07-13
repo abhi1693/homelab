@@ -15,6 +15,8 @@ rules:
     min-spaces-from-content: 1
   document-start: disable
   empty-lines: disable
+  indentation:
+    indent-sequences: whatever
   key-duplicates: disable
   line-length: disable
   truthy:

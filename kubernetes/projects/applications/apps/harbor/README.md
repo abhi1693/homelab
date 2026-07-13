@@ -9,6 +9,7 @@ Fleet deploys Harbor with the official chart in the Applications project.
 - public ingress: none
 - local ingress: `http://registry.home` via Traefik
 - registry storage: chart-managed Longhorn RWX PVC, `30Gi`
+- Trivy cache: chart-managed Longhorn RWO PVC, `8Gi`
 - PostgreSQL: `postgresql-pooler-harbor-rw.postgresql.svc.cluster.local`
 - Valkey: `valkey.valkey.svc.cluster.local:26379` Sentinel set `valkey`
 

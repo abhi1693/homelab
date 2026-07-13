@@ -1,0 +1,562 @@
+---
+apiVersion: apiextensions.k8s.io/v1
+kind: CustomResourceDefinition
+metadata:
+  annotations:
+    controller-gen.kubebuilder.io/version: v0.20.1
+  name: applicationprofiles.k8s-recommendation-engine.io
+spec:
+  group: k8s-recommendation-engine.io
+  names:
+    categories:
+    - k8s-recommendation-engine
+    kind: ApplicationProfile
+    listKind: ApplicationProfileList
+    plural: applicationprofiles
+    shortNames:
+    - aprof
+    singular: applicationprofile
+  scope: Namespaced
+  versions:
+  - additionalPrinterColumns:
+    - jsonPath: .spec.namespace
+      name: Target
+      type: string
+    - jsonPath: .status.conditions[?(@.type=="Ready")].status
+      name: Ready
+      type: string
+    - jsonPath: .status.summary.healthy
+      name: Healthy
+      type: integer
+    - jsonPath: .metadata.creationTimestamp
+      name: Age
+      type: date
+    name: v1alpha1
+    schema:
+      openAPIV3Schema:
+        description: ApplicationProfile is the Schema for applicationprofiles.
+        properties:
+          apiVersion:
+            description: |-
+              APIVersion defines the versioned schema of this representation of an object.
+              Servers should convert recognized schemas to the latest internal value, and
+              may reject unrecognized values.
+              More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources
+            type: string
+          kind:
+            description: |-
+              Kind is a string value representing the REST resource this object represents.
+              Servers may infer this from the endpoint the client submits requests to.
+              Cannot be updated.
+              In CamelCase.
+              More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds
+            type: string
+          metadata:
+            type: object
+          spec:
+            description: ApplicationProfileSpec defines one independently reconciled
+              application profile.
+            properties:
+              git:
+                description: Git identifies the Fleet source repository for proposed
+                  changes.
+                properties:
+                  basePath:
+                    type: string
+                  branch:
+                    type: string
+                  mode:
+                    type: string
+                  provider:
+                    type: string
+                  repository:
+                    type: string
+                type: object
+              metricProfiles:
+                additionalProperties:
+                  properties:
+                    description:
+                      type: string
+                    signals:
+                      additionalProperties:
+                        properties:
+                          query:
+                            minLength: 1
+                            type: string
+                          required:
+                            type: boolean
+                        required:
+                        - query
+                        type: object
+                      minProperties: 1
+                      type: object
+                  required:
+                  - signals
+                  type: object
+                description: MetricProfiles contains named Prometheus query templates
+                  referenced by workloads and shared signals.
+                minProperties: 1
+                type: object
+              namespace:
+                description: Namespace is the namespace containing all target workloads.
+                minLength: 1
+                type: string
+              reconcileInterval:
+                description: ReconcileInterval overrides the controller's default
+                  interval for this profile.
+                type: string
+              sharedSignals:
+                description: SharedSignals are application-level signals reused by
+                  workload decisions.
+                items:
+                  properties:
+                    metricProfileRef:
+                      minLength: 1
+                      type: string
+                    name:
+                      minLength: 1
+                      type: string
+                    required:
+                      type: boolean
+                    vars:
+                      additionalProperties:
+                        type: string
+                      type: object
+                  required:
+                  - metricProfileRef
+                  - name
+                  type: object
+                type: array
+              stateKey:
+                description: |-
+                  StateKey overrides the namespace/name identity used for persisted learning state.
+                  Set this only when migrating an existing file-based profile database.
+                minLength: 1
+                type: string
+              suspend:
+                description: Suspend stops reconciliation without deleting the profile
+                  or its status.
+                type: boolean
+              workloads:
+                description: Workloads contains the independently analyzed workload
+                  targets.
+                items:
+                  properties:
+                    bounds:
+                      properties:
+                        cpu:
+                          properties:
+                            maxDecreasePercent:
+                              minimum: 0
+                              type: integer
+                            maxIncreasePercent:
+                              minimum: 0
+                              type: integer
+                            minChangePercent:
+                              minimum: 0
+                              type: number
+                          type: object
+                        memory:
+                          properties:
+                            maxDecreasePercent:
+                              minimum: 0
+                              type: integer
+                            maxIncreasePercent:
+                              minimum: 0
+                              type: integer
+                            minChangePercent:
+                              minimum: 0
+                              type: number
+                          type: object
+                        replicas:
+                          properties:
+                            max:
+                              minimum: 0
+                              type: integer
+                            maxDecreasePercent:
+                              minimum: 0
+                              type: integer
+                            maxIncreasePercent:
+                              minimum: 0
+                              type: integer
+                            min:
+                              minimum: 0
+                              type: integer
+                          type: object
+                      type: object
+                    helmValues:
+                      description: |-
+                        HelmValues maps recommendation fields to existing scalar keys in a Helm values file.
+                        When set, SourceFile is treated as Helm values instead of a rendered Kubernetes manifest.
+                      properties:
+                        paths:
+                          description: Paths maps recommendation fields to ordered
+                            YAML mapping keys.
+                          minProperties: 1
+                          properties:
+                            cpuRequest:
+                              description: CPURequest is the path to the chart value
+                                that renders the target container CPU request.
+                              items:
+                                minLength: 1
+                                type: string
+                              minItems: 1
+                              type: array
+                            memoryRequest:
+                              description: MemoryRequest is the path to the chart
+                                value that renders the target container memory request.
+                              items:
+                                minLength: 1
+                                type: string
+                              minItems: 1
+                              type: array
+                            replicas:
+                              description: Replicas is the path to the chart value
+                                that renders Deployment spec.replicas.
+                              items:
+                                minLength: 1
+                                type: string
+                              minItems: 1
+                              type: array
+                          type: object
+                      required:
+                      - paths
+                      type: object
+                    metricProfileRef:
+                      minLength: 1
+                      type: string
+                    name:
+                      minLength: 1
+                      type: string
+                    policy:
+                      properties:
+                        availabilityRecovery:
+                          properties:
+                            cooldown:
+                              type: string
+                            enabled:
+                              type: boolean
+                            failureGracePeriod:
+                              type: string
+                            maxAttemptsPerHour:
+                              minimum: 0
+                              type: integer
+                          type: object
+                        confidence:
+                          properties:
+                            minAutoCommit:
+                              maximum: 1
+                              minimum: 0
+                              type: number
+                          type: object
+                        maxProposalsPerDay:
+                          minimum: 0
+                          type: integer
+                        maxProposalsPerHour:
+                          minimum: 0
+                          type: integer
+                        safety:
+                          properties:
+                            allowAutoCommit:
+                              items:
+                                enum:
+                                - low_risk
+                                - medium_risk
+                                - high_risk
+                                type: string
+                              type: array
+                            maxDecreaseRisk:
+                              enum:
+                              - low_risk
+                              - medium_risk
+                              - high_risk
+                              type: string
+                            urgentBypassAllowed:
+                              type: boolean
+                          type: object
+                      type: object
+                    scaling:
+                      properties:
+                        cpu:
+                          type: boolean
+                        memory:
+                          type: boolean
+                        replicas:
+                          type: boolean
+                      type: object
+                    sourceFile:
+                      type: string
+                    targetRef:
+                      properties:
+                        apiVersion:
+                          default: apps/v1
+                          type: string
+                        kind:
+                          enum:
+                          - Deployment
+                          type: string
+                        name:
+                          minLength: 1
+                          type: string
+                      required:
+                      - kind
+                      - name
+                      type: object
+                    vars:
+                      additionalProperties:
+                        type: string
+                      type: object
+                  required:
+                  - metricProfileRef
+                  - name
+                  - targetRef
+                  type: object
+                  x-kubernetes-validations:
+                  - message: sourceFile is required when helmValues is configured
+                    rule: '!has(self.helmValues) || (has(self.sourceFile) && size(self.sourceFile)
+                      > 0)'
+                  - message: helmValues.paths.replicas is required when replica scaling
+                      is enabled
+                    rule: '!has(self.helmValues) || !has(self.scaling) || !has(self.scaling.replicas)
+                      || !self.scaling.replicas || has(self.helmValues.paths.replicas)'
+                  - message: helmValues.paths.cpuRequest is required when CPU scaling
+                      is enabled
+                    rule: '!has(self.helmValues) || !has(self.scaling) || !has(self.scaling.cpu)
+                      || !self.scaling.cpu || has(self.helmValues.paths.cpuRequest)'
+                  - message: helmValues.paths.memoryRequest is required when memory
+                      scaling is enabled
+                    rule: '!has(self.helmValues) || !has(self.scaling) || !has(self.scaling.memory)
+                      || !self.scaling.memory || has(self.helmValues.paths.memoryRequest)'
+                minItems: 1
+                type: array
+            required:
+            - metricProfiles
+            - namespace
+            - workloads
+            type: object
+          status:
+            description: ApplicationProfileStatus is a bounded summary of the most
+              recent reconciliation.
+            properties:
+              conditions:
+                items:
+                  description: Condition contains details for one aspect of the current
+                    state of this API Resource.
+                  properties:
+                    lastTransitionTime:
+                      description: |-
+                        lastTransitionTime is the last time the condition transitioned from one status to another.
+                        This should be when the underlying condition changed.  If that is not known, then using the time when the API field changed is acceptable.
+                      format: date-time
+                      type: string
+                    message:
+                      description: |-
+                        message is a human readable message indicating details about the transition.
+                        This may be an empty string.
+                      maxLength: 32768
+                      type: string
+                    observedGeneration:
+                      description: |-
+                        observedGeneration represents the .metadata.generation that the condition was set based upon.
+                        For instance, if .metadata.generation is currently 12, but the .status.conditions[x].observedGeneration is 9, the condition is out of date
+                        with respect to the current state of the instance.
+                      format: int64
+                      minimum: 0
+                      type: integer
+                    reason:
+                      description: |-
+                        reason contains a programmatic identifier indicating the reason for the condition's last transition.
+                        Producers of specific condition types may define expected values and meanings for this field,
+                        and whether the values are considered a guaranteed API.
+                        The value should be a CamelCase string.
+                        This field may not be empty.
+                      maxLength: 1024
+                      minLength: 1
+                      pattern: ^[A-Za-z]([A-Za-z0-9_,:]*[A-Za-z0-9_])?$
+                      type: string
+                    status:
+                      description: status of the condition, one of True, False, Unknown.
+                      enum:
+                      - "True"
+                      - "False"
+                      - Unknown
+                      type: string
+                    type:
+                      description: type of condition in CamelCase or in foo.example.com/CamelCase.
+                      maxLength: 316
+                      pattern: ^([a-z0-9]([-a-z0-9]*[a-z0-9])?(\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*/)?(([A-Za-z0-9][-A-Za-z0-9_.]*)?[A-Za-z0-9])$
+                      type: string
+                  required:
+                  - lastTransitionTime
+                  - message
+                  - reason
+                  - status
+                  - type
+                  type: object
+                type: array
+                x-kubernetes-list-map-keys:
+                - type
+                x-kubernetes-list-type: map
+              git:
+                properties:
+                  ahead:
+                    format: int32
+                    type: integer
+                  behind:
+                    format: int32
+                    type: integer
+                  branch:
+                    type: string
+                  dirty:
+                    type: boolean
+                  diverged:
+                    type: boolean
+                  errors:
+                    items:
+                      type: string
+                    type: array
+                  status:
+                    type: string
+                type: object
+              lastAttemptTime:
+                format: date-time
+                type: string
+              lastSuccessfulTime:
+                format: date-time
+                type: string
+              nextReconcileTime:
+                format: date-time
+                type: string
+              observedGeneration:
+                format: int64
+                type: integer
+              proposal:
+                properties:
+                  blockReasons:
+                    items:
+                      type: string
+                    type: array
+                  blocked:
+                    type: boolean
+                  branch:
+                    type: string
+                  commit:
+                    type: string
+                  errors:
+                    items:
+                      type: string
+                    type: array
+                  message:
+                    type: string
+                  needed:
+                    type: boolean
+                  pushed:
+                    type: boolean
+                type: object
+              summary:
+                properties:
+                  blocked:
+                    format: int32
+                    type: integer
+                  degraded:
+                    format: int32
+                    type: integer
+                  emergencies:
+                    format: int32
+                    type: integer
+                  healthy:
+                    format: int32
+                    type: integer
+                  unhealthy:
+                    format: int32
+                    type: integer
+                  workloads:
+                    format: int32
+                    type: integer
+                type: object
+              workloads:
+                items:
+                  properties:
+                    blocked:
+                      type: boolean
+                    confidence:
+                      type: number
+                    currentCpuRequest:
+                      type: string
+                    currentMemoryRequest:
+                      type: string
+                    currentReplicas:
+                      format: int32
+                      type: integer
+                    emergency:
+                      type: boolean
+                    metricsCondition:
+                      type: string
+                    name:
+                      type: string
+                    patch:
+                      description: Patch summarizes Git source planning without storing
+                        the potentially large diff.
+                      properties:
+                        blockReasons:
+                          items:
+                            type: string
+                          type: array
+                        blocked:
+                          type: boolean
+                        errors:
+                          items:
+                            type: string
+                          type: array
+                        needed:
+                          type: boolean
+                        sourceFile:
+                          type: string
+                        sourceFormat:
+                          type: string
+                      type: object
+                    readyReplicas:
+                      format: int32
+                      type: integer
+                    recommendedCpuRequest:
+                      type: string
+                    recommendedMemoryRequest:
+                      type: string
+                    recommendedReplicas:
+                      format: int32
+                      type: integer
+                    recovery:
+                      properties:
+                        action:
+                          type: string
+                        attempted:
+                          type: boolean
+                        error:
+                          type: string
+                        pod:
+                          type: string
+                        reason:
+                          type: string
+                        succeeded:
+                          type: boolean
+                      type: object
+                    safety:
+                      type: string
+                    target:
+                      type: string
+                  required:
+                  - currentReplicas
+                  - name
+                  - readyReplicas
+                  - recommendedReplicas
+                  - target
+                  type: object
+                type: array
+            type: object
+        required:
+        - spec
+        type: object
+    served: true
+    storage: true
+    subresources:
+      status: {}

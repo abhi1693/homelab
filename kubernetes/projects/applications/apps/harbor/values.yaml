@@ -47,7 +47,7 @@ persistence:
     trivy:
       storageClass: longhorn
       accessMode: ReadWriteOnce
-      size: 2Gi
+      size: 8Gi
   imageChartStorage:
     type: filesystem
     filesystem:
@@ -231,9 +231,9 @@ trivy:
   resources:
     requests:
       cpu: 10m
-      memory: 112Mi
+      memory: 256Mi
     limits:
-      memory: 176Mi
+      memory: 512Mi
   nodeSelector:
     kubernetes.io/arch: arm64
   topologySpreadConstraints:

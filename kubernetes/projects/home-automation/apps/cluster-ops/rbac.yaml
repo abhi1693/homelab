@@ -63,3 +63,48 @@ subjects:
   - kind: ServiceAccount
     name: k8s-recommendation-engine
     namespace: cluster-ops
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: k8s-recommendation-engine-controller
+  namespace: cluster-ops
+  labels:
+    app.kubernetes.io/name: k8s-recommendation-engine
+    app.kubernetes.io/part-of: cluster-ops
+    home-lab.io/project-slug: home-automation
+rules:
+  - apiGroups: ["k8s-recommendation-engine.io"]
+    resources:
+      - applicationprofiles
+    verbs: ["get", "list", "watch"]
+  - apiGroups: ["k8s-recommendation-engine.io"]
+    resources:
+      - applicationprofiles/status
+    verbs: ["get", "patch", "update"]
+  - apiGroups: [""]
+    resources:
+      - events
+    verbs: ["create", "patch"]
+  - apiGroups: ["coordination.k8s.io"]
+    resources:
+      - leases
+    verbs: ["create", "delete", "get", "list", "patch", "update", "watch"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: k8s-recommendation-engine-controller
+  namespace: cluster-ops
+  labels:
+    app.kubernetes.io/name: k8s-recommendation-engine
+    app.kubernetes.io/part-of: cluster-ops
+    home-lab.io/project-slug: home-automation
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: Role
+  name: k8s-recommendation-engine-controller
+subjects:
+  - kind: ServiceAccount
+    name: k8s-recommendation-engine
+    namespace: cluster-ops

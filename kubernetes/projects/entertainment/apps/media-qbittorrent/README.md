@@ -67,7 +67,8 @@ and keeps the lock until the node is `Ready` again.
 ## Download connectivity
 
 The init container pins the qBittorrent settings that most directly affect
-stalled downloads. New torrents are allowed to start, DHT, PeX, local peer
+stalled downloads. New magnets start only until qBittorrent receives their
+metadata and then stop for Smart Queues selection. DHT, PeX, local peer
 discovery, encrypted protocol support, TCP/uTP transport, all-tracker
 announcing, disabled anonymous mode, and bounded connection/upload limits are
 written to `qBittorrent.conf` on every pod start. The init container does not
@@ -79,8 +80,9 @@ served at `https://qbittorrent.media.home` through Traefik's default
 self-signed certificate because qBittorrent only exposes its browser
 `magnet:` protocol-handler registration over HTTPS. After accepting the local
 certificate in the browser, use `Tools -> Register to handle magnet links...`
-from the qBittorrent WebUI. Added magnet torrents remain stopped by default so
-`qbittorrent-smart-queues` can choose when to start them.
+from the qBittorrent WebUI. Added magnets fetch metadata immediately, stop at
+the `MetadataReceived` condition, and remain stopped so
+`qbittorrent-smart-queues` can choose when to download their payload.
 
 Sonarr, Radarr, Prowlarr, Ryokan, and automation should not use that
 self-signed browser URL. They should keep using the in-cluster HTTP WebUI API at
@@ -157,10 +159,22 @@ state alone is not enough: a torrent must move at least `64 KiB/s`, or the
 cap-aware 80% worker share when the effective cap is lower, before it counts as
 productive. If the controller exits, it stops qBittorrent downloads so they are
 not left unmanaged while Smart Queues is offline.
-New torrents are added to qBittorrent stopped, so the guard is the only component
-that chooses when a download starts. It reserves the larger of `30 GiB` or `10%`
-free space on `media-downloads`, and skips any torrent whose selected files do
-not fit in the remaining storage headroom. Before the reserve is exhausted, if
+New magnets stop as soon as their metadata is available, so the guard is the
+only component that chooses when payload downloading starts. It reserves the
+larger of `30 GiB` or `10%` free space on `media-downloads`, and skips any
+torrent whose selected files do not fit in the remaining storage headroom.
+Older stopped magnets can predate the metadata stop condition and therefore
+have no file sizes for the fit check. When no productive payload download is
+active, the guard temporarily opens one queue slot and gives one such magnet up
+to 45 seconds to fetch metadata at 64 KiB/s down and 16 KiB/s up. It always
+attempts to stop the magnet afterward and restores its previous per-torrent
+limits only after a stop call succeeds; the low caps remain if cleanup cannot
+confirm a stop. A timeout applies the 30-minute metadata cooldown. Up to three
+metadata attempts are allowed per run; their 45-second discovery windows leave
+headroom in the 180-second run budget while the local qBittorrent API is
+responsive. This bootstrap is disabled while storage is already at or below
+reserve.
+Before the reserve is exhausted, if
 at least ten candidates and at least half of the candidate set are blocked by
 storage fit, storage pressure mode biases selection toward torrents that fit and
 finish with the least verified remaining data. When free space is already at or
@@ -183,13 +197,15 @@ and parked listeners instead of keeping the constrained recovery cap.
 For multi-file torrents, the fit check sums only files with qBittorrent priority
 greater than `0` and subtracts bytes already present according to file progress.
 Torrents with unknown remaining size or no selected files are blocked while
-storage is constrained.
+storage is constrained; Smart Queues never uses metadata discovery to bypass
+the reserve.
 At the end of each pass, the guard removes expired cooldown tags from all
 torrents and deletes unused global cooldown tags from qBittorrent.
-Attempts are not monthly state; a pass tries up to three torrents, then the
-continuous controller polls again. Once the monthly or daily guardrail is
-reached, it sets 1 B/s global transfer limits and pauses all torrents until
-quota is available again.
+Attempts are not monthly state; a pass tries up to three payload torrents and,
+when needed, up to three separate metadata-only candidates, then the continuous
+controller polls again. Once the monthly or daily guardrail is reached, it sets
+1 B/s global transfer limits and pauses all torrents until quota is available
+again.
 The Grafana dashboard's Download Workers table lists every selected worker and
 parked listener from the latest decision, while the summary row aggregates
 worker count, remaining bytes, ETA, speed, seeds, and availability across the

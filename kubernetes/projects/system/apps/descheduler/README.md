@@ -22,20 +22,22 @@ The policy is tuned for steady rebalancing on the home Raspberry Pi cluster:
   somewhere else.
 - Skips pods at or above priority value `900000000`, reserving descheduler
   movement for workloads below the Shipyard critical priority tier.
-- Allows stateless single-replica workloads to restart on cooler nodes with
-  `minReplicas: 1`.
+- Protects controller-owned single-replica workloads with `minReplicas: 2`,
+  avoiding availability gaps and unnecessary RWO volume detach/attach cycles.
+  Workloads with two or more replicas remain eligible for balancing.
 - Allows Valkey Sentinel pods to move one at a time through the eviction API;
   Valkey's PDB uses `maxUnavailable: 1`, and the descheduler policy also caps
   evictions at one pod per namespace per pass.
 - Allows PostgreSQL cluster and pooler pods to move only through
   `LowNodeUtilization`; CNPG and pooler PDBs remain the hard gate, including
   the primary PDB with zero voluntary disruptions allowed.
-- Allows the Rack Ops controller to move; node-pinned shutdown and thermal
-  DaemonSets remain protected by descheduler's DaemonSet and node-fit checks.
-- Allows Longhorn/NAS PVC-backed application pods to move when they fit
-  elsewhere.
+- Protects the single-replica Rack Ops controller; node-pinned shutdown and
+  thermal DaemonSets remain protected by descheduler's DaemonSet and node-fit
+  checks.
+- Allows replicated Longhorn/NAS PVC-backed application pods to move when they
+  fit elsewhere, while protecting singleton PVC workloads.
 - Leaves PDB enforcement to the Kubernetes eviction API.
 - Excludes cluster/system namespaces from utilization and topology-spread
-  rebalancing. Valkey and Rack Ops are movable, and PostgreSQL is movable only
-  through utilization balancing while remaining excluded from
-  duplicate/topology-spread rebalancing.
+  rebalancing. Valkey is movable, and PostgreSQL is movable only through
+  utilization balancing while remaining excluded from duplicate/topology-spread
+  rebalancing.

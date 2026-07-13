@@ -5,7 +5,7 @@ image:
   repository: registry.home/oci.trueforge.org/containerforge/radarr
   pullPolicy: IfNotPresent
   # renovate: datasource=docker depName=oci.trueforge.org/containerforge/radarr
-  tag: "6.2.1"
+  tag: "6.3.0"
 imagePullSecret:
   harbor-registry:
     enabled: true
@@ -36,6 +36,7 @@ ingress:
     tls: []
 workload:
   main:
+    replicas: 1
     podSpec:
       automountServiceAccountToken: false
       labels:

@@ -10,6 +10,9 @@ server:
     registry: registry.home
     repository: quay.io/openbao/openbao
     pullPolicy: IfNotPresent
+  configAnnotation: true
+  annotations:
+    home-lab.io/restart-generation: "2026-07-12-post-seal-migration-1"
   resources:
     requests:
       cpu: 25m
@@ -32,10 +35,36 @@ server:
     storageClass: longhorn
   auditStorage:
     enabled: false
+  volumes:
+    - name: static-seal
+      secret:
+        secretName: openbao-static-seal
+        defaultMode: 288
+  volumeMounts:
+    - name: static-seal
+      mountPath: /openbao/seal
+      readOnly: true
   dev:
     enabled: false
   standalone:
     enabled: true
+    config: |
+      ui = true
+
+      listener "tcp" {
+        tls_disable = 1
+        address = "[::]:8200"
+        cluster_address = "[::]:8201"
+      }
+
+      storage "file" {
+        path = "/openbao/data"
+      }
+
+      seal "static" {
+        current_key_id = "20260712-1"
+        current_key = "file:///openbao/seal/current-key"
+      }
   ha:
     enabled: false
 

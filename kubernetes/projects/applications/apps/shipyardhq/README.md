@@ -174,9 +174,10 @@ sidecar discovery in `cattle-dashboards`.
 
 ## OpenTelemetry
 
-The web and worker pods send OTLP metrics and traces to the local
-`opentelemetry-collector` service over HTTP/protobuf. Metrics are exported from
-the collector to Prometheus; traces are exported to the local Tempo service and
-shown in Grafana's Lightweight APM for OpenTelemetry dashboard. Trace batching
-is capped with a smaller queue and export batch size so low-volume tracing does
-not add unbounded memory pressure.
+The web pods export OTLP metrics to the local `opentelemetry-collector` service
+over HTTP/protobuf. Web traces and logs are disabled while the Next.js Cache
+Components memory fix is soaked in production. Worker metrics and traces remain
+enabled; metrics are exported from the collector to Prometheus and worker traces
+are exported to the local Tempo service. Trace batching is capped with a smaller
+queue and export batch size so low-volume worker tracing does not add unbounded
+memory pressure.

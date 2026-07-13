@@ -83,6 +83,8 @@ spec:
                   drop:
                     - ALL
                 runAsNonRoot: true
+                runAsUser: 999
+                runAsGroup: 999
 ---
 apiVersion: batch/v1
 kind: CronJob
@@ -168,6 +170,8 @@ spec:
                   drop:
                     - ALL
                 runAsNonRoot: true
+                runAsUser: 999
+                runAsGroup: 999
 ---
 apiVersion: batch/v1
 kind: CronJob
@@ -253,6 +257,8 @@ spec:
                   drop:
                     - ALL
                 runAsNonRoot: true
+                runAsUser: 999
+                runAsGroup: 999
 ---
 apiVersion: batch/v1
 kind: CronJob
@@ -339,3 +345,5 @@ spec:
                   drop:
                     - ALL
                 runAsNonRoot: true
+                runAsUser: 999
+                runAsGroup: 999
