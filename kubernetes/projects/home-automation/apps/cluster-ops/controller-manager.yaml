@@ -2,11 +2,11 @@
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: k8s-recommendation-engine-shipyard
+  name: k8s-recommendation-engine-controller-manager
   namespace: cluster-ops
   labels:
     app.kubernetes.io/name: k8s-recommendation-engine
-    app.kubernetes.io/instance: shipyard
+    app.kubernetes.io/component: controller
     app.kubernetes.io/part-of: cluster-ops
     home-lab.io/project-slug: home-automation
 spec:
@@ -16,12 +16,15 @@ spec:
   selector:
     matchLabels:
       app.kubernetes.io/name: k8s-recommendation-engine
-      app.kubernetes.io/instance: shipyard
+      app.kubernetes.io/component: controller
   template:
     metadata:
+      annotations:
+        # Force the init container to clone Git sources containing Helm mappings.
+        home-lab.io/git-clone-generation: "2026-07-13-helm-profiles-1"
       labels:
         app.kubernetes.io/name: k8s-recommendation-engine
-        app.kubernetes.io/instance: shipyard
+        app.kubernetes.io/component: controller
         app.kubernetes.io/part-of: cluster-ops
         home-lab.io/project-slug: home-automation
     spec:
@@ -40,7 +43,7 @@ spec:
       initContainers:
         - name: clone-home-lab
           # renovate: datasource=docker depName=ghcr.io/abhi1693/k8s-recommendation-engine
-          image: registry.home/ghcr.io/abhi1693/k8s-recommendation-engine:0.0.15
+          image: registry.home/ghcr.io/abhi1693/k8s-recommendation-engine:0.2.0
           imagePullPolicy: IfNotPresent
           command:
             - /bin/sh
@@ -94,9 +97,9 @@ spec:
             - name: tmp
               mountPath: /tmp
       containers:
-        - name: controller
+        - name: manager
           # renovate: datasource=docker depName=ghcr.io/abhi1693/k8s-recommendation-engine
-          image: registry.home/ghcr.io/abhi1693/k8s-recommendation-engine:0.0.15
+          image: registry.home/ghcr.io/abhi1693/k8s-recommendation-engine:0.2.0
           imagePullPolicy: IfNotPresent
           command:
             - /bin/sh
@@ -110,24 +113,33 @@ spec:
               cd /git/home-lab
               git config user.name "$GIT_AUTHOR_NAME"
               git config user.email "$GIT_AUTHOR_EMAIL"
-              exec /usr/local/bin/k8s-recommendation-engine run \
-                --config /etc/k8s-recommendation-engine/profile.yaml \
+              # Keep the legacy filename until the shared state is migrated offline.
+              exec /usr/local/bin/k8s-recommendation-engine controller \
+                --watch-namespace "$POD_NAMESPACE" \
                 --prometheus-url "$PROMETHEUS_URL" \
                 --history-window "$HISTORY_WINDOW" \
                 --history-step "$HISTORY_STEP" \
-                --timeout "$RECONCILE_TIMEOUT" \
+                --reconcile-interval "$RECONCILE_INTERVAL" \
+                --reconcile-timeout "$RECONCILE_TIMEOUT" \
                 --state-db /var/lib/k8s-recommendation-engine/shipyard.db \
-                --interval "$RECONCILE_INTERVAL" \
                 --git-worktree /git/home-lab \
                 --mode propose \
                 --proposal-kind commit \
                 --proposal-branch "$GIT_BRANCH" \
                 --proposal-push \
                 --allow-default-branch-push \
-                --output summary
+                --availability-recovery \
+                --max-concurrent-reconciles 1 \
+                --leader-elect \
+                --metrics-bind-address :8080 \
+                --health-probe-bind-address :8081
           env:
             - name: HOME
               value: /home/nonroot
+            - name: POD_NAMESPACE
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.namespace
             - name: PROMETHEUS_URL
               value: http://rancher-monitoring-prometheus.cattle-monitoring-system.svc.cluster.local:9090
             - name: HISTORY_WINDOW
@@ -135,7 +147,7 @@ spec:
             - name: HISTORY_STEP
               value: 5m
             - name: RECONCILE_INTERVAL
-              value: 5m
+              value: 1m
             - name: RECONCILE_TIMEOUT
               value: 2m
             - name: GIT_BRANCH
@@ -154,6 +166,25 @@ spec:
                 secretKeyRef:
                   name: home-lab-apps-github
                   key: password
+          ports:
+            - name: metrics
+              containerPort: 8080
+              protocol: TCP
+            - name: health
+              containerPort: 8081
+              protocol: TCP
+          livenessProbe:
+            httpGet:
+              path: /healthz
+              port: health
+            initialDelaySeconds: 15
+            periodSeconds: 20
+          readinessProbe:
+            httpGet:
+              path: /readyz
+              port: health
+            initialDelaySeconds: 5
+            periodSeconds: 10
           resources:
             requests:
               cpu: 50m
@@ -171,9 +202,6 @@ spec:
             runAsNonRoot: true
             runAsUser: 65532
           volumeMounts:
-            - name: profile
-              mountPath: /etc/k8s-recommendation-engine
-              readOnly: true
             - name: git-home
               mountPath: /home/nonroot
             - name: git-worktree
@@ -183,14 +211,9 @@ spec:
             - name: tmp
               mountPath: /tmp
       volumes:
-        - name: profile
-          configMap:
-            name: k8s-recommendation-engine-profile-shipyard
-            items:
-              - key: profile.yaml
-                path: profile.yaml
         - name: state
           persistentVolumeClaim:
+            # Keep the legacy bound claim name to preserve recommendation history.
             claimName: k8s-recommendation-engine-shipyard-state
         - name: git-home
           emptyDir: {}

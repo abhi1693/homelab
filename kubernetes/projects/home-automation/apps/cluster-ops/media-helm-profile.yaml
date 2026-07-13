@@ -1,0 +1,339 @@
+---
+apiVersion: k8s-recommendation-engine.io/v1alpha1
+kind: ApplicationProfile
+metadata:
+  name: media-helm
+  namespace: cluster-ops
+  labels:
+    app.kubernetes.io/name: k8s-recommendation-engine
+    app.kubernetes.io/instance: media-helm
+    app.kubernetes.io/part-of: cluster-ops
+    home-lab.io/project-slug: home-automation
+spec:
+  namespace: media
+  git:
+    provider: github
+    mode: fleet
+    repository: https://github.com/abhi1693/home-lab.git
+    branch: master
+    basePath: kubernetes/projects/entertainment/apps
+  # Start in learning-only mode. The mapped values and replica floors were
+  # captured from the live production Deployments and verified against Git.
+  # Scaling can be enabled after the profile has accumulated stable history.
+  workloads:
+    - name: flaresolverr
+      targetRef:
+        apiVersion: apps/v1
+        kind: Deployment
+        name: flaresolverr
+      sourceFile: media-flaresolverr/values.yaml
+      helmValues:
+        paths:
+          replicas: [workload, main, replicas]
+          cpuRequest: [resources, requests, cpu]
+          memoryRequest: [resources, requests, memory]
+      metricProfileRef: resource-only
+      scaling:
+        replicas: false
+        cpu: false
+        memory: false
+      bounds:
+        replicas:
+          min: 1
+          max: 1
+        cpu:
+          maxIncreasePercent: 25
+          maxDecreasePercent: 10
+          minChangePercent: 10
+        memory:
+          maxIncreasePercent: 25
+          maxDecreasePercent: 10
+          minChangePercent: 10
+      policy:
+        maxProposalsPerHour: 1
+        maxProposalsPerDay: 2
+        safety:
+          allowAutoCommit:
+            - low_risk
+            - medium_risk
+          maxDecreaseRisk: low_risk
+          urgentBypassAllowed: false
+        confidence:
+          minAutoCommit: 0.85
+        availabilityRecovery:
+          enabled: false
+      vars:
+        namespace: media
+        deployment: flaresolverr
+        container: flaresolverr
+    - name: jellyfin
+      targetRef:
+        apiVersion: apps/v1
+        kind: Deployment
+        name: jellyfin
+      sourceFile: media-jellyfin/values.yaml
+      helmValues:
+        paths:
+          replicas: [workload, main, replicas]
+          cpuRequest: [resources, requests, cpu]
+          memoryRequest: [resources, requests, memory]
+      metricProfileRef: resource-only
+      scaling:
+        replicas: false
+        cpu: false
+        memory: false
+      bounds:
+        replicas:
+          min: 1
+          max: 1
+        cpu:
+          maxIncreasePercent: 25
+          maxDecreasePercent: 10
+          minChangePercent: 10
+        memory:
+          maxIncreasePercent: 25
+          maxDecreasePercent: 10
+          minChangePercent: 10
+      policy:
+        maxProposalsPerHour: 1
+        maxProposalsPerDay: 2
+        safety:
+          allowAutoCommit:
+            - low_risk
+            - medium_risk
+          maxDecreaseRisk: low_risk
+          urgentBypassAllowed: false
+        confidence:
+          minAutoCommit: 0.85
+        availabilityRecovery:
+          enabled: false
+      vars:
+        namespace: media
+        deployment: jellyfin
+        container: jellyfin
+    - name: prowlarr
+      targetRef:
+        apiVersion: apps/v1
+        kind: Deployment
+        name: prowlarr
+      sourceFile: media-prowlarr/values.yaml
+      helmValues:
+        paths:
+          replicas: [workload, main, replicas]
+          cpuRequest: [resources, requests, cpu]
+          memoryRequest: [resources, requests, memory]
+      metricProfileRef: resource-only
+      scaling:
+        replicas: false
+        cpu: false
+        memory: false
+      bounds:
+        replicas:
+          min: 1
+          max: 1
+        cpu:
+          maxIncreasePercent: 25
+          maxDecreasePercent: 10
+          minChangePercent: 10
+        memory:
+          maxIncreasePercent: 25
+          maxDecreasePercent: 10
+          minChangePercent: 10
+      policy:
+        maxProposalsPerHour: 1
+        maxProposalsPerDay: 2
+        safety:
+          allowAutoCommit:
+            - low_risk
+            - medium_risk
+          maxDecreaseRisk: low_risk
+          urgentBypassAllowed: false
+        confidence:
+          minAutoCommit: 0.85
+        availabilityRecovery:
+          enabled: false
+      vars:
+        namespace: media
+        deployment: prowlarr
+        container: prowlarr
+    - name: qbittorrent
+      targetRef:
+        apiVersion: apps/v1
+        kind: Deployment
+        name: qbittorrent
+      sourceFile: media-qbittorrent/values.yaml
+      helmValues:
+        paths:
+          replicas: [workload, main, replicas]
+          cpuRequest: [resources, requests, cpu]
+          memoryRequest: [resources, requests, memory]
+      metricProfileRef: resource-only
+      scaling:
+        replicas: false
+        cpu: false
+        memory: false
+      bounds:
+        replicas:
+          min: 1
+          max: 1
+        cpu:
+          maxIncreasePercent: 25
+          maxDecreasePercent: 10
+          minChangePercent: 10
+        memory:
+          maxIncreasePercent: 25
+          maxDecreasePercent: 10
+          minChangePercent: 10
+      policy:
+        maxProposalsPerHour: 1
+        maxProposalsPerDay: 2
+        safety:
+          allowAutoCommit:
+            - low_risk
+            - medium_risk
+          maxDecreaseRisk: low_risk
+          urgentBypassAllowed: false
+        confidence:
+          minAutoCommit: 0.85
+        availabilityRecovery:
+          enabled: false
+      vars:
+        namespace: media
+        deployment: qbittorrent
+        container: qbittorrent
+    - name: radarr
+      targetRef:
+        apiVersion: apps/v1
+        kind: Deployment
+        name: radarr
+      sourceFile: media-radarr/values.yaml
+      helmValues:
+        paths:
+          replicas: [workload, main, replicas]
+          cpuRequest: [resources, requests, cpu]
+          memoryRequest: [resources, requests, memory]
+      metricProfileRef: resource-only
+      scaling:
+        replicas: false
+        cpu: false
+        memory: false
+      bounds:
+        replicas:
+          min: 1
+          max: 1
+        cpu:
+          maxIncreasePercent: 25
+          maxDecreasePercent: 10
+          minChangePercent: 10
+        memory:
+          maxIncreasePercent: 25
+          maxDecreasePercent: 10
+          minChangePercent: 10
+      policy:
+        maxProposalsPerHour: 1
+        maxProposalsPerDay: 2
+        safety:
+          allowAutoCommit:
+            - low_risk
+            - medium_risk
+          maxDecreaseRisk: low_risk
+          urgentBypassAllowed: false
+        confidence:
+          minAutoCommit: 0.85
+        availabilityRecovery:
+          enabled: false
+      vars:
+        namespace: media
+        deployment: radarr
+        container: radarr
+    - name: sonarr
+      targetRef:
+        apiVersion: apps/v1
+        kind: Deployment
+        name: sonarr
+      sourceFile: media-sonarr/values.yaml
+      helmValues:
+        paths:
+          replicas: [workload, main, replicas]
+          cpuRequest: [resources, requests, cpu]
+          memoryRequest: [resources, requests, memory]
+      metricProfileRef: resource-only
+      scaling:
+        replicas: false
+        cpu: false
+        memory: false
+      bounds:
+        replicas:
+          min: 1
+          max: 1
+        cpu:
+          maxIncreasePercent: 25
+          maxDecreasePercent: 10
+          minChangePercent: 10
+        memory:
+          maxIncreasePercent: 25
+          maxDecreasePercent: 10
+          minChangePercent: 10
+      policy:
+        maxProposalsPerHour: 1
+        maxProposalsPerDay: 2
+        safety:
+          allowAutoCommit:
+            - low_risk
+            - medium_risk
+          maxDecreaseRisk: low_risk
+          urgentBypassAllowed: false
+        confidence:
+          minAutoCommit: 0.85
+        availabilityRecovery:
+          enabled: false
+      vars:
+        namespace: media
+        deployment: sonarr
+        container: sonarr
+  reconcileInterval: 5m
+  metricProfiles:
+    resource-only:
+      description: Workload-scoped Kubernetes resource metrics without a demand signal.
+      signals:
+        cpu_usage:
+          required: true
+          query: |
+            sum(
+              rate(container_cpu_usage_seconds_total{
+                namespace="{{ .namespace }}",
+                container="{{ .container }}",
+                image!=""
+              }[5m])
+              * on(namespace, pod) group_left(workload, workload_type)
+                namespace_workload_pod:kube_pod_owner:relabel{
+                  namespace="{{ .namespace }}",
+                  workload="{{ .deployment }}",
+                  workload_type="deployment"
+                }
+            )
+        memory_working_set:
+          required: true
+          query: |
+            sum(
+              container_memory_working_set_bytes{
+                namespace="{{ .namespace }}",
+                container="{{ .container }}",
+                image!=""
+              }
+              * on(namespace, pod) group_left(workload, workload_type)
+                namespace_workload_pod:kube_pod_owner:relabel{
+                  namespace="{{ .namespace }}",
+                  workload="{{ .deployment }}",
+                  workload_type="deployment"
+                }
+            )
+        available_replicas:
+          required: true
+          query: |
+            max(
+              kube_deployment_status_replicas_available{
+                namespace="{{ .namespace }}",
+                deployment="{{ .deployment }}"
+              }
+            )

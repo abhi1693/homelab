@@ -36,7 +36,7 @@ deschedulerPolicy:
         - name: DefaultEvictor
           args:
             nodeFit: true
-            minReplicas: 1
+            minReplicas: 2
             minPodAge: 10m
             noEvictionPolicy: Mandatory
             priorityThreshold:

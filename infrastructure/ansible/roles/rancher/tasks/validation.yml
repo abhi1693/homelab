@@ -331,24 +331,40 @@
     fail_msg: "Expected Rancher ingress TLS source {{ rancher.ingress.tls_source }}"
     success_msg: "Rancher ingress TLS source matches {{ rancher.ingress.tls_source }}"
 
-- name: Assert Rancher HelmChart enables Fleet ImageScan when configured
+- name: Assert Rancher HelmChart configures Fleet values
   ansible.builtin.assert:
     that:
-      - "'fleet: |-' in rancher_values_content.stdout"
+      - rancher_helm_values.fleet is string
+      - rancher_fleet_values is mapping
+      - rancher_fleet_values.imagescan is mapping
+      - (rancher_fleet_values.imagescan.enabled | bool) == (rancher_fleet_imagescan.enabled | default(false) | bool)
       - >-
-        rancher_fleet_image.repository | default('') | trim == '' or
-        ('repository: ' ~ rancher_fleet_image.repository) in rancher_values_content.stdout
+        (rancher_fleet_image.repository | default('') | trim != '' and
+        rancher_fleet_values['image']['repository'] == rancher_fleet_image.repository and
+        rancher_fleet_values['image']['tag'] == rancher_fleet_image.tag) or
+        (rancher_fleet_image.repository | default('') | trim == '' and
+        'image' in rancher_fleet_values and rancher_fleet_values['image'] is none)
       - >-
-        rancher_fleet_image.repository | default('') | trim == '' or
-        ('tag: ' ~ rancher_fleet_image.tag) in rancher_values_content.stdout
-      - "'imagescan:' in rancher_values_content.stdout"
-      - "'enabled: true' in rancher_values_content.stdout"
-    fail_msg: Expected Rancher HelmChart values to enable Fleet ImageScan.
-    success_msg: "Rancher HelmChart values enable Fleet ImageScan"
+        (rancher_fleet_agent_image.repository | default('') | trim != '' and
+        rancher_fleet_values['agentImage']['repository'] == rancher_fleet_agent_image.repository and
+        rancher_fleet_values['agentImage']['tag'] == rancher_fleet_agent_image.tag) or
+        (rancher_fleet_agent_image.repository | default('') | trim == '' and
+        'agentImage' in rancher_fleet_values and rancher_fleet_values['agentImage'] is none)
+      - >-
+        (rancher_fleet_agent_image.repository | default('') | trim != '' and
+        rancher_fleet_agent_image.tag | default('') | trim != '' and
+        rancher_fleet_values['extraAnnotations']['fleetController']['home-lab.io/fleet-agent-image'] ==
+        rancher_fleet_agent_image.repository ~ ':' ~ rancher_fleet_agent_image.tag) or
+        (rancher_fleet_agent_image.repository | default('') | trim == '' and
+        'extraAnnotations' in rancher_fleet_values and rancher_fleet_values['extraAnnotations'] is none)
+    fail_msg: Expected Rancher HelmChart values to manage Fleet ImageScan and image overrides explicitly.
+    success_msg: "Rancher HelmChart values manage Fleet ImageScan and image overrides explicitly"
   vars:
+    rancher_helm_values: "{{ rancher_values_content.stdout | from_yaml }}"
+    rancher_fleet_values: "{{ (rancher_values_content.stdout | from_yaml).fleet | from_yaml }}"
     rancher_fleet_image: "{{ (rancher.fleet | default({})).image | default({}) }}"
+    rancher_fleet_agent_image: "{{ (rancher.fleet | default({})).agent_image | default({}) }}"
     rancher_fleet_imagescan: "{{ (rancher.fleet | default({})).imagescan | default({}) }}"
-  when: rancher_fleet_imagescan.enabled | default(false) | bool
 
 - name: Read Fleet controller ImageScan enablement
   ansible.builtin.command:
@@ -366,9 +382,12 @@
     KUBECONFIG: /etc/rancher/k3s/k3s.yaml
   register: rancher_fleet_controller_imagescan_enabled
   changed_when: false
+  until: rancher_fleet_controller_imagescan_enabled.stdout | trim == rancher_fleet_imagescan_env_expected
+  retries: 120
+  delay: 5
   vars:
     rancher_fleet_imagescan: "{{ (rancher.fleet | default({})).imagescan | default({}) }}"
-  when: rancher_fleet_imagescan.enabled | default(false) | bool
+    rancher_fleet_imagescan_env_expected: "{{ 'true' if (rancher_fleet_imagescan.enabled | default(false) | bool) else '' }}"
 
 - name: Read Fleet gitjob ImageScan enablement
   ansible.builtin.command:
@@ -386,20 +405,85 @@
     KUBECONFIG: /etc/rancher/k3s/k3s.yaml
   register: rancher_fleet_gitjob_imagescan_enabled
   changed_when: false
+  until: rancher_fleet_gitjob_imagescan_enabled.stdout | trim == rancher_fleet_imagescan_env_expected
+  retries: 120
+  delay: 5
   vars:
     rancher_fleet_imagescan: "{{ (rancher.fleet | default({})).imagescan | default({}) }}"
-  when: rancher_fleet_imagescan.enabled | default(false) | bool
+    rancher_fleet_imagescan_env_expected: "{{ 'true' if (rancher_fleet_imagescan.enabled | default(false) | bool) else '' }}"
 
-- name: Assert Fleet ImageScan is enabled in Fleet controllers
+- name: Assert Fleet ImageScan state matches inventory
   ansible.builtin.assert:
     that:
-      - rancher_fleet_controller_imagescan_enabled.stdout | trim == 'true'
-      - rancher_fleet_gitjob_imagescan_enabled.stdout | trim == 'true'
-    fail_msg: Expected Fleet controller and gitjob deployments to have IMAGESCAN_ENABLED=true.
-    success_msg: "Fleet controller and gitjob deployments have ImageScan enabled"
+      - rancher_fleet_controller_imagescan_enabled.stdout | trim == rancher_fleet_imagescan_env_expected
+      - rancher_fleet_gitjob_imagescan_enabled.stdout | trim == rancher_fleet_imagescan_env_expected
+    fail_msg: Expected Fleet controller and gitjob deployments to match the configured ImageScan state.
+    success_msg: "Fleet controller and gitjob deployments match the configured ImageScan state"
   vars:
     rancher_fleet_imagescan: "{{ (rancher.fleet | default({})).imagescan | default({}) }}"
-  when: rancher_fleet_imagescan.enabled | default(false) | bool
+    rancher_fleet_imagescan_env_expected: "{{ 'true' if (rancher_fleet_imagescan.enabled | default(false) | bool) else '' }}"
+
+- name: Wait for Fleet control-plane deployment rollouts
+  ansible.builtin.command:
+    argv:
+      - /usr/local/bin/k3s
+      - kubectl
+      - -n
+      - cattle-fleet-system
+      - rollout
+      - status
+      - "deployment/{{ item }}"
+      - --timeout=600s
+  environment:
+    KUBECONFIG: /etc/rancher/k3s/k3s.yaml
+  changed_when: false
+  loop:
+    - fleet-controller
+    - gitjob
+    - helmops
+
+- name: Wait for local Fleet agent deployment rollout
+  ansible.builtin.command:
+    argv:
+      - /usr/local/bin/k3s
+      - kubectl
+      - -n
+      - cattle-fleet-local-system
+      - rollout
+      - status
+      - deployment/fleet-agent
+      - --timeout=600s
+  environment:
+    KUBECONFIG: /etc/rancher/k3s/k3s.yaml
+  changed_when: false
+
+- name: Read Fleet ImageScans when ImageScan is disabled
+  ansible.builtin.command:
+    argv:
+      - /usr/local/bin/k3s
+      - kubectl
+      - get
+      - imagescans.fleet.cattle.io
+      - --all-namespaces
+      - -o
+      - name
+  environment:
+    KUBECONFIG: /etc/rancher/k3s/k3s.yaml
+  register: rancher_fleet_imagescans
+  changed_when: false
+  vars:
+    rancher_fleet_imagescan: "{{ (rancher.fleet | default({})).imagescan | default({}) }}"
+  when: not (rancher_fleet_imagescan.enabled | default(false) | bool)
+
+- name: Assert no Fleet ImageScans remain when ImageScan is disabled
+  ansible.builtin.assert:
+    that:
+      - rancher_fleet_imagescans.stdout | trim == ''
+    fail_msg: Expected no Fleet ImageScans while Fleet ImageScan is disabled.
+    success_msg: "No Fleet ImageScans remain while Fleet ImageScan is disabled"
+  vars:
+    rancher_fleet_imagescan: "{{ (rancher.fleet | default({})).imagescan | default({}) }}"
+  when: not (rancher_fleet_imagescan.enabled | default(false) | bool)
 
 - name: Read configured Fleet image pull Secret type
   ansible.builtin.command:

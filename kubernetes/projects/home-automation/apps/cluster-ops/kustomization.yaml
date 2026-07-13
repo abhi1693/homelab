@@ -10,6 +10,22 @@ resources:
   - apiserver-egress-cnp.yaml
   - rbac.yaml
   - networkpolicy.yaml
-  - shipyard-profile-configmap.yaml
-  - shipyard-runner.yaml
-  - shipyard-state-pvc.yaml
+  - controller-manager.yaml
+  - controller-state-pvc.yaml
+  - cnpg-system-profile.yaml
+  - finance-profile.yaml
+  - git-rank-profile.yaml
+  - harbor-profile.yaml
+  - indexly-profile.yaml
+  - media-helm-profile.yaml
+  - media-metube-profile.yaml
+  - media-storage-profile.yaml
+  - netbox-profile.yaml
+  - personal-blog-profile.yaml
+  - portfolio-profile.yaml
+  - qbittorrent-smart-queues-profile.yaml
+  - rack-ops-profile.yaml
+  - shipyard-profile.yaml
+  - wardn-ai-profile.yaml
+  - wardn-hub-profile.yaml
+  - zitadel-profile.yaml

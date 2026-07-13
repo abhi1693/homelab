@@ -116,6 +116,30 @@
   register: cilium_operator_rollout
   changed_when: false
 
+- name: Read deployed Cilium kube-proxy replacement setting
+  ansible.builtin.command:
+    argv:
+      - /usr/local/bin/k3s
+      - kubectl
+      - -n
+      - kube-system
+      - get
+      - configmap
+      - cilium-config
+      - -o
+      - jsonpath={.data.kube-proxy-replacement}
+  environment:
+    KUBECONFIG: /etc/rancher/k3s/k3s.yaml
+  register: cilium_kube_proxy_replacement
+  changed_when: false
+
+- name: Assert Cilium replaces kube-proxy
+  ansible.builtin.assert:
+    that:
+      - cilium_kube_proxy_replacement.stdout | trim == 'true'
+    fail_msg: Expected Cilium kube-proxy replacement to be enabled.
+    success_msg: Cilium kube-proxy replacement is enabled.
+
 - name: Wait for Hubble Relay rollout
   ansible.builtin.command:
     argv:

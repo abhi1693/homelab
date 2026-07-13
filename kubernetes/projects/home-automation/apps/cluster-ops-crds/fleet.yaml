@@ -1,0 +1,10 @@
+---
+name: cluster-ops-crds
+labels:
+  app.kubernetes.io/name: cluster-ops-crds
+  app.kubernetes.io/part-of: home-automation
+  home-lab.io/project-slug: home-automation
+dependsOn:
+  - name: rancher-project-home-automation
+helm:
+  takeOwnership: true

@@ -2,11 +2,12 @@
 apiVersion: v1
 kind: PersistentVolumeClaim
 metadata:
+  # Keep the legacy resource name until the bound Longhorn volume is migrated.
   name: k8s-recommendation-engine-shipyard-state
   namespace: cluster-ops
   labels:
     app.kubernetes.io/name: k8s-recommendation-engine
-    app.kubernetes.io/instance: shipyard
+    app.kubernetes.io/component: state
     app.kubernetes.io/part-of: cluster-ops
     home-lab.io/project-slug: home-automation
 spec:

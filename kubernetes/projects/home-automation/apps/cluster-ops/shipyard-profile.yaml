@@ -1,0 +1,327 @@
+apiVersion: k8s-recommendation-engine.io/v1alpha1
+kind: ApplicationProfile
+metadata:
+  name: shipyard
+  namespace: cluster-ops
+  labels:
+    app.kubernetes.io/name: k8s-recommendation-engine
+    app.kubernetes.io/instance: shipyard
+    app.kubernetes.io/part-of: cluster-ops
+    home-lab.io/project-slug: home-automation
+spec:
+  namespace: shipyardhq
+  git:
+    provider: github
+    mode: fleet
+    repository: https://github.com/abhi1693/home-lab.git
+    branch: master
+    basePath: kubernetes/projects/applications/apps/shipyardhq
+  sharedSignals:
+    - name: cloudflare-edge
+      metricProfileRef: cloudflare-tunnel-shared-edge
+      required: false
+      vars:
+        namespace: cloudflare
+        job: controlled-cloudflared-connector-headless
+  workloads:
+    - name: web
+      targetRef:
+        apiVersion: apps/v1
+        kind: Deployment
+        name: shipyardhq
+      sourceFile: deployment.yaml
+      metricProfileRef: opentelemetry-http-deployment
+      scaling:
+        replicas: true
+        cpu: true
+        memory: true
+      bounds:
+        replicas:
+          min: 1
+          max: 4
+        cpu:
+          minChangePercent: 10
+        memory:
+          minChangePercent: 5
+      policy:
+        availabilityRecovery:
+          enabled: true
+          failureGracePeriod: 2m
+          cooldown: 5m
+          maxAttemptsPerHour: 6
+        safety:
+          allowAutoCommit:
+            - low_risk
+            - medium_risk
+          maxDecreaseRisk: medium_risk
+          urgentBypassAllowed: true
+        confidence:
+          minAutoCommit: 0.75
+      vars:
+        namespace: shipyardhq
+        deployment: shipyardhq
+    - name: imgproxy
+      targetRef:
+        apiVersion: apps/v1
+        kind: Deployment
+        name: shipyardhq-imgproxy
+      sourceFile: imgproxy-deployment.yaml
+      metricProfileRef: imgproxy
+      scaling:
+        replicas: true
+        cpu: true
+        memory: true
+      bounds:
+        replicas:
+          min: 1
+          max: 4
+        cpu:
+          minChangePercent: 10
+        memory:
+          minChangePercent: 5
+      policy:
+        safety:
+          allowAutoCommit:
+            - low_risk
+            - medium_risk
+          maxDecreaseRisk: medium_risk
+          urgentBypassAllowed: true
+        confidence:
+          minAutoCommit: 0.75
+      vars:
+        namespace: shipyardhq
+        deployment: shipyardhq-imgproxy
+        service: shipyardhq-imgproxy
+    - name: worker
+      targetRef:
+        apiVersion: apps/v1
+        kind: Deployment
+        name: shipyardhq-worker
+      sourceFile: deployment.yaml
+      metricProfileRef: resource-only
+      scaling:
+        replicas: false
+        cpu: true
+        memory: true
+      bounds:
+        cpu:
+          minChangePercent: 10
+        memory:
+          minChangePercent: 5
+      policy:
+        safety:
+          allowAutoCommit:
+            - low_risk
+            - medium_risk
+          maxDecreaseRisk: medium_risk
+          urgentBypassAllowed: true
+        confidence:
+          minAutoCommit: 0.75
+      vars:
+        namespace: shipyardhq
+        deployment: shipyardhq-worker
+  reconcileInterval: 5m
+  stateKey: shipyard
+  metricProfiles:
+    opentelemetry-http-deployment:
+      description: OpenTelemetry HTTP server metrics with k8s deployment labels.
+      signals:
+        request_rate:
+          required: true
+          query: |
+            sum by (k8s_namespace_name, k8s_deployment_name) (
+              rate(http_server_request_duration_seconds_count{
+                k8s_namespace_name="{{ .namespace }}",
+                k8s_deployment_name="{{ .deployment }}"
+              }[5m])
+            )
+        error_rate:
+          required: false
+          query: |
+            sum by (k8s_namespace_name, k8s_deployment_name) (
+              rate(http_server_request_duration_seconds_count{
+                k8s_namespace_name="{{ .namespace }}",
+                k8s_deployment_name="{{ .deployment }}",
+                http_response_status_code=~"5.."
+              }[5m])
+            )
+        latency_p95:
+          required: false
+          query: |
+            histogram_quantile(
+              0.95,
+              sum by (le, k8s_namespace_name, k8s_deployment_name) (
+                rate(http_server_request_duration_seconds_bucket{
+                  k8s_namespace_name="{{ .namespace }}",
+                  k8s_deployment_name="{{ .deployment }}"
+                }[5m])
+              )
+            )
+        cpu_usage:
+          required: true
+          query: |
+            sum by (namespace, workload, container) (
+              rate(container_cpu_usage_seconds_total{
+                namespace="{{ .namespace }}",
+                container!="",
+                image!=""
+              }[5m])
+              * on(namespace, pod) group_left(workload, workload_type)
+                namespace_workload_pod:kube_pod_owner:relabel{
+                  namespace="{{ .namespace }}",
+                  workload="{{ .deployment }}",
+                  workload_type="deployment"
+                }
+            )
+        memory_working_set:
+          required: true
+          query: |
+            sum by (namespace, workload, container) (
+              container_memory_working_set_bytes{
+                namespace="{{ .namespace }}",
+                container!="",
+                image!=""
+              }
+              * on(namespace, pod) group_left(workload, workload_type)
+                namespace_workload_pod:kube_pod_owner:relabel{
+                  namespace="{{ .namespace }}",
+                  workload="{{ .deployment }}",
+                  workload_type="deployment"
+                }
+            )
+        available_replicas:
+          required: true
+          query: |
+            kube_deployment_status_replicas_available{
+              namespace="{{ .namespace }}",
+              deployment="{{ .deployment }}"
+            }
+    imgproxy:
+      description: Imgproxy request and resource metrics.
+      signals:
+        request_rate:
+          required: true
+          query: |
+            sum by (namespace, service) (
+              rate(imgproxy_requests_total{
+                namespace="{{ .namespace }}",
+                service="{{ .service }}"
+              }[5m])
+            )
+        latency_p95:
+          required: false
+          query: |
+            histogram_quantile(
+              0.95,
+              sum by (le, namespace, service) (
+                rate(imgproxy_request_duration_seconds_bucket{
+                  namespace="{{ .namespace }}",
+                  service="{{ .service }}"
+                }[5m])
+              )
+            )
+        cpu_usage:
+          required: true
+          query: |
+            sum by (namespace, workload, container) (
+              rate(container_cpu_usage_seconds_total{
+                namespace="{{ .namespace }}",
+                container!="",
+                image!=""
+              }[5m])
+              * on(namespace, pod) group_left(workload, workload_type)
+                namespace_workload_pod:kube_pod_owner:relabel{
+                  namespace="{{ .namespace }}",
+                  workload="{{ .deployment }}",
+                  workload_type="deployment"
+                }
+            )
+        memory_working_set:
+          required: true
+          query: |
+            sum by (namespace, workload, container) (
+              container_memory_working_set_bytes{
+                namespace="{{ .namespace }}",
+                container!="",
+                image!=""
+              }
+              * on(namespace, pod) group_left(workload, workload_type)
+                namespace_workload_pod:kube_pod_owner:relabel{
+                  namespace="{{ .namespace }}",
+                  workload="{{ .deployment }}",
+                  workload_type="deployment"
+                }
+            )
+        available_replicas:
+          required: true
+          query: |
+            kube_deployment_status_replicas_available{
+              namespace="{{ .namespace }}",
+              deployment="{{ .deployment }}"
+            }
+    resource-only:
+      description: Kubernetes resource metrics without a workload demand signal.
+      signals:
+        cpu_usage:
+          required: true
+          query: |
+            sum by (namespace, workload, container) (
+              rate(container_cpu_usage_seconds_total{
+                namespace="{{ .namespace }}",
+                container!="",
+                image!=""
+              }[5m])
+              * on(namespace, pod) group_left(workload, workload_type)
+                namespace_workload_pod:kube_pod_owner:relabel{
+                  namespace="{{ .namespace }}",
+                  workload="{{ .deployment }}",
+                  workload_type="deployment"
+                }
+            )
+        memory_working_set:
+          required: true
+          query: |
+            sum by (namespace, workload, container) (
+              container_memory_working_set_bytes{
+                namespace="{{ .namespace }}",
+                container!="",
+                image!=""
+              }
+              * on(namespace, pod) group_left(workload, workload_type)
+                namespace_workload_pod:kube_pod_owner:relabel{
+                  namespace="{{ .namespace }}",
+                  workload="{{ .deployment }}",
+                  workload_type="deployment"
+                }
+            )
+        available_replicas:
+          required: true
+          query: |
+            kube_deployment_status_replicas_available{
+              namespace="{{ .namespace }}",
+              deployment="{{ .deployment }}"
+            }
+    cloudflare-tunnel-shared-edge:
+      description: Cloudflare tunnel-wide edge metrics, not attributable to a specific workload.
+      signals:
+        request_rate:
+          required: false
+          query: |
+            sum(rate(cloudflared_tunnel_total_requests{
+              namespace="{{ .namespace }}",
+              job="{{ .job }}"
+            }[5m]))
+        error_rate:
+          required: false
+          query: |
+            sum(rate(cloudflared_tunnel_request_errors{
+              namespace="{{ .namespace }}",
+              job="{{ .job }}"
+            }[5m]))
+        concurrent_requests:
+          required: false
+          query: |
+            sum(cloudflared_tunnel_concurrent_requests_per_tunnel{
+              namespace="{{ .namespace }}",
+              job="{{ .job }}"
+            })

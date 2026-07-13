@@ -7,6 +7,7 @@ labels:
   home-lab.io/project-slug: home-automation
 dependsOn:
   - name: rancher-project-home-automation
+  - name: cluster-ops-crds
 diff:
   comparePatches:
     - apiVersion: v1

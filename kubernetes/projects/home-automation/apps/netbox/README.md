@@ -75,6 +75,11 @@ replace it with an empty value and Kubernetes rejects the immutable spec change.
 If the PVC is intentionally recreated or migrated, update the pinned
 `volumeName` in `values.yaml`.
 
+The housekeeping CronJob retains neither successful nor failed Jobs. Retained
+housekeeping pods are still reported as consumers of the shared media PVC after
+they finish, which can make Longhorn reject a later CSI republish when no
+consumer pod is Pending. Job output remains available through centralized logs.
+
 ## Plugins
 
 `netbox-metatype-importer` is enabled so device and module types can be imported

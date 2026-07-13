@@ -8,7 +8,7 @@ metadata:
     app.kubernetes.io/component: image-proxy
     app.kubernetes.io/part-of: shipyardhq
 spec:
-  replicas: 2
+  replicas: 4
   selector:
     matchLabels:
       app.kubernetes.io/name: shipyardhq-imgproxy
@@ -77,7 +77,7 @@ spec:
           resources:
             requests:
               cpu: 40m
-              memory: 77Mi
+              memory: 89Mi
             limits:
               cpu: 200m
               memory: 192Mi

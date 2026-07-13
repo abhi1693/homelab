@@ -61,7 +61,7 @@ spec:
       initContainers:
         - name: restore-next-build
           # renovate: datasource=docker depName=ghcr.io/abhi1693/shipyardhq
-          image: registry.home/ghcr.io/abhi1693/shipyardhq:1.4.96
+          image: registry.home/ghcr.io/abhi1693/shipyardhq:1.4.98
           imagePullPolicy: IfNotPresent
           command:
             - /bin/sh
@@ -297,7 +297,7 @@ spec:
       containers:
         - name: web
           # renovate: datasource=docker depName=ghcr.io/abhi1693/shipyardhq
-          image: registry.home/ghcr.io/abhi1693/shipyardhq:1.4.96
+          image: registry.home/ghcr.io/abhi1693/shipyardhq:1.4.98
           imagePullPolicy: IfNotPresent
           command:
             - node
@@ -317,6 +317,10 @@ spec:
             - name: OTEL_SERVICE_NAME
               value: shipyardhq
             - name: OTEL_TRACES_EXPORTER
+              value: none
+            - name: OTEL_LOGS_EXPORTER
+              value: none
+            - name: OTEL_METRICS_EXPORTER
               value: otlp
             - name: OTEL_EXPORTER_OTLP_TRACES_PROTOCOL
               value: http/protobuf
@@ -375,10 +379,10 @@ spec:
             requests:
               cpu: 200m
               ephemeral-storage: 2Gi
-              memory: 3110Mi
+              memory: 1280Mi
             limits:
               ephemeral-storage: 6Gi
-              memory: 8Gi
+              memory: 5Gi
           startupProbe:
             httpGet:
               path: /robots.txt
@@ -487,7 +491,7 @@ spec:
       containers:
         - name: worker
           # renovate: datasource=docker depName=ghcr.io/abhi1693/shipyardhq
-          image: registry.home/ghcr.io/abhi1693/shipyardhq:1.4.96
+          image: registry.home/ghcr.io/abhi1693/shipyardhq:1.4.98
           imagePullPolicy: IfNotPresent
           command:
             - npm

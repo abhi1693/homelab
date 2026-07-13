@@ -29,6 +29,7 @@
       - rancher.ingress.tls_secret_name | trim != ''
       - rancher.service.type in ['ClusterIP', 'NodePort', 'LoadBalancer']
       - rancher_fleet_image.repository | default('') | trim == '' or rancher_fleet_image.tag | default('') | trim != ''
+      - rancher_fleet_agent_image.repository | default('') | trim == '' or rancher_fleet_agent_image.tag | default('') | trim != ''
       - not (rancher_fleet_image_pull_secret.enabled | default(false) | bool) or rancher_fleet_image_pull_secret.name | default('') | trim != ''
       - not (rancher_fleet_image_pull_secret.enabled | default(false) | bool) or rancher_fleet_image_pull_secret.server | default('') | trim != ''
       - not (rancher_fleet_image_pull_secret.enabled | default(false) | bool) or rancher_fleet_image_pull_secret.username | default('') | trim != ''
@@ -38,6 +39,7 @@
     success_msg: "Rancher inputs are configured"
   vars:
     rancher_fleet_image: "{{ (rancher.fleet | default({})).image | default({}) }}"
+    rancher_fleet_agent_image: "{{ (rancher.fleet | default({})).agent_image | default({}) }}"
     rancher_fleet_image_pull_secret: "{{ (rancher.fleet | default({})).image_pull_secret | default({}) }}"
     rancher_fleet_imagescan: "{{ (rancher.fleet | default({})).imagescan | default({}) }}"
   no_log: true

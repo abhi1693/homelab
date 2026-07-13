@@ -1,0 +1,109 @@
+apiVersion: k8s-recommendation-engine.io/v1alpha1
+kind: ApplicationProfile
+metadata:
+  name: portfolio
+  namespace: cluster-ops
+  labels:
+    app.kubernetes.io/name: k8s-recommendation-engine
+    app.kubernetes.io/instance: portfolio
+    app.kubernetes.io/part-of: cluster-ops
+    home-lab.io/project-slug: home-automation
+spec:
+  namespace: portfolio
+  git:
+    provider: github
+    mode: fleet
+    repository: https://github.com/abhi1693/home-lab.git
+    branch: master
+    basePath: kubernetes/projects/applications/apps/portfolio
+  # Start in learning-only mode. Replica floors and resource requests were
+  # captured from the live production Deployments and verified against Git.
+  # Scaling can be enabled after the profile has accumulated stable history.
+  workloads:
+    - name: web
+      targetRef:
+        apiVersion: apps/v1
+        kind: Deployment
+        name: portfolio
+      sourceFile: deployment.yaml
+      metricProfileRef: resource-only
+      scaling:
+        replicas: false
+        cpu: false
+        memory: false
+      bounds:
+        replicas:
+          min: 1
+          max: 1
+        cpu:
+          maxIncreasePercent: 25
+          maxDecreasePercent: 10
+          minChangePercent: 10
+        memory:
+          maxIncreasePercent: 25
+          maxDecreasePercent: 10
+          minChangePercent: 10
+      policy:
+        maxProposalsPerHour: 1
+        maxProposalsPerDay: 2
+        safety:
+          allowAutoCommit:
+            - low_risk
+            - medium_risk
+          maxDecreaseRisk: low_risk
+          urgentBypassAllowed: false
+        confidence:
+          minAutoCommit: 0.85
+        availabilityRecovery:
+          enabled: false
+      vars:
+        namespace: portfolio
+        deployment: portfolio
+        container: web
+  reconcileInterval: 5m
+  metricProfiles:
+    resource-only:
+      description: Workload-scoped Kubernetes resource metrics without a demand signal.
+      signals:
+        cpu_usage:
+          required: true
+          query: |
+            sum(
+              rate(container_cpu_usage_seconds_total{
+                namespace="{{ .namespace }}",
+                container="{{ .container }}",
+                image!=""
+              }[5m])
+              * on(namespace, pod) group_left(workload, workload_type)
+                namespace_workload_pod:kube_pod_owner:relabel{
+                  namespace="{{ .namespace }}",
+                  workload="{{ .deployment }}",
+                  workload_type="deployment"
+                }
+            )
+        memory_working_set:
+          required: true
+          query: |
+            sum(
+              container_memory_working_set_bytes{
+                namespace="{{ .namespace }}",
+                container="{{ .container }}",
+                image!=""
+              }
+              * on(namespace, pod) group_left(workload, workload_type)
+                namespace_workload_pod:kube_pod_owner:relabel{
+                  namespace="{{ .namespace }}",
+                  workload="{{ .deployment }}",
+                  workload_type="deployment"
+                }
+            )
+        available_replicas:
+          required: true
+          query: |
+            max(
+              kube_deployment_status_replicas_available{
+                namespace="{{ .namespace }}",
+                deployment="{{ .deployment }}"
+              }
+            )
+

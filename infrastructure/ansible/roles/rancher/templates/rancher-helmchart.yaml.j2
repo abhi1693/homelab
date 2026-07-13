@@ -39,14 +39,16 @@ spec:
 {% endif %}
     service:
       type: {{ rancher.service.type }}
-{% if rancher_fleet_imagescan.enabled | default(false) | bool %}
     fleet: |-
+{# Null values remove sticky Rancher Fleet overrides so chart defaults apply. #}
 {% if rancher_fleet_image.repository | default('') | trim != '' %}
       image:
         repository: {{ rancher_fleet_image.repository }}
 {% if rancher_fleet_image.tag | default('') | trim != '' %}
         tag: {{ rancher_fleet_image.tag }}
 {% endif %}
+{% else %}
+      image: null
 {% endif %}
 {% if rancher_fleet_agent_image.repository | default('') | trim != '' %}
       agentImage:
@@ -54,12 +56,15 @@ spec:
 {% if rancher_fleet_agent_image.tag | default('') | trim != '' %}
         tag: {{ rancher_fleet_agent_image.tag }}
 {% endif %}
+{% else %}
+      agentImage: null
 {% endif %}
 {% if rancher_fleet_agent_image.repository | default('') | trim != '' and rancher_fleet_agent_image.tag | default('') | trim != '' %}
       extraAnnotations:
         fleetController:
           home-lab.io/fleet-agent-image: {{ (rancher_fleet_agent_image.repository ~ ':' ~ rancher_fleet_agent_image.tag) | quote }}
+{% else %}
+      extraAnnotations: null
 {% endif %}
       imagescan:
-        enabled: {{ rancher_fleet_imagescan.enabled | bool | lower }}
-{% endif %}
+        enabled: {{ rancher_fleet_imagescan.enabled | default(false) | bool | lower }}

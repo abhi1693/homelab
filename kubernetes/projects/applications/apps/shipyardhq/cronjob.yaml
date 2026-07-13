@@ -37,7 +37,7 @@ spec:
           containers:
             - name: ingest-external-images
               # renovate: datasource=docker depName=ghcr.io/abhi1693/shipyardhq
-              image: registry.home/ghcr.io/abhi1693/shipyardhq:1.4.96
+              image: registry.home/ghcr.io/abhi1693/shipyardhq:1.4.98
               imagePullPolicy: IfNotPresent
               command:
                 - npm

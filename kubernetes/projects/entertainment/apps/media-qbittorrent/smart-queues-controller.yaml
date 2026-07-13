@@ -54,7 +54,7 @@ spec:
       containers:
         - name: qbittorrent-smart-queues
           # renovate: datasource=docker depName=ghcr.io/abhi1693/qbittorrent-smart-queues
-          image: registry.home/ghcr.io/abhi1693/qbittorrent-smart-queues:0.1.61
+          image: registry.home/ghcr.io/abhi1693/qbittorrent-smart-queues:0.1.62
           imagePullPolicy: IfNotPresent
           ports:
             - name: metrics
@@ -373,6 +373,18 @@ spec:
               value: "3"
             - name: QBT_SINGLE_DOWNLOAD_MAX_RUN_SECONDS
               value: "180"
+            - name: QBT_SINGLE_DOWNLOAD_METADATA_BOOTSTRAP_ENABLED
+              value: "true"
+            - name: QBT_SINGLE_DOWNLOAD_METADATA_BOOTSTRAP_TIMEOUT_SECONDS
+              value: "45"
+            - name: QBT_SINGLE_DOWNLOAD_METADATA_BOOTSTRAP_POLL_SECONDS
+              value: "2"
+            - name: QBT_SINGLE_DOWNLOAD_METADATA_BOOTSTRAP_MAX_ATTEMPTS_PER_RUN
+              value: "3"
+            - name: QBT_SINGLE_DOWNLOAD_METADATA_BOOTSTRAP_DOWNLOAD_LIMIT_BYTES_PER_SEC
+              value: "65536"
+            - name: QBT_SINGLE_DOWNLOAD_METADATA_BOOTSTRAP_UPLOAD_LIMIT_BYTES_PER_SEC
+              value: "16384"
             - name: QBT_SINGLE_DOWNLOAD_STALL_COOLDOWN_SECONDS
               value: "3600"
             - name: QBT_SINGLE_DOWNLOAD_STALL_COOLDOWN_NO_PROGRESS_SECONDS
