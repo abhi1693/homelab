@@ -1,0 +1,43 @@
+---
+apiVersion: monitoring.coreos.com/v1
+kind: PrometheusRule
+metadata:
+  name: wardn-hub-codex-app-server
+  namespace: wardn
+  labels:
+    app.kubernetes.io/name: wardn-hub-codex-app-server
+    app.kubernetes.io/component: alerts
+    app.kubernetes.io/part-of: wardn-hub
+    home-lab.io/project-slug: applications
+spec:
+  groups:
+    - name: wardn-hub.codex-app-server
+      rules:
+        - alert: WardnHubCodexAppServerThreadSaturation
+          expr: |
+            (
+              max by (pod) (
+                container_threads{
+                  namespace="wardn",
+                  container="codex-app-server",
+                  pod=~"wardn-hub-codex-app-server-.*"
+                }
+              )
+              /
+              clamp_min(
+                max by (pod) (
+                  container_threads_max{
+                    namespace="wardn",
+                    container="codex-app-server",
+                    pod=~"wardn-hub-codex-app-server-.*"
+                  }
+                ),
+                1
+              )
+            ) > 0.9
+          for: 5m
+          labels:
+            severity: critical
+          annotations:
+            summary: Wardn Hub Codex app-server thread count is near saturation
+            description: Codex app-server pod {{ $labels.pod }} has sustained OS thread usage above 90% of its container thread limit for more than 5 minutes. This can lead to fork failures and 100% tool failure rate.

@@ -233,8 +233,8 @@ spec:
         memory: false
       bounds:
         replicas:
-          min: 4
-          max: 4
+          min: 2
+          max: 2
         cpu:
           maxIncreasePercent: 25
           maxDecreasePercent: 10

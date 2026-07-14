@@ -8,6 +8,7 @@ metadata:
     app.kubernetes.io/name: shipyardhq
     app.kubernetes.io/component: web
     app.kubernetes.io/part-of: shipyardhq
+    home-lab.io/longhorn-fstrim: disabled
 spec:
   accessModes:
     - ReadWriteMany

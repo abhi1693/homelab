@@ -19,6 +19,11 @@
     path: /var/lib/rancher/k3s/agent/etc/kubelet.conf.d/10-home-lab-image-gc.conf
   register: k3s_kubelet_image_gc_config_stat
 
+- name: Check K3s agent service limits drop-in path
+  ansible.builtin.stat:
+    path: /etc/systemd/system/k3s-agent.service.d/10-home-lab-limits.conf
+  register: k3s_agent_service_limits_dropin_stat
+
 - name: Read K3s agent config file
   ansible.builtin.slurp:
     path: /etc/rancher/k3s/config.yaml
@@ -129,6 +134,12 @@
   changed_when: false
   failed_when: false
 
+- name: Read effective K3s agent nofile limit
+  ansible.builtin.command: systemctl show k3s-agent --property=LimitNOFILE --value
+  register: k3s_agent_service_nofile_limit
+  changed_when: false
+  failed_when: false
+
 - name: Assert K3s agent service is enabled and active
   ansible.builtin.assert:
     that:
@@ -136,3 +147,11 @@
       - k3s_agent_service_active.stdout == 'active'
     fail_msg: "Expected k3s-agent service to be enabled and active"
     success_msg: "K3s agent service is enabled and active"
+
+- name: Assert K3s agent nofile limit is applied
+  ansible.builtin.assert:
+    that:
+      - k3s_agent_service_limits_dropin_stat.stat.exists
+      - k3s_agent_service_nofile_limit.stdout | int == k3s_agent.systemd_limits.nofile | int
+    fail_msg: "Expected k3s-agent LimitNOFILE to equal {{ k3s_agent.systemd_limits.nofile }}"
+    success_msg: "K3s agent LimitNOFILE is {{ k3s_agent_service_nofile_limit.stdout }}"

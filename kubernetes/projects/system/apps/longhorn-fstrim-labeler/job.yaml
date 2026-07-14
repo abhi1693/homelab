@@ -2,7 +2,7 @@
 apiVersion: batch/v1
 kind: Job
 metadata:
-  name: longhorn-fstrim-labeler-20260707
+  name: longhorn-fstrim-labeler-20260714
   namespace: longhorn-system
   labels:
     app.kubernetes.io/name: longhorn-fstrim-labeler

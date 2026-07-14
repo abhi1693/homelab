@@ -18,6 +18,11 @@
     path: /var/lib/rancher/k3s/agent/etc/kubelet.conf.d/10-home-lab-image-gc.conf
   register: k3s_kubelet_image_gc_config_stat
 
+- name: Check K3s service limits drop-in path
+  ansible.builtin.stat:
+    path: /etc/systemd/system/k3s.service.d/10-home-lab-limits.conf
+  register: k3s_service_limits_dropin_stat
+
 - name: Check K3s audit policy path
   ansible.builtin.stat:
     path: "{{ k3s_server.audit_logging.policy_file }}"
@@ -239,6 +244,12 @@
   changed_when: false
   failed_when: false
 
+- name: Read effective K3s nofile limit
+  ansible.builtin.command: systemctl show k3s --property=LimitNOFILE --value
+  register: k3s_service_nofile_limit
+  changed_when: false
+  failed_when: false
+
 - name: Wait for K3s API port
   ansible.builtin.wait_for:
     host: 127.0.0.1
@@ -258,6 +269,14 @@
       - k3s_service_active.stdout == 'active'
     fail_msg: "Expected k3s service to be enabled and active"
     success_msg: "K3s service is enabled and active"
+
+- name: Assert K3s nofile limit is applied
+  ansible.builtin.assert:
+    that:
+      - k3s_service_limits_dropin_stat.stat.exists
+      - k3s_service_nofile_limit.stdout | int == k3s_server.systemd_limits.nofile | int
+    fail_msg: "Expected k3s LimitNOFILE to equal {{ k3s_server.systemd_limits.nofile }}"
+    success_msg: "K3s LimitNOFILE is {{ k3s_service_nofile_limit.stdout }}"
 
 - name: Check K3s API readiness endpoint
   ansible.builtin.command: /usr/local/bin/k3s kubectl get --raw=/readyz

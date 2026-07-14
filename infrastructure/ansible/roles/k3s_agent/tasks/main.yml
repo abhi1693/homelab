@@ -26,6 +26,13 @@
     fail_msg: Expected k3s_agent.kubelet_config.image_maximum_gc_age to be set.
     success_msg: "K3s agent kubelet image GC age is {{ k3s_agent.kubelet_config.image_maximum_gc_age }}"
 
+- name: Assert K3s agent systemd limits are valid
+  ansible.builtin.assert:
+    that:
+      - k3s_agent.systemd_limits.nofile | int >= 65536
+    fail_msg: Expected k3s_agent.systemd_limits.nofile to be at least 65536.
+    success_msg: "K3s agent nofile systemd limit is {{ k3s_agent.systemd_limits.nofile }}"
+
 - name: Wait for K3s registration endpoint before joining worker
   ansible.builtin.wait_for:
     host: "{{ k3s.registration_vip }}"
@@ -43,6 +50,14 @@
 - name: Ensure K3s kubelet config drop-in directory exists
   ansible.builtin.file:
     path: /var/lib/rancher/k3s/agent/etc/kubelet.conf.d
+    state: directory
+    owner: root
+    group: root
+    mode: "0755"
+
+- name: Ensure K3s agent service drop-in directory exists
+  ansible.builtin.file:
+    path: /etc/systemd/system/k3s-agent.service.d
     state: directory
     owner: root
     group: root
@@ -69,6 +84,15 @@
   ansible.builtin.template:
     src: kubelet-image-gc.conf.j2
     dest: /var/lib/rancher/k3s/agent/etc/kubelet.conf.d/10-home-lab-image-gc.conf
+    owner: root
+    group: root
+    mode: "0644"
+  notify: Restart k3s-agent
+
+- name: Render K3s agent service limits drop-in
+  ansible.builtin.template:
+    src: service-limits.conf.j2
+    dest: /etc/systemd/system/k3s-agent.service.d/10-home-lab-limits.conf
     owner: root
     group: root
     mode: "0644"

@@ -8,7 +8,7 @@ metadata:
     app.kubernetes.io/component: review-worker
     app.kubernetes.io/part-of: wardn-hub
 spec:
-  replicas: 4
+  replicas: 2
   selector:
     matchLabels:
       app.kubernetes.io/name: wardn-hub-review-worker

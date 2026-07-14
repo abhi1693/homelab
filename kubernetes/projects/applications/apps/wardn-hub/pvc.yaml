@@ -8,6 +8,7 @@ metadata:
     app.kubernetes.io/name: wardn-hub-frontend
     app.kubernetes.io/component: frontend
     app.kubernetes.io/part-of: wardn-hub
+    home-lab.io/longhorn-fstrim: disabled
 spec:
   accessModes:
     - ReadWriteMany
