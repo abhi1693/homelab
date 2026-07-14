@@ -23,6 +23,7 @@ spec:
     metadata:
       annotations:
         home-lab.io/faro-config-revision: "2026-07-01-faro-key-rebuild"
+        home-lab.io/reconcile-token: "20260713T1846Z"
       labels:
         app.kubernetes.io/name: shipyardhq
         app.kubernetes.io/component: web

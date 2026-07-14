@@ -63,6 +63,15 @@ argument_specs:
             required: true
             description:
               - Whether K3s should fail startup when required kubelet kernel defaults are not met.
+          systemd_limits:
+            type: dict
+            required: true
+            options:
+              nofile:
+                type: int
+                required: true
+                description:
+                  - LimitNOFILE value applied to the k3s systemd service.
           registry_mirror:
             type: dict
             required: true

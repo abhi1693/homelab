@@ -23,7 +23,7 @@ spec:
     metadata:
       annotations:
         home-lab.io/faro-config-revision: "2026-07-01-faro-key-rebuild"
-        home-lab.io/reconcile-token: "20260625T2115Z"
+        home-lab.io/reconcile-token: "20260713T1846Z"
       labels:
         app.kubernetes.io/name: wardn-hub-frontend
         app.kubernetes.io/component: frontend
