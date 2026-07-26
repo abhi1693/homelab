@@ -100,7 +100,7 @@ spec:
       sourceFile: deployment.yaml
       metricProfileRef: resource-only
       scaling:
-        replicas: false
+        replicas: true
         cpu: true
         memory: true
       bounds:

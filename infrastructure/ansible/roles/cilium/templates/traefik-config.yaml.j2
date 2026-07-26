@@ -4,11 +4,18 @@ metadata:
   name: traefik
   namespace: kube-system
   annotations:
-    home-lab.asaharan.dev/load-balancer-class: {{ traefik.service.load_balancer_class }}
+    home-lab.asaharan.dev/load-balancer-provider: metallb
 spec:
   valuesContent: |-
     deployment:
       replicas: {{ traefik.replicas }}
+    resources:
+      requests:
+        cpu: {{ traefik.resources.requests.cpu }}
+        memory: {{ traefik.resources.requests.memory }}
+      limits:
+        cpu: {{ traefik.resources.limits.cpu }}
+        memory: {{ traefik.resources.limits.memory }}
     podDisruptionBudget:
       enabled: true
       minAvailable: 1
@@ -28,9 +35,14 @@ spec:
         expose:
           default: false
     service:
+      annotations:
+        metallb.io/address-pool: {{ traefik.service.address_pool_name }}
+        metallb.io/loadBalancerIPs: {{ traefik.service.load_balancer_ip | to_json }}
       spec:
         type: LoadBalancer
+{% if traefik.service.load_balancer_class | trim != '' %}
         loadBalancerClass: {{ traefik.service.load_balancer_class }}
+{% endif %}
         externalTrafficPolicy: {{ traefik.service.external_traffic_policy }}
     priorityClassName: {{ traefik.priority_class_name }}
     affinity:

@@ -40,6 +40,12 @@ kube-apiserver-arg:
   - "audit-log-maxsize={{ k3s_server.audit_logging.log_maxsize }}"
 {% endif %}
 {% endif %}
+{% if k3s_server.kube_scheduler_args | length > 0 %}
+kube-scheduler-arg:
+{% for arg in k3s_server.kube_scheduler_args %}
+  - "{{ arg }}"
+{% endfor %}
+{% endif %}
 {% if k3s_server.kubelet_args | length > 0 %}
 kubelet-arg:
 {% for arg in k3s_server.kubelet_args %}

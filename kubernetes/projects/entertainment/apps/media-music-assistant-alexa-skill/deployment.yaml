@@ -1,0 +1,202 @@
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: music-assistant-alexa-skill
+  namespace: media
+  labels:
+    app.kubernetes.io/name: music-assistant-alexa-skill
+    app.kubernetes.io/component: alexa-bridge
+    app.kubernetes.io/part-of: media-stack
+    home-lab.io/project-slug: entertainment
+spec:
+  revisionHistoryLimit: 2
+  replicas: 1
+  strategy:
+    type: Recreate
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: music-assistant-alexa-skill
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: music-assistant-alexa-skill
+        app.kubernetes.io/component: alexa-bridge
+        app.kubernetes.io/part-of: media-stack
+    spec:
+      automountServiceAccountToken: false
+      terminationGracePeriodSeconds: 30
+      nodeSelector:
+        kubernetes.io/arch: arm64
+      imagePullSecrets:
+        - name: harbor-registry
+      securityContext:
+        fsGroup: 1000
+        fsGroupChangePolicy: OnRootMismatch
+        runAsNonRoot: true
+        runAsUser: 1000
+        runAsGroup: 1000
+        seccompProfile:
+          type: RuntimeDefault
+      initContainers:
+        - name: prepare-status-overlay
+          # renovate: datasource=docker depName=ghcr.io/alams154/music-assistant-skill
+          image: registry.home/ghcr.io/alams154/music-assistant-skill:0.0.39-beta@sha256:ad7ec55a51d9304032a74d8ae0fda43743bf64ae68afa49dd6949d9477726ccf
+          imagePullPolicy: IfNotPresent
+          command:
+            - /usr/bin/python3
+            - -c
+          args:
+            - |
+              from pathlib import Path
+
+              source_path = Path("/app/src/endpoints/status.py")
+              patch_path = Path(
+                  "/data/provider-patches/alexa-skill/status.py"
+              )
+              source = source_path.read_text(encoding="utf-8")
+              replacements = {
+                  (
+                      """f'<span class="led red"></span> Music Assistant API responded """
+                      """{resp.status_code} for /ma/latest-url'"""
+                  ): (
+                      2,
+                      """f'<span class="led {"yellow" if resp.status_code == 404 else "red"}"></span> """
+                      """{"Music Assistant bridge idle - no stream pushed yet" if resp.status_code == 404 else "Music Assistant API responded " + str(resp.status_code) + " for /ma/latest-url"}'""",
+                  ),
+                  (
+                      """f'<span class="led red"></span> Alexa API responded """
+                      """{resp.status_code} for /alexa/latest-url'"""
+                  ): (
+                      2,
+                      """f'<span class="led {"yellow" if resp.status_code == 404 else "red"}"></span> """
+                      """{"Alexa bridge idle - no skill invocation yet" if resp.status_code == 404 else "Alexa API responded " + str(resp.status_code) + " for /alexa/latest-url"}'""",
+                  ),
+                  "background:#fdf2f2": (
+                      4,
+                      """background:{'#fff9e6' if resp.status_code == 404 else '#fdf2f2'}""",
+                  ),
+              }
+
+              for original, (expected_count, replacement) in replacements.items():
+                  if source.count(original) != expected_count:
+                      raise RuntimeError(
+                          "Alexa skill status source changed; review the overlay"
+                      )
+                  source = source.replace(original, replacement)
+
+              compile(source, str(patch_path), "exec")
+              patch_path.parent.mkdir(parents=True, exist_ok=True)
+              temporary_path = patch_path.with_suffix(".py.tmp")
+              temporary_path.write_text(source, encoding="utf-8")
+              temporary_path.chmod(0o444)
+              temporary_path.replace(patch_path)
+          resources:
+            requests:
+              cpu: 10m
+              memory: 32Mi
+            limits:
+              memory: 64Mi
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities:
+              drop:
+                - ALL
+          volumeMounts:
+            - name: data
+              mountPath: /data
+      containers:
+        - name: alexa-skill
+          # renovate: datasource=docker depName=ghcr.io/alams154/music-assistant-skill
+          image: registry.home/ghcr.io/alams154/music-assistant-skill:0.0.39-beta@sha256:ad7ec55a51d9304032a74d8ae0fda43743bf64ae68afa49dd6949d9477726ccf
+          imagePullPolicy: IfNotPresent
+          env:
+            - name: SKILL_HOSTNAME
+              value: alexa.abhimanyu-saharan.com
+            - name: MA_HOSTNAME
+              value: music-stream.abhimanyu-saharan.com
+            - name: PORT
+              value: "5000"
+            - name: LOCALE
+              value: en-IN
+            - name: AWS_DEFAULT_REGION
+              value: us-east-1
+            - name: TZ
+              value: Asia/Kolkata
+            - name: ASK_CREDENTIALS_DIR
+              value: /data/.ask
+            - name: HOME
+              value: /data
+            - name: PYTHONDONTWRITEBYTECODE
+              value: "1"
+            - name: APP_USERNAME
+              value: /run/secrets/APP_USERNAME
+            - name: APP_PASSWORD
+              value: /run/secrets/APP_PASSWORD
+          ports:
+            - name: http
+              containerPort: 5000
+              protocol: TCP
+          resources:
+            requests:
+              cpu: 25m
+              memory: 256Mi
+            limits:
+              memory: 768Mi
+          startupProbe:
+            tcpSocket:
+              port: http
+            periodSeconds: 5
+            timeoutSeconds: 3
+            failureThreshold: 60
+          readinessProbe:
+            tcpSocket:
+              port: http
+            periodSeconds: 10
+            timeoutSeconds: 3
+            failureThreshold: 6
+          livenessProbe:
+            tcpSocket:
+              port: http
+            periodSeconds: 30
+            timeoutSeconds: 5
+            failureThreshold: 4
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities:
+              drop:
+                - ALL
+          volumeMounts:
+            - name: data
+              mountPath: /data
+            - name: data
+              mountPath: /app/src/endpoints/status.py
+              subPath: provider-patches/alexa-skill/status.py
+              readOnly: true
+            - name: build
+              mountPath: /app/build
+            - name: app-tmp
+              mountPath: /app/tmp
+            - name: tmp
+              mountPath: /tmp
+            - name: secrets
+              mountPath: /run/secrets
+              readOnly: true
+      volumes:
+        - name: data
+          persistentVolumeClaim:
+            claimName: music-assistant-alexa-skill-data
+        - name: build
+          emptyDir:
+            sizeLimit: 64Mi
+        - name: app-tmp
+          emptyDir:
+            sizeLimit: 128Mi
+        - name: tmp
+          emptyDir:
+            sizeLimit: 256Mi
+        - name: secrets
+          secret:
+            secretName: music-assistant-alexa-skill-secrets

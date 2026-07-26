@@ -138,10 +138,10 @@ spec:
           imagePullPolicy: IfNotPresent
           resources:
             limits:
-              memory: 170Mi
+              memory: {{ k3s_system_addons.coredns.resources.limits.memory }}
             requests:
-              cpu: 100m
-              memory: 70Mi
+              cpu: {{ k3s_system_addons.coredns.resources.requests.cpu }}
+              memory: {{ k3s_system_addons.coredns.resources.requests.memory }}
           args:
             - -conf
             - /etc/coredns/Corefile

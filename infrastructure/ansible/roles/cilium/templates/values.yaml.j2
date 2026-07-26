@@ -1,8 +1,40 @@
 k8sServiceHost: {{ k3s.registration_vip }}
 k8sServicePort: {{ cilium.k8s_service_port }}
 kubeProxyReplacement: true
-bgpControlPlane:
-  enabled: {{ cilium.bgp.enabled | lower }}
+localRedirectPolicies:
+  enabled: false
+resources:
+  requests:
+    cpu: {{ cilium.resources.agent.requests.cpu }}
+    memory: {{ cilium.resources.agent.requests.memory }}
+  limits:
+    memory: {{ cilium.resources.agent.limits.memory }}
+initResources:
+  requests:
+    cpu: {{ cilium.resources.init.requests.cpu }}
+    memory: {{ cilium.resources.init.requests.memory }}
+  limits:
+    cpu: {{ cilium.resources.init.limits.cpu }}
+    memory: {{ cilium.resources.init.limits.memory }}
+cgroup:
+  autoMount:
+    resources:
+      requests:
+        cpu: {{ cilium.resources.init.requests.cpu }}
+        memory: {{ cilium.resources.init.requests.memory }}
+      limits:
+        cpu: {{ cilium.resources.init.limits.cpu }}
+        memory: {{ cilium.resources.init.limits.memory }}
+cni:
+  resources:
+    requests:
+      cpu: {{ cilium.resources.init.requests.cpu }}
+      memory: {{ cilium.resources.init.requests.memory }}
+    limits:
+      cpu: {{ cilium.resources.init.limits.cpu }}
+      memory: {{ cilium.resources.init.limits.memory }}
+loadBalancer:
+  serviceTopology: {{ cilium.service_topology | lower }}
 hubble:
   enabled: {{ cilium.hubble.enabled | lower }}
   relay:
@@ -30,6 +62,13 @@ ipam:
       - {{ cilium.cluster_pool_ipv4_pod_cidr_list | to_json }}
 operator:
   replicas: {{ cilium.operator_replicas }}
+  resources:
+    requests:
+      cpu: {{ cilium.resources.operator.requests.cpu }}
+      memory: {{ cilium.resources.operator.requests.memory }}
+    limits:
+      cpu: {{ cilium.resources.operator.limits.cpu }}
+      memory: {{ cilium.resources.operator.limits.memory }}
   affinity:
     podAntiAffinity:
       requiredDuringSchedulingIgnoredDuringExecution:
@@ -44,3 +83,10 @@ operator:
       labelSelector:
         matchLabels:
           io.cilium/app: operator
+envoy:
+  resources:
+    requests:
+      cpu: {{ cilium.resources.envoy.requests.cpu }}
+      memory: {{ cilium.resources.envoy.requests.memory }}
+    limits:
+      memory: {{ cilium.resources.envoy.limits.memory }}

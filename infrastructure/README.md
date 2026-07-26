@@ -22,7 +22,7 @@ reconcile application bundles:
 - OS and Raspberry Pi node preparation.
 - K3s server and agent installation.
 - Stable Kubernetes API registration through kube-vip.
-- Cilium installation, LoadBalancer IPAM, and BGP service advertisement.
+- Cilium installation plus the Traefik handoff to Fleet-managed MetalLB.
 - Longhorn, Rancher, cert-manager, and Fleet bootstrap.
 - Host-level exporters and operational services that are not best managed as
   ordinary app manifests.
@@ -36,10 +36,9 @@ Once this layer is healthy, day-to-day desired state moves to `kubernetes/`.
 2. K3s forms the cluster using server and agent configuration from Ansible
    templates.
 3. kube-vip provides a stable Kubernetes API endpoint for additional nodes.
-4. Cilium replaces the default networking path and adds policy, service IPAM,
-   and BGP advertisement.
+4. Cilium replaces the default networking path and adds network policy.
 5. Rancher and Fleet are installed so the cluster can reconcile Git-managed
-   application state.
+   application state, including MetalLB Layer 2 service advertisement.
 6. The `kubernetes/` tree becomes the normal place for platform and app
    changes.
 

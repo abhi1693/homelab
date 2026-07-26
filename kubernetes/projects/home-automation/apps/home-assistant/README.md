@@ -15,16 +15,16 @@ Current choices:
 
 - chart: `home-assistant`
 - chart version: `0.3.67`
-- app version: `2026.6.4`
+- app version: `2026.7.2`
 - HACS version: `2.0.5`
 - namespace: `home-assistant`
 - ingress class: `traefik`
-- persistence: Longhorn, `1Gi`, `ReadWriteMany`
+- persistence: Longhorn, `2Gi`, `ReadWriteMany`
 - code-server add-on: enabled as a sidecar at `http://code.ha.home`
 - `/config` volume group access: `fsGroup: 1000`
 - active config PVC: `home-assistant-pvc`
-- availability model: singleton Deployment pod with Recreate updates on a
-  chart-owned RWX config volume
+- availability model: paused at `0` replicas; when active, a singleton
+  Deployment pod uses Recreate updates on a chart-owned RWX config volume
 - startup budget: 10 minutes before liveness restarts Home Assistant
 - node failure eviction: 30-second `not-ready`/`unreachable` NoExecute
   tolerations
@@ -32,10 +32,11 @@ Current choices:
 The previous StatefulSet PVC was `home-assistant-home-assistant-0`. Migration to
 RWX is done by copying its data to a temporary migration PVC, deleting the old
 claim, allowing the chart to create `home-assistant-pvc`, and copying the data
-back. Home Assistant still runs as one active instance to avoid duplicate
-automation execution. Deployment updates use the `Recreate` strategy because
-Home Assistant refuses to start while another instance is running against the
-same `/config` directory.
+back. Home Assistant is currently paused at zero replicas. Its PVC and
+configuration remain intact. When active, it runs as one instance to avoid
+duplicate automation execution. Deployment updates use the `Recreate` strategy
+because Home Assistant refuses to start while another instance is running
+against the same `/config` directory.
 The startup probe gives Home Assistant enough time for config checks, package
 loading, and recorder migrations before liveness enforcement begins.
 The shorter NoExecute tolerations make Kubernetes evict and replace the pod much
@@ -48,6 +49,12 @@ missing, so HACS UI-managed updates are not overwritten on normal pod restarts.
 If the Home Assistant PVC is kept, HACS survives reinstall and pod recreation. If
 the PVC is deleted or rebuilt, the init container installs the pinned HACS
 version again before Home Assistant starts.
+
+The HACS init container has explicit `10m`/`64Mi` requests and
+`250m`/`192Mi` limits. The upstream chart does not expose resources for its
+`setup-config` init container, so the namespace `LimitRange` supplies a `10m`
+CPU request, `32Mi` memory request, and `256Mi` memory limit only when those
+fields are absent.
 
 Hardware mounts remain disabled until there is a concrete device workflow to
 expose.

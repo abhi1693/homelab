@@ -2,6 +2,7 @@
 {% set rancher_fleet_image = rancher_fleet.image | default({}) %}
 {% set rancher_fleet_agent_image = rancher_fleet.agent_image | default({}) %}
 {% set rancher_fleet_imagescan = rancher_fleet.imagescan | default({}) %}
+{% set rancher_fleet_resources = rancher_fleet.resources | default({}) %}
 apiVersion: helm.cattle.io/v1
 kind: HelmChart
 metadata:
@@ -68,3 +69,39 @@ spec:
 {% endif %}
       imagescan:
         enabled: {{ rancher_fleet_imagescan.enabled | default(false) | bool | lower }}
+      resources:
+        fleetController:
+          requests:
+            cpu: {{ rancher_fleet_resources.fleet_controller.requests.cpu }}
+            memory: {{ rancher_fleet_resources.fleet_controller.requests.memory }}
+          limits:
+            cpu: {{ rancher_fleet_resources.fleet_controller.limits.cpu }}
+            memory: {{ rancher_fleet_resources.fleet_controller.limits.memory }}
+        fleetCleanup:
+          requests:
+            cpu: {{ rancher_fleet_resources.fleet_cleanup.requests.cpu }}
+            memory: {{ rancher_fleet_resources.fleet_cleanup.requests.memory }}
+          limits:
+            cpu: {{ rancher_fleet_resources.fleet_cleanup.limits.cpu }}
+            memory: {{ rancher_fleet_resources.fleet_cleanup.limits.memory }}
+        fleetAgentmanagement:
+          requests:
+            cpu: {{ rancher_fleet_resources.fleet_agentmanagement.requests.cpu }}
+            memory: {{ rancher_fleet_resources.fleet_agentmanagement.requests.memory }}
+          limits:
+            cpu: {{ rancher_fleet_resources.fleet_agentmanagement.limits.cpu }}
+            memory: {{ rancher_fleet_resources.fleet_agentmanagement.limits.memory }}
+        gitjob:
+          requests:
+            cpu: {{ rancher_fleet_resources.gitjob.requests.cpu }}
+            memory: {{ rancher_fleet_resources.gitjob.requests.memory }}
+          limits:
+            cpu: {{ rancher_fleet_resources.gitjob.limits.cpu }}
+            memory: {{ rancher_fleet_resources.gitjob.limits.memory }}
+        helmops:
+          requests:
+            cpu: {{ rancher_fleet_resources.helmops.requests.cpu }}
+            memory: {{ rancher_fleet_resources.helmops.requests.memory }}
+          limits:
+            cpu: {{ rancher_fleet_resources.helmops.limits.cpu }}
+            memory: {{ rancher_fleet_resources.helmops.limits.memory }}

@@ -12,7 +12,7 @@ spec:
   version: 0.3.67
   timeout: 10m0s
   valuesContent: |-
-    replicaCount: 1
+    replicaCount: 0
     deploymentStrategy: Recreate
     controller:
       type: Deployment
@@ -20,7 +20,7 @@ spec:
       repository: registry.home/ghcr.io/home-assistant/home-assistant
       pullPolicy: IfNotPresent
       # renovate: datasource=github-releases depName=home-assistant/core
-      tag: "2026.7.2"
+      tag: "2026.7.4"
     env:
       - name: TZ
         value: Asia/Kolkata
@@ -51,7 +51,7 @@ spec:
     initContainers:
       - name: install-hacs
         # renovate: datasource=github-releases depName=home-assistant/core
-        image: registry.home/ghcr.io/home-assistant/home-assistant:2026.7.2
+        image: registry.home/ghcr.io/home-assistant/home-assistant:2026.7.4
         imagePullPolicy: IfNotPresent
         securityContext:
           runAsUser: 0
@@ -72,6 +72,13 @@ spec:
             wget -O /tmp/hacs.zip https://github.com/hacs/integration/releases/download/2.0.5/hacs.zip
             unzip -o /tmp/hacs.zip -d /config/custom_components/hacs >/dev/null
             rm -f /tmp/hacs.zip
+        resources:
+          requests:
+            cpu: 10m
+            memory: 64Mi
+          limits:
+            cpu: 250m
+            memory: 192Mi
         volumeMounts:
           - name: home-assistant-pvc
             mountPath: /config

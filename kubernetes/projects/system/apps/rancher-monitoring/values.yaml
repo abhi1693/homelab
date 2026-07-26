@@ -19,15 +19,63 @@ rancherMonitoring:
   enabled: true
 k3sServer:
   enabled: true
+  serviceMonitor:
+    endpoints:
+      # The dedicated apiserver ServiceMonitor retains apiserver metrics,
+      # including the SLI histogram used by Rancher's API availability rules.
+      # Drop the duplicate copies exposed through the K3s server endpoint.
+      - port: metrics
+        honorLabels: true
+        relabelings:
+          - sourceLabels:
+              - __metrics_path__
+            targetLabel: metrics_path
+          # Rancher's PushProx subchart replaces custom metricRelabelings when
+          # cluster labels are enabled. Disable this unfiltered target and use
+          # prometheus.additionalServiceMonitors below for the filtered scrape.
+          - sourceLabels:
+              - __metrics_path__
+            regex: /metrics
+            action: drop
+      - port: metrics
+        path: /metrics/cadvisor
+        honorLabels: true
+        relabelings:
+          - sourceLabels:
+              - __metrics_path__
+            targetLabel: metrics_path
+      - port: metrics
+        path: /metrics/probes
+        honorLabels: true
+        relabelings:
+          - sourceLabels:
+              - __metrics_path__
+            targetLabel: metrics_path
+  clients:
+    resources:
+      requests:
+        cpu: 5m
+        memory: 24Mi
+      limits:
+        memory: 48Mi
+  proxy:
+    resources:
+      requests:
+        cpu: 5m
+        memory: 24Mi
+      limits:
+        memory: 48Mi
 windowsMonitoring:
+  enabled: false
+windowsExporter:
   enabled: false
 prometheus-adapter:
   logLevel: 1
   metricsRelistInterval: 10m
   resources:
     requests:
-      cpu: 50m
-      memory: 128Mi
+      cpu: 10m
+      memory: 64Mi
     limits:
       memory: 192Mi
   rules:
@@ -48,24 +96,68 @@ prometheus-adapter:
 prometheusOperator:
   resources:
     requests:
-      cpu: 50m
-      memory: 80Mi
+      cpu: 10m
+      memory: 64Mi
     limits:
       memory: 144Mi
   prometheusConfigReloader:
     resources:
       requests:
-        cpu: 50m
-        memory: 64Mi
+        cpu: 10m
+        memory: 32Mi
       limits:
         memory: 128Mi
 prometheus:
+  additionalServiceMonitors:
+    - name: rancher-monitoring-k3s-server-filtered
+      jobLabel: component
+      podTargetLabels:
+        - component
+        - pushprox-exporter
+      namespaceSelector:
+        matchNames:
+          - cattle-monitoring-system
+      selector:
+        matchLabels:
+          component: k3s-server
+          k8s-app: pushprox-k3s-server-client
+          provider: kubernetes
+          release: rancher-monitoring
+      endpoints:
+        - port: metrics
+          honorLabels: true
+          proxyUrl: http://pushprox-k3s-server-proxy.cattle-monitoring-system.svc:8080
+          params:
+            _scheme:
+              - https
+          tlsConfig:
+            insecureSkipVerify: true
+          relabelings:
+            - sourceLabels:
+                - __metrics_path__
+              targetLabel: metrics_path
+          metricRelabelings:
+            - sourceLabels:
+                - __name__
+              regex: apiserver_.*
+              action: drop
+            - sourceLabels:
+                - __address__
+              targetLabel: cluster_id
+              replacement: local
+              action: replace
+            - sourceLabels:
+                - __address__
+              targetLabel: cluster_name
+              replacement: local
+              action: replace
   podDisruptionBudget:
     enabled: true
     minAvailable: 1
   prometheusSpec:
     externalUrl: http://prometheus.home
     routePrefix: /
+    paused: false
     replicas: 1
     shards: 1
     retention: 14d
@@ -75,7 +167,8 @@ prometheus:
     podAntiAffinity: hard
     persistentVolumeClaimRetentionPolicy:
       whenDeleted: Retain
-      whenScaled: Delete
+      # Retain the Longhorn claim while the zero-replica NFS migration runs.
+      whenScaled: Retain
     ruleSelector: {}
     ruleNamespaceSelector: {}
     serviceMonitorSelector: {}
@@ -113,13 +206,47 @@ prometheus:
     resources:
       requests:
         cpu: 400m
-        memory: 3584Mi
+        memory: 4Gi
       limits:
         memory: 5Gi
+    containers: |-
+      - name: prometheus-proxy
+        args:
+          - nginx
+          - -g
+          - daemon off;
+          - -c
+          - /nginx/nginx.conf
+        image: "{{ template "system_default_registry" . }}{{ .Values.prometheus.prometheusSpec.proxy.image.repository }}:{{ .Values.prometheus.prometheusSpec.proxy.image.tag }}"
+        ports:
+          - containerPort: 8081
+            name: nginx-http
+            protocol: TCP
+        resources:
+          requests:
+            cpu: 5m
+            memory: 16Mi
+          limits:
+            memory: 32Mi
+        volumeMounts:
+          - mountPath: /nginx
+            name: prometheus-nginx
+          - mountPath: /var/cache/nginx
+            name: nginx-home
+        securityContext:
+          runAsUser: 101
+          runAsGroup: 101
+          allowPrivilegeEscalation: false
+          readOnlyRootFilesystem: true
+          capabilities:
+            drop:
+              - ALL
     storageSpec:
       volumeClaimTemplate:
+        metadata:
+          name: prometheus-data-nfs
         spec:
-          storageClassName: longhorn
+          storageClassName: nfs-shared-retain
           accessModes:
             - ReadWriteOnce
           resources:
@@ -134,6 +261,7 @@ alertmanager:
     routePrefix: /
     alertmanagerConfigMatcherStrategy:
       type: None
+    paused: false
     replicas: 2
     retention: 120h
     podAntiAffinity: hard
@@ -142,14 +270,16 @@ alertmanager:
       whenScaled: Retain
     resources:
       requests:
-        cpu: 50m
+        cpu: 10m
         memory: 64Mi
       limits:
         memory: 128Mi
     storage:
       volumeClaimTemplate:
+        metadata:
+          name: am-data-nfs
         spec:
-          storageClassName: longhorn
+          storageClassName: nfs-shared-retain
           accessModes:
             - ReadWriteOnce
           resources:
@@ -219,7 +349,8 @@ grafana:
   persistence:
     enabled: true
     type: pvc
-    storageClassName: longhorn
+    existingClaim: rancher-monitoring-grafana-nfs
+    storageClassName: nfs-shared-retain
     accessModes:
       - ReadWriteOnce
     size: 2Gi
@@ -227,18 +358,58 @@ grafana:
       - kubernetes.io/pvc-protection
   resources:
     requests:
-      cpu: 50m
-      memory: 288Mi
+      cpu: 25m
+      memory: 320Mi
     limits:
       memory: 416Mi
+  initChownData:
+    enabled: false
+    resources:
+      requests:
+        cpu: 5m
+        memory: 16Mi
+      limits:
+        cpu: 100m
+        memory: 64Mi
   sidecar:
-    dashboards:
+    resources:
+      requests:
+        cpu: 10m
+        memory: 192Mi
+      limits:
+        memory: 272Mi
+  extraContainers: |-
+    - name: grafana-proxy
+      args:
+        - nginx
+        - -g
+        - daemon off;
+        - -c
+        - /nginx/nginx.conf
+      image: "{{ template "system_default_registry" . }}{{ .Values.proxy.image.repository }}:{{ .Values.proxy.image.tag }}"
+      ports:
+        - containerPort: 8080
+          name: nginx-http
+          protocol: TCP
       resources:
         requests:
-          cpu: 50m
-          memory: 192Mi
+          cpu: 5m
+          memory: 16Mi
         limits:
-          memory: 272Mi
+          memory: 32Mi
+      volumeMounts:
+        - mountPath: /nginx
+          name: grafana-nginx
+        - mountPath: /var/cache/nginx
+          name: nginx-home
+      securityContext:
+        runAsUser: 101
+        runAsGroup: 101
+        allowPrivilegeEscalation: false
+        readOnlyRootFilesystem: true
+        capabilities:
+          drop:
+            - ALL
 prometheus-node-exporter:
   extraArgs:
     - --collector.filesystem.mount-points-exclude=^/(dev|proc|sys|run/containerd/.+|var/lib/docker/.+|var/lib/kubelet/.+)($|/)
@@ -246,8 +417,8 @@ prometheus-node-exporter:
     - --collector.textfile.directory=/host/root/var/lib/node_exporter/textfile_collector
   resources:
     requests:
-      cpu: 50m
-      memory: 128Mi
+      cpu: 5m
+      memory: 48Mi
     limits:
       memory: 192Mi
 kube-state-metrics:
@@ -264,7 +435,7 @@ kube-state-metrics:
         type: Directory
   resources:
     requests:
-      cpu: 50m
-      memory: 96Mi
+      cpu: 10m
+      memory: 80Mi
     limits:
       memory: 160Mi

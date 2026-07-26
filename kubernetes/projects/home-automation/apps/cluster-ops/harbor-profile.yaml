@@ -34,9 +34,9 @@ spec:
           memoryRequest: [core, resources, requests, memory]
       metricProfileRef: resource-only
       scaling:
-        replicas: false
-        cpu: false
-        memory: false
+        replicas: true
+        cpu: true
+        memory: true
       bounds:
         replicas:
           min: 2
@@ -44,11 +44,11 @@ spec:
         cpu:
           maxIncreasePercent: 25
           maxDecreasePercent: 10
-          minChangePercent: 10
+          minChangePercent: 5
         memory:
           maxIncreasePercent: 25
           maxDecreasePercent: 10
-          minChangePercent: 10
+          minChangePercent: 5
       policy:
         maxProposalsPerHour: 1
         maxProposalsPerDay: 2
@@ -79,9 +79,9 @@ spec:
           memoryRequest: [exporter, resources, requests, memory]
       metricProfileRef: resource-only
       scaling:
-        replicas: false
-        cpu: false
-        memory: false
+        replicas: true
+        cpu: true
+        memory: true
       bounds:
         replicas:
           min: 1
@@ -89,11 +89,11 @@ spec:
         cpu:
           maxIncreasePercent: 25
           maxDecreasePercent: 10
-          minChangePercent: 10
+          minChangePercent: 5
         memory:
           maxIncreasePercent: 25
           maxDecreasePercent: 10
-          minChangePercent: 10
+          minChangePercent: 5
       policy:
         maxProposalsPerHour: 1
         maxProposalsPerDay: 2
@@ -124,9 +124,9 @@ spec:
           memoryRequest: [jobservice, resources, requests, memory]
       metricProfileRef: resource-only
       scaling:
-        replicas: false
-        cpu: false
-        memory: false
+        replicas: true
+        cpu: true
+        memory: true
       bounds:
         replicas:
           min: 2
@@ -134,11 +134,11 @@ spec:
         cpu:
           maxIncreasePercent: 25
           maxDecreasePercent: 10
-          minChangePercent: 10
+          minChangePercent: 5
         memory:
           maxIncreasePercent: 25
           maxDecreasePercent: 10
-          minChangePercent: 10
+          minChangePercent: 5
       policy:
         maxProposalsPerHour: 1
         maxProposalsPerDay: 2
@@ -169,9 +169,9 @@ spec:
           memoryRequest: [portal, resources, requests, memory]
       metricProfileRef: resource-only
       scaling:
-        replicas: false
-        cpu: false
-        memory: false
+        replicas: true
+        cpu: true
+        memory: true
       bounds:
         replicas:
           min: 2
@@ -179,11 +179,11 @@ spec:
         cpu:
           maxIncreasePercent: 25
           maxDecreasePercent: 10
-          minChangePercent: 10
+          minChangePercent: 5
         memory:
           maxIncreasePercent: 25
           maxDecreasePercent: 10
-          minChangePercent: 10
+          minChangePercent: 5
       policy:
         maxProposalsPerHour: 1
         maxProposalsPerDay: 2
@@ -201,6 +201,51 @@ spec:
         namespace: harbor
         deployment: harbor-portal
         container: portal
+    - name: trivy
+      targetRef:
+        apiVersion: apps/v1
+        kind: StatefulSet
+        name: harbor-trivy
+      sourceFile: values.yaml
+      helmValues:
+        paths:
+          replicas: [trivy, replicas]
+          cpuRequest: [trivy, resources, requests, cpu]
+          memoryRequest: [trivy, resources, requests, memory]
+      metricProfileRef: statefulset-resource-only
+      scaling:
+        replicas: true
+        cpu: true
+        memory: true
+      bounds:
+        replicas:
+          min: 1
+          max: 1
+        cpu:
+          maxIncreasePercent: 25
+          maxDecreasePercent: 10
+          minChangePercent: 5
+        memory:
+          maxIncreasePercent: 25
+          maxDecreasePercent: 10
+          minChangePercent: 5
+      policy:
+        maxProposalsPerHour: 1
+        maxProposalsPerDay: 2
+        safety:
+          allowAutoCommit:
+            - low_risk
+            - medium_risk
+          maxDecreaseRisk: low_risk
+          urgentBypassAllowed: false
+        confidence:
+          minAutoCommit: 0.85
+        availabilityRecovery:
+          enabled: false
+      vars:
+        namespace: harbor
+        statefulset: harbor-trivy
+        container: trivy
   reconcileInterval: 5m
   metricProfiles:
     resource-only:
@@ -245,5 +290,49 @@ spec:
               kube_deployment_status_replicas_available{
                 namespace="{{ .namespace }}",
                 deployment="{{ .deployment }}"
+              }
+            )
+    statefulset-resource-only:
+      description: StatefulSet-scoped Kubernetes resource metrics without a demand signal.
+      signals:
+        cpu_usage:
+          required: true
+          query: |
+            sum(
+              rate(container_cpu_usage_seconds_total{
+                namespace="{{ .namespace }}",
+                container="{{ .container }}",
+                image!=""
+              }[5m])
+              * on(namespace, pod) group_left(workload, workload_type)
+                namespace_workload_pod:kube_pod_owner:relabel{
+                  namespace="{{ .namespace }}",
+                  workload="{{ .statefulset }}",
+                  workload_type="statefulset"
+                }
+            )
+        memory_working_set:
+          required: true
+          query: |
+            sum(
+              container_memory_working_set_bytes{
+                namespace="{{ .namespace }}",
+                container="{{ .container }}",
+                image!=""
+              }
+              * on(namespace, pod) group_left(workload, workload_type)
+                namespace_workload_pod:kube_pod_owner:relabel{
+                  namespace="{{ .namespace }}",
+                  workload="{{ .statefulset }}",
+                  workload_type="statefulset"
+                }
+            )
+        available_replicas:
+          required: true
+          query: |
+            max(
+              kube_statefulset_status_replicas_ready{
+                namespace="{{ .namespace }}",
+                statefulset="{{ .statefulset }}"
               }
             )

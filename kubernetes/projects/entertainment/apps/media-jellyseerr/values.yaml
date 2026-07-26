@@ -31,8 +31,8 @@ nodeSelector:
   kubernetes.io/arch: arm64
 resources:
   requests:
-    cpu: 10m
-    memory: 288Mi
+    cpu: 40m
+    memory: 360Mi
   limits:
     memory: 432Mi
 probes:

@@ -201,3 +201,43 @@
   environment:
     KUBECONFIG: /etc/rancher/k3s/k3s.yaml
   changed_when: false
+
+- name: Read cert-manager deployment resource requirements
+  ansible.builtin.command:
+    argv:
+      - /usr/local/bin/k3s
+      - kubectl
+      - -n
+      - "{{ cert_manager.namespace }}"
+      - get
+      - deployment
+      - "{{ item.name }}"
+      - -o
+      - jsonpath={.spec.template.spec.containers[0].resources.requests.cpu}{" "}{.spec.template.spec.containers[0].resources.requests.memory}{" "}{.spec.template.spec.containers[0].resources.limits.cpu}{" "}{.spec.template.spec.containers[0].resources.limits.memory}
+  loop:
+    - name: cert-manager
+      resources: "{{ cert_manager.resources.controller }}"
+    - name: cert-manager-webhook
+      resources: "{{ cert_manager.resources.webhook }}"
+    - name: cert-manager-cainjector
+      resources: "{{ cert_manager.resources.cainjector }}"
+  loop_control:
+    label: "{{ item.name }}"
+  register: cert_manager_resource_requirements
+  changed_when: false
+
+- name: Assert cert-manager resource requirements match inventory
+  ansible.builtin.assert:
+    that:
+      - item.stdout.split() == cert_manager_expected_resources
+    fail_msg: "Expected {{ item.item.name }} resource requirements to match inventory."
+    success_msg: "{{ item.item.name }} resource requirements match inventory"
+  loop: "{{ cert_manager_resource_requirements.results }}"
+  loop_control:
+    label: "{{ item.item.name }}"
+  vars:
+    cert_manager_expected_resources:
+      - "{{ item.item.resources.requests.cpu }}"
+      - "{{ item.item.resources.requests.memory }}"
+      - "{{ item.item.resources.limits.cpu }}"
+      - "{{ item.item.resources.limits.memory }}"

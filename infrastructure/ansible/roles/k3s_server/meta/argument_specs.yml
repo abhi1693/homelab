@@ -113,6 +113,12 @@ argument_specs:
             required: true
             description:
               - Additional kube-apiserver arguments rendered as K3s kube-apiserver-arg list items.
+          kube_scheduler_args:
+            type: list
+            elements: str
+            required: true
+            description:
+              - Additional kube-scheduler arguments rendered as K3s kube-scheduler-arg list items.
           kubelet_args:
             type: list
             elements: str

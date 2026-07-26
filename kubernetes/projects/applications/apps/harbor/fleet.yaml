@@ -4,5 +4,21 @@ defaultNamespace: fleet-local
 labels:
   app.kubernetes.io/part-of: harbor
   home-lab.io/project-slug: applications
+dependsOn:
+  - name: csi-driver-nfs-helmop
+diff:
+  comparePatches:
+    - apiVersion: v1
+      kind: PersistentVolumeClaim
+      name: harbor-registry-nfs
+      namespace: harbor
+      jsonPointers:
+        - /spec/volumeName
+    - apiVersion: v1
+      kind: PersistentVolumeClaim
+      name: harbor-trivy-cache-nfs
+      namespace: harbor
+      jsonPointers:
+        - /spec/volumeName
 helm:
   takeOwnership: true

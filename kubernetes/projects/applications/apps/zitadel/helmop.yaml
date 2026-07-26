@@ -33,8 +33,7 @@ spec:
       name: zitadel-values
   helm:
     releaseName: zitadel
-    repo: https://charts.zitadel.com
-    chart: zitadel
+    repo: oci://ghcr.io/zitadel/zitadel-charts/zitadel
     version: 10.0.4
     timeoutSeconds: 900
     takeOwnership: true

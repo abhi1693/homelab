@@ -9,6 +9,7 @@ metadata:
     app.kubernetes.io/part-of: home-automation
 spec:
   type: ClusterIP
+  trafficDistribution: PreferSameNode
   selector:
     app.kubernetes.io/name: ups-monitoring
   ports:

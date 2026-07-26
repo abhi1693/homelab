@@ -9,7 +9,7 @@ metadata:
 spec:
   ingressClassName: traefik
   rules:
-    - host: ryokan.media.home
+    - host: requests.anime.media.home
       http:
         paths:
           - path: /

@@ -24,8 +24,8 @@ Keeping these services in one project makes the boundary clear.
 | `cloudflare-tunnel-ingress-controller-networkpolicy` | Applies network boundaries for tunnel connector traffic. | Public ingress to app services. |
 | `cluster-ops` | Runs generic cluster operation controllers, including K8s Recommendation Engine profile runners. | Kubernetes API, Prometheus, Fleet-managed app state. |
 | `home-assistant` | Home automation runtime with Git-managed packages and code-server sidecar. | UniFi integration, device tracking, Longhorn config PVC. |
-| `netbox` | Source of truth for IPAM, device inventory, cabling, DNS, lifecycle, and BGP documentation. | PostgreSQL, Valkey, Longhorn media, custom image plugins. |
-| `rack-ops-controllers` | Rack and node automation controllers. | Kubernetes API, Home Assistant webhooks, smart queues, thermal policy. |
+| `netbox` | Source of truth for IPAM, device inventory, cabling, DNS, and lifecycle documentation. | PostgreSQL, Valkey, NFS media, custom image plugins. |
+| `rack-ops-controllers` | Rack and node automation controllers. | Kubernetes API, Home Assistant webhooks, NFS state, smart queues, thermal policy. |
 | `ups-monitoring` | NUT, PeaNUT dashboard, exporter, Grafana dashboard, and alerts. | USB UPS on a specific node, Home Assistant integration, monitoring. |
 
 ## Coupling Patterns

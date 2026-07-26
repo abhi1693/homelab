@@ -184,8 +184,11 @@ spec:
             - --tls-cipher-suites=TLS_ECDHE_ECDSA_WITH_AES_256_GCM_SHA384,TLS_ECDHE_RSA_WITH_AES_256_GCM_SHA384,TLS_ECDHE_ECDSA_WITH_AES_128_GCM_SHA256,TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256,TLS_ECDHE_ECDSA_WITH_CHACHA20_POLY1305,TLS_ECDHE_RSA_WITH_CHACHA20_POLY1305
           resources:
             requests:
-              cpu: 100m
-              memory: 70Mi
+              cpu: {{ k3s_system_addons.metrics_server.resources.requests.cpu }}
+              memory: {{ k3s_system_addons.metrics_server.resources.requests.memory }}
+            limits:
+              cpu: {{ k3s_system_addons.metrics_server.resources.limits.cpu }}
+              memory: {{ k3s_system_addons.metrics_server.resources.limits.memory }}
           ports:
             - name: https
               containerPort: 10250

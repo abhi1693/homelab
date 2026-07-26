@@ -2,6 +2,18 @@
 apiVersion: catalog.cattle.io/v1
 kind: ClusterRepo
 metadata:
+  name: csi-driver-nfs
+  labels:
+    app.kubernetes.io/part-of: system
+    app.kubernetes.io/component: helm-repository
+    home-lab.io/project-slug: system
+spec:
+  enabled: true
+  url: https://raw.githubusercontent.com/kubernetes-csi/csi-driver-nfs/master/charts
+---
+apiVersion: catalog.cattle.io/v1
+kind: ClusterRepo
+metadata:
   name: descheduler
   labels:
     app.kubernetes.io/part-of: system
@@ -46,6 +58,18 @@ metadata:
 spec:
   enabled: true
   url: https://charts.jetstack.io
+---
+apiVersion: catalog.cattle.io/v1
+kind: ClusterRepo
+metadata:
+  name: metallb
+  labels:
+    app.kubernetes.io/part-of: system
+    app.kubernetes.io/component: helm-repository
+    home-lab.io/project-slug: system
+spec:
+  enabled: true
+  url: https://metallb.github.io/metallb
 ---
 apiVersion: catalog.cattle.io/v1
 kind: ClusterRepo

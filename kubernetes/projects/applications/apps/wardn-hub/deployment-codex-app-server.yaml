@@ -8,6 +8,7 @@ metadata:
     app.kubernetes.io/component: codex-app-server
     app.kubernetes.io/part-of: wardn-hub
 spec:
+  revisionHistoryLimit: 2
   replicas: 1
   selector:
     matchLabels:
@@ -18,7 +19,7 @@ spec:
   template:
     metadata:
       annotations:
-        home-lab.io/codex-app-server-wrapper-revision: "2026-07-04-dedicated-image"
+        home-lab.io/codex-app-server-wrapper-revision: "2026-07-16-persist-auth-refresh"
       labels:
         app.kubernetes.io/name: wardn-hub-codex-app-server
         app.kubernetes.io/component: codex-app-server
@@ -40,24 +41,24 @@ spec:
           hostnames:
             - auth.openai.com
       volumes:
-        - name: codex-runtime-home
-          emptyDir:
-            sizeLimit: 2Gi
         - name: codex-home
           persistentVolumeClaim:
             claimName: wardn-hub-codex-home
+        - name: codex-sqlite
+          emptyDir:
+            sizeLimit: 2Gi
       containers:
         - name: codex-app-server
           # renovate: datasource=docker depName=ghcr.io/abhi1693/wardn-hub-codex-app-server
-          image: registry.home/ghcr.io/abhi1693/wardn-hub-codex-app-server:0.2.95
+          image: registry.home/ghcr.io/abhi1693/wardn-hub-codex-app-server:0.2.148
           imagePullPolicy: IfNotPresent
           command:
             - /usr/local/bin/codex-app-server-wrapper
           env:
             - name: CODEX_HOME
-              value: /codex-home
-            - name: CODEX_PERSISTENT_HOME
               value: /codex-auth
+            - name: CODEX_SQLITE_HOME
+              value: /var/lib/codex-sqlite
             - name: HOME
               value: /tmp/codex-user
             - name: NO_UPDATE_NOTIFIER
@@ -99,7 +100,7 @@ spec:
             - name: CODEX_OTEL_METRICS_PROTOCOL
               value: binary
             - name: RUST_LOG
-              value: codex_app_server=debug,codex_core=debug,codex_api=debug,codex_models_manager=debug,rmcp=info,warn
+              value: codex_app_server=info,codex_core=info,codex_api=info,codex_models_manager=info,rmcp=warn,warn
             - name: CODEX_STATUS_TIMEOUT_SECONDS
               value: "15"
             - name: CODEX_LOGIN_FAILURE_SLEEP_SECONDS
@@ -115,8 +116,8 @@ spec:
               protocol: TCP
           resources:
             requests:
-              cpu: 100m
-              memory: 256Mi
+              cpu: 150m
+              memory: 978Mi
             limits:
               cpu: "1"
               memory: 1Gi
@@ -145,7 +146,11 @@ spec:
             seccompProfile:
               type: Unconfined
           volumeMounts:
-            - name: codex-runtime-home
-              mountPath: /codex-home
             - name: codex-home
               mountPath: /codex-auth
+            - name: codex-sqlite
+              mountPath: /var/lib/codex-sqlite
+          envFrom:
+            - secretRef:
+                name: wardn-hub-github
+      initContainers: []

@@ -2,6 +2,9 @@
 
 Fleet-managed deployment for ShipyardHQ.
 
+The custom web, worker, and image-proxy Deployments retain two ReplicaSet
+revisions; Git and Fleet history remain the primary rollback path.
+
 The public hostnames are `shipyardhq.dev`, `www.shipyardhq.dev`, and
 `img.shipyardhq.dev`, exposed through the Cloudflare Tunnel ingress controller.
 
@@ -68,21 +71,27 @@ The `shipyard-next-build` Job owns the Next.js production build. Fleet runs it
 as a Helm pre-install/pre-upgrade hook; it is not created manually. The hook
 delete policy removes any previous hook Job before creating a new one and cleans
 up the Job after a successful build, which keeps the fixed Job name reusable.
-The Job uses the runtime environment and the app-specific PostgreSQL pooler,
-applies Prisma migrations, writes an immutable versioned tarball to the
-`shipyardhq-next-build-cache` RWX Longhorn PVC, and exits after the artifact
+The Job uses the runtime environment and connects directly to the PostgreSQL RW
+service so a PgBouncer backend-DNS cache failure cannot abort a release build.
+It applies Prisma migrations, writes an immutable versioned tarball to the
+`shipyardhq-next-build-cache-nfs` RWX PVC backed by the retained NAS directory
+`shipyardhq/shipyardhq-next-build-cache-nfs`, and exits after the artifact
 exists. The builder uses a smaller PostgreSQL client pool, a longer connection
 wait timeout, and lower Next.js static-generation concurrency so DB-backed
 prerendering does not overload the local database. It also sets the supported
 Next.js `staticPageGenerationTimeout` option to five minutes before hashing and
 building the release source so slower DB-backed pages do not fail the production
 build at the default 60-second limit. The builder Job is explicitly single-pod
-(`parallelism: 1`, `completions: 1`) and has no schedule. Web pods do not build;
-their `restore-next-build` init container waits for the matching artifact,
+(`parallelism: 1`, `completions: 1`) and has no schedule. It retries a failed
+pod twice so transient database or DNS failures do not block a Fleet upgrade.
+Web pods do not build;
+their `restore-next-build` init container requires the matching artifact,
 extracts it into a pod-local `emptyDir`, and then starts
-`.next/standalone/server.js`. Running web pods keep using their local extracted
-bundle if a newer artifact is later written to the PVC; new artifacts are
-consumed through normal Deployment rollouts.
+`.next/standalone/server.js`. A missing or corrupt artifact fails the new pod so
+the builder hook remains the only component that can build or migrate the
+release. Running web pods keep using their local extracted bundle if a newer
+artifact is later written to the PVC; new artifacts are consumed through normal
+Deployment rollouts.
 
 The cache key includes source files, build-time environment, and a cache-format
 version. The `shipyardhq-next-build-cache-cleanup` CronJob recomputes the
@@ -103,14 +112,17 @@ optimization.
 
 ## Availability
 
-The public web and imgproxy Deployments run two replicas with `maxUnavailable:
-0` and the `shipyardhq-critical` PriorityClass. That priority stays below
-system, Rancher, and Longhorn priorities but above normal application pods.
+The public web Deployment runs three replicas and imgproxy runs four, both with
+`maxUnavailable: 0` and the `shipyardhq-critical` PriorityClass. That priority
+stays below system, Rancher, and Longhorn priorities but above normal
+application pods.
 
-The web pod's `next-build` `emptyDir` is sized for transient Next.js build
-output, not just the final restored artifact. Keep its ephemeral-storage
-requests and limits aligned with the `emptyDir` size when changing build
-behavior.
+The web pod's `next-build` `emptyDir` is sized for the restored Next.js artifact
+and extraction overhead. The restore init container's CPU, memory, and
+ephemeral-storage requests do not exceed the running web container's requests,
+so a completed restore does not inflate the pod's scheduler footprint. Its
+higher limits retain short extraction burst capacity. Keep the requests and
+limits aligned with the `emptyDir` size when changing restore behavior.
 
 ## Background Worker
 
@@ -120,7 +132,9 @@ declared in ShipyardHQ source, replacing the legacy curl CronJobs.
 
 The worker does not run Prisma migrations. Its `wait-for-web-rollout` init
 container follows the NetBox chart worker pattern and waits for
-`deployment/shipyardhq` to finish rolling out before starting the worker.
+`deployment/shipyardhq` to finish rolling out before starting the worker. Its
+`30m` CPU request stays below the running worker's request so the completed init
+container does not raise the worker pod's scheduler footprint.
 
 Secret runtime env is stored in the `shipyardhq-runtime` Kubernetes Secret. Do
 not commit secret runtime environment values.
@@ -163,6 +177,13 @@ The ConfigMap keeps production imgproxy controls explicit:
 The Deployment uses imgproxy's built-in `GET /health` endpoint for startup,
 readiness, and liveness probes on the main `http` port. imgproxy returns `200 OK`
 from this endpoint after the server has successfully started.
+
+Each of the four imgproxy replicas requests `10m` CPU and retains a `200m`
+limit for transform bursts.
+
+The external-image ingestion CronJob retains one failed Job for diagnosis and
+applies a 26-hour TTL to completed Jobs. Loki remains the long-term source for
+historical failure logs.
 
 Prometheus metrics are enabled on the separate `:9090` metrics listener with the
 `imgproxy` metric namespace. The `shipyardhq-imgproxy` Service exposes this as

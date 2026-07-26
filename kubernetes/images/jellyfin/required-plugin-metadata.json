@@ -217,21 +217,5 @@
     "autoUpdate": false,
     "imagePath": "/data/plugins/Trakt_29.0.0.0/jellyfin-plugin-trakt.png",
     "assemblies": []
-  },
-  "YouTube Metadata_1.0.3.15": {
-    "category": "Metadata",
-    "changelog": "#154 staticdev: fix targetAbi and target to Jellyfin 10.11.2\n",
-    "description": "Provides YouTube metadata from the YouTube API and Youtube-dl metadata files.",
-    "guid": "b4b4353e-dc57-4398-82c1-de9079e7146a",
-    "name": "YouTube Metadata",
-    "overview": "YouTube metadata provider",
-    "owner": "ankenyr",
-    "targetAbi": "10.11.2",
-    "timestamp": "2026-02-03T11:58:07Z",
-    "version": "1.0.3.15",
-    "status": "Active",
-    "autoUpdate": false,
-    "imagePath": "",
-    "assemblies": []
   }
 }

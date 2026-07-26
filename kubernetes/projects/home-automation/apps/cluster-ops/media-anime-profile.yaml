@@ -1,0 +1,150 @@
+---
+apiVersion: k8s-recommendation-engine.io/v1alpha1
+kind: ApplicationProfile
+metadata:
+  name: media-anime
+  namespace: cluster-ops
+  labels:
+    app.kubernetes.io/name: k8s-recommendation-engine
+    app.kubernetes.io/instance: media-anime
+    app.kubernetes.io/part-of: cluster-ops
+    home-lab.io/project-slug: home-automation
+spec:
+  namespace: media
+  git:
+    provider: github
+    mode: fleet
+    repository: https://github.com/abhi1693/home-lab.git
+    branch: master
+    basePath: kubernetes/projects/entertainment/apps
+  # Collect persistent history without proposing changes while Ryokan settles
+  # and Shoko completes its initial library scan. Enable CPU and memory
+  # management only after the observed baseline includes normal idle and scan
+  # cycles; replicas remain operator-managed at one.
+  workloads:
+    - name: ryokan
+      targetRef:
+        apiVersion: apps/v1
+        kind: Deployment
+        name: ryokan
+      sourceFile: media-ryokan/deployment.yaml
+      metricProfileRef: resource-only
+      scaling:
+        replicas: false
+        cpu: false
+        memory: false
+      bounds:
+        replicas:
+          min: 1
+          max: 1
+        cpu:
+          maxIncreasePercent: 25
+          maxDecreasePercent: 10
+          minChangePercent: 5
+        memory:
+          maxIncreasePercent: 25
+          maxDecreasePercent: 10
+          minChangePercent: 5
+      policy:
+        maxProposalsPerHour: 1
+        maxProposalsPerDay: 2
+        safety:
+          allowAutoCommit:
+            - low_risk
+            - medium_risk
+          maxDecreaseRisk: low_risk
+          urgentBypassAllowed: false
+        confidence:
+          minAutoCommit: 0.85
+        availabilityRecovery:
+          enabled: false
+      vars:
+        namespace: media
+        deployment: ryokan
+        container: ryokan
+    - name: shoko
+      targetRef:
+        apiVersion: apps/v1
+        kind: Deployment
+        name: shoko
+      sourceFile: media-shoko/deployment.yaml
+      metricProfileRef: resource-only
+      scaling:
+        replicas: false
+        cpu: false
+        memory: false
+      bounds:
+        replicas:
+          min: 1
+          max: 1
+        cpu:
+          maxIncreasePercent: 25
+          maxDecreasePercent: 10
+          minChangePercent: 5
+        memory:
+          maxIncreasePercent: 25
+          maxDecreasePercent: 10
+          minChangePercent: 5
+      policy:
+        maxProposalsPerHour: 1
+        maxProposalsPerDay: 2
+        safety:
+          allowAutoCommit:
+            - low_risk
+            - medium_risk
+          maxDecreaseRisk: low_risk
+          urgentBypassAllowed: false
+        confidence:
+          minAutoCommit: 0.85
+        availabilityRecovery:
+          enabled: false
+      vars:
+        namespace: media
+        deployment: shoko
+        container: shoko
+  reconcileInterval: 5m
+  metricProfiles:
+    resource-only:
+      description: Workload-scoped Kubernetes resource metrics without a demand signal.
+      signals:
+        cpu_usage:
+          required: true
+          query: |
+            sum(
+              rate(container_cpu_usage_seconds_total{
+                namespace="{{ .namespace }}",
+                container="{{ .container }}",
+                image!=""
+              }[5m])
+              * on(namespace, pod) group_left(workload, workload_type)
+                namespace_workload_pod:kube_pod_owner:relabel{
+                  namespace="{{ .namespace }}",
+                  workload="{{ .deployment }}",
+                  workload_type="deployment"
+                }
+            )
+        memory_working_set:
+          required: true
+          query: |
+            sum(
+              container_memory_working_set_bytes{
+                namespace="{{ .namespace }}",
+                container="{{ .container }}",
+                image!=""
+              }
+              * on(namespace, pod) group_left(workload, workload_type)
+                namespace_workload_pod:kube_pod_owner:relabel{
+                  namespace="{{ .namespace }}",
+                  workload="{{ .deployment }}",
+                  workload_type="deployment"
+                }
+            )
+        available_replicas:
+          required: true
+          query: |
+            max(
+              kube_deployment_status_replicas_available{
+                namespace="{{ .namespace }}",
+                deployment="{{ .deployment }}"
+              }
+            )

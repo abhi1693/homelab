@@ -12,14 +12,18 @@ This bundle runs the public frontend telemetry collector for browser RUM data.
 - Faro receiver port: `12347`
 - Metrics port: `12345`
 - Secret: `alloy-faro` supplies the Faro API key
+- Requests: 15m CPU and 160Mi memory across Alloy and its config reloader
 
 The receiver accepts browser telemetry from the public app hostnames listed in
 `values.yaml`. It writes logs to Loki and traces to Tempo.
 
+The requests retain headroom over the 14-day pod p95 of approximately 5.2m CPU
+and 106Mi memory.
+
 ## Sourcemaps
 
-Sourcemap lookup is configured for portfolio, personal blog, Indexly,
-ShipyardHQ, Wardn Hub, and GitRank frontend services. The collector fetches
+Sourcemap lookup is configured for portfolio, personal blog, ShipyardHQ, and
+Wardn Hub frontend services. The collector fetches
 sourcemaps from internal service URLs rather than downloading them from public
 origins.
 

@@ -9,6 +9,10 @@ the `renovate` namespace. It scans Kubernetes source files for explicit
 Renovate comments, checks the upstream image registry for newer tags, and
 commits allowed updates back to `master`.
 
+The CronJob retains at most one failed Job and expires terminal Jobs after two
+hours. Persistent hourly failures continue to produce a current failed Job,
+while a recovered run no longer leaves `KubeJobFailed` alert noise for a day.
+
 Docker updates are disabled by default and re-enabled only for image names
 listed in `packageRules`. Each package rule also defines the versioning scheme,
 allowed version range, and branch automerge behavior for that image family.
@@ -41,8 +45,8 @@ where Kubernetes pulls from. For proxy-cache pulls, keep the upstream registry
 in `depName` and prefix the runtime image with `registry.home/`, for example:
 
 ```yaml
-# renovate: datasource=docker depName=ghcr.io/abhi1693/git-rank-backend
-image: registry.home/ghcr.io/abhi1693/git-rank-backend:1.2.28
+# renovate: datasource=docker depName=ghcr.io/abhi1693/shipyardhq
+image: registry.home/ghcr.io/abhi1693/shipyardhq:1.5.13
 ```
 
 ## Secrets

@@ -30,6 +30,11 @@ argument_specs:
                 required: true
                 description:
                   - Number of CoreDNS replicas to run.
+              resources:
+                type: dict
+                required: true
+                description:
+                  - CPU and memory requests and limits for each CoreDNS replica.
           metrics_server:
             type: dict
             required: true
@@ -49,3 +54,8 @@ argument_specs:
                 required: true
                 description:
                   - Metrics Server scrape interval for kubelet resource metrics.
+              resources:
+                type: dict
+                required: true
+                description:
+                  - CPU and memory requests and limits for each Metrics Server replica.

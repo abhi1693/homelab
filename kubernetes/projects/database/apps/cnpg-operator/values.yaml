@@ -14,8 +14,8 @@ cloudnative-pg:
     kubernetes.io/arch: arm64
   resources:
     requests:
-      cpu: 10m
-      memory: 144Mi
+      cpu: 20m
+      memory: 132Mi
     limits:
       memory: 208Mi
   podAnnotations:

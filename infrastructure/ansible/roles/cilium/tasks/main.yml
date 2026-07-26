@@ -16,6 +16,7 @@
       - cilium.cluster_pool_ipv4_pod_cidr_list | trim != ''
       - cilium.operator_replicas | int > 0
       - cilium.k8s_service_port | int > 0
+      - cilium.service_topology is boolean
       - cilium.hubble.enabled is boolean
       - cilium.hubble.relay.enabled is boolean
       - cilium.hubble.ui.enabled is boolean
@@ -26,39 +27,16 @@
       - not (cilium.hubble.ui.ingress.enabled | bool) or (cilium.hubble.ui.enabled | bool)
       - not (cilium.hubble.ui.ingress.enabled | bool) or (cilium.hubble.ui.ingress.class_name | trim != '')
       - not (cilium.hubble.ui.ingress.enabled | bool) or (cilium.hubble.ui.ingress.hosts | length > 0)
-      - cilium.bgp.enabled is boolean
       - traefik.namespace == 'kube-system'
       - traefik.ingress_class_name | trim != ''
       - traefik.service_name | trim != ''
       - traefik.replicas | int >= 2
       - traefik.priority_class_name | trim != ''
-      - traefik.service.load_balancer_class | trim != ''
+      - traefik.service.load_balancer_ip | trim != ''
+      - traefik.service.address_pool_name | trim != ''
       - traefik.service.external_traffic_policy in ['Cluster', 'Local']
-    fail_msg: Expected Cilium, BGP, and bundled Traefik inputs to be fully configured.
-    success_msg: "Cilium, BGP, and bundled Traefik inputs are configured"
-
-- name: Record whether Cilium BGP exposure is fully configured
-  ansible.builtin.set_fact:
-    cilium_bgp_exposure_configured: >-
-      {{
-        cilium.bgp.enabled | bool
-        and cilium.bgp.local_asn | int > 0
-        and cilium.bgp.peer_asn | int > 0
-        and cilium.bgp.peer_address | trim != ''
-        and cilium.bgp.local_port | int > 0
-        and cilium.bgp.cluster_config_name | trim != ''
-        and cilium.bgp.peer_config_name | trim != ''
-        and cilium.bgp.advertisement_name | trim != ''
-        and cilium.bgp.ip_pool_name | trim != ''
-        and cilium.bgp.app_ip_pool.name | trim != ''
-        and cilium.bgp.app_ip_pool.start | trim != ''
-        and cilium.bgp.app_ip_pool.stop | trim != ''
-        and cilium.bgp.keepalive_time_seconds | int > 0
-        and cilium.bgp.hold_time_seconds | int > 0
-        and cilium.bgp.graceful_restart_enabled is boolean
-        and cilium.bgp.graceful_restart_time_seconds | int > 0
-        and traefik.service.load_balancer_ip | trim != ''
-      }}
+    fail_msg: Expected Cilium and bundled Traefik inputs to be fully configured.
+    success_msg: "Cilium and bundled Traefik inputs are configured"
 
 - name: Wait for local K3s API before installing Cilium
   ansible.builtin.wait_for:
@@ -233,23 +211,6 @@
   changed_when: false
   failed_when: false
 
-- name: Check whether Cilium BGP CRDs already exist
-  ansible.builtin.command:
-    argv:
-      - /usr/local/bin/k3s
-      - kubectl
-      - get
-      - crd
-      - ciliumbgppeerconfigs.cilium.io
-  environment:
-    KUBECONFIG: /etc/rancher/k3s/k3s.yaml
-  register: cilium_bgp_peer_crd
-  changed_when: false
-  failed_when: false
-  when:
-    - cilium_ds_image.rc == 0
-    - cilium_bgp_exposure_configured | bool
-
 - name: Install Cilium when not present
   ansible.builtin.command:
     argv:
@@ -283,10 +244,6 @@
       or cilium.version not in cilium_operator_image.stdout
       or (cilium_operator_replicas_current.stdout | default('0') | int) != (cilium.operator_replicas | int)
       or cilium_values_file.changed
-      or (
-        cilium_bgp_exposure_configured | bool
-        and (cilium_bgp_peer_crd.rc | default(1)) != 0
-      )
   changed_when: true
 
 - name: Check bootstrap addon deployments that may need restart after first Cilium install
@@ -462,13 +419,21 @@
     - cilium.hubble.ui.enabled | bool
   changed_when: false
 
-- name: Ensure K3s manifests directory exists for bundled Traefik and Cilium exposure
+- name: Ensure K3s manifests directory exists for bundled Traefik
   ansible.builtin.file:
     path: /var/lib/rancher/k3s/server/manifests
     state: directory
     owner: root
     group: root
     mode: "0755"
+
+- name: Render bundled Traefik HelmChartConfig manifest
+  ansible.builtin.template:
+    src: traefik-config.yaml.j2
+    dest: /var/lib/rancher/k3s/server/manifests/traefik-config.yaml
+    owner: root
+    group: root
+    mode: "0644"
 
 - name: Read existing bundled Traefik service load balancer class
   ansible.builtin.command:
@@ -486,6 +451,81 @@
   register: traefik_existing_load_balancer_class
   changed_when: false
   failed_when: false
+
+- name: Wait for MetalLB before recreating the bundled Traefik service
+  ansible.builtin.command:
+    argv:
+      - /usr/local/bin/k3s
+      - kubectl
+      - -n
+      - metallb-system
+      - rollout
+      - status
+      - "{{ item }}"
+      - --timeout=300s
+  environment:
+    KUBECONFIG: /etc/rancher/k3s/k3s.yaml
+  loop:
+    - deployment/metallb-controller
+    - daemonset/metallb-speaker
+  changed_when: false
+  when:
+    - traefik_existing_load_balancer_class.rc == 0
+    - traefik_existing_load_balancer_class.stdout | trim != traefik.service.load_balancer_class
+
+- name: Confirm Traefik's MetalLB resources before recreating its service
+  ansible.builtin.command:
+    argv:
+      - /usr/local/bin/k3s
+      - kubectl
+      - -n
+      - metallb-system
+      - get
+      - "{{ item.kind }}"
+      - "{{ item.name }}"
+  environment:
+    KUBECONFIG: /etc/rancher/k3s/k3s.yaml
+  loop:
+    - kind: ipaddresspool.metallb.io
+      name: "{{ traefik.service.address_pool_name }}"
+    - kind: l2advertisement.metallb.io
+      name: lan
+  changed_when: false
+  when:
+    - traefik_existing_load_balancer_class.rc == 0
+    - traefik_existing_load_balancer_class.stdout | trim != traefik.service.load_balancer_class
+
+- name: Read MetalLB controller arguments before using a classless service
+  ansible.builtin.command:
+    argv:
+      - /usr/local/bin/k3s
+      - kubectl
+      - -n
+      - metallb-system
+      - get
+      - deployment
+      - metallb-controller
+      - -o
+      - jsonpath={.spec.template.spec.containers[0].args}
+  environment:
+    KUBECONFIG: /etc/rancher/k3s/k3s.yaml
+  register: metallb_controller_arguments
+  changed_when: false
+  when:
+    - traefik_existing_load_balancer_class.rc == 0
+    - traefik_existing_load_balancer_class.stdout | trim != traefik.service.load_balancer_class
+    - traefik.service.load_balancer_class | trim == ''
+
+- name: Assert MetalLB handles classless LoadBalancer services
+  ansible.builtin.assert:
+    that:
+      - "'--lb-class' not in metallb_controller_arguments.stdout"
+    fail_msg: MetalLB must handle classless Services before Traefik can be recreated.
+    success_msg: MetalLB handles classless LoadBalancer services.
+  when:
+    - traefik_existing_load_balancer_class.rc == 0
+    - traefik_existing_load_balancer_class.stdout | trim != traefik.service.load_balancer_class
+    - traefik.service.load_balancer_class | trim == ''
 
 - name: Recreate bundled Traefik service when load balancer class differs
   ansible.builtin.command:
@@ -505,14 +545,6 @@
   changed_when: true
   register: traefik_service_recreate_result
 
-- name: Render bundled Traefik HelmChartConfig manifest
-  ansible.builtin.template:
-    src: traefik-config.yaml.j2
-    dest: /var/lib/rancher/k3s/server/manifests/traefik-config.yaml
-    owner: root
-    group: root
-    mode: "0644"
-
 - name: Repair bundled Traefik Helm release after service recreation
   ansible.builtin.shell: |
     set -euo pipefail
@@ -528,47 +560,17 @@
       helm -n kube-system upgrade traefik "$chart_file" \
         --reuse-values \
         --set-string global.systemDefaultRegistry= \
-        --set-string service.spec.loadBalancerClass={{ traefik.service.load_balancer_class }}
+        --set-string 'service.annotations.metallb\.io/address-pool={{ traefik.service.address_pool_name }}' \
+        --set-string 'service.annotations.metallb\.io/loadBalancerIPs={{ traefik.service.load_balancer_ip }}' \
+    {% if traefik.service.load_balancer_class | trim != '' %}
+        --set-string service.spec.loadBalancerClass={{ traefik.service.load_balancer_class | quote }}
+    {% else %}
+        --set-json service.spec.loadBalancerClass=null
+    {% endif %}
   args:
     executable: /bin/bash
   when: traefik_service_recreate_result is changed
   changed_when: true
-
-- name: Render Cilium LB IP pool manifest
-  ansible.builtin.template:
-    src: cilium-lb-ip-pool.yaml.j2
-    dest: /var/lib/rancher/k3s/server/manifests/cilium-lb-ip-pool.yaml
-    owner: root
-    group: root
-    mode: "0644"
-  when: cilium_bgp_exposure_configured | bool
-
-- name: Render Cilium BGP peer config manifest
-  ansible.builtin.template:
-    src: cilium-bgp-peer-config.yaml.j2
-    dest: /var/lib/rancher/k3s/server/manifests/cilium-bgp-peer-config.yaml
-    owner: root
-    group: root
-    mode: "0644"
-  when: cilium_bgp_exposure_configured | bool
-
-- name: Render Cilium BGP cluster config manifest
-  ansible.builtin.template:
-    src: cilium-bgp-cluster-config.yaml.j2
-    dest: /var/lib/rancher/k3s/server/manifests/cilium-bgp-cluster-config.yaml
-    owner: root
-    group: root
-    mode: "0644"
-  when: cilium_bgp_exposure_configured | bool
-
-- name: Render Cilium BGP advertisement manifest
-  ansible.builtin.template:
-    src: cilium-bgp-advertisement.yaml.j2
-    dest: /var/lib/rancher/k3s/server/manifests/cilium-bgp-advertisement.yaml
-    owner: root
-    group: root
-    mode: "0644"
-  when: cilium_bgp_exposure_configured | bool
 
 - name: Wait for bundled Traefik HelmChartConfig to exist
   ansible.builtin.command:
@@ -626,70 +628,24 @@
   retries: 30
   delay: 10
 
-- name: Wait for Cilium BGP CRDs to exist
+- name: Wait for MetalLB to assign the Traefik VIP
   ansible.builtin.command:
     argv:
       - /usr/local/bin/k3s
       - kubectl
+      - -n
+      - "{{ traefik.namespace }}"
       - get
-      - crd
-      - "{{ item }}"
+      - "service/{{ traefik.service_name }}"
+      - -o
+      - jsonpath={.status.loadBalancer.ingress[0].ip}
   environment:
     KUBECONFIG: /etc/rancher/k3s/k3s.yaml
-  register: cilium_bgp_crds
+  register: traefik_metallb_vip
   changed_when: false
-  until: cilium_bgp_crds.rc == 0
+  until:
+    - traefik_metallb_vip.rc == 0
+    - traefik_metallb_vip.stdout | trim == traefik.service.load_balancer_ip
   retries: 60
   delay: 5
-  loop:
-    - ciliumloadbalancerippools.cilium.io
-    - ciliumbgppeerconfigs.cilium.io
-    - ciliumbgpclusterconfigs.cilium.io
-    - ciliumbgpadvertisements.cilium.io
-  when: cilium_bgp_exposure_configured | bool
-
-- name: Apply Cilium BGP exposure manifests explicitly after CRDs are ready
-  ansible.builtin.command:
-    argv:
-      - /usr/local/bin/k3s
-      - kubectl
-      - apply
-      - -f
-      - "{{ item }}"
-  environment:
-    KUBECONFIG: /etc/rancher/k3s/k3s.yaml
-  loop:
-    - /var/lib/rancher/k3s/server/manifests/cilium-lb-ip-pool.yaml
-    - /var/lib/rancher/k3s/server/manifests/cilium-bgp-peer-config.yaml
-    - /var/lib/rancher/k3s/server/manifests/cilium-bgp-cluster-config.yaml
-    - /var/lib/rancher/k3s/server/manifests/cilium-bgp-advertisement.yaml
-  when: cilium_bgp_exposure_configured | bool
-  changed_when: false
-
-- name: Wait for Cilium BGP exposure resources to exist after explicit apply
-  ansible.builtin.command:
-    argv:
-      - /usr/local/bin/k3s
-      - kubectl
-      - get
-      - "{{ item.kind }}"
-      - "{{ item.name }}"
-  environment:
-    KUBECONFIG: /etc/rancher/k3s/k3s.yaml
-  register: cilium_bgp_resources
-  changed_when: false
-  until: cilium_bgp_resources.rc == 0
-  retries: 60
-  delay: 5
-  loop:
-    - kind: CiliumLoadBalancerIPPool
-      name: "{{ cilium.bgp.ip_pool_name }}"
-    - kind: CiliumLoadBalancerIPPool
-      name: "{{ cilium.bgp.app_ip_pool.name }}"
-    - kind: CiliumBGPPeerConfig
-      name: "{{ cilium.bgp.peer_config_name }}"
-    - kind: CiliumBGPClusterConfig
-      name: "{{ cilium.bgp.cluster_config_name }}"
-    - kind: CiliumBGPAdvertisement
-      name: "{{ cilium.bgp.advertisement_name }}"
-  when: cilium_bgp_exposure_configured | bool
+  when: cilium_ds_image.rc == 0

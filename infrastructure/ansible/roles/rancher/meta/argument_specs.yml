@@ -144,3 +144,8 @@ argument_specs:
                   enabled:
                     type: bool
                     required: false
+              resources:
+                type: dict
+                required: false
+                description:
+                  - Per-component resource envelopes for the embedded Fleet chart.

@@ -4,7 +4,7 @@ chartContext:
 image:
   repository: registry.home/ghcr.io/abhi1693/home-lab-jellyfin
   # renovate: datasource=docker depName=ghcr.io/abhi1693/home-lab-jellyfin
-  tag: 10.11.8-pgsql.10.11.8-1-cf39083
+  tag: 10.11.8-pgsql.10.11.8-1-1c9ae30
   pullPolicy: IfNotPresent
 imagePullSecret:
   harbor-registry:
@@ -20,6 +20,8 @@ workload:
     strategy: Recreate
     podSpec:
       automountServiceAccountToken: false
+      annotations:
+        home-lab.io/config-seed-revision: "20260724"
       labels:
         home-lab.io/topology-group: heavy-media
       initContainers:
@@ -149,7 +151,7 @@ podOptions:
     kubernetes.io/arch: arm64
 resources:
   requests:
-    cpu: 500m
+    cpu: 1250m
     memory: 1536Mi
   limits:
     cpu: 2500m
@@ -232,12 +234,12 @@ persistence:
   shared-data:
     enabled: true
     type: pvc
-    existingClaim: jellyfin-shared-data
+    existingClaim: jellyfin-shared-data-nfs
     mountPath: /shared-data
   media:
     enabled: true
     type: pvc
-    existingClaim: media-library-nas
+    existingClaim: media-library-nfs-csi
     mountPath: /media
   transcode:
     enabled: false
@@ -275,9 +277,6 @@ networkPolicy:
           - podSelector:
               matchLabels:
                 app.kubernetes.io/name: ryokan
-          - podSelector:
-              matchLabels:
-                app.kubernetes.io/name: jellyfin-youtube-library-reconciler
           - namespaceSelector:
               matchLabels:
                 kubernetes.io/metadata.name: media
@@ -310,13 +309,6 @@ networkPolicy:
         ports:
           - protocol: TCP
             port: 443
-      - to:
-          - podSelector:
-              matchLabels:
-                app.kubernetes.io/name: dispatcharr
-        ports:
-          - protocol: TCP
-            port: 9191
       - to:
           - podSelector:
               matchLabels:

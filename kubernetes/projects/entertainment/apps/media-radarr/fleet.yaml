@@ -1,6 +1,7 @@
 ---
 name: radarr-helmop
 defaultNamespace: fleet-local
+paused: false
 labels:
   app.kubernetes.io/name: radarr
   app.kubernetes.io/part-of: media-stack

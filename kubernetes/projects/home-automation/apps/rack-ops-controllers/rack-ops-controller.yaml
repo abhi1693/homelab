@@ -102,7 +102,7 @@ spec:
           resources:
             requests:
               cpu: 10m
-              memory: 96Mi
+              memory: 82Mi
             limits:
               memory: 160Mi
           securityContext:
@@ -123,7 +123,7 @@ spec:
             name: rack-ops-policy
         - name: state
           persistentVolumeClaim:
-            claimName: rack-ops-state
+            claimName: rack-ops-state-nfs
 ---
 apiVersion: v1
 kind: Service
@@ -136,6 +136,7 @@ metadata:
     home-lab.io/project-slug: home-automation
 spec:
   type: ClusterIP
+  trafficDistribution: PreferSameNode
   selector:
     app.kubernetes.io/name: rack-ops
     app.kubernetes.io/part-of: rack-ops

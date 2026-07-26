@@ -8,6 +8,7 @@ metadata:
     app.kubernetes.io/component: api
     app.kubernetes.io/part-of: wardn-hub
 spec:
+  revisionHistoryLimit: 2
   replicas: 1
   selector:
     matchLabels:
@@ -21,7 +22,7 @@ spec:
   template:
     metadata:
       annotations:
-        home-lab.io/reconcile-token: "20260625T2115Z"
+        home-lab.io/reconcile-token: "20260721T1625Z"
       labels:
         app.kubernetes.io/name: wardn-hub-api
         app.kubernetes.io/component: api
@@ -59,7 +60,7 @@ spec:
       initContainers:
         - name: migrate-db
           # renovate: datasource=github-releases depName=abhi1693/wardn-hub
-          image: registry.home/ghcr.io/abhi1693/wardn-hub-backend:0.2.95
+          image: registry.home/ghcr.io/abhi1693/wardn-hub-backend:0.2.148
           imagePullPolicy: IfNotPresent
           command:
             - alembic
@@ -70,6 +71,8 @@ spec:
                 name: wardn-hub
             - secretRef:
                 name: wardn-hub
+            - secretRef:
+                name: wardn-hub-github
           env:
             - name: POSTGRES_USER
               valueFrom:
@@ -106,13 +109,15 @@ spec:
       containers:
         - name: api
           # renovate: datasource=github-releases depName=abhi1693/wardn-hub
-          image: registry.home/ghcr.io/abhi1693/wardn-hub-backend:0.2.95
+          image: registry.home/ghcr.io/abhi1693/wardn-hub-backend:0.2.148
           imagePullPolicy: IfNotPresent
           envFrom:
             - configMapRef:
                 name: wardn-hub
             - secretRef:
                 name: wardn-hub
+            - secretRef:
+                name: wardn-hub-github
           env:
             - name: GITHUB_TOKEN
               valueFrom:
@@ -150,11 +155,11 @@ spec:
               protocol: TCP
           resources:
             requests:
-              cpu: 100m
-              memory: 512Mi
+              cpu: 130m
+              memory: 256Mi
             limits:
               cpu: "1"
-              memory: 1Gi
+              memory: 384Mi
           startupProbe:
             httpGet:
               path: /api/v1/health/ready

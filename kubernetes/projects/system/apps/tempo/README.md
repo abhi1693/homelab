@@ -15,6 +15,10 @@ This is intentionally scoped for home-lab APM:
   in-cluster;
 - no external object storage, Kafka, or distributed Tempo components.
 
+The pod requests `60m` CPU and keeps CPU uncapped, matching the observed
+trace-ingestion baseline while retaining burst capacity for compaction and
+queries.
+
 Grafana queries Tempo through the `Tempo` datasource provisioned by the Rancher
 Monitoring chart values.
 

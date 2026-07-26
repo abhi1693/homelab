@@ -8,7 +8,8 @@ metadata:
     app.kubernetes.io/part-of: media-stack
     home-lab.io/project-slug: entertainment
 spec:
-  replicas: 0
+  revisionHistoryLimit: 2
+  replicas: 1
   strategy:
     type: Recreate
   selector:
@@ -48,6 +49,8 @@ spec:
           envFrom:
             - configMapRef:
                 name: ryokan
+            - secretRef:
+                name: ryokan-proxy
           ports:
             - name: http
               containerPort: 8978
@@ -98,9 +101,9 @@ spec:
             claimName: ryokan-data
         - name: downloads
           persistentVolumeClaim:
-            claimName: media-downloads
+            claimName: media-downloads-nfs-csi
         - name: anime-library
           persistentVolumeClaim:
-            claimName: media-library-nas
+            claimName: media-library-nfs-csi
         - name: tmp
           emptyDir: {}

@@ -1,4 +1,3 @@
----
 fullnameOverride: valkey
 commonLabels:
   app.kubernetes.io/part-of: valkey
@@ -99,9 +98,9 @@ replica:
   resources:
     requests:
       cpu: 50m
-      memory: 112Mi
+      memory: 245Mi
     limits:
-      memory: 176Mi
+      memory: 256Mi
 metrics:
   enabled: true
   image:

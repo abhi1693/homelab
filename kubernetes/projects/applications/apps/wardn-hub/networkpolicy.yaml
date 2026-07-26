@@ -143,6 +143,14 @@ spec:
         - protocol: TCP
           port: 26379
     - to:
+        - podSelector:
+            matchLabels:
+              app.kubernetes.io/name: wardn-hub-codex-app-server
+              app.kubernetes.io/component: codex-app-server
+      ports:
+        - protocol: TCP
+          port: 41237
+    - to:
         - ipBlock:
             cidr: 0.0.0.0/0
             except:
@@ -172,17 +180,13 @@ spec:
         values:
           - wardn-hub-api
           - wardn-hub-codex-app-server
-          - wardn-hub-events-worker
-          - wardn-hub-fix-rejected-worker
-          - wardn-hub-review-worker
+          - wardn-hub-worker
       - key: app.kubernetes.io/component
         operator: In
         values:
           - api
           - codex-app-server
-          - events-worker
-          - fix-rejected-worker
-          - review-worker
+          - worker
   policyTypes:
     - Egress
   egress:
@@ -201,16 +205,16 @@ spec:
 apiVersion: networking.k8s.io/v1
 kind: NetworkPolicy
 metadata:
-  name: wardn-hub-events-worker-egress
+  name: wardn-hub-worker-egress
   namespace: wardn
   labels:
-    app.kubernetes.io/name: wardn-hub-events-worker
+    app.kubernetes.io/name: wardn-hub-worker
     app.kubernetes.io/part-of: wardn-hub
 spec:
   podSelector:
     matchLabels:
-      app.kubernetes.io/name: wardn-hub-events-worker
-      app.kubernetes.io/component: events-worker
+      app.kubernetes.io/name: wardn-hub-worker
+      app.kubernetes.io/component: worker
   policyTypes:
     - Egress
   egress:
@@ -227,46 +231,24 @@ spec:
     - to:
         - podSelector:
             matchLabels:
-              app.kubernetes.io/name: wardn-hub-scoring
-              app.kubernetes.io/component: scoring
+              app.kubernetes.io/name: wardn-hub-api
+              app.kubernetes.io/component: api
       ports:
         - protocol: TCP
           port: 8080
     - to:
-        - ipBlock:
-            cidr: 0.0.0.0/0
-            except:
-              - 10.0.0.0/8
-              - 100.64.0.0/10
-              - 172.16.0.0/12
-              - 192.168.0.0/16
+        - podSelector:
+            matchLabels:
+              app.kubernetes.io/name: wardn-hub-codex-app-server
+              app.kubernetes.io/component: codex-app-server
       ports:
         - protocol: TCP
-          port: 80
-        - protocol: TCP
-          port: 443
----
-apiVersion: networking.k8s.io/v1
-kind: NetworkPolicy
-metadata:
-  name: wardn-hub-registry-sync-egress
-  namespace: wardn
-  labels:
-    app.kubernetes.io/name: wardn-hub-registry-sync
-    app.kubernetes.io/part-of: wardn-hub
-spec:
-  podSelector:
-    matchLabels:
-      app.kubernetes.io/name: wardn-hub-registry-sync
-      app.kubernetes.io/component: registry-sync
-  policyTypes:
-    - Egress
-  egress:
+          port: 41237
     - to:
         - podSelector:
             matchLabels:
-              app.kubernetes.io/name: wardn-hub-api
-              app.kubernetes.io/component: api
+              app.kubernetes.io/name: wardn-hub-scoring
+              app.kubernetes.io/component: scoring
       ports:
         - protocol: TCP
           port: 8080
@@ -299,12 +281,12 @@ spec:
         operator: In
         values:
           - wardn-hub-api
-          - wardn-hub-events-worker
+          - wardn-hub-worker
       - key: app.kubernetes.io/component
         operator: In
         values:
           - api
-          - events-worker
+          - worker
   policyTypes:
     - Ingress
   ingress:
@@ -325,49 +307,6 @@ spec:
 apiVersion: networking.k8s.io/v1
 kind: NetworkPolicy
 metadata:
-  name: wardn-hub-submission-worker-egress
-  namespace: wardn
-  labels:
-    app.kubernetes.io/name: wardn-hub-submission-worker
-    app.kubernetes.io/part-of: wardn-hub
-spec:
-  podSelector:
-    matchExpressions:
-      - key: app.kubernetes.io/name
-        operator: In
-        values:
-          - wardn-hub-fix-rejected-worker
-          - wardn-hub-review-worker
-      - key: app.kubernetes.io/component
-        operator: In
-        values:
-          - fix-rejected-worker
-          - review-worker
-  policyTypes:
-    - Egress
-  egress:
-    - to:
-        - namespaceSelector:
-            matchLabels:
-              kubernetes.io/metadata.name: postgresql
-          podSelector:
-            matchLabels:
-              cnpg.io/poolerName: postgresql-pooler-wardn-hub-rw
-      ports:
-        - protocol: TCP
-          port: 5432
-    - to:
-        - podSelector:
-            matchLabels:
-              app.kubernetes.io/name: wardn-hub-codex-app-server
-              app.kubernetes.io/component: codex-app-server
-      ports:
-        - protocol: TCP
-          port: 41237
----
-apiVersion: networking.k8s.io/v1
-kind: NetworkPolicy
-metadata:
   name: wardn-hub-codex-app-server-ingress
   namespace: wardn
   labels:
@@ -384,12 +323,12 @@ spec:
     - from:
         - podSelector:
             matchLabels:
-              app.kubernetes.io/name: wardn-hub-review-worker
-              app.kubernetes.io/component: review-worker
+              app.kubernetes.io/name: wardn-hub-worker
+              app.kubernetes.io/component: worker
         - podSelector:
             matchLabels:
-              app.kubernetes.io/name: wardn-hub-fix-rejected-worker
-              app.kubernetes.io/component: fix-rejected-worker
+              app.kubernetes.io/name: wardn-hub-api
+              app.kubernetes.io/component: api
       ports:
         - protocol: TCP
           port: 41237
@@ -451,8 +390,8 @@ spec:
     - from:
         - podSelector:
             matchLabels:
-              app.kubernetes.io/name: wardn-hub-events-worker
-              app.kubernetes.io/component: events-worker
+              app.kubernetes.io/name: wardn-hub-worker
+              app.kubernetes.io/component: worker
       ports:
         - protocol: TCP
           port: 8080

@@ -46,4 +46,4 @@ repository for Fleet to reconcile.
 Renovate reads upstream image tags from each manifest's `depName` comment.
 Fleet then reconciles the updated manifest exactly as committed. Runtime image
 pulls still go through Harbor when the image value starts with `registry.home/`,
-for example `registry.home/ghcr.io/abhi1693/git-rank-backend:1.2.28`.
+for example `registry.home/ghcr.io/abhi1693/shipyardhq:1.5.13`.

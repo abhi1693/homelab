@@ -13,3 +13,4 @@ crash.log
 *.sqlite3
 __pycache__/
 *.py[cod]
+nas_password

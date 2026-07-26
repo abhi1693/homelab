@@ -7,9 +7,9 @@ Proposed
 ## Context
 
 The current Jellyfin deployment is a single process with SQLite-backed state on
-Longhorn RWO volumes and media on the NAS-backed `media-library-nas` PVC. This
-can fail over, but it cannot horizontally scale without sharing mutable local
-state between pods.
+Longhorn RWO volumes and media on the NFS CSI-backed `media-library-nfs-csi`
+PVC. This can fail over, but it cannot horizontally scale without sharing
+mutable local state between pods.
 
 The target is active-active Jellyfin replicas for more concurrent streaming and
 better node-failure behavior. Running multiple pods against the same SQLite

@@ -17,14 +17,14 @@ csrf:
     - http://netbox.home
 loginRequired: true
 timeZone: Asia/Kolkata
-replicaCount: 1
+replicaCount: 0
 pdb:
   enabled: false
   minAvailable: 1
 persistence:
   enabled: true
-  existingClaim: netbox-media-v2
-  storageClass: longhorn
+  existingClaim: netbox-media-v2-nfs
+  storageClass: nfs-shared-retain
   accessMode: ReadWriteMany
   size: 2Gi
   annotations:
@@ -104,7 +104,6 @@ plugins:
   - netbox_topology_views
   - netbox_dns
   - netbox_lifecycle
-  - netbox_bgp
 pluginsConfig:
   netbox_metatype_importer:
     branch: master
@@ -116,7 +115,7 @@ extraConfig:
       secretName: netbox-metatype-importer
       optional: true
 housekeeping:
-  enabled: true
+  enabled: false
   timezone: Asia/Kolkata
   successfulJobsHistoryLimit: 0
   failedJobsHistoryLimit: 0
@@ -131,7 +130,7 @@ housekeeping:
       memory: 512Mi
 worker:
   enabled: true
-  replicaCount: 1
+  replicaCount: 0
   pdb:
     enabled: false
     minAvailable: 1
@@ -165,7 +164,7 @@ extraDeploy:
   - apiVersion: v1
     kind: PersistentVolumeClaim
     metadata:
-      name: netbox-media-v2
+      name: netbox-media-v2-nfs
       namespace: netbox
       annotations:
         helm.sh/resource-policy: keep
@@ -179,9 +178,9 @@ extraDeploy:
       resources:
         requests:
           storage: 2Gi
-      storageClassName: longhorn
+      storageClassName: nfs-shared-retain
       volumeMode: Filesystem
-      volumeName: pvc-cd2d6fe9-bc90-45ea-9c47-807ff682c6af
+      volumeName: pvc-e979efd6-d5fc-4f14-94a5-3e79a78edf3c
   - apiVersion: networking.k8s.io/v1
     kind: NetworkPolicy
     metadata:

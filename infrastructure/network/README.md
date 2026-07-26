@@ -7,32 +7,32 @@ Kubernetes API.
 
 | Path | Purpose |
 | --- | --- |
-| `unifi/` | UniFi gateway BGP configuration and operational notes for service VIP advertisement. |
+| `unifi/` | UniFi VLAN assumptions and operational notes for Layer 2 service VIP advertisement. |
 
 ## Why This Exists
 
-The cluster can declare LoadBalancer services and Cilium can advertise those
-VIPs, but the LAN gateway still has to accept and route those advertisements.
-That router-side state is not reconciled by Fleet or Ansible in this repo.
+The cluster declares LoadBalancer services and MetalLB advertises their VIPs on
+the cluster VLAN. The LAN gateway only needs its normal connected VLAN and
+inter-VLAN routing; no Kubernetes-specific dynamic routing is required.
 
 Network files here document the assumptions that must match the Kubernetes
 configuration:
 
-- BGP local and peer ASNs.
-- Control-plane node peer addresses.
-- Accepted LoadBalancer VIP prefixes.
 - Traefik ingress VIP.
 - App LoadBalancer pool.
-- Firewall requirements for BGP TCP port `179`.
+- Cluster VLAN and gateway address.
+- Inter-VLAN firewall requirements.
+- Optional break-glass access-port behavior.
 
 ## How It Fits The Cluster
 
-1. Cilium allocates service VIPs through LoadBalancer IPAM.
-2. Cilium BGP advertises those VIPs from the K3s nodes.
-3. The UniFi gateway accepts only the expected prefixes.
-4. LAN clients route `*.home` and app service VIP traffic through the gateway.
+1. MetalLB allocates explicitly requested service VIPs from declared pools.
+2. One eligible MetalLB speaker answers ARP for each VIP on `eth0`.
+3. The UniFi gateway routes between its directly connected VLANs.
+4. LAN clients reach `*.home` and app service VIPs through ordinary
+   connected-VLAN routing.
 5. ExternalDNS keeps internal DNS records aligned with Ingress hosts.
 
-The network layer is therefore coupled to Cilium, Traefik, ExternalDNS, and the
-app LoadBalancer pool. When one of those changes, the router-side assumptions
-should be reviewed.
+The network layer is therefore coupled to MetalLB, Traefik, ExternalDNS, and
+the app LoadBalancer pool. When one changes, review the VLAN, DNS, and firewall
+assumptions.

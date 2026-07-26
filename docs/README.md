@@ -27,10 +27,13 @@ hide inside a manifest comment:
 | Document | Purpose |
 | --- | --- |
 | `architecture/adr-001-jellyfin-horizontal-scaling.md` | Design decision for Jellyfin horizontal scaling work. |
+| `architecture/lan-service-resilience-incident-review.md` | Evidence-based ISP-outage learning review and Layer 2 service exposure decision. |
 | `runbooks/README.md` | Standard format for new runbooks. |
 | `runbooks/fleet-namespace-psa-labels.md` | Procedure for namespace ownership and Pod Security Admission label changes under Fleet. |
+| `runbooks/kubernetes-resource-policy.md` | Production requests, limits, generated-container defaults, validation, and Longhorn exceptions. |
 | `runbooks/jellyfin-sqlite-to-postgresql-migration.md` | Notes for Jellyfin SQLite to PostgreSQL migration rehearsal. |
 | `runbooks/networking/laptop-wireguard-mtu-tls-handshake-timeouts.md` | Diagnosis and fix for laptop WireGuard MTU blackholes causing Kubernetes API and `*.home` TLS timeouts. |
+| `runbooks/storage/anime-library-relocation-and-shoko-recovery.md` | Safe anime library relocation and Shoko unrecognized-file recovery. |
 | `runbooks/storage/longhorn-disk-available-space-alerts.md` | Diagnosis and mitigation for Longhorn disk schedulable space warning and critical alerts. |
 
 ## How To Add Docs

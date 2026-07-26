@@ -5,7 +5,7 @@ image:
   repository: registry.home/oci.trueforge.org/containerforge/radarr
   pullPolicy: IfNotPresent
   # renovate: datasource=docker depName=oci.trueforge.org/containerforge/radarr
-  tag: "6.3.0"
+  tag: "6.4.0"
 imagePullSecret:
   harbor-registry:
     enabled: true
@@ -20,8 +20,8 @@ podOptions:
     kubernetes.io/arch: arm64
 resources:
   requests:
-    cpu: 55m
-    memory: 656Mi
+    cpu: 100m
+    memory: 368Mi
   limits:
     memory: 976Mi
 ingress:
@@ -58,12 +58,12 @@ persistence:
   media:
     enabled: true
     type: pvc
-    existingClaim: media-library-nas
+    existingClaim: media-library-nfs-csi
     mountPath: /data
   downloads:
     enabled: true
     type: pvc
-    existingClaim: media-downloads
+    existingClaim: media-downloads-nfs-csi
     mountPath: /downloads
 metrics:
   main:
@@ -88,9 +88,6 @@ networkPolicy:
               matchLabels:
                 app.kubernetes.io/instance: jellyfin
                 app.kubernetes.io/name: jellyfin
-          - podSelector:
-              matchLabels:
-                app.kubernetes.io/name: profilarr
           - podSelector:
               matchLabels:
                 app.kubernetes.io/instance: prowlarr
@@ -133,10 +130,6 @@ networkPolicy:
           - podSelector:
               matchLabels:
                 app.kubernetes.io/instance: qbittorrent
-                app.kubernetes.io/name: qbittorrent
-          - podSelector:
-              matchLabels:
-                app.kubernetes.io/instance: qbittorrent-movies
                 app.kubernetes.io/name: qbittorrent
         ports:
           - protocol: TCP

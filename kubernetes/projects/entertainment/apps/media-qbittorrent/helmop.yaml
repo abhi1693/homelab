@@ -8,11 +8,11 @@ metadata:
     app.kubernetes.io/part-of: media-stack
     home-lab.io/project-slug: entertainment
 spec:
-  forceSyncGeneration: 1
+  forceSyncGeneration: 2
   defaultNamespace: media
   dependsOn:
+    - name: metallb-config
     - name: rancher-project-entertainment
-    - name: media-helm-repositories
     - name: media-storage
   labels:
     app.kubernetes.io/name: qbittorrent
@@ -43,4 +43,3 @@ spec:
           name: qbittorrent-values
           namespace: fleet-local
           key: values.yaml
-    waitForJobs: true

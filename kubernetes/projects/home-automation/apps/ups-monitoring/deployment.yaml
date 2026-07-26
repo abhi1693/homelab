@@ -7,6 +7,7 @@ metadata:
     app.kubernetes.io/name: ups-monitoring
     app.kubernetes.io/part-of: home-automation
 spec:
+  revisionHistoryLimit: 2
   replicas: 1
   strategy:
     type: Recreate
@@ -56,6 +57,13 @@ spec:
               cp /peanut-config-seed/settings.yml /peanut-config/settings.yml
               chmod 0640 /nut-local/upsmon.conf
               chmod 0640 /peanut-config/settings.yml
+          resources:
+            requests:
+              cpu: 5m
+              memory: 16Mi
+            limits:
+              cpu: 100m
+              memory: 64Mi
           securityContext:
             allowPrivilegeEscalation: false
             capabilities:

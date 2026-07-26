@@ -21,17 +21,15 @@ secret contract each app expects.
 | App | What it does | Exposure | Key dependencies |
 | --- | --- | --- | --- |
 | `applications-helm-repositories` | Registers chart repositories used by this project. | None | Rancher ClusterRepo. |
-| `firefly-iii-storage` | Storage support for Firefly III. | None | Longhorn PVCs. |
-| `firefly-iii` | Personal finance app. | Internal Traefik at `finance.home`. | PostgreSQL pooler, Longhorn upload PVC, SOPS Secret. |
-| `firefly-iii-data-importer` | Import UI for Firefly III. | Internal Traefik at `import.finance.home`. | Firefly service, Longhorn config PVC. |
-| `git-rank` | Public GitHub ranking/profile app with frontend, API, webhooks, and workers. | Cloudflare Tunnel at `git-rank.dev` and `api.git-rank.dev`. | PostgreSQL, Valkey, Harbor image, runtime secrets. |
+| `firefly-iii-storage` | Storage support for Firefly III. | None | Retained NFS CSI upload PVC. |
+| `firefly-iii` | Personal finance app. | Internal Traefik at `finance.home`. | PostgreSQL pooler, NFS upload PVC, SOPS Secret. |
+| `firefly-iii-data-importer` | Import UI for Firefly III. | Internal Traefik at `import.finance.home`. | Firefly service, NFS config PVC. |
 | `harbor` | Local registry and proxy/cache registry. | Internal Traefik at `registry.home`. | PostgreSQL, Valkey, Longhorn, monitoring. |
-| `indexly` | Public Next.js app with scheduled sync jobs. | Cloudflare Tunnel at `indexly.cc`. | Harbor image, runtime secrets, CronJobs. |
 | `openbao` | Lightweight OpenBao deployment for Wardn-related secret workflows. | Internal Traefik at `secrets.wardn.home`. | Longhorn PVC, manual init/unseal workflow. |
 | `personal-blog` | Public personal blog. | Cloudflare Tunnel at `blog.abhimanyu-saharan.com`. | Harbor image, Sanity webhook secret, ConfigMap. |
 | `portfolio` | Public portfolio site. | Cloudflare Tunnel at `abhimanyu-saharan.com`. | Harbor image, runtime config. |
-| `shipyardhq` | Public app with web, worker, image proxy, build job, and media storage. | Cloudflare Tunnel at `shipyardhq.dev` and image hostnames. | PostgreSQL, Valkey, R2, Longhorn build cache, Harbor image. |
-| `wardn-hub` | Wardn Hub backend, frontend, events worker, review webhook, and Codex-backed automation. | Cloudflare Tunnel at `hub.wardnai.dev`. | PostgreSQL, OpenTelemetry, Longhorn Codex state, Harbor image. |
+| `shipyardhq` | Public app with web, worker, image proxy, build job, and media storage. | Cloudflare Tunnel at `shipyardhq.dev` and image hostnames. | PostgreSQL, Valkey, R2, NFS build cache, Harbor image. |
+| `wardn-hub` | Wardn Hub backend, frontend, events worker, review webhook, and Codex-backed automation. | Cloudflare Tunnel at `hub.wardnai.dev`. | PostgreSQL, OpenTelemetry, NFS build cache, Longhorn Codex state, Harbor image. |
 | `zitadel` | Central identity provider for app OIDC/SAML authentication. | Cloudflare Tunnel at `auth.abhimanyu-saharan.com`. | PostgreSQL, SOPS bootstrap secrets, monitoring. |
 
 ## Coupling Patterns

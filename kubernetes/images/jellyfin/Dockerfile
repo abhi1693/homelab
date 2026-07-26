@@ -70,8 +70,7 @@ USER root
 
 RUN set -eux; \
     apt-get update; \
-    apt-get install -y --no-install-recommends ca-certificates curl jq postgresql-client xmlstarlet yt-dlp; \
-    ln -sf /usr/bin/yt-dlp /usr/local/bin/youtube-dl; \
+    apt-get install -y --no-install-recommends ca-certificates curl jq postgresql-client xmlstarlet; \
     rm -rf /opt/jellyfin/plugins; \
     mkdir -p /opt/jellyfin/plugins; \
     rm -rf /var/lib/apt/lists/*

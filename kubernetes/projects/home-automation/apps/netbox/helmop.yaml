@@ -12,6 +12,7 @@ spec:
   dependsOn:
     - name: rancher-project-home-automation
     - name: home-automation-helm-repositories
+    - name: csi-driver-nfs-helmop
     - name: netbox-secrets
   labels:
     app.kubernetes.io/part-of: netbox
@@ -22,6 +23,14 @@ spec:
   targetRestrictions:
     - name: default
       clusterGroup: default
+  diff:
+    comparePatches:
+      - apiVersion: v1
+        kind: PersistentVolumeClaim
+        name: netbox-media-v2-nfs
+        namespace: netbox
+        jsonPointers:
+          - /spec/volumeName
   correctDrift:
     enabled: true
     force: true
@@ -43,4 +52,3 @@ spec:
           name: netbox-values
           namespace: netbox
           key: values.yaml
-    waitForJobs: true

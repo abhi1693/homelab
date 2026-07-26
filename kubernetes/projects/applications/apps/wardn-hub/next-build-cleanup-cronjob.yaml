@@ -36,7 +36,7 @@ spec:
           containers:
             - name: cleanup-next-build-cache
               # renovate: datasource=github-releases depName=abhi1693/wardn-hub
-              image: registry.home/ghcr.io/abhi1693/wardn-hub-frontend:0.2.95
+              image: registry.home/ghcr.io/abhi1693/wardn-hub-frontend:0.2.148
               imagePullPolicy: IfNotPresent
               command:
                 - /bin/sh
@@ -63,7 +63,7 @@ spec:
                   )"
                   env_key="$(
                     env | LC_ALL=C sort \
-                      | grep -E '^(CLERK_|NEXT_PUBLIC_|WARDN_HUB_API_INTERNAL_BASE_URL)=' \
+                      | grep -E '^(NEXT_PUBLIC_|WARDN_HUB_API_INTERNAL_BASE_URL)=' \
                       | sha256sum | awk '{print $1}'
                   )"
                   build_key="$(printf '%s\n%s\n%s\n' "$cache_version" "$source_key" "$env_key" | sha256sum | awk '{print $1}')"
@@ -85,6 +85,8 @@ spec:
                     name: wardn-hub
                 - secretRef:
                     name: wardn-hub
+                - secretRef:
+                    name: wardn-hub-github
               env:
                 - name: NODE_OPTIONS
                   value: --max-old-space-size=512
@@ -111,4 +113,5 @@ spec:
           volumes:
             - name: next-build-cache
               persistentVolumeClaim:
-                claimName: wardn-hub-next-build-cache
+                claimName: wardn-hub-next-build-cache-nfs
+          initContainers: []

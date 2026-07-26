@@ -93,14 +93,14 @@ alloy:
   resources:
     requests:
       cpu: 50m
-      memory: 128Mi
+      memory: 192Mi
     limits:
       memory: 256Mi
 
 configReloader:
   resources:
     requests:
-      cpu: 10m
+      cpu: 5m
       memory: 32Mi
     limits:
       memory: 64Mi
@@ -109,4 +109,3 @@ serviceMonitor:
   enabled: true
   additionalLabels:
     app.kubernetes.io/part-of: rancher-monitoring
-

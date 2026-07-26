@@ -14,7 +14,6 @@ configurations:
   - kustomizeconfig.yaml
 resources:
   - secrets.sops.yaml
-  - aliases.yaml
   - helmop.yaml
   - smart-queues-apiserver-cnp.yaml
   - smart-queues-controller.yaml

@@ -171,15 +171,6 @@ def write_output(path: Path, content: str, *, force: bool) -> None:
 
 def parser() -> argparse.ArgumentParser:
     example = """examples:
-  # Mirror one Secret, preserving the live name.
-  scripts/k8s-secret-to-sops-secret.py -n indexly indexly \\
-    -o kubernetes/projects/applications/apps/indexly/secrets.sops.yaml
-
-  # Mirror and rename the target Secret.
-  scripts/k8s-secret-to-sops-secret.py -n indexly indexly-runtime=indexly \\
-    --sops-name indexly-secrets \\
-    -o kubernetes/projects/applications/apps/indexly/secrets.sops.yaml
-
   # Mirror Rancher project-scoped image pull secrets from the backing namespace.
   scripts/k8s-secret-to-sops-secret.py -n local-p-applications \\
     --preserve-labels \\

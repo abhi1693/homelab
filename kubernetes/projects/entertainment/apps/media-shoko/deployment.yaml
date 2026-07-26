@@ -7,7 +7,8 @@ metadata:
     app.kubernetes.io/name: shoko
     app.kubernetes.io/part-of: media-stack
 spec:
-  replicas: 0
+  revisionHistoryLimit: 2
+  replicas: 1
   strategy:
     type: Recreate
   selector:
@@ -93,7 +94,7 @@ spec:
             claimName: shoko-config
         - name: anime
           persistentVolumeClaim:
-            claimName: media-library-nas
+            claimName: media-library-nfs-csi
         - name: shm
           emptyDir:
             medium: Memory

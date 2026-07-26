@@ -11,11 +11,11 @@ spec:
   schedule: "17 * * * *"
   concurrencyPolicy: Forbid
   successfulJobsHistoryLimit: 1
-  failedJobsHistoryLimit: 3
+  failedJobsHistoryLimit: 1
   jobTemplate:
     spec:
       backoffLimit: 1
-      ttlSecondsAfterFinished: 86400
+      ttlSecondsAfterFinished: 7200
       template:
         metadata:
           labels:
@@ -40,7 +40,7 @@ spec:
           containers:
             - name: renovate
               # renovate: datasource=github-releases depName=renovatebot/renovate
-              image: registry.home/docker.io/renovate/renovate:43.262.1
+              image: registry.home/docker.io/renovate/renovate:43.281.0
               imagePullPolicy: IfNotPresent
               env:
                 - name: LOG_LEVEL

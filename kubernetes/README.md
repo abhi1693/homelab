@@ -28,8 +28,8 @@ application operations separate from host bootstrap.
 
 ## How Fleet Reads This Tree
 
-The Fleet control-plane bundle creates one GitRepo per major project. Each
-GitRepo lists the app paths it owns:
+The Fleet control-plane bundle creates one GitRepo per project with active app
+bundles. Each GitRepo lists the app paths it owns:
 
 ```mermaid
 flowchart TD
@@ -130,3 +130,14 @@ For normal changes:
 
 Avoid direct `kubectl apply`, `helm upgrade`, or manual patching unless it is a
 deliberate break-glass action.
+
+## Resource Policy
+
+Direct workload containers must declare CPU and memory requests plus a memory
+limit. CI enforces this with `python scripts/check-kubernetes-resource-bounds.py`.
+Charts use component-specific resource values where supported; narrow namespace
+defaults cover operator-generated containers that have no values interface.
+CPU limits remain selective for burst-sensitive networking, storage, database,
+and application datapaths. See
+[`docs/runbooks/kubernetes-resource-policy.md`](../docs/runbooks/kubernetes-resource-policy.md)
+for the production policy, verification commands, and Longhorn exceptions.

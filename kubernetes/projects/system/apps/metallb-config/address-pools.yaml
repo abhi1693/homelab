@@ -1,0 +1,35 @@
+---
+apiVersion: metallb.io/v1beta1
+kind: IPAddressPool
+metadata:
+  name: ingress-services
+  namespace: metallb-system
+  labels:
+    app.kubernetes.io/name: metallb-config
+    app.kubernetes.io/part-of: cluster-networking
+    home-lab.io/project-slug: system
+spec:
+  addresses:
+    - 192.168.3.3/32
+  autoAssign: false
+  serviceAllocation:
+    priority: 1
+    namespaces:
+      - kube-system
+    serviceSelectors:
+      - matchLabels:
+          app.kubernetes.io/name: traefik
+---
+apiVersion: metallb.io/v1beta1
+kind: IPAddressPool
+metadata:
+  name: app-services
+  namespace: metallb-system
+  labels:
+    app.kubernetes.io/name: metallb-config
+    app.kubernetes.io/part-of: cluster-networking
+    home-lab.io/project-slug: system
+spec:
+  addresses:
+    - 192.168.3.16-192.168.3.23
+  autoAssign: false

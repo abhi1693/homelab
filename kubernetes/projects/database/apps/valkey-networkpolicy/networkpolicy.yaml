@@ -30,12 +30,6 @@ spec:
               app.kubernetes.io/name: netbox
         - namespaceSelector:
             matchLabels:
-              kubernetes.io/metadata.name: git-rank
-          podSelector:
-            matchLabels:
-              git-rank-valkey-client: "true"
-        - namespaceSelector:
-            matchLabels:
               kubernetes.io/metadata.name: wardn
           podSelector:
             matchLabels:

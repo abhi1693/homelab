@@ -1,0 +1,1195 @@
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: music-assistant
+  namespace: media
+  labels:
+    app.kubernetes.io/name: music-assistant
+    app.kubernetes.io/part-of: media-stack
+    home-lab.io/project-slug: entertainment
+spec:
+  revisionHistoryLimit: 2
+  replicas: 1
+  strategy:
+    type: Recreate
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: music-assistant
+  template:
+    metadata:
+      annotations:
+        home-lab.io/ytmusic-catalog-revision: "2026-07-26-7"
+        home-lab.io/hf-token-revision: "2026-07-25-2"
+        home-lab.io/ytmusic-cookie-revision: "2026-07-25-1"
+      labels:
+        app.kubernetes.io/name: music-assistant
+        app.kubernetes.io/part-of: media-stack
+        home-lab.io/topology-group: heavy-media
+    spec:
+      hostNetwork: true
+      dnsPolicy: ClusterFirstWithHostNet
+      automountServiceAccountToken: false
+      terminationGracePeriodSeconds: 120
+      nodeSelector:
+        kubernetes.io/arch: arm64
+        kubernetes.io/hostname: k8s-rpi4
+      imagePullSecrets:
+        - name: harbor-registry
+      securityContext:
+        fsGroup: 568
+        fsGroupChangePolicy: OnRootMismatch
+        runAsNonRoot: true
+        runAsUser: 568
+        runAsGroup: 568
+        supplementalGroups:
+          - 1000
+        seccompProfile:
+          type: RuntimeDefault
+      initContainers:
+        - name: prepare-provider-runtime
+          # renovate: datasource=docker depName=ghcr.io/music-assistant/server
+          image: registry.home/ghcr.io/music-assistant/server:2.10.0b7@sha256:11c4c2a66f4108bda0584ecafbbd64a6fa4a8ac566d24b571930ec3f035248d3
+          imagePullPolicy: IfNotPresent
+          env:
+            - name: UV_CACHE_DIR
+              value: /tmp/uv-cache
+            - name: UV_LINK_MODE
+              value: copy
+            - name: YTMUSIC_COOKIE
+              valueFrom:
+                secretKeyRef:
+                  name: music-assistant-secrets
+                  key: YTMUSIC_COOKIE
+            - name: YTMUSIC_CATALOG_USERNAME
+              valueFrom:
+                secretKeyRef:
+                  name: music-assistant-postgresql
+                  key: username
+            - name: YTMUSIC_CATALOG_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: music-assistant-postgresql
+                  key: password
+            - name: ALEXA_API_USERNAME
+              valueFrom:
+                secretKeyRef:
+                  name: music-assistant-alexa-skill-secrets
+                  key: APP_USERNAME
+            - name: ALEXA_API_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: music-assistant-alexa-skill-secrets
+                  key: APP_PASSWORD
+          command:
+            - /bin/sh
+            - -c
+          args:
+            - |
+              set -eu
+              runtime=/data/provider-venv
+              source_python=$(
+                /app/venv/bin/python -c \
+                  'import sys; print(f"{sys.version_info.major}.{sys.version_info.minor}")'
+              )
+              source_version=$(
+                /app/venv/bin/python -c \
+                  'from importlib.metadata import version; print(version("music-assistant"))'
+              )
+              managed_runtime_revision=3
+              source_runtime="$source_python:$source_version:$managed_runtime_revision"
+              runtime_fingerprint=$(
+                cat "$runtime/.base-runtime" 2>/dev/null || true
+              )
+
+              if [ "$runtime_fingerprint" != "$source_runtime" ]; then
+                /app/venv/bin/uv venv \
+                  --clear \
+                  --force \
+                  --python /app/venv/bin/python \
+                  "$runtime"
+                printf '%s\n' "$source_runtime" > "$runtime/.base-runtime"
+              fi
+
+              if ! "$runtime/bin/python" -c \
+                'from importlib.metadata import version; import asyncpg, yt_dlp, ytmusicapi; assert version("asyncpg") == "0.31.0"; assert version("yt-dlp") == "2026.7.4"; assert version("ytmusicapi") == "1.12.1"' \
+                2>/dev/null
+              then
+                VIRTUAL_ENV="$runtime" /app/venv/bin/uv pip install \
+                  --python "$runtime/bin/python" \
+                  --no-cache \
+                  --find-links https://wheels.home-assistant.io/musllinux/ \
+                  "asyncpg==0.31.0" \
+                  "yt-dlp[default]==2026.7.4" \
+                  "ytmusicapi==1.12.1"
+              fi
+
+              YTMUSIC_PROVIDER_DIR="/data/custom-providers/ytmusic" \
+                /app/venv/bin/python - <<'PY'
+              import hashlib
+              import os
+              import shutil
+              import urllib.request
+              from pathlib import Path
+
+              revision = "2b9335b80a4abadb046ab936019c6ca5905dda4c"
+              expected_hashes = {
+                  "__init__.py": (
+                      "406cd4feae6addea595bd24009ad278863bf32bf6f6379b13ed17ac12a2f8143"
+                  ),
+                  "catalog.py": (
+                      "2b9982e1faae6668841d8da7a7122eecb9ac702493d5aff208d8e63e47a84929"
+                  ),
+                  "manifest.json": (
+                      "50027c3a0ebfd75ca86fadde58cbee5c1ab579d14d8dbd1acc07ba8e9a172481"
+                  ),
+              }
+              provider_dir = Path(os.environ["YTMUSIC_PROVIDER_DIR"])
+              renamed_provider_dir = (
+                  Path("/data/provider-patches")
+                  / ("ytmusic" + "_" + "free")
+              )
+
+              def digest(value: bytes) -> str:
+                  return hashlib.sha256(value).hexdigest()
+
+              def installed_provider_is_current() -> bool:
+                  for filename, expected_hash in expected_hashes.items():
+                      path = provider_dir / filename
+                      if not path.is_file() or digest(path.read_bytes()) != expected_hash:
+                          return False
+                  return True
+
+              if installed_provider_is_current():
+                  if renamed_provider_dir.exists():
+                      shutil.rmtree(renamed_provider_dir)
+                  raise SystemExit
+
+              base_url = (
+                  "https://raw.githubusercontent.com/"
+                  f"abhi1693/music-assistant-yt-music/{revision}/ytmusic"
+              )
+              provider_files: dict[str, bytes] = {}
+              for filename, expected_hash in expected_hashes.items():
+                  request = urllib.request.Request(
+                      f"{base_url}/{filename}",
+                      headers={"User-Agent": "home-lab-music-assistant-bootstrap/1"},
+                  )
+                  with urllib.request.urlopen(request, timeout=30) as response:
+                      content = response.read()
+                  actual_hash = digest(content)
+                  if actual_hash != expected_hash:
+                      raise RuntimeError(
+                          f"Hash mismatch for upstream {filename}: {actual_hash}"
+                      )
+                  provider_files[filename] = content
+
+              provider_dir.mkdir(parents=True, exist_ok=True)
+              for filename, content in provider_files.items():
+                  destination = provider_dir / filename
+                  temporary_path = destination.with_suffix(
+                      destination.suffix + ".tmp"
+                  )
+                  temporary_path.write_bytes(content)
+                  temporary_path.chmod(0o444)
+                  temporary_path.replace(destination)
+              if renamed_provider_dir.exists():
+                  shutil.rmtree(renamed_provider_dir)
+              PY
+
+              "$runtime/bin/python" - <<'PY'
+              import asyncio
+              import json
+              import os
+              from pathlib import Path
+
+              import asyncpg
+
+              settings_path = Path(
+                  os.environ.get("MASS_SETTINGS_PATH", "/data/settings.json")
+              )
+              legacy_domain = "ytmusic" + "_" + "free"
+              legacy_instance_id = f"{legacy_domain}--home"
+              instance_id = "ytmusic--home"
+              catalog_tables = (
+                  "ytmusic_cache_entries",
+                  "ytmusic_cache_attempts",
+                  "ytmusic_account_objects",
+                  "ytmusic_account_relations",
+                  "ytmusic_account_sync_runs",
+                  "ytmusic_cache_controls",
+              )
+
+              if not settings_path.exists():
+                  raise SystemExit
+              settings = json.loads(settings_path.read_text(encoding="utf-8"))
+              if legacy_instance_id not in settings.get("providers", {}):
+                  raise SystemExit
+
+              async def migrate_catalog_identity() -> None:
+                  connection = await asyncpg.connect(
+                      host="postgresql-rw.postgresql.svc.cluster.local",
+                      port=5432,
+                      database="music_assistant",
+                      user=os.environ["YTMUSIC_CATALOG_USERNAME"],
+                      password=os.environ["YTMUSIC_CATALOG_PASSWORD"],
+                      command_timeout=15,
+                      server_settings={
+                          "application_name": "music-assistant-ytmusic-rename"
+                      },
+                  )
+                  try:
+                      async with connection.transaction():
+                          for table in catalog_tables:
+                              exists = await connection.fetchval(
+                                  "SELECT to_regclass($1)",
+                                  f"public.{table}",
+                              )
+                              if exists is None:
+                                  continue
+                              counts = await connection.fetchrow(
+                                  f"""
+                                  SELECT
+                                      count(*) FILTER (
+                                          WHERE provider_instance_id = $1
+                                      ) AS legacy_count,
+                                      count(*) FILTER (
+                                          WHERE provider_instance_id = $2
+                                      ) AS current_count
+                                  FROM {table}
+                                  """,
+                                  legacy_instance_id,
+                                  instance_id,
+                              )
+                              legacy_count = int(counts["legacy_count"])
+                              current_count = int(counts["current_count"])
+                              if legacy_count and current_count:
+                                  raise RuntimeError(
+                                      "YouTube Music catalog contains both renamed "
+                                      f"identities in {table}; refusing to merge"
+                                  )
+                              if legacy_count:
+                                  await connection.execute(
+                                      f"""
+                                      UPDATE {table}
+                                      SET provider_instance_id = $1
+                                      WHERE provider_instance_id = $2
+                                      """,
+                                      instance_id,
+                                      legacy_instance_id,
+                                  )
+                  finally:
+                      await connection.close()
+
+              asyncio.run(migrate_catalog_identity())
+              PY
+
+              ALEXA_PROVIDER_SOURCE="/app/venv/lib/python${source_python}/site-packages/music_assistant/providers/alexa/__init__.py" \
+              ALEXA_PROVIDER_PATCH="/data/provider-patches/alexa/__init__.py" \
+                /app/venv/bin/python - <<'PY'
+              import os
+              from pathlib import Path
+
+              source_path = Path(os.environ["ALEXA_PROVIDER_SOURCE"])
+              patch_path = Path(os.environ["ALEXA_PROVIDER_PATCH"])
+              source = source_path.read_text(encoding="utf-8")
+              replacements = {
+                  """    "play_audio_en-CA": "ask music assistant to play audio",
+                  "play_audio_en-US": "ask music assistant to play audio",""": (
+                      """    "play_audio_en-CA": "ask music assistant to play audio",
+                  "play_audio_en-IN": "ask music assistant to play audio",
+                  "play_audio_en-US": "ask music assistant to play audio","""
+                  ),
+                  """                ConfigValueOption("en-US"),
+                              ConfigValueOption("en-CA"),""": (
+                      """                ConfigValueOption("en-US"),
+                              ConfigValueOption("en-CA"),
+                              ConfigValueOption("en-IN"),"""
+                  ),
+                  '            post_path = "/alexa/auth/proxy/ap/signin/*"': (
+                      '            auth_path = "/alexa/auth/proxy/ap/*"'
+                  ),
+                  """            # Register GET for the base proxy path
+                          mass.webserver.register_dynamic_route(proxy_path, proxy_handler, "GET")
+                          # Register POST for the specific signin helper path
+                          mass.webserver.register_dynamic_route(post_path, proxy_handler, "POST")""": (
+                      """            # Register the base page and Amazon auth sub-flow routes
+                          mass.webserver.register_dynamic_route(proxy_path, proxy_handler, "GET")
+                          mass.webserver.register_dynamic_route(auth_path, proxy_handler, "GET")
+                          mass.webserver.register_dynamic_route(auth_path, proxy_handler, "POST")"""
+                  ),
+                  """                mass.webserver.unregister_dynamic_route(proxy_path, "GET")
+                              mass.webserver.unregister_dynamic_route(post_path, "POST")""": (
+                      """                mass.webserver.unregister_dynamic_route(proxy_path, "GET")
+                              mass.webserver.unregister_dynamic_route(auth_path, "GET")
+                              mass.webserver.unregister_dynamic_route(auth_path, "POST")"""
+                  ),
+                  """                    # Notify the callback URL
+                                  async with aiohttp.ClientSession() as session:
+                                      await session.get(auth_helper.callback_url)
+                                      _LOGGER.info("Alexa Callback URL: %s", auth_helper.callback_url)""": (
+                      """                    # Notify the helper through the plaintext loopback listener.
+                                  # The browser-facing callback stays on the configured HTTPS origin,
+                                  # whose private CA is intentionally not trusted inside this container.
+                                  callback_url = auth_helper.callback_url
+                                  callback_path = callback_url.removeprefix(base_url)
+                                  local_callback_url = (
+                                      f"http://127.0.0.1:{mass.webserver.publish_port}"
+                                      f"{callback_path}"
+                                  )
+                                  async with aiohttp.ClientSession() as session:
+                                      callback_response = await session.get(local_callback_url)
+                                      callback_response.raise_for_status()
+                                      _LOGGER.info("Alexa Callback URL: %s", callback_url)"""
+                  ),
+              }
+
+              for original, replacement in replacements.items():
+                  if source.count(original) != 1:
+                      raise RuntimeError(
+                          "Alexa provider auth routes changed; review the overlay"
+                      )
+                  source = source.replace(original, replacement)
+
+              liveness_replacements = {
+                  """from alexapy import AlexaAPI, AlexaLogin, AlexaProxy
+              """: """from alexapy import AlexaAPI, AlexaLogin, AlexaProxy
+              from alexapy.helpers import get_json_value
+              """,
+                  """class AlexaDevice:
+                  \"\"\"Representation of an Alexa Device.\"\"\"
+
+                  _device_type: str
+                  device_serial_number: str
+                  _device_family: str
+                  _cluster_members: str
+                  _locale: str
+              """: """class AlexaDevice:
+                  \"\"\"Representation of an Alexa Device.\"\"\"
+
+                  _device_type: str
+                  device_serial_number: str
+                  _device_family: str
+                  _cluster_members: str
+                  _locale: str
+                  _online: bool
+                  _volume_level: int | None
+              """,
+                  """        self._attr_device_info = DeviceInfo()
+                      self._attr_powered = False
+                      self._attr_available = True
+              """: """        self._attr_device_info = DeviceInfo()
+                      self._attr_powered = False
+                      self._attr_available = device._online
+                      self._attr_needs_poll = True
+                      self._attr_poll_interval = 15
+                      if device._volume_level is not None:
+                          self._attr_volume_level = device._volume_level
+              """,
+                  """    @property
+                  def api(self) -> AlexaAPI:
+                      \"\"\"Get the AlexaAPI instance for this player.\"\"\"
+                      provider = cast("AlexaProvider", self.provider)
+                      return AlexaAPI(self.device, provider.login)
+
+                  async def stop(self) -> None:
+              """: """    @property
+                  def api(self) -> AlexaAPI:
+                      \"\"\"Get the AlexaAPI instance for this player.\"\"\"
+                      provider = cast("AlexaProvider", self.provider)
+                      return AlexaAPI(self.device, provider.login)
+
+                  def set_available(self, available: bool) -> bool:
+                      \"\"\"Apply Amazon's current device availability.\"\"\"
+                      self.device._online = available
+                      if self._attr_available == available:
+                          return False
+                      self._attr_available = available
+                      if not available:
+                          self._attr_powered = False
+                          self._attr_playback_state = PlaybackState.IDLE
+                          self._attr_current_media = None
+                          self._attr_elapsed_time = 0
+                          self._attr_elapsed_time_last_updated = None
+                          self._last_stream_url = None
+                          self._last_meta_checksum = None
+                      self.update_state()
+                      return True
+
+                  def set_volume_level(self, volume_level: int | None) -> bool:
+                      \"\"\"Apply Amazon's current device volume when reported.\"\"\"
+                      if volume_level is None or not 0 <= volume_level <= 100:
+                          return False
+                      if self._attr_volume_level == volume_level:
+                          return False
+                      self._attr_volume_level = volume_level
+                      self.update_state()
+                      return True
+
+                  async def poll(self) -> None:
+                      \"\"\"Refresh Alexa device availability and volume from Amazon.\"\"\"
+                      provider = cast("AlexaProvider", self.provider)
+                      await provider.refresh_device_availability()
+
+                  async def stop(self) -> None:
+              """,
+                  """        self.devices = {}
+                      self._intents: list[dict[str, Any]] | None = None
+                      self._invocation_name: str | None = None
+              """: """        self.devices = {}
+                      self._intents: list[dict[str, Any]] | None = None
+                      self._invocation_name: str | None = None
+                      self._availability_lock = asyncio.Lock()
+                      self._availability_last_refresh = 0.0
+              """,
+                  """        if devices is None:
+                          return
+
+                      alexa_locale = str(self.config.get_value(CONF_ALEXA_LANGUAGE, "en-US"))
+              """: """        if devices is None:
+                          return
+                      volumes = await self._get_device_volumes()
+                      self._availability_last_refresh = self.mass.loop.time()
+
+                      alexa_locale = str(self.config.get_value(CONF_ALEXA_LANGUAGE, "en-US"))
+              """,
+                  """                device_object._cluster_members = device["clusterMembers"]
+                              device_object._locale = alexa_locale
+                              self.devices[player_id] = device_object
+              """: """                device_object._cluster_members = device["clusterMembers"]
+                              device_object._locale = alexa_locale
+                              device_object._online = bool(device.get("online", False))
+                              device_object._volume_level = volumes.get(
+                                  device["serialNumber"]
+                              )
+                              self.devices[player_id] = device_object
+              """,
+                  """        await self._load_intents()
+
+                  @lock
+                  async def _load_intents(self) -> None:
+              """: """        await self._load_intents()
+
+                  async def _get_device_volumes(self) -> dict[str, int]:
+                      \"\"\"Return Amazon's current volume for every reported device.\"\"\"
+                      response = await AlexaAPI._static_request(
+                          "get",
+                          self.login,
+                          "/api/devices/deviceType/dsn/audio/v1/allDeviceVolumes",
+                      )
+                      volume_items, valid = await get_json_value(
+                          response,
+                          "volumes",
+                          list,
+                      )
+                      if not valid:
+                          return {}
+                      volumes: dict[str, int] = {}
+                      for item in volume_items:
+                          if not isinstance(item, dict):
+                              continue
+                          serial = item.get("dsn")
+                          volume_level = item.get("speakerVolume")
+                          if (
+                              isinstance(serial, str)
+                              and isinstance(volume_level, int)
+                              and not isinstance(volume_level, bool)
+                              and 0 <= volume_level <= 100
+                          ):
+                              volumes[serial] = volume_level
+                      return volumes
+
+                  async def refresh_device_availability(self) -> None:
+                      \"\"\"Refresh all Alexa players from coalesced account calls.\"\"\"
+                      now = self.mass.loop.time()
+                      if now - self._availability_last_refresh < 12:
+                          return
+                      async with self._availability_lock:
+                          now = self.mass.loop.time()
+                          if now - self._availability_last_refresh < 12:
+                              return
+                          self._availability_last_refresh = now
+                          devices = await AlexaAPI.get_devices(self.login)
+                          if devices is None:
+                              return
+                          volumes = await self._get_device_volumes()
+                          online_by_player_id = {
+                              str(device["accountName"]): bool(
+                                  device.get("online", False)
+                              )
+                              for device in devices
+                              if device.get("accountName")
+                          }
+                          for player_id, device in self.devices.items():
+                              is_online = online_by_player_id.get(
+                                  player_id,
+                                  False,
+                              )
+                              device._online = is_online
+                              player = self.mass.players.get_player(player_id)
+                              if not isinstance(player, AlexaPlayer):
+                                  continue
+                              if player.set_available(is_online):
+                                  self.logger.info(
+                                      "Alexa device %s is now %s",
+                                      player_id,
+                                      "online" if is_online else "offline",
+                                  )
+                              player.set_volume_level(
+                                  volumes.get(device.device_serial_number)
+                              )
+
+                  @lock
+                  async def _load_intents(self) -> None:
+              """,
+              }
+
+              for original, replacement in liveness_replacements.items():
+                  if source.count(original) != 1:
+                      raise RuntimeError(
+                          "Alexa provider liveness hooks changed; review the overlay"
+                      )
+                  source = source.replace(original, replacement)
+
+              patch_path.parent.mkdir(parents=True, exist_ok=True)
+              temporary_path = patch_path.with_suffix(".py.tmp")
+              temporary_path.write_text(source, encoding="utf-8")
+              temporary_path.chmod(0o444)
+              temporary_path.replace(patch_path)
+              PY
+
+              TRACKS_CONTROLLER_SOURCE="/app/venv/lib/python${source_python}/site-packages/music_assistant/controllers/music/media/tracks.py" \
+              TRACKS_CONTROLLER_PATCH="/data/provider-patches/core/tracks.py" \
+                /app/venv/bin/python - <<'PY'
+              import os
+              from pathlib import Path
+
+              source_path = Path(os.environ["TRACKS_CONTROLLER_SOURCE"])
+              patch_path = Path(os.environ["TRACKS_CONTROLLER_PATCH"])
+              source = source_path.read_text(encoding="utf-8")
+              original = """        # Fallback: consult metadata/plugin providers that claim SIMILAR_TRACKS
+                      for prov in self.mass.get_providers_supporting_feature(
+                          ProviderFeature.SIMILAR_TRACKS,
+                          priority=(ProviderType.METADATA, ProviderType.PLUGIN),
+                      ):
+                          try:
+                              cross_prov = cast("MetadataProvider | PluginProvider", prov)
+                              if result := await cross_prov.get_similar_tracks(ref_item, limit=limit):
+                                  return result
+                          except NotImplementedError:
+                              continue
+
+                      if not allow_lookup:
+                          return []
+              """
+              replacement = """        # Merge metadata and local plugin results. Metadata providers can
+                      # resolve only a sparse subset of a filesystem-only library; returning
+                      # that partial result would prevent Sonic Similarity from contributing.
+                      cross_provider_results: list[Track] = []
+                      for prov in self.mass.get_providers_supporting_feature(
+                          ProviderFeature.SIMILAR_TRACKS,
+                          priority=(ProviderType.METADATA, ProviderType.PLUGIN),
+                      ):
+                          try:
+                              cross_prov = cast("MetadataProvider | PluginProvider", prov)
+                              result = await cross_prov.get_similar_tracks(ref_item, limit=limit)
+                              for candidate in result:
+                                  if (
+                                      candidate != ref_item
+                                      and candidate not in cross_provider_results
+                                  ):
+                                      cross_provider_results.append(candidate)
+                              if len(cross_provider_results) >= limit:
+                                  return cross_provider_results[:limit]
+                          except NotImplementedError:
+                              continue
+
+                      if cross_provider_results:
+                          return cross_provider_results[:limit]
+
+                      if not allow_lookup:
+                          return []
+              """
+
+              if source.count(original) != 1:
+                  raise RuntimeError(
+                      "Similar-tracks controller changed; review the radio overlay"
+                  )
+              source = source.replace(original, replacement)
+
+              patch_path.parent.mkdir(parents=True, exist_ok=True)
+              temporary_path = patch_path.with_suffix(".py.tmp")
+              temporary_path.write_text(source, encoding="utf-8")
+              temporary_path.chmod(0o444)
+              temporary_path.replace(patch_path)
+              PY
+
+              /app/venv/bin/python - <<'PY'
+              import json
+              import os
+              import sqlite3
+              import stat
+              from pathlib import Path
+              from urllib.parse import quote
+
+              from cryptography.fernet import Fernet, InvalidToken
+
+              settings_path = Path(
+                  os.environ.get("MASS_SETTINGS_PATH", "/data/settings.json")
+              )
+              if not settings_path.exists():
+                  raise SystemExit
+
+              settings = json.loads(settings_path.read_text(encoding="utf-8"))
+              changed = False
+              providers = settings.setdefault("providers", {})
+              legacy_domain = "ytmusic" + "_" + "free"
+              legacy_instance_id = f"{legacy_domain}--home"
+              ytmusic_instance_id = "ytmusic--home"
+              task_states = (
+                  settings.get("core", {})
+                  .get("tasks", {})
+                  .get("scheduled_task_states")
+              )
+
+              library_path = settings_path.parent / "library.db"
+              library_backup_path = (
+                  settings_path.parent
+                  / "library.db.before-ytmusic-domain-rename.sqlite3"
+              )
+              cache_path = settings_path.parent / ".cache/cache.db"
+              migrated_columns = (
+                  ("provider_mappings", "provider_domain"),
+                  ("provider_mappings", "provider_instance"),
+                  ("playlog", "provider"),
+                  ("playlog", "image"),
+                  ("playlog", "artists"),
+                  ("artists", "metadata"),
+                  ("tracks", "metadata"),
+                  ("playlists", "metadata"),
+                  ("audio_analysis", "provider"),
+              )
+              identity_columns = (
+                  ("provider_mappings", "provider_instance"),
+                  ("playlog", "provider"),
+                  ("audio_analysis", "provider"),
+              )
+
+              def has_column(
+                  connection: sqlite3.Connection,
+                  table: str,
+                  column: str,
+              ) -> bool:
+                  columns = connection.execute(
+                      f'PRAGMA table_info("{table}")'
+                  ).fetchall()
+                  return any(row[1] == column for row in columns)
+
+              def matching_rows(
+                  connection: sqlite3.Connection,
+                  table: str,
+                  column: str,
+                  value: str,
+              ) -> int:
+                  row = connection.execute(
+                      f"""
+                      SELECT count(*)
+                      FROM "{table}"
+                      WHERE instr(CAST("{column}" AS TEXT), ?) > 0
+                      """,
+                      (value,),
+                  ).fetchone()
+                  return int(row[0])
+
+              def migrate_library_identity() -> None:
+                  if not library_path.exists():
+                      return
+                  connection = sqlite3.connect(library_path)
+                  try:
+                      applicable_columns = tuple(
+                          (table, column)
+                          for table, column in migrated_columns
+                          if has_column(connection, table, column)
+                      )
+                      legacy_count = sum(
+                          matching_rows(
+                              connection,
+                              table,
+                              column,
+                              legacy_domain,
+                          )
+                          for table, column in applicable_columns
+                      )
+                      if not legacy_count:
+                          return
+
+                      for table, column in identity_columns:
+                          if not has_column(connection, table, column):
+                              continue
+                          has_legacy = matching_rows(
+                              connection,
+                              table,
+                              column,
+                              legacy_instance_id,
+                          )
+                          has_current = matching_rows(
+                              connection,
+                              table,
+                              column,
+                              ytmusic_instance_id,
+                          )
+                          if has_legacy and has_current:
+                              raise RuntimeError(
+                                  "Music Assistant library contains both renamed "
+                                  f"identities in {table}.{column}; refusing to merge"
+                              )
+
+                      if not library_backup_path.exists():
+                          backup = sqlite3.connect(library_backup_path)
+                          try:
+                              connection.backup(backup)
+                          finally:
+                              backup.close()
+
+                      connection.execute("BEGIN IMMEDIATE")
+                      try:
+                          for table, column in applicable_columns:
+                              connection.execute(
+                                  f"""
+                                  UPDATE "{table}"
+                                  SET "{column}" = replace("{column}", ?, ?)
+                                  WHERE typeof("{column}") = 'text'
+                                    AND instr("{column}", ?) > 0
+                                  """,
+                                  (
+                                      legacy_domain,
+                                      "ytmusic",
+                                      legacy_domain,
+                                  ),
+                              )
+                          connection.commit()
+                      except Exception:
+                          connection.rollback()
+                          raise
+                  finally:
+                      connection.close()
+
+              def migrate_cache_identity() -> None:
+                  if not cache_path.exists():
+                      return
+                  connection = sqlite3.connect(cache_path)
+                  try:
+                      cache_columns = {
+                          row[1]
+                          for row in connection.execute(
+                              'PRAGMA table_info("cache")'
+                          )
+                      }
+                      required_columns = {
+                          "key",
+                          "provider",
+                          "data",
+                          "checksum",
+                      }
+                      if not required_columns.issubset(cache_columns):
+                          raise RuntimeError(
+                              "Music Assistant cache schema changed; review "
+                              "the YouTube Music identity migration"
+                          )
+
+                      connection.execute("BEGIN IMMEDIATE")
+                      try:
+                          migrated_queues = connection.execute(
+                              """
+                              UPDATE cache
+                              SET data = replace(data, ?, ?)
+                              WHERE provider = 'player_queues'
+                                AND typeof(data) = 'text'
+                                AND instr(data, ?) > 0
+                              """,
+                              (
+                                  legacy_domain,
+                                  "ytmusic",
+                                  legacy_domain,
+                              ),
+                          ).rowcount
+                          invalidated_rows = connection.execute(
+                              """
+                              DELETE FROM cache
+                              WHERE instr(CAST("key" AS TEXT), ?) > 0
+                                 OR instr(CAST(provider AS TEXT), ?) > 0
+                                 OR instr(CAST(data AS TEXT), ?) > 0
+                                 OR instr(CAST(checksum AS TEXT), ?) > 0
+                              """,
+                              (legacy_domain,) * 4,
+                          ).rowcount
+                          connection.commit()
+                      except Exception:
+                          connection.rollback()
+                          raise
+                  finally:
+                      connection.close()
+
+                  if migrated_queues or invalidated_rows:
+                      print(
+                          "Migrated "
+                          f"{migrated_queues} YouTube Music player queues and "
+                          f"invalidated {invalidated_rows} stale cache rows"
+                      )
+
+              migrate_library_identity()
+              migrate_cache_identity()
+
+              if isinstance(task_states, dict):
+                  legacy_task_prefixes = (
+                      f"{legacy_instance_id}_",
+                      f"music_sync_{legacy_instance_id}_",
+                  )
+                  for task_id in tuple(task_states):
+                      if task_id.startswith(legacy_task_prefixes):
+                          task_states.pop(task_id)
+                          changed = True
+
+              if legacy_instance_id in providers:
+                  if ytmusic_instance_id in providers:
+                      raise RuntimeError(
+                          "Music Assistant settings contain both renamed YouTube "
+                          "Music provider identities; refusing to merge"
+                      )
+                  providers[ytmusic_instance_id] = providers.pop(
+                      legacy_instance_id
+                  )
+                  changed = True
+
+              legacy_history_path = (
+                  settings_path.parent
+                  / f"{legacy_instance_id}-listen-history.json"
+              )
+              history_path = (
+                  settings_path.parent
+                  / f"{ytmusic_instance_id}-listen-history.json"
+              )
+              if legacy_history_path.exists():
+                  if history_path.exists():
+                      raise RuntimeError(
+                          "Both renamed YouTube Music listen-history files exist; "
+                          "refusing to overwrite either file"
+                      )
+                  legacy_history_path.replace(history_path)
+
+              encryption_key = settings.get("encryption_key")
+              if not isinstance(encryption_key, str) or not encryption_key:
+                  raise RuntimeError(
+                      "Music Assistant encryption key is missing from settings"
+                  )
+              fernet = Fernet(encryption_key.encode())
+              encryption_prefix = "_encrypted_"
+
+              def encrypted_value(
+                  plaintext: str,
+                  current_value: object,
+              ) -> str:
+                  if (
+                      isinstance(current_value, str)
+                      and current_value.startswith(encryption_prefix)
+                  ):
+                      try:
+                          decrypted = fernet.decrypt(
+                              current_value.removeprefix(
+                                  encryption_prefix
+                              ).encode()
+                          ).decode()
+                          if decrypted == plaintext:
+                              return current_value
+                      except (InvalidToken, UnicodeDecodeError):
+                          pass
+                  return (
+                      encryption_prefix
+                      + fernet.encrypt(plaintext.encode()).decode()
+                  )
+
+              current_ytmusic = providers.get(ytmusic_instance_id, {})
+              current_ytmusic_values = current_ytmusic.get("values", {})
+              ytmusic_cookie = encrypted_value(
+                  os.environ["YTMUSIC_COOKIE"],
+                  current_ytmusic_values.get("cookie_header"),
+              )
+              ytmusic_catalog_dsn = encrypted_value(
+                  "postgresql://"
+                  f"{quote(os.environ['YTMUSIC_CATALOG_USERNAME'], safe='')}:"
+                  f"{quote(os.environ['YTMUSIC_CATALOG_PASSWORD'], safe='')}@"
+                  "postgresql-rw.postgresql.svc.cluster.local:5432/"
+                  "music_assistant",
+                  current_ytmusic_values.get("cache_catalog_postgres_dsn"),
+              )
+              desired_providers = {
+                  ytmusic_instance_id: {
+                      "values": {
+                          "auth_type": "cookie",
+                          "cookie_header": ytmusic_cookie,
+                          "brand_account": "",
+                          "auth_user": 0,
+                          "prefer_audio_quality": True,
+                          "cache_enabled": True,
+                          "cache_directory": "/library-cache/music/YouTube Music",
+                          "cache_staging_directory": "/data/ytmusic-cache-staging",
+                          "account_sync_enabled": True,
+                          "account_sync_interval_hours": 6,
+                          "prefetch_enabled": True,
+                          "prefetch_playlists": False,
+                          "prefetch_interval_hours": 6,
+                          "prefetch_max_tracks": 1000,
+                          "prefetch_parallel_downloads": 3,
+                          "prefetch_max_cache_gb": 50,
+                          "prefetch_pause_playback": False,
+                          "prefetch_request_delay_seconds": 15,
+                          "cache_upgrade_enabled": True,
+                          "cache_upgrade_target_bitrate_kbps": 256,
+                          "cache_upgrade_recheck_days": 30,
+                          "cache_catalog_postgres_dsn": ytmusic_catalog_dsn,
+                      },
+                      "type": "music",
+                      "domain": "ytmusic",
+                      "instance_id": ytmusic_instance_id,
+                      "enabled": True,
+                      "name": "YouTube Music",
+                      "default_name": "YouTube Music",
+                      "last_error": None,
+                  },
+                  "sonic_analysis": {
+                      "values": {
+                          "clap_sampling": "fast",
+                      },
+                      "type": "audio_analysis",
+                      "domain": "sonic_analysis",
+                      "instance_id": "sonic_analysis",
+                      "enabled": True,
+                      "name": "Sonic Analysis (on-device)",
+                      "default_name": "Sonic Analysis (on-device)",
+                      "last_error": None,
+                  },
+                  "sonic_similarity": {
+                      "values": {
+                          "enable_clap_index": False,
+                          "enable_text_search": False,
+                          "similar_tracks_engine": "18dim",
+                          "similar_tracks_preset": "balanced",
+                          "similar_tracks_diversity": 3,
+                          "enable_discover_row": True,
+                          "discover_engine": "18dim",
+                          "discover_preset": "discover",
+                          "discover_diversity": 4,
+                      },
+                      "type": "plugin",
+                      "domain": "sonic_similarity",
+                      "instance_id": "sonic_similarity",
+                      "enabled": True,
+                      "name": "Sonic Similarity",
+                      "default_name": "Sonic Similarity",
+                      "last_error": None,
+                  },
+              }
+              for instance_id, desired_provider in desired_providers.items():
+                  provider_config = providers.get(instance_id)
+                  if provider_config is None:
+                      providers[instance_id] = desired_provider
+                      changed = True
+                      continue
+                  for key, value in desired_provider.items():
+                      if key == "last_error":
+                          continue
+                      if provider_config.get(key) != value:
+                          provider_config[key] = value
+                          changed = True
+
+              provider = providers.get("fastmcp_server")
+              if provider:
+                  values = provider.setdefault("values", {})
+                  desired = {
+                      "connect_external_url": "https://music.media.home",
+                      "extra_allowed_origins": "https://music.media.home",
+                      "trust_forwarded_proto": True,
+                  }
+                  for key, value in desired.items():
+                      if values.get(key) != value:
+                          values[key] = value
+                          changed = True
+
+              alexa_provider = providers.get("alexa")
+              if alexa_provider:
+                  alexa_values = alexa_provider.setdefault("values", {})
+                  alexa_desired = {
+                      "url": "amazon.in",
+                      "api_url": (
+                          "http://music-assistant-alexa-skill."
+                          "media.svc.cluster.local:5000"
+                      ),
+                      "api_username": os.environ["ALEXA_API_USERNAME"],
+                      "api_password": os.environ["ALEXA_API_PASSWORD"],
+                      "alexa_language": "en-IN",
+                  }
+                  for key, value in alexa_desired.items():
+                      if alexa_values.get(key) != value:
+                          alexa_values[key] = value
+                          changed = True
+
+              remote_access = settings.setdefault("core", {}).setdefault(
+                  "remote_access",
+                  {},
+              )
+              if remote_access.get("enabled") is not True:
+                  remote_access["enabled"] = True
+                  changed = True
+
+              webserver = settings.setdefault("core", {}).setdefault(
+                  "webserver",
+                  {},
+              )
+              if webserver.get("domain") != "webserver":
+                  webserver["domain"] = "webserver"
+                  changed = True
+              webserver_values = webserver.setdefault("values", {})
+              if webserver_values.get("base_url") != "https://music.media.home":
+                  webserver_values["base_url"] = "https://music.media.home"
+                  changed = True
+
+              if not changed:
+                  raise SystemExit
+
+              temporary_path = settings_path.with_suffix(".json.tmp")
+              temporary_path.write_text(
+                  json.dumps(settings, indent=2) + "\n",
+                  encoding="utf-8",
+              )
+              os.chmod(temporary_path, stat.S_IMODE(settings_path.stat().st_mode))
+              os.replace(temporary_path, settings_path)
+              PY
+          resources:
+            requests:
+              cpu: 50m
+              memory: 128Mi
+            limits:
+              memory: 1Gi
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities:
+              drop:
+                - ALL
+          volumeMounts:
+            - name: data
+              mountPath: /data
+            - name: tmp
+              mountPath: /tmp
+      containers:
+        - name: music-assistant
+          # renovate: datasource=docker depName=ghcr.io/music-assistant/server
+          image: registry.home/ghcr.io/music-assistant/server:2.10.0b7@sha256:11c4c2a66f4108bda0584ecafbbd64a6fa4a8ac566d24b571930ec3f035248d3
+          imagePullPolicy: IfNotPresent
+          command:
+            - /bin/sh
+            - -c
+          args:
+            - |
+              set -eu
+              runtime=/data/provider-venv
+              provider_site=$(
+                "$runtime/bin/python" -c \
+                  'import sysconfig; print(sysconfig.get_path("purelib"))'
+              )
+              export PYTHONPATH="$provider_site${PYTHONPATH:+:$PYTHONPATH}"
+              export VIRTUAL_ENV="$runtime"
+              export UV_PYTHON="$runtime/bin/python"
+              export PATH="/app/venv/bin:$runtime/bin:$PATH"
+              exec /usr/local/bin/entrypoint.sh \
+                --data-dir /data \
+                --cache-dir /data/.cache
+          env:
+            - name: HOME
+              value: /data
+            - name: HF_TOKEN
+              valueFrom:
+                secretKeyRef:
+                  name: music-assistant-secrets
+                  key: HF_TOKEN
+            - name: LOG_LEVEL
+              value: info
+            - name: TORCH_HOME
+              value: /data/.cache/torch
+            - name: XDG_CACHE_HOME
+              value: /data/.cache
+            - name: TZ
+              value: Asia/Kolkata
+          ports:
+            - name: http
+              containerPort: 8095
+              protocol: TCP
+            - name: stream
+              containerPort: 8097
+              protocol: TCP
+            - name: sendspin
+              containerPort: 8927
+              protocol: TCP
+          resources:
+            requests:
+              cpu: 150m
+              memory: 2Gi
+            limits:
+              memory: 4Gi
+          startupProbe:
+            tcpSocket:
+              port: http
+            periodSeconds: 5
+            timeoutSeconds: 3
+            failureThreshold: 120
+          readinessProbe:
+            tcpSocket:
+              port: http
+            periodSeconds: 10
+            timeoutSeconds: 3
+            failureThreshold: 6
+          livenessProbe:
+            tcpSocket:
+              port: http
+            periodSeconds: 30
+            timeoutSeconds: 5
+            failureThreshold: 4
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities:
+              drop:
+                - ALL
+          volumeMounts:
+            - name: data
+              mountPath: /data
+            - name: data
+              mountPath: /app/venv/lib/python3.14/site-packages/music_assistant/providers/alexa/__init__.py
+              subPath: provider-patches/alexa/__init__.py
+              readOnly: true
+            - name: data
+              mountPath: /app/venv/lib/python3.14/site-packages/music_assistant/providers/ytmusic
+              subPath: custom-providers/ytmusic
+              readOnly: true
+            - name: data
+              mountPath: /app/venv/lib/python3.14/site-packages/music_assistant/controllers/music/media/tracks.py
+              subPath: provider-patches/core/tracks.py
+              readOnly: true
+            - name: music
+              mountPath: /media
+              subPath: music
+              readOnly: true
+            - name: music
+              mountPath: /library-cache
+            - name: tmp
+              mountPath: /tmp
+      volumes:
+        - name: data
+          persistentVolumeClaim:
+            claimName: music-assistant-data
+        - name: music
+          persistentVolumeClaim:
+            claimName: media-library-nfs-csi
+        - name: tmp
+          emptyDir:
+            sizeLimit: 1Gi

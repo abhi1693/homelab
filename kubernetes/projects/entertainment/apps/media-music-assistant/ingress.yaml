@@ -1,0 +1,41 @@
+---
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: music-assistant
+  namespace: media
+  labels:
+    app.kubernetes.io/name: music-assistant
+    app.kubernetes.io/part-of: media-stack
+  annotations:
+    traefik.ingress.kubernetes.io/router.middlewares: media-music-assistant-https-redirect@kubernetescrd
+spec:
+  ingressClassName: traefik
+  rules:
+    - host: music.media.home
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: music-assistant
+                port:
+                  name: http
+  tls:
+    - hosts:
+        - music.media.home
+      secretName: music-assistant-home-tls
+---
+apiVersion: traefik.io/v1alpha1
+kind: Middleware
+metadata:
+  name: music-assistant-https-redirect
+  namespace: media
+  labels:
+    app.kubernetes.io/name: music-assistant
+    app.kubernetes.io/part-of: media-stack
+spec:
+  redirectScheme:
+    scheme: https
+    permanent: true

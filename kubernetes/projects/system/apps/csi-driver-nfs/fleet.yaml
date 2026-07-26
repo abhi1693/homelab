@@ -1,0 +1,9 @@
+---
+name: csi-driver-nfs-helmop
+defaultNamespace: fleet-local
+labels:
+  app.kubernetes.io/name: csi-driver-nfs
+  app.kubernetes.io/part-of: csi-driver-nfs
+  home-lab.io/project-slug: system
+dependsOn:
+  - name: system-helm-repositories

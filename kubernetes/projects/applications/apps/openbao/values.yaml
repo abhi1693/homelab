@@ -1,10 +1,7 @@
----
 global:
   tlsDisable: true
-
 injector:
   enabled: false
-
 server:
   image:
     registry: registry.home
@@ -15,8 +12,8 @@ server:
     home-lab.io/restart-generation: "2026-07-12-post-seal-migration-1"
   resources:
     requests:
-      cpu: 25m
-      memory: 128Mi
+      cpu: 50m
+      memory: 78Mi
     limits:
       memory: 256Mi
   updateStrategyType: RollingUpdate
@@ -67,10 +64,8 @@ server:
       }
   ha:
     enabled: false
-
 ui:
   enabled: true
   serviceType: ClusterIP
-
 csi:
   enabled: false

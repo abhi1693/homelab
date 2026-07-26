@@ -11,10 +11,14 @@ This bundle runs Grafana Alloy as the cluster application log collector.
 - Output: Loki gateway at
   `http://loki-gateway.cattle-monitoring-system.svc.cluster.local/loki/api/v1/push`
 - Metrics: `ServiceMonitor` enabled
+- Requests: 55m CPU and 224Mi memory across Alloy and its config reloader
 
 The Alloy configuration discovers running pods, drops noisy system namespaces,
 adds stable labels such as namespace, pod, container, node, app, part-of, and
 component, then forwards logs to Loki.
+
+The requests retain headroom over the 14-day pod p95 of approximately 25m CPU
+and 179Mi memory.
 
 ## Dependencies
 

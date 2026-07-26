@@ -8,6 +8,7 @@ metadata:
     app.kubernetes.io/component: web
     app.kubernetes.io/part-of: personal-blog
 spec:
+  revisionHistoryLimit: 2
   replicas: 1
   selector:
     matchLabels:
@@ -75,8 +76,8 @@ spec:
               protocol: TCP
           resources:
             requests:
-              cpu: 50m
-              memory: 736Mi
+              cpu: 80m
+              memory: 734Mi
             limits:
               memory: 1152Mi
           startupProbe:

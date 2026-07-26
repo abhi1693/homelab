@@ -1,0 +1,46 @@
+---
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: music-assistant-alexa-skill
+  namespace: media
+  labels:
+    app.kubernetes.io/name: music-assistant-alexa-skill
+    app.kubernetes.io/component: alexa-bridge
+    app.kubernetes.io/part-of: media-stack
+spec:
+  ingressClassName: cloudflare-tunnel
+  rules:
+    - host: alexa.abhimanyu-saharan.com
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: music-assistant-alexa-skill
+                port:
+                  name: http
+---
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: music-assistant-alexa-stream
+  namespace: media
+  labels:
+    app.kubernetes.io/name: music-assistant
+    app.kubernetes.io/component: public-stream
+    app.kubernetes.io/part-of: media-stack
+spec:
+  ingressClassName: cloudflare-tunnel
+  rules:
+    - host: music-stream.abhimanyu-saharan.com
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: music-assistant
+                port:
+                  name: stream

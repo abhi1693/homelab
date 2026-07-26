@@ -22,8 +22,15 @@ rules:
     resources:
       - volumes
     resourceNames:
-      - pvc-c5b21dec-fcc9-4653-a906-72c3acd81af9
-      - pvc-76a352e4-379b-40de-9624-46499a59b0cf
+      - pvc-3420f46c-91af-4eaf-b3e4-45df768f173f
+      - pvc-2b8f8ac9-f0f3-49a9-889d-bb4f3706a6aa
+      - pvc-6b556801-b87b-4b61-9d7f-d9db8b641494
+      - pvc-9969edb4-002f-48c6-b8d2-0aaedef14fe0
+      - pvc-85319383-750d-4dec-ac15-298f3ab14972
+      - pvc-a98ab27b-4b2c-4e63-84f2-e494d368a3f4
+      - pvc-98113d72-ab80-43b0-a9a9-58c91ac78919
+      - pvc-2fcf21b6-ab48-475a-bd36-5359dda76806
+      - pvc-d73d3f41-1725-40f8-978e-55ae183b365f
     verbs:
       - get
       - patch

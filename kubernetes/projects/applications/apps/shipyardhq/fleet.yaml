@@ -14,8 +14,17 @@ dependsOn:
   - name: postgresql-pooler-pdb
   - name: valkey
   - name: valkey-networkpolicy
+  - name: csi-driver-nfs-helmop
+diff:
+  comparePatches:
+    - apiVersion: v1
+      kind: PersistentVolumeClaim
+      name: shipyardhq-next-build-cache-nfs
+      namespace: shipyardhq
+      jsonPointers:
+        - /spec/volumeName
 helm:
   takeOwnership: true
   timeoutSeconds: 5400
   waitForJobs: true
-forceSyncGeneration: 3
+forceSyncGeneration: 9

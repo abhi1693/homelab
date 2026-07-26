@@ -36,6 +36,13 @@ spec:
           imagePullPolicy: IfNotPresent
           args:
             - manager
+          resources:
+            requests:
+              cpu: {{ kube_vip.resources.requests.cpu }}
+              memory: {{ kube_vip.resources.requests.memory }}
+            limits:
+              cpu: {{ kube_vip.resources.limits.cpu }}
+              memory: {{ kube_vip.resources.limits.memory }}
           env:
             - name: vip_arp
               value: "true"

@@ -51,3 +51,8 @@ argument_specs:
             required: true
             description:
               - Priority class kube-vip should use to protect the control-plane VIP.
+          resources:
+            type: dict
+            required: true
+            description:
+              - CPU and memory requests and limits for the kube-vip container.

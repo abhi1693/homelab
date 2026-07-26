@@ -2,7 +2,7 @@
 
 The System project owns cluster services that support every other project:
 monitoring, logging, tracing, profiling, backup, DNS, compliance, secret
-operators, and maintenance controllers.
+operators, storage drivers, and maintenance controllers.
 
 Fleet tracks this project through the `home-lab-system` GitRepo. The Rancher
 `System` project is built in, so workloads here keep their namespaces assigned
@@ -20,7 +20,11 @@ operator lifecycle.
 | App | What it does | Why it matters |
 | --- | --- | --- |
 | `system-helm-repositories` | Registers system chart repositories. | Makes Rancher, Jetstack, ExternalDNS, and related charts available. |
+| `metallb` | Installs the MetalLB controller and Layer 2 speakers. | Keeps LAN service VIP ownership inside the cluster and independent of WAN state. |
+| `metallb-config` | Declares explicit LAN VIP pools and the `eth0` Layer 2 advertisement. | Prevents accidental allocation while giving Traefik and app services stable addresses. |
+| `csi-driver-nfs` | Installs the upstream NFS CSI driver and the retained shared-NAS StorageClass. | Gives existing NAS shares CSI lifecycle and creates isolated directories for explicitly opted-in file workloads without replacing Longhorn block storage. |
 | `rancher-monitoring` | Prometheus, Grafana, Alertmanager, dashboards, and rules. | Primary metrics, dashboards, and alerting plane. |
+| `rancher-generated-resource-defaults` | Adds narrow resource defaults for Rancher/Fleet-generated containers. | Bounds upstream workloads that expose no chart resource values without changing explicit sizing. |
 | `alloy-logs` | Log collection pipeline. | Sends cluster/app logs toward Loki. |
 | `loki` | Log backend. | Stores and queries logs. |
 | `tempo` | Trace backend. | Stores OpenTelemetry traces and exposes trace query APIs. |
@@ -38,7 +42,7 @@ operator lifecycle.
 | `descheduler` | Periodic workload rebalancing. | Moves safe workloads away from overloaded nodes. |
 | `longhorn-recurring-jobs` | Recurring Longhorn jobs such as filesystem trim. | Handles storage maintenance policy. |
 | `longhorn-fstrim-labeler` | Labels Longhorn PVCs for recurring filesystem trim. | Ensures Helm and StatefulSet-created volumes participate in fstrim. |
-| `longhorn-volume-overrides` | One-time Longhorn volume policy corrections. | Applies narrow volume-level fixes without changing global Longhorn defaults. |
+| `longhorn-volume-overrides` | One-time Longhorn volume policy corrections. | Applies narrow build-cache and replicated-database volume fixes without changing global Longhorn defaults. |
 
 ## Observability Coupling
 

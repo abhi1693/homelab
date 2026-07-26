@@ -5,7 +5,7 @@ image:
   repository: registry.home/oci.trueforge.org/containerforge/sonarr
   pullPolicy: IfNotPresent
   # renovate: datasource=docker depName=oci.trueforge.org/containerforge/sonarr
-  tag: 4.0.18
+  tag: 4.0.19
 imagePullSecret:
   harbor-registry:
     enabled: true
@@ -20,8 +20,8 @@ podOptions:
     kubernetes.io/arch: arm64
 resources:
   requests:
-    cpu: 125m
-    memory: 576Mi
+    cpu: 200m
+    memory: 468Mi
   limits:
     memory: 864Mi
 ingress:
@@ -58,12 +58,12 @@ persistence:
   media:
     enabled: true
     type: pvc
-    existingClaim: media-library-nas
+    existingClaim: media-library-nfs-csi
     mountPath: /data
   downloads:
     enabled: true
     type: pvc
-    existingClaim: media-downloads
+    existingClaim: media-downloads-nfs-csi
     mountPath: /downloads
 metrics:
   main:
@@ -88,9 +88,6 @@ networkPolicy:
               matchLabels:
                 app.kubernetes.io/instance: jellyfin
                 app.kubernetes.io/name: jellyfin
-          - podSelector:
-              matchLabels:
-                app.kubernetes.io/name: profilarr
           - podSelector:
               matchLabels:
                 app.kubernetes.io/instance: prowlarr

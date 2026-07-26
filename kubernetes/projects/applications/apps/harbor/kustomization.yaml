@@ -5,6 +5,8 @@ resources:
   - secrets.sops.yaml
   - registry-secrets.sops.yaml
   - namespace.yaml
+  - registry-nfs-pvc.yaml
+  - trivy-nfs-pvc.yaml
   - grafana-dashboard.yaml
   - helmop.yaml
   - networkpolicy.yaml

@@ -18,6 +18,13 @@ spec:
     global:
       priorityClassName: {{ cert_manager.priority_class_name }}
     replicaCount: {{ cert_manager.controller_replicas }}
+    resources:
+      requests:
+        cpu: {{ cert_manager.resources.controller.requests.cpu }}
+        memory: {{ cert_manager.resources.controller.requests.memory }}
+      limits:
+        cpu: {{ cert_manager.resources.controller.limits.cpu }}
+        memory: {{ cert_manager.resources.controller.limits.memory }}
     strategy:
       type: RollingUpdate
       rollingUpdate:
@@ -44,6 +51,13 @@ spec:
             app.kubernetes.io/component: controller
     webhook:
       replicaCount: {{ cert_manager.webhook_replicas }}
+      resources:
+        requests:
+          cpu: {{ cert_manager.resources.webhook.requests.cpu }}
+          memory: {{ cert_manager.resources.webhook.requests.memory }}
+        limits:
+          cpu: {{ cert_manager.resources.webhook.limits.cpu }}
+          memory: {{ cert_manager.resources.webhook.limits.memory }}
       strategy:
         type: RollingUpdate
         rollingUpdate:
@@ -70,6 +84,13 @@ spec:
               app.kubernetes.io/component: webhook
     cainjector:
       replicaCount: {{ cert_manager.cainjector_replicas }}
+      resources:
+        requests:
+          cpu: {{ cert_manager.resources.cainjector.requests.cpu }}
+          memory: {{ cert_manager.resources.cainjector.requests.memory }}
+        limits:
+          cpu: {{ cert_manager.resources.cainjector.limits.cpu }}
+          memory: {{ cert_manager.resources.cainjector.limits.memory }}
       strategy:
         type: RollingUpdate
         rollingUpdate:
@@ -94,3 +115,11 @@ spec:
             matchLabels:
               app.kubernetes.io/instance: cert-manager
               app.kubernetes.io/component: cainjector
+    startupapicheck:
+      resources:
+        requests:
+          cpu: {{ cert_manager.resources.startupapicheck.requests.cpu }}
+          memory: {{ cert_manager.resources.startupapicheck.requests.memory }}
+        limits:
+          cpu: {{ cert_manager.resources.startupapicheck.limits.cpu }}
+          memory: {{ cert_manager.resources.startupapicheck.limits.memory }}

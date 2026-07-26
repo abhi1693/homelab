@@ -7,3 +7,32 @@ labels:
   home-lab.io/project-slug: system
 dependsOn:
   - name: system-helm-repositories
+  - name: csi-driver-nfs-helmop
+diff:
+  comparePatches:
+    - apiVersion: v1
+      kind: PersistentVolumeClaim
+      name: prometheus-data-nfs-prometheus-rancher-monitoring-prometheus-0
+      namespace: cattle-monitoring-system
+      jsonPointers:
+        - /spec/volumeName
+    - apiVersion: v1
+      kind: PersistentVolumeClaim
+      name: am-data-nfs-alertmanager-rancher-monitoring-alertmanager-0
+      namespace: cattle-monitoring-system
+      jsonPointers:
+        - /spec/volumeName
+    - apiVersion: v1
+      kind: PersistentVolumeClaim
+      name: am-data-nfs-alertmanager-rancher-monitoring-alertmanager-1
+      namespace: cattle-monitoring-system
+      jsonPointers:
+        - /spec/volumeName
+    - apiVersion: v1
+      kind: PersistentVolumeClaim
+      name: rancher-monitoring-grafana-nfs
+      namespace: cattle-monitoring-system
+      jsonPointers:
+        - /spec/volumeName
+helm:
+  waitForJobs: true

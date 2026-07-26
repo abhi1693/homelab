@@ -20,8 +20,12 @@ browser timeout, and `https://www.google.com` as the test URL.
 
 ## Storage
 
-FlareSolverr has a retained 1Gi Longhorn config PVC. This preserves browser and
-runtime state across pod restarts.
+FlareSolverr uses a bounded `emptyDir` for browser and runtime config. Its state
+is disposable, so restarts begin cleanly without consuming replicated Longhorn
+capacity or depending on the shared NAS.
+
+The detached PVC from the former persistent configuration was retired after
+verifying that the current chart renders the config volume as `emptyDir`.
 
 ## Network Boundary
 

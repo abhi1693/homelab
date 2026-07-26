@@ -30,4 +30,7 @@ and external index/API traffic outside the pod and service CIDRs.
 
 - Keep indexer credentials and app API keys out of Git.
 - Use Prowlarr as the normal source of truth for Sonarr and Radarr indexers.
+- Ryokan replaces the former Sonarr Anime instance. Do not retain a Prowlarr
+  application targeting `sonarr-anime.media.svc.cluster.local`; Ryokan manages
+  its anime indexers directly.
 - Change chart configuration in `values.yaml` and let Fleet reconcile.

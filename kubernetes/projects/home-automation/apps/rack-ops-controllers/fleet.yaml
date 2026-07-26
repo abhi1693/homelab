@@ -12,7 +12,7 @@ diff:
   comparePatches:
     - apiVersion: v1
       kind: PersistentVolumeClaim
-      name: rack-ops-state
+      name: rack-ops-state-nfs
       namespace: rack-ops
       jsonPointers:
         - /spec/volumeName

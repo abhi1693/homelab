@@ -12,6 +12,9 @@
       - k3s_system_addons.coredns.image | trim != ''
       - k3s_system_addons.metrics_server.image | trim != ''
       - k3s_system_addons.metrics_server.metric_resolution | trim != ''
+      - k3s_system_addons.coredns.resources.requests.cpu | trim != ''
+      - k3s_system_addons.coredns.resources.requests.memory | trim != ''
+      - k3s_system_addons.coredns.resources.limits.memory | trim != ''
       - k3s_system_addons.coredns.replicas | int >= 2
       - k3s_system_addons.metrics_server.replicas | int >= 2
     fail_msg: Expected HA CoreDNS and Metrics Server inputs to be fully configured.
