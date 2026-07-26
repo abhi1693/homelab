@@ -10,6 +10,7 @@ metadata:
     app.kubernetes.io/part-of: wardn-ai
 spec:
   type: ClusterIP
+  trafficDistribution: PreferSameNode
   selector:
     app.kubernetes.io/name: wardn-ai-api
     app.kubernetes.io/component: api
@@ -30,6 +31,7 @@ metadata:
     app.kubernetes.io/part-of: wardn-ai
 spec:
   type: ClusterIP
+  trafficDistribution: PreferSameNode
   selector:
     app.kubernetes.io/name: wardn-ai-frontend
     app.kubernetes.io/component: frontend

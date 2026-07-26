@@ -54,7 +54,7 @@ spec:
       containers:
         - name: qbittorrent-smart-queues
           # renovate: datasource=docker depName=ghcr.io/abhi1693/qbittorrent-smart-queues
-          image: registry.home/ghcr.io/abhi1693/qbittorrent-smart-queues:0.1.62
+          image: registry.home/ghcr.io/abhi1693/qbittorrent-smart-queues:0.1.67
           imagePullPolicy: IfNotPresent
           ports:
             - name: metrics
@@ -118,9 +118,13 @@ spec:
                 wan-rx_bytes
                 wan2-rx_bytes
             - name: UDM_INCLUDE_UPLOAD
-              value: "false"
+              value: "true"
             - name: UDM_FAIL_CLOSED
-              value: "false"
+              value: "true"
+            - name: UDM_BACKUP_INTERNET_STOP_ENABLED
+              value: "true"
+            - name: UDM_BACKUP_INTERNET_FAIL_CLOSED
+              value: "true"
             - name: QBT_URLS
               value: |-
                 http://qbittorrent.media.svc.cluster.local:8080
@@ -211,7 +215,7 @@ spec:
             - name: QBT_RPI_COOLING_QBT_SELECTOR
               value: app.kubernetes.io/instance=qbittorrent,app.kubernetes.io/name=qbittorrent
             - name: QBT_RPI_COOLING_QBT_VOLUME_CLAIMS
-              value: media-downloads
+              value: media-downloads-nfs-csi
             - name: QBT_RPI_COOLING_CPU_THROTTLE_CELSIUS
               value: "76"
             - name: QBT_RPI_COOLING_NVME_THROTTLE_CELSIUS
@@ -235,13 +239,6 @@ spec:
             - name: QBT_RPI_COOLING_BATCH_SUSPEND_TARGETS
               value: |-
                 media/do-squid-firewall
-                media/jellyfin-youtube-library-reconciler
-                indexly/indexly-poll-sitemaps
-                indexly/indexly-sync-subscriptions
-                git-rank/git-rank-sync-daily
-                git-rank/git-rank-weekly
-                git-rank/git-rank-monthly
-                git-rank/git-rank-maintenance
                 personal-blog/personal-blog-newsletter
             - name: QBT_RPI_COOLING_SHUTDOWN_ENABLED
               value: "false"
@@ -450,8 +447,8 @@ spec:
                 optional: true
           resources:
             requests:
-              cpu: 50m
-              memory: 80Mi
+              cpu: 60m
+              memory: 75Mi
             limits:
               memory: 144Mi
           securityContext:
@@ -469,11 +466,11 @@ spec:
       volumes:
         - name: media-downloads
           persistentVolumeClaim:
-            claimName: media-downloads
+            claimName: media-downloads-nfs-csi
             readOnly: true
         - name: smart-queues-state
           persistentVolumeClaim:
-            claimName: qbittorrent-smart-queues-state
+            claimName: qbittorrent-smart-queues-state-nfs
 ---
 apiVersion: v1
 kind: Service
@@ -487,6 +484,7 @@ metadata:
     home-lab.io/project-slug: entertainment
 spec:
   type: ClusterIP
+  trafficDistribution: PreferSameNode
   selector:
     app.kubernetes.io/instance: qbittorrent-smart-queues
     app.kubernetes.io/name: qbittorrent-smart-queues

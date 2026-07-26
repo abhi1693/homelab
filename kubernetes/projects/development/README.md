@@ -2,10 +2,7 @@
 
 The Development project is reserved for development-facing workloads.
 
-At the moment, there are no active Development app bundles tracked by Fleet.
-The project metadata exists so the namespace and Rancher project boundary are
-ready when Coder or other development services are moved into Fleet-managed
-Kubernetes app bundles.
+It currently has no Fleet-managed application workloads.
 
 ## Why This Project Exists
 
@@ -25,8 +22,11 @@ into system, database, or public application concerns.
 
 Most development workspace source currently lives under `coder/templates/`.
 Those templates produce Coder workspaces that run on Kubernetes, use ARM64
-images, and can mount persistent storage. If development runtime apps are added
-later, this project is the expected place for their Fleet bundles.
+images, and can mount persistent storage.
+
+## App Catalog
+
+There are currently no active app bundles in this project.
 
 ## Operating Model
 

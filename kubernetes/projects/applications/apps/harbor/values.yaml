@@ -28,7 +28,7 @@ metrics:
     enabled: true
     interval: 60s
 proxy:
-  noProxy: 127.0.0.1,localhost,.local,.internal,.svc,.cluster.local,.home,postgresql-pooler-harbor-rw.postgresql.svc.cluster.local,valkey.valkey.svc.cluster.local,valkey-headless.valkey.svc.cluster.local
+  noProxy: 127.0.0.1,localhost,.local,.internal,.svc,.cluster.local,.home,postgresql-pooler-harbor-rw.postgresql.svc.cluster.local,valkey.valkey.svc.cluster.local
   components:
     - core
     - jobservice
@@ -41,12 +41,12 @@ persistence:
   resourcePolicy: keep
   persistentVolumeClaim:
     registry:
-      storageClass: longhorn
+      existingClaim: harbor-registry-nfs
       accessMode: ReadWriteMany
-      size: 30Gi
+      size: 50Gi
     trivy:
-      storageClass: longhorn
-      accessMode: ReadWriteOnce
+      existingClaim: harbor-trivy-cache-nfs
+      accessMode: ReadWriteMany
       size: 8Gi
   imageChartStorage:
     type: filesystem
@@ -66,7 +66,7 @@ database:
 redis:
   type: external
   external:
-    addr: valkey-node-0.valkey-headless.valkey.svc.cluster.local:26379,valkey-node-1.valkey-headless.valkey.svc.cluster.local:26379,valkey-node-2.valkey-headless.valkey.svc.cluster.local:26379
+    addr: valkey.valkey.svc.cluster.local:26379
     sentinelMasterSet: valkey
     coreDatabaseIndex: "20"
     jobserviceDatabaseIndex: "21"
@@ -76,7 +76,8 @@ redis:
     cacheLayerDatabaseIndex: "25"
 portal:
   image:
-    repository: registry.home/ghcr.io/abhi1693/harbor-portal
+    # Harbor must bootstrap without depending on its own registry endpoint.
+    repository: ghcr.io/abhi1693/harbor-portal
     # renovate: datasource=docker depName=ghcr.io/abhi1693/harbor-portal
     tag: v2.15.1
   replicas: 2
@@ -86,7 +87,7 @@ portal:
   resources:
     requests:
       cpu: 10m
-      memory: 32Mi
+      memory: 17Mi
     limits:
       memory: 96Mi
   nodeSelector:
@@ -107,7 +108,7 @@ portal:
             topologyKey: kubernetes.io/hostname
 core:
   image:
-    repository: registry.home/ghcr.io/abhi1693/harbor-core
+    repository: ghcr.io/abhi1693/harbor-core
     # renovate: datasource=docker depName=ghcr.io/abhi1693/harbor-core
     tag: v2.15.1
   replicas: 2
@@ -117,8 +118,8 @@ core:
   quotaUpdateProvider: db
   resources:
     requests:
-      cpu: 35m
-      memory: 144Mi
+      cpu: 100m
+      memory: 107Mi
     limits:
       memory: 208Mi
   nodeSelector:
@@ -139,7 +140,7 @@ core:
             topologyKey: kubernetes.io/hostname
 jobservice:
   image:
-    repository: registry.home/ghcr.io/abhi1693/harbor-jobservice
+    repository: ghcr.io/abhi1693/harbor-jobservice
     # renovate: datasource=docker depName=ghcr.io/abhi1693/harbor-jobservice
     tag: v2.15.1
   replicas: 2
@@ -151,8 +152,8 @@ jobservice:
     - stdout
   resources:
     requests:
-      cpu: 10m
-      memory: 48Mi
+      cpu: 30m
+      memory: 60Mi
     limits:
       memory: 112Mi
   nodeSelector:
@@ -179,7 +180,7 @@ registry:
   relativeurls: true
   registry:
     image:
-      repository: registry.home/ghcr.io/abhi1693/registry-photon
+      repository: ghcr.io/abhi1693/registry-photon
       # renovate: datasource=docker depName=ghcr.io/abhi1693/registry-photon
       tag: v2.15.1
     extraEnvVars:
@@ -193,7 +194,7 @@ registry:
         memory: 112Mi
   controller:
     image:
-      repository: registry.home/ghcr.io/abhi1693/harbor-registryctl
+      repository: ghcr.io/abhi1693/harbor-registryctl
       # renovate: datasource=docker depName=ghcr.io/abhi1693/harbor-registryctl
       tag: v2.15.1
     resources:
@@ -221,7 +222,7 @@ registry:
 trivy:
   enabled: true
   image:
-    repository: registry.home/ghcr.io/abhi1693/trivy-adapter-photon
+    repository: ghcr.io/abhi1693/trivy-adapter-photon
     # renovate: datasource=docker depName=ghcr.io/abhi1693/trivy-adapter-photon
     tag: v2.15.1
   replicas: 1
@@ -252,14 +253,14 @@ trivy:
             topologyKey: kubernetes.io/hostname
 exporter:
   image:
-    repository: registry.home/ghcr.io/octohelm/harbor/harbor-exporter
+    repository: ghcr.io/octohelm/harbor/harbor-exporter
     # renovate: datasource=docker depName=ghcr.io/octohelm/harbor/harbor-exporter
     tag: v2.14.0
   replicas: 1
   resources:
     requests:
       cpu: 10m
-      memory: 32Mi
+      memory: 27Mi
     limits:
       memory: 96Mi
   nodeSelector:

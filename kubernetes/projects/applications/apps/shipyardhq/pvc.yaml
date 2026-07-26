@@ -2,17 +2,19 @@
 apiVersion: v1
 kind: PersistentVolumeClaim
 metadata:
-  name: shipyardhq-next-build-cache
+  name: shipyardhq-next-build-cache-nfs
   namespace: shipyardhq
+  annotations:
+    helm.sh/resource-policy: keep
   labels:
     app.kubernetes.io/name: shipyardhq
     app.kubernetes.io/component: web
     app.kubernetes.io/part-of: shipyardhq
-    home-lab.io/longhorn-fstrim: disabled
 spec:
   accessModes:
     - ReadWriteMany
-  storageClassName: longhorn
+  storageClassName: nfs-shared-retain
+  volumeName: pvc-e60cdecb-6150-4bc5-b334-0f27b800d43f
   resources:
     requests:
       storage: 8Gi

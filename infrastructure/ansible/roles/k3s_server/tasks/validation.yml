@@ -144,6 +144,10 @@
   ansible.builtin.set_fact:
     k3s_expected_kubelet_args: "{{ k3s_server.kubelet_args }}"
 
+- name: Record expected K3s kube-scheduler args
+  ansible.builtin.set_fact:
+    k3s_expected_kube_scheduler_args: "{{ k3s_server.kube_scheduler_args }}"
+
 - name: Assert joining servers render the shared registration endpoint in config
   ansible.builtin.assert:
     that:
@@ -170,6 +174,15 @@
     fail_msg: "Expected kube-apiserver arg {{ item }} in /etc/rancher/k3s/config.yaml"
     success_msg: "K3s config contains kube-apiserver arg {{ item }}"
   loop: "{{ k3s_expected_kube_apiserver_args }}"
+
+- name: Assert configured K3s kube-scheduler args render in config
+  ansible.builtin.assert:
+    that:
+      - "'kube-scheduler-arg:' in k3s_config_text"
+      - item in k3s_config_text
+    fail_msg: "Expected kube-scheduler arg {{ item }} in /etc/rancher/k3s/config.yaml"
+    success_msg: "K3s config contains kube-scheduler arg {{ item }}"
+  loop: "{{ k3s_expected_kube_scheduler_args }}"
 
 - name: Assert configured K3s kubelet args render in config
   ansible.builtin.assert:

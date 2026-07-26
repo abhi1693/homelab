@@ -9,6 +9,9 @@ cluster:
   imageName: registry.home/ghcr.io/cloudnative-pg/postgresql:17.10
   imagePullSecrets:
     - name: harbor-registry
+  initdb:
+    database: postgres
+    owner: postgres
   annotations:
     home-lab.io/firefly-role-reconcile: "20260614T085757Z"
     home-lab.io/harbor-postgresql-secret: external
@@ -18,15 +21,15 @@ cluster:
   primaryUpdateStrategy: unsupervised
   storage:
     storageClass: longhorn
-    size: 2Gi
+    size: 4Gi
   walStorage:
     enabled: true
     storageClass: longhorn
     size: 4Gi
   resources:
     requests:
-      cpu: 500m
-      memory: 768Mi
+      cpu: 250m
+      memory: 896Mi
     limits:
       memory: 1Gi
   affinity:
@@ -52,11 +55,37 @@ cluster:
           - postgres
         predicate_query: SELECT EXISTS (SELECT 1 FROM pg_extension WHERE extname = 'pg_stat_statements')
         query: |
+          WITH query_settings AS MATERIALIZED (
+            SELECT set_config('work_mem', '16MB', true) AS work_mem
+          ),
+          top_statements AS MATERIALIZED (
+            SELECT
+              d.datname,
+              s.userid,
+              s.queryid,
+              s.calls,
+              s.total_exec_time,
+              s.mean_exec_time,
+              s.max_exec_time,
+              s.rows,
+              s.shared_blks_read,
+              s.shared_blks_hit,
+              s.shared_blks_dirtied,
+              s.temp_blks_read,
+              s.temp_blks_written,
+              s.shared_blk_read_time,
+              s.shared_blk_write_time
+            FROM query_settings
+            CROSS JOIN pg_stat_statements(false) s
+            JOIN pg_database d ON d.oid = s.dbid
+            WHERE d.datname NOT IN ('template0', 'template1')
+            ORDER BY s.total_exec_time DESC
+            LIMIT 25
+          )
           SELECT
-            d.datname,
+            s.datname,
             r.rolname,
             s.queryid::text AS queryid,
-            left(regexp_replace(s.query, '\s+', ' ', 'g'), 180) AS query,
             row_number() OVER (ORDER BY s.total_exec_time DESC)::double precision AS total_rank,
             s.calls::double precision AS calls,
             (s.total_exec_time / 1000.0)::double precision AS total_exec_time_seconds,
@@ -70,12 +99,9 @@ cluster:
             s.temp_blks_written::double precision AS temp_blks_written,
             (s.shared_blk_read_time / 1000.0)::double precision AS shared_blk_read_time_seconds,
             (s.shared_blk_write_time / 1000.0)::double precision AS shared_blk_write_time_seconds
-          FROM pg_stat_statements s
-          JOIN pg_database d ON d.oid = s.dbid
+          FROM top_statements s
           JOIN pg_roles r ON r.oid = s.userid
-          WHERE d.datname NOT IN ('template0', 'template1')
           ORDER BY s.total_exec_time DESC
-          LIMIT 25
         metrics:
           - datname:
               usage: LABEL
@@ -86,9 +112,6 @@ cluster:
           - queryid:
               usage: LABEL
               description: pg_stat_statements query identifier
-          - query:
-              usage: LABEL
-              description: Normalized query text truncated to 180 characters
           - total_rank:
               usage: GAUGE
               description: Rank by cumulative execution time
@@ -130,12 +153,20 @@ cluster:
               description: Time spent writing shared data file blocks by the statement
   postgresql:
     parameters:
-      max_connections: "200"
+      autovacuum_analyze_scale_factor: "0.02"
+      autovacuum_vacuum_scale_factor: "0.1"
+      checkpoint_timeout: "15min"
+      effective_cache_size: "768MB"
+      idle_in_transaction_session_timeout: "5min"
+      log_lock_waits: "on"
+      max_connections: "160"
       pg_stat_statements.max: "10000"
       pg_stat_statements.track: "all"
       shared_buffers: "256MB"
       track_io_timing: "on"
+      wal_buffers: "16MB"
       wal_level: "replica"
+      work_mem: "4MB"
     synchronous:
       method: any
       number: 1
@@ -156,18 +187,6 @@ cluster:
       bypassrls: false
       passwordSecret:
         name: netbox-postgresql
-    - name: gitrank
-      ensure: present
-      login: true
-      connectionLimit: 8
-      superuser: false
-      createdb: false
-      createrole: false
-      inherit: true
-      replication: false
-      bypassrls: false
-      passwordSecret:
-        name: git-rank-postgresql
     - name: jellyfin
       ensure: present
       login: true
@@ -181,17 +200,7 @@ cluster:
       passwordSecret:
         name: jellyfin-postgresql
     - name: dispatcharr
-      ensure: present
-      login: true
-      connectionLimit: 8
-      superuser: false
-      createdb: false
-      createrole: false
-      inherit: true
-      replication: false
-      bypassrls: false
-      passwordSecret:
-        name: dispatcharr-postgresql
+      ensure: absent
     - name: shipyardhq
       ensure: present
       login: true
@@ -255,7 +264,7 @@ cluster:
     - name: zitadel
       ensure: present
       login: true
-      connectionLimit: 24
+      connectionLimit: 32
       superuser: false
       createdb: false
       createrole: false
@@ -264,6 +273,18 @@ cluster:
       bypassrls: false
       passwordSecret:
         name: zitadel-postgresql
+    - name: music_assistant
+      ensure: present
+      login: true
+      connectionLimit: 4
+      superuser: false
+      createdb: false
+      createrole: false
+      inherit: true
+      replication: false
+      bypassrls: false
+      passwordSecret:
+        name: music-assistant-postgresql
 backups:
   enabled: true
   endpointURL: https://492e25f5f18ef59e38763f58a78362f7.r2.cloudflarestorage.com
@@ -298,15 +319,13 @@ databases:
   - name: netbox
     owner: netbox
     databaseReclaimPolicy: retain
-  - name: gitrank
-    owner: gitrank
-    databaseReclaimPolicy: retain
   - name: jellyfin
     owner: jellyfin
     databaseReclaimPolicy: retain
   - name: dispatcharr
+    ensure: absent
     owner: dispatcharr
-    databaseReclaimPolicy: retain
+    databaseReclaimPolicy: delete
   - name: shipyardhq
     owner: shipyardhq
     databaseReclaimPolicy: retain
@@ -325,18 +344,21 @@ databases:
   - name: zitadel
     owner: zitadel
     databaseReclaimPolicy: retain
+  - name: music_assistant
+    owner: music_assistant
+    databaseReclaimPolicy: retain
 poolers:
   - name: jellyfin-rw
     type: rw
     poolMode: session
-    instances: 3
+    instances: 1
     monitoring:
       enabled: true
       podMonitor:
         enabled: true
     parameters:
       max_client_conn: "100"
-      default_pool_size: "4"
+      default_pool_size: "14"
     template:
       metadata:
         labels:
@@ -369,102 +391,8 @@ poolers:
             image: registry.home/ghcr.io/cloudnative-pg/pgbouncer:1.25.2
             resources:
               requests:
-                cpu: 50m
-                memory: 128Mi
-              limits:
-                memory: 192Mi
-  - name: dispatcharr-rw
-    type: rw
-    poolMode: session
-    instances: 2
-    monitoring:
-      enabled: true
-      podMonitor:
-        enabled: true
-    parameters:
-      max_client_conn: "50"
-      default_pool_size: "3"
-    template:
-      metadata:
-        labels:
-          app.kubernetes.io/part-of: postgresql
-          home-lab.io/client: dispatcharr
-      spec:
-        nodeSelector:
-          kubernetes.io/arch: arm64
-        topologySpreadConstraints:
-          - maxSkew: 1
-            topologyKey: kubernetes.io/hostname
-            whenUnsatisfiable: DoNotSchedule
-            labelSelector:
-              matchLabels:
-                cnpg.io/poolerName: postgresql-pooler-dispatcharr-rw
-            matchLabelKeys:
-              - pod-template-hash
-        affinity:
-          podAntiAffinity:
-            requiredDuringSchedulingIgnoredDuringExecution:
-              - labelSelector:
-                  matchLabels:
-                    cnpg.io/poolerName: postgresql-pooler-dispatcharr-rw
-                matchLabelKeys:
-                  - pod-template-hash
-                topologyKey: kubernetes.io/hostname
-        containers:
-          - name: pgbouncer
-            # renovate: datasource=docker depName=ghcr.io/cloudnative-pg/pgbouncer
-            image: registry.home/ghcr.io/cloudnative-pg/pgbouncer:1.25.2
-            resources:
-              requests:
-                cpu: 50m
-                memory: 128Mi
-              limits:
-                memory: 192Mi
-  - name: git-rank-rw
-    type: rw
-    poolMode: session
-    instances: 2
-    monitoring:
-      enabled: true
-      podMonitor:
-        enabled: true
-    parameters:
-      max_client_conn: "50"
-      default_pool_size: "4"
-    template:
-      metadata:
-        labels:
-          app.kubernetes.io/part-of: postgresql
-          home-lab.io/client: git-rank
-      spec:
-        nodeSelector:
-          kubernetes.io/arch: arm64
-        topologySpreadConstraints:
-          - maxSkew: 1
-            topologyKey: kubernetes.io/hostname
-            whenUnsatisfiable: DoNotSchedule
-            labelSelector:
-              matchLabels:
-                cnpg.io/poolerName: postgresql-pooler-git-rank-rw
-            matchLabelKeys:
-              - pod-template-hash
-        affinity:
-          podAntiAffinity:
-            requiredDuringSchedulingIgnoredDuringExecution:
-              - labelSelector:
-                  matchLabels:
-                    cnpg.io/poolerName: postgresql-pooler-git-rank-rw
-                matchLabelKeys:
-                  - pod-template-hash
-                topologyKey: kubernetes.io/hostname
-        containers:
-          - name: pgbouncer
-            # renovate: datasource=docker depName=ghcr.io/cloudnative-pg/pgbouncer
-            image: registry.home/ghcr.io/cloudnative-pg/pgbouncer:1.25.2
-            resources:
-              requests:
-                cpu: 50m
-                memory: 128Mi
+                cpu: 15m
+                memory: 56Mi
               limits:
                 memory: 192Mi
   - name: shipyardhq-rw
@@ -477,7 +405,7 @@ poolers:
         enabled: true
     parameters:
       max_client_conn: "50"
-      default_pool_size: "16"
+      default_pool_size: "14"
     template:
       metadata:
         labels:
@@ -510,14 +438,14 @@ poolers:
             image: registry.home/ghcr.io/cloudnative-pg/pgbouncer:1.25.2
             resources:
               requests:
-                cpu: 50m
-                memory: 128Mi
+                cpu: 10m
+                memory: 56Mi
               limits:
                 memory: 192Mi
   - name: harbor-rw
     type: rw
     poolMode: session
-    instances: 3
+    instances: 2
     monitoring:
       enabled: true
       podMonitor:
@@ -557,14 +485,14 @@ poolers:
             image: registry.home/ghcr.io/cloudnative-pg/pgbouncer:1.25.2
             resources:
               requests:
-                cpu: 50m
-                memory: 128Mi
+                cpu: 10m
+                memory: 56Mi
               limits:
                 memory: 192Mi
   - name: netbox-rw
     type: rw
     poolMode: session
-    instances: 2
+    instances: 0
     monitoring:
       enabled: true
       podMonitor:
@@ -604,8 +532,8 @@ poolers:
             image: registry.home/ghcr.io/cloudnative-pg/pgbouncer:1.25.2
             resources:
               requests:
-                cpu: 50m
-                memory: 128Mi
+                cpu: 10m
+                memory: 56Mi
               limits:
                 memory: 192Mi
   - name: wardn-hub-rw
@@ -652,13 +580,13 @@ poolers:
             resources:
               requests:
                 cpu: 50m
-                memory: 128Mi
+                memory: 56Mi
               limits:
                 memory: 192Mi
   - name: wardn-ai-rw
     type: rw
     poolMode: session
-    instances: 2
+    instances: 1
     monitoring:
       enabled: true
       podMonitor:
@@ -698,14 +626,14 @@ poolers:
             image: registry.home/ghcr.io/cloudnative-pg/pgbouncer:1.25.2
             resources:
               requests:
-                cpu: 50m
-                memory: 128Mi
+                cpu: 10m
+                memory: 56Mi
               limits:
                 memory: 192Mi
   - name: firefly-iii-rw
     type: rw
     poolMode: session
-    instances: 2
+    instances: 1
     monitoring:
       enabled: true
       podMonitor:
@@ -745,8 +673,8 @@ poolers:
             image: registry.home/ghcr.io/cloudnative-pg/pgbouncer:1.25.2
             resources:
               requests:
-                cpu: 50m
-                memory: 128Mi
+                cpu: 10m
+                memory: 56Mi
               limits:
                 memory: 192Mi
   - name: zitadel-rw
@@ -759,7 +687,7 @@ poolers:
         enabled: true
     parameters:
       max_client_conn: "80"
-      default_pool_size: "8"
+      default_pool_size: "16"
     template:
       metadata:
         labels:
@@ -792,7 +720,7 @@ poolers:
             image: registry.home/ghcr.io/cloudnative-pg/pgbouncer:1.25.2
             resources:
               requests:
-                cpu: 50m
-                memory: 128Mi
+                cpu: 10m
+                memory: 56Mi
               limits:
                 memory: 192Mi

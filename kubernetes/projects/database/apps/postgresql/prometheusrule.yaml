@@ -11,6 +11,42 @@ metadata:
     home-lab.io/project-slug: database
 spec:
   groups:
+    - name: postgresql.cnpg-collector
+      rules:
+        - alert: CNPGCollectorQueryErrors
+          expr: max by (namespace, pod) (cnpg_last_error{namespace="postgresql", pod=~"postgresql-([1-9][0-9]*)$"}) > 0
+          for: 5m
+          labels:
+            severity: warning
+          annotations:
+            summary: CloudNativePG SQL metric collection is failing
+            description: CloudNativePG collector queries on {{ $labels.pod }} have failed for more than 5 minutes.
+        - alert: CNPGCollectorMetricsCoverageLow
+          expr: |
+            (
+              count(count by (pod) (
+                cnpg_pg_stat_database_xact_commit{
+                  namespace="postgresql",
+                  pod=~"postgresql-([1-9][0-9]*)$"
+                }
+              )) or vector(0)
+            )
+            <
+            (
+              count(
+                kube_pod_container_status_ready{
+                  namespace="postgresql",
+                  pod=~"postgresql-([1-9][0-9]*)$",
+                  container="postgres"
+                } == 1
+              ) or vector(0)
+            )
+          for: 5m
+          labels:
+            severity: critical
+          annotations:
+            summary: CloudNativePG SQL metric coverage is incomplete
+            description: Fewer PostgreSQL instances expose SQL-derived CNPG metrics than are ready.
     - name: postgresql.pgbouncer
       rules:
         - alert: PgBouncerClientQueueing

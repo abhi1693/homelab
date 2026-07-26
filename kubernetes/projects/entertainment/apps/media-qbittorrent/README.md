@@ -1,6 +1,8 @@
 # qBittorrent
 
-This bundle runs the qBittorrent client used by the media stack.
+This bundle runs the qBittorrent client used by the media stack. qBittorrent
+and the smart queues controller each run with one replica, and the tracker
+refresh CronJob is active now that downloads use the NFS CSI claim.
 
 The smart queues controller code lives in
 `https://github.com/abhi1693/qbittorrent-smart-queues` and runs from the
@@ -8,9 +10,9 @@ The smart queues controller code lives in
 container image. Its Kubernetes runtime lives in this media qBittorrent bundle
 and runs in the `media` namespace.
 
-Legacy split-client hostnames and service names for `qbittorrent-movies`,
-`qbittorrent-anime`, and `qbittorrent-prowlarr` are retained as aliases to the
-single `qbittorrent` deployment so existing media app settings continue to work.
+All media applications connect to the single in-cluster service at
+`http://qbittorrent.media.svc.cluster.local:8080`. Category-specific routing is
+handled inside qBittorrent rather than through separate workloads or Services.
 
 ## Bandwidth policy
 
@@ -26,14 +28,15 @@ peer-reconnect bursts without OOM-killing the client and dropping active peers.
 
 `qbittorrent-smart-queues` also enforces runtime limits. The deployed ceiling is
 10 MiB/s down and 512 KiB/s up, with the same 10 MiB/s ceiling available to
-burst mode while quota headroom remains. If UDM quota data is temporarily
-unavailable, the controller applies a safe fallback of 8 MiB/s down and
-512 KiB/s up instead of pausing every torrent.
+burst mode while quota headroom remains. If UDM quota data is unavailable, the
+controller fails closed by applying the 1 B/s safety limits and pausing every
+torrent until accounting recovers.
 
-The smart queues controller mounts `media-downloads` read-only so it can enforce
-free-space guardrails before starting torrents. Its queue, quota, thermal, and
-recovery decisions use service APIs plus the small
-`media/qbittorrent-smart-queues-state` PVC.
+The smart queues controller mounts `media-downloads-nfs-csi` read-only so it can
+enforce free-space guardrails before starting torrents. Its queue, quota,
+thermal, and recovery decisions use service APIs plus the small
+`media/qbittorrent-smart-queues-state-nfs` PVC backed by a retained directory on
+the shared NAS export.
 
 The controller checks Rancher Monitoring Prometheus for Raspberry Pi CPU and
 NVMe temperatures before it can start or raise downloads. Thermal mitigation is
@@ -111,8 +114,15 @@ qBittorrent can exit immediately with `Another qBittorrent instance is already
 running` even when Kubernetes has only one replica.
 
 The torrent listener is fixed at high TCP/UDP port `53181` and is exposed by
-the Cilium LoadBalancer service. For inbound WAN peers, keep the gateway TCP/UDP
-port forward aligned with the assigned qBittorrent LoadBalancer IP and port.
+the MetalLB Layer 2 service on the fixed VIP `192.168.3.16`. The Service uses
+`externalTrafficPolicy: Local`, so MetalLB selects a node with the qBittorrent
+endpoint and preserves peer source addresses. For inbound WAN peers, keep the
+gateway TCP/UDP port forward aligned with that VIP and port.
+
+The HelmOp pulls the qBittorrent chart directly from its OCI URL and therefore
+does not depend on the aggregate media `ClusterRepo` bundle. This keeps a
+failure in an unrelated catalog source from blocking qBittorrent reconciliation.
+
 Behind ISP CGNAT this forward does not make qBittorrent publicly connectable;
 the client is effectively outbound-only, so release health and rotation matter
 more than the listener port.
@@ -120,12 +130,45 @@ more than the listener port.
 ## Smart Queues Controller
 
 `qbittorrent-smart-queues` polls the UDM at `https://192.168.3.1` for current
-WAN download usage and treats `2.5 TB` as the hard monthly qBittorrent guardrail.
-It also derives a daily guardrail by dividing the monthly guardrail by the
-number of days in the current month. While usage is under both guardrails, it
-sets a conservative qBittorrent download limit from the tighter of the remaining
-monthly budget and the remaining daily budget. There is no client-activity
-based bypass.
+combined primary-WAN download and upload usage and treats `2.5 TB` as the hard
+monthly qBittorrent guardrail. It also derives a daily guardrail by dividing the
+monthly guardrail by the number of days in the current month. While usage is
+under both guardrails, it sets a conservative qBittorrent download limit from
+the tighter of the remaining monthly budget and the remaining daily budget.
+There is no client-activity based bypass.
+
+UniFi usage periods follow the reporting timezone discovered from the gateway,
+currently `Asia/Kolkata`, rather than UTC. Completed local days come from daily
+reports and the current local day comes from hourly reports, so the open day is
+not counted twice. Smart Queues also compares each hourly WAN field with the
+provider capability configured in UniFi. If a failover or interface reset emits
+an impossible counter jump, only that field is replaced with the larger adjacent
+valid hour; the other selected usage fields remain counted. The correction is
+persisted in `/state/udm-usage-corrections.json` on the existing controller
+state PVC and is subtracted again when UniFi later folds the affected hour into
+a daily report.
+
+The controller also repairs newly enabled fields in completed daily reports. If
+a daily field exceeds the physical WAN capability and has no saved correction,
+it replays that local day's retained hourly data once and merges the verified
+field correction into the existing state. If hourly evidence is unavailable or
+inconclusive, the raw daily value remains counted so quota enforcement stays
+conservative.
+
+Before reading quota statistics or selecting downloads, the controller resolves
+the gateway's active WAN from UniFi. It discovers the backup dynamically from
+the WAN configuration's `failover-only` role and correlates that role with the
+gateway's current logical interface and uplink. No editable WAN name, WAN group,
+or physical port is pinned in this deployment. Quota report fields are derived
+from those same roles and include only network groups that are not
+`failover-only`. This means WAN2 is counted automatically if it becomes the
+primary, while backup traffic is excluded because torrent transfers are already
+blocked for the entire backup session. While the backup WAN is active, the
+controller applies the 1 byte/s safety limits and calls qBittorrent's stop-all
+endpoint every 30 seconds. If UniFi WAN state cannot be read or mapped, this
+guard fails closed. Quota-statistics failures also fail closed, so normal queue
+selection resumes only after both active-WAN state and combined usage accounting
+are available again.
 
 `qbittorrent-smart-queues` runs as a single-replica Deployment in continuous
 mode, polling every 30 seconds after each pass. It keeps or resumes up to three
@@ -161,7 +204,7 @@ productive. If the controller exits, it stops qBittorrent downloads so they are
 not left unmanaged while Smart Queues is offline.
 New magnets stop as soon as their metadata is available, so the guard is the
 only component that chooses when payload downloading starts. It reserves the
-larger of `30 GiB` or `10%` free space on `media-downloads`, and skips any
+larger of `30 GiB` or `10%` free space on `media-downloads-nfs-csi`, and skips any
 torrent whose selected files do not fit in the remaining storage headroom.
 Older stopped magnets can predate the metadata stop condition and therefore
 have no file sizes for the fit check. When no productive payload download is
@@ -211,7 +254,7 @@ parked listener from the latest decision, while the summary row aggregates
 worker count, remaining bytes, ETA, speed, seeds, and availability across the
 selected workers.
 
-The selector persists torrent health in the `qbittorrent-smart-queues-state` PVC.
+The selector persists torrent health in the `qbittorrent-smart-queues-state-nfs` PVC.
 For each torrent hash it tracks EWMA download speed, attempts, consecutive
 failures, last productive time, seed/availability signals, and predicted
 completion time. Priority requests still win first, TV focus chooses the next
@@ -255,7 +298,8 @@ The Deployment exposes `/healthz` on the metrics port for startup, readiness,
 and liveness probes. Rancher Monitoring scrapes `/metrics` and evaluates
 PrometheusRule alerts for scrape health, stale decisions, very low effective
 caps with queued work, constrained download storage, and selected workers that
-are effectively idle.
+are effectively idle. A warning also fires while UniFi reports the backup WAN
+active and Smart Queues is holding every torrent stopped.
 
 Priority requests are selected before normal requests. The guard treats a
 qBittorrent torrent as priority when it has the `priority` tag or belongs to one

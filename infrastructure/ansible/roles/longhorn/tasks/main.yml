@@ -8,8 +8,20 @@
       - longhorn.chart_version | trim != ''
       - longhorn.crd_chart_version | trim != ''
       - longhorn.default_data_path | trim != ''
-      - longhorn.default_class_replica_count | int == 2
-      - longhorn.default_replica_count | int == 2
+      - longhorn.default_class_replica_count | int == 3
+      - longhorn.default_replica_count | int == 3
+      - longhorn.single_replica_workload_namespaces | length > 0
+      - >-
+        longhorn.single_replica_workload_namespaces
+        | map('trim')
+        | reject('equalto', '')
+        | list
+        | length == longhorn.single_replica_workload_namespaces | length
+      - >-
+        longhorn.single_replica_workload_namespaces
+        | unique
+        | list
+        | length == longhorn.single_replica_workload_namespaces | length
       - longhorn.default_data_locality in ['disabled', 'best-effort']
       - longhorn.storage_overprovisioning_percentage | int > 0
       - longhorn.storage_minimal_available_percentage | int >= 0
@@ -278,6 +290,81 @@
   environment:
     KUBECONFIG: /etc/rancher/k3s/k3s.yaml
   changed_when: false
+  when: k3s_node.cluster_init | bool
+
+- name: Read existing Longhorn volumes
+  ansible.builtin.command:
+    argv:
+      - /usr/local/bin/k3s
+      - kubectl
+      - -n
+      - "{{ longhorn.namespace }}"
+      - get
+      - volumes.longhorn.io
+      - -o
+      - json
+  environment:
+    KUBECONFIG: /etc/rancher/k3s/k3s.yaml
+  register: longhorn_existing_volumes
+  changed_when: false
+  when: k3s_node.cluster_init | bool
+
+- name: Reconcile existing Longhorn default volume replica counts
+  ansible.builtin.command:
+    argv:
+      - /usr/local/bin/k3s
+      - kubectl
+      - -n
+      - "{{ longhorn.namespace }}"
+      - patch
+      - volumes.longhorn.io
+      - "{{ item }}"
+      - --type=merge
+      - -p
+      - '{"spec":{"numberOfReplicas":{{ longhorn.default_replica_count | int }}}}'
+  environment:
+    KUBECONFIG: /etc/rancher/k3s/k3s.yaml
+  loop: >-
+    {{
+      (longhorn_existing_volumes.stdout | from_json)['items']
+      | rejectattr(
+          'status.kubernetesStatus.namespace',
+          'in',
+          longhorn.single_replica_workload_namespaces
+        )
+      | rejectattr('spec.numberOfReplicas', 'equalto', longhorn.default_replica_count | int)
+      | map(attribute='metadata.name')
+      | list
+    }}
+  when: k3s_node.cluster_init | bool
+
+- name: Reconcile replicated workload Longhorn volume replica counts
+  ansible.builtin.command:
+    argv:
+      - /usr/local/bin/k3s
+      - kubectl
+      - -n
+      - "{{ longhorn.namespace }}"
+      - patch
+      - volumes.longhorn.io
+      - "{{ item }}"
+      - --type=merge
+      - -p
+      - '{"spec":{"numberOfReplicas":1}}'
+  environment:
+    KUBECONFIG: /etc/rancher/k3s/k3s.yaml
+  loop: >-
+    {{
+      (longhorn_existing_volumes.stdout | from_json)['items']
+      | selectattr(
+          'status.kubernetesStatus.namespace',
+          'in',
+          longhorn.single_replica_workload_namespaces
+        )
+      | rejectattr('spec.numberOfReplicas', 'equalto', 1)
+      | map(attribute='metadata.name')
+      | list
+    }}
   when: k3s_node.cluster_init | bool
 
 - name: Read Longhorn node disk status

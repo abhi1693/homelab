@@ -1,21 +1,21 @@
 replicaCount: 2
-
 imageRegistry: registry.home/docker.io
-
 image:
   repository: registry.home/ghcr.io/zitadel/zitadel
   # renovate: datasource=docker depName=ghcr.io/zitadel/zitadel
   tag: v4.15.3
   pullPolicy: IfNotPresent
-
 imagePullSecrets: []
-
 zitadel:
   masterkeySecretName: zitadel-masterkey
   configmapConfig:
     ExternalDomain: auth.abhimanyu-saharan.com
     ExternalPort: 443
     ExternalSecure: true
+    Database:
+      Postgres:
+        MaxOpenConns: 8
+        MaxIdleConns: 4
     TLS:
       Enabled: false
     FirstInstance:
@@ -26,12 +26,9 @@ zitadel:
           LastName: Lab Admin
           Email: admin@abhimanyu-saharan.com
           PasswordChangeRequired: true
-
 envVarsSecret: zitadel-env
-
 postgresql:
   enabled: false
-
 initJob:
   command: zitadel
   activeDeadlineSeconds: 600
@@ -41,7 +38,6 @@ initJob:
       memory: 128Mi
     limits:
       memory: 256Mi
-
 setupJob:
   activeDeadlineSeconds: 600
   resources:
@@ -57,15 +53,22 @@ setupJob:
         memory: 32Mi
       limits:
         memory: 96Mi
-
 cleanupJob:
   resources:
     requests:
-      cpu: 25m
+      cpu: 15m
       memory: 32Mi
     limits:
       memory: 96Mi
-
+tools:
+  wait4x:
+    resources:
+      requests:
+        cpu: 10m
+        memory: 32Mi
+      limits:
+        cpu: 100m
+        memory: 64Mi
 service:
   type: ClusterIP
   port: 8080
@@ -73,7 +76,6 @@ service:
   appProtocol: kubernetes.io/h2c
   annotations:
     traefik.ingress.kubernetes.io/service.serversscheme: h2c
-
 ingress:
   enabled: true
   className: cloudflare-tunnel
@@ -82,7 +84,6 @@ ingress:
       paths:
         - path: /
           pathType: Prefix
-
 login:
   enabled: true
   replicaCount: 2
@@ -107,6 +108,18 @@ login:
   pdb:
     enabled: true
     minAvailable: 1
+  readinessProbe:
+    enabled: true
+    periodSeconds: 10
+    failureThreshold: 6
+  livenessProbe:
+    enabled: true
+    periodSeconds: 10
+    failureThreshold: 6
+  startupProbe:
+    enabled: true
+    periodSeconds: 5
+    failureThreshold: 24
   metrics:
     enabled: true
     serviceMonitor:
@@ -115,8 +128,8 @@ login:
       scrapeTimeout: 10s
   resources:
     requests:
-      cpu: 50m
-      memory: 128Mi
+      cpu: 20m
+      memory: 141Mi
     limits:
       memory: 256Mi
   nodeSelector:
@@ -128,17 +141,14 @@ login:
       labelSelector:
         matchLabels:
           app.kubernetes.io/instance: zitadel
-
 resources:
   requests:
-    cpu: 150m
-    memory: 384Mi
+    cpu: 30m
+    memory: 124Mi
   limits:
     memory: 768Mi
-
 nodeSelector:
   kubernetes.io/arch: arm64
-
 topologySpreadConstraints:
   - maxSkew: 1
     topologyKey: kubernetes.io/hostname
@@ -146,29 +156,24 @@ topologySpreadConstraints:
     labelSelector:
       matchLabels:
         app.kubernetes.io/instance: zitadel
-
 readinessProbe:
   enabled: true
   periodSeconds: 10
   failureThreshold: 6
-
 livenessProbe:
   enabled: true
   periodSeconds: 10
   failureThreshold: 6
-
 startupProbe:
   enabled: true
   periodSeconds: 5
   failureThreshold: 60
-
 metrics:
   enabled: true
   serviceMonitor:
     enabled: true
     scrapeInterval: 60s
     scrapeTimeout: 10s
-
 pdb:
   enabled: true
   minAvailable: 1

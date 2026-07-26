@@ -6,18 +6,14 @@
     fail_msg: cilium reset must run on the initial K3s server where k3s_node.cluster_init=true.
     success_msg: "Resetting Cilium from the bootstrap K3s server"
 
-- name: Check bundled Traefik and Cilium exposure manifest files
+- name: Check bundled Traefik manifest file
   ansible.builtin.stat:
     path: "{{ item }}"
   loop:
     - /var/lib/rancher/k3s/server/manifests/traefik-config.yaml
-    - /var/lib/rancher/k3s/server/manifests/cilium-bgp-advertisement.yaml
-    - /var/lib/rancher/k3s/server/manifests/cilium-bgp-cluster-config.yaml
-    - /var/lib/rancher/k3s/server/manifests/cilium-bgp-peer-config.yaml
-    - /var/lib/rancher/k3s/server/manifests/cilium-lb-ip-pool.yaml
   register: cilium_reset_manifest_stats
 
-- name: Delete bundled Traefik and Cilium exposure resources from manifests
+- name: Delete bundled Traefik resources from the manifest
   ansible.builtin.command:
     argv:
       - /usr/local/bin/k3s
@@ -32,16 +28,12 @@
   changed_when: true
   failed_when: false
 
-- name: Remove bundled Traefik and Cilium exposure manifest files
+- name: Remove bundled Traefik manifest file
   ansible.builtin.file:
     path: "{{ item }}"
     state: absent
   loop:
     - /var/lib/rancher/k3s/server/manifests/traefik-config.yaml
-    - /var/lib/rancher/k3s/server/manifests/cilium-bgp-advertisement.yaml
-    - /var/lib/rancher/k3s/server/manifests/cilium-bgp-cluster-config.yaml
-    - /var/lib/rancher/k3s/server/manifests/cilium-bgp-peer-config.yaml
-    - /var/lib/rancher/k3s/server/manifests/cilium-lb-ip-pool.yaml
 
 - name: Check Cilium CLI binary path
   ansible.builtin.stat:

@@ -8,6 +8,7 @@ metadata:
     app.kubernetes.io/component: frontend
     app.kubernetes.io/part-of: wardn-hub
 spec:
+  revisionHistoryLimit: 2
   replicas: 1
   progressDeadlineSeconds: 900
   selector:
@@ -23,7 +24,7 @@ spec:
     metadata:
       annotations:
         home-lab.io/faro-config-revision: "2026-07-01-faro-key-rebuild"
-        home-lab.io/reconcile-token: "20260713T1846Z"
+        home-lab.io/reconcile-token: "20260716T1001Z"
       labels:
         app.kubernetes.io/name: wardn-hub-frontend
         app.kubernetes.io/component: frontend
@@ -61,7 +62,7 @@ spec:
       initContainers:
         - name: wait-for-api-rollout
           # renovate: datasource=github-releases depName=abhi1693/wardn-hub
-          image: registry.home/ghcr.io/abhi1693/wardn-hub-backend:0.2.95
+          image: registry.home/ghcr.io/abhi1693/wardn-hub-backend:0.2.148
           imagePullPolicy: IfNotPresent
           command:
             - python
@@ -89,9 +90,12 @@ spec:
             - name: api-rollout-token
               mountPath: /var/run/secrets/wardn-hub-api-rollout
               readOnly: true
+          envFrom:
+            - secretRef:
+                name: wardn-hub-github
         - name: restore-next-build
           # renovate: datasource=github-releases depName=abhi1693/wardn-hub
-          image: registry.home/ghcr.io/abhi1693/wardn-hub-frontend:0.2.95
+          image: registry.home/ghcr.io/abhi1693/wardn-hub-frontend:0.2.148
           imagePullPolicy: IfNotPresent
           command:
             - /bin/sh
@@ -119,7 +123,7 @@ spec:
               )"
               env_key="$(
                 env | LC_ALL=C sort \
-                  | grep -E '^(CLERK_|NEXT_PUBLIC_|WARDN_HUB_API_INTERNAL_BASE_URL)=' \
+                  | grep -E '^(NEXT_PUBLIC_|WARDN_HUB_API_INTERNAL_BASE_URL)=' \
                   | sha256sum | awk '{print $1}'
               )"
               build_key="$(printf '%s\n%s\n%s\n' "$cache_version" "$source_key" "$env_key" | sha256sum | awk '{print $1}')"
@@ -165,18 +169,18 @@ spec:
                 name: wardn-hub
             - secretRef:
                 name: wardn-hub
+            - secretRef:
+                name: wardn-hub-github
           env:
-            - name: NODE_OPTIONS
-              value: --max-old-space-size=512
             - name: NPM_CONFIG_CACHE
               value: /tmp/.npm
           resources:
             requests:
-              cpu: 50m
-              memory: 256Mi
+              cpu: 25m
+              memory: 128Mi
             limits:
-              cpu: 500m
-              memory: 768Mi
+              cpu: 250m
+              memory: 256Mi
           securityContext:
             allowPrivilegeEscalation: false
             capabilities:
@@ -193,7 +197,7 @@ spec:
       containers:
         - name: frontend
           # renovate: datasource=github-releases depName=abhi1693/wardn-hub
-          image: registry.home/ghcr.io/abhi1693/wardn-hub-frontend:0.2.95
+          image: registry.home/ghcr.io/abhi1693/wardn-hub-frontend:0.2.148
           imagePullPolicy: IfNotPresent
           command:
             - node
@@ -203,16 +207,21 @@ spec:
                 name: wardn-hub
             - secretRef:
                 name: wardn-hub
+            - secretRef:
+                name: wardn-hub-github
+          env:
+            - name: NODE_OPTIONS
+              value: --max-old-space-size=192
           ports:
             - name: http
               containerPort: 3000
               protocol: TCP
           resources:
             requests:
-              cpu: 60m
-              memory: 304Mi
+              cpu: 40m
+              memory: 280Mi
             limits:
-              memory: 448Mi
+              memory: 320Mi
           startupProbe:
             httpGet:
               path: /
@@ -267,4 +276,4 @@ spec:
             sizeLimit: 2Gi
         - name: next-build-cache
           persistentVolumeClaim:
-            claimName: wardn-hub-next-build-cache
+            claimName: wardn-hub-next-build-cache-nfs

@@ -6,29 +6,6 @@
     fail_msg: cilium validation must run on the initial K3s server where k3s_node.cluster_init=true.
     success_msg: "Validating Cilium from the bootstrap K3s server"
 
-- name: Record whether Cilium BGP exposure is fully configured
-  ansible.builtin.set_fact:
-    cilium_bgp_exposure_configured: >-
-      {{
-        cilium.bgp.enabled | bool
-        and cilium.bgp.local_asn | int > 0
-        and cilium.bgp.peer_asn | int > 0
-        and cilium.bgp.peer_address | trim != ''
-        and cilium.bgp.local_port | int > 0
-        and cilium.bgp.cluster_config_name | trim != ''
-        and cilium.bgp.peer_config_name | trim != ''
-        and cilium.bgp.advertisement_name | trim != ''
-        and cilium.bgp.ip_pool_name | trim != ''
-        and cilium.bgp.app_ip_pool.name | trim != ''
-        and cilium.bgp.app_ip_pool.start | trim != ''
-        and cilium.bgp.app_ip_pool.stop | trim != ''
-        and cilium.bgp.keepalive_time_seconds | int > 0
-        and cilium.bgp.hold_time_seconds | int > 0
-        and cilium.bgp.graceful_restart_enabled is boolean
-        and cilium.bgp.graceful_restart_time_seconds | int > 0
-        and traefik.service.load_balancer_ip | trim != ''
-      }}
-
 - name: Check Cilium and bundled Traefik manifest files
   ansible.builtin.stat:
     path: "{{ item }}"
@@ -44,26 +21,6 @@
     fail_msg: "Expected {{ item.stat.path }} to exist"
     success_msg: "{{ item.stat.path }} exists"
   loop: "{{ cilium_core_file_stats.results }}"
-
-- name: Check Cilium exposure manifest files
-  ansible.builtin.stat:
-    path: "{{ item }}"
-  loop:
-    - /var/lib/rancher/k3s/server/manifests/cilium-lb-ip-pool.yaml
-    - /var/lib/rancher/k3s/server/manifests/cilium-bgp-peer-config.yaml
-    - /var/lib/rancher/k3s/server/manifests/cilium-bgp-cluster-config.yaml
-    - /var/lib/rancher/k3s/server/manifests/cilium-bgp-advertisement.yaml
-  register: cilium_bgp_manifest_stats
-  when: cilium_bgp_exposure_configured | bool
-
-- name: Assert Cilium exposure manifest files exist
-  ansible.builtin.assert:
-    that:
-      - item.stat.exists
-    fail_msg: "Expected Cilium exposure manifest {{ item.stat.path }} to exist"
-    success_msg: "Cilium exposure manifest {{ item.stat.path }} exists"
-  loop: "{{ cilium_bgp_manifest_stats.results }}"
-  when: cilium_bgp_exposure_configured | bool
 
 - name: Read installed Cilium CLI version
   ansible.builtin.command: /usr/local/bin/cilium version --client
@@ -139,6 +96,54 @@
       - cilium_kube_proxy_replacement.stdout | trim == 'true'
     fail_msg: Expected Cilium kube-proxy replacement to be enabled.
     success_msg: Cilium kube-proxy replacement is enabled.
+
+- name: Read deployed Cilium service topology setting
+  ansible.builtin.command:
+    argv:
+      - /usr/local/bin/k3s
+      - kubectl
+      - -n
+      - kube-system
+      - get
+      - configmap
+      - cilium-config
+      - -o
+      - jsonpath={.data.enable-service-topology}
+  environment:
+    KUBECONFIG: /etc/rancher/k3s/k3s.yaml
+  register: cilium_service_topology
+  changed_when: false
+
+- name: Assert Cilium service topology matches inventory
+  ansible.builtin.assert:
+    that:
+      - (cilium_service_topology.stdout | trim | bool) == (cilium.service_topology | bool)
+    fail_msg: Expected Cilium service topology to match inventory.
+    success_msg: Cilium service topology matches inventory.
+
+- name: Read deployed Cilium local redirect policy setting
+  ansible.builtin.command:
+    argv:
+      - /usr/local/bin/k3s
+      - kubectl
+      - -n
+      - kube-system
+      - get
+      - configmap
+      - cilium-config
+      - -o
+      - jsonpath={.data.enable-local-redirect-policy}
+  environment:
+    KUBECONFIG: /etc/rancher/k3s/k3s.yaml
+  register: cilium_local_redirect_policies
+  changed_when: false
+
+- name: Assert Cilium local redirect policies stay disabled
+  ansible.builtin.assert:
+    that:
+      - (cilium_local_redirect_policies.stdout | trim | default('false', true)) == 'false'
+    fail_msg: Expected Cilium local redirect policies to remain disabled.
+    success_msg: Cilium local redirect policies remain disabled.
 
 - name: Wait for Hubble Relay rollout
   ansible.builtin.command:
@@ -408,12 +413,35 @@
   register: traefik_load_balancer_class
   changed_when: false
 
-- name: Assert bundled Traefik service uses the configured Cilium load balancer class
+- name: Assert bundled Traefik service uses the configured load balancer class
   ansible.builtin.assert:
     that:
       - traefik_load_balancer_class.stdout | trim == traefik.service.load_balancer_class
     fail_msg: "Expected Traefik service to use loadBalancerClass {{ traefik.service.load_balancer_class }}"
     success_msg: "Traefik service uses loadBalancerClass {{ traefik.service.load_balancer_class }}"
+
+- name: Read bundled Traefik MetalLB address pool annotation
+  ansible.builtin.command:
+    argv:
+      - /usr/local/bin/k3s
+      - kubectl
+      - -n
+      - "{{ traefik.namespace }}"
+      - get
+      - "service/{{ traefik.service_name }}"
+      - -o
+      - jsonpath={.metadata.annotations.metallb\.io/address-pool}
+  environment:
+    KUBECONFIG: /etc/rancher/k3s/k3s.yaml
+  register: traefik_metallb_address_pool
+  changed_when: false
+
+- name: Assert bundled Traefik requests the configured MetalLB address pool
+  ansible.builtin.assert:
+    that:
+      - traefik_metallb_address_pool.stdout | trim == traefik.service.address_pool_name
+    fail_msg: "Expected Traefik to request MetalLB pool {{ traefik.service.address_pool_name }}"
+    success_msg: "Traefik requests MetalLB pool {{ traefik.service.address_pool_name }}"
 
 - name: Read bundled Traefik service external traffic policy
   ansible.builtin.command:
@@ -438,11 +466,31 @@
     fail_msg: "Expected Traefik externalTrafficPolicy {{ traefik.service.external_traffic_policy }}"
     success_msg: "Traefik externalTrafficPolicy matches {{ traefik.service.external_traffic_policy }}"
 
-- name: Check Cilium BGP exposure resources
+- name: Check MetalLB Layer 2 workloads
   ansible.builtin.command:
     argv:
       - /usr/local/bin/k3s
       - kubectl
+      - -n
+      - metallb-system
+      - rollout
+      - status
+      - "{{ item }}"
+      - --timeout=300s
+  environment:
+    KUBECONFIG: /etc/rancher/k3s/k3s.yaml
+  changed_when: false
+  loop:
+    - deployment/metallb-controller
+    - daemonset/metallb-speaker
+
+- name: Check MetalLB Layer 2 exposure resources
+  ansible.builtin.command:
+    argv:
+      - /usr/local/bin/k3s
+      - kubectl
+      - -n
+      - metallb-system
       - get
       - "{{ item.kind }}"
       - "{{ item.name }}"
@@ -450,17 +498,10 @@
     KUBECONFIG: /etc/rancher/k3s/k3s.yaml
   changed_when: false
   loop:
-    - kind: CiliumLoadBalancerIPPool
-      name: "{{ cilium.bgp.ip_pool_name }}"
-    - kind: CiliumLoadBalancerIPPool
-      name: "{{ cilium.bgp.app_ip_pool.name }}"
-    - kind: CiliumBGPPeerConfig
-      name: "{{ cilium.bgp.peer_config_name }}"
-    - kind: CiliumBGPClusterConfig
-      name: "{{ cilium.bgp.cluster_config_name }}"
-    - kind: CiliumBGPAdvertisement
-      name: "{{ cilium.bgp.advertisement_name }}"
-  when: cilium_bgp_exposure_configured | bool
+    - kind: IPAddressPool
+      name: "{{ traefik.service.address_pool_name }}"
+    - kind: L2Advertisement
+      name: lan
 
 - name: Read bundled Traefik service external IP
   ansible.builtin.command:
@@ -477,7 +518,6 @@
     KUBECONFIG: /etc/rancher/k3s/k3s.yaml
   register: cilium_traefik_lb_ip
   changed_when: false
-  when: cilium_bgp_exposure_configured | bool
 
 - name: Assert bundled Traefik service received the configured external IP
   ansible.builtin.assert:
@@ -485,42 +525,6 @@
       - cilium_traefik_lb_ip.stdout | trim == traefik.service.load_balancer_ip
     fail_msg: "Expected Traefik service external IP {{ traefik.service.load_balancer_ip }}"
     success_msg: "Traefik service external IP matches {{ traefik.service.load_balancer_ip }}"
-  when: cilium_bgp_exposure_configured | bool
-
-- name: Read Cilium BGP peer status
-  ansible.builtin.command:
-    argv:
-      - /usr/local/bin/cilium
-      - bgp
-      - peers
-  environment:
-    KUBECONFIG: /etc/rancher/k3s/k3s.yaml
-  register: cilium_bgp_peers
-  changed_when: false
-  when: cilium_bgp_exposure_configured | bool
-
-- name: Check upstream BGP TCP reachability from the bootstrap node
-  ansible.builtin.wait_for:
-    host: "{{ cilium.bgp.peer_address }}"
-    port: 179
-    timeout: 5
-  register: cilium_bgp_peer_port_check
-  failed_when: false
-  changed_when: false
-  when: cilium_bgp_exposure_configured | bool
-
-- name: Assert at least one Cilium BGP peer is established
-  ansible.builtin.assert:
-    that:
-      - "'established' in (cilium_bgp_peers.stdout | lower)"
-    fail_msg: >-
-      No Cilium BGP peer reached established state.
-      Current peer status:
-      {{ cilium_bgp_peers.stdout | trim }}
-      Check that the UDM BGP config is applied for peer {{ cilium.bgp.peer_address }}
-      and that TCP 179 is allowed from the cluster nodes.
-    success_msg: "Cilium reports an established BGP peer"
-  when: cilium_bgp_exposure_configured | bool
 
 - name: Wait for kube-system addon pods to become ready after Cilium install
   ansible.builtin.command:
@@ -567,3 +571,64 @@
       Expected K3s API /readyz endpoint to return ok through
       https://{{ k3s.registration_vip }}:{{ cilium.k8s_service_port }}
     success_msg: "K3s API is reachable through kube-vip after Cilium installation"
+
+- name: Read Cilium component resource requirements
+  ansible.builtin.command:
+    argv:
+      - /usr/local/bin/k3s
+      - kubectl
+      - -n
+      - kube-system
+      - get
+      - "{{ item.kind }}"
+      - "{{ item.resource_name | default(item.name) }}"
+      - -o
+      - "jsonpath={{ item.jsonpath }}"
+  environment:
+    KUBECONFIG: /etc/rancher/k3s/k3s.yaml
+  loop:
+    - name: cilium-agent
+      kind: daemonset
+      resource_name: cilium
+      jsonpath: '{.spec.template.spec.containers[?(@.name=="cilium-agent")].resources.requests.cpu}{" "}{.spec.template.spec.containers[?(@.name=="cilium-agent")].resources.requests.memory}{" "}{.spec.template.spec.containers[?(@.name=="cilium-agent")].resources.limits.memory}'
+      expected:
+        - "{{ cilium.resources.agent.requests.cpu }}"
+        - "{{ cilium.resources.agent.requests.memory }}"
+        - "{{ cilium.resources.agent.limits.memory }}"
+    - name: cilium-envoy
+      kind: daemonset
+      jsonpath: '{.spec.template.spec.containers[?(@.name=="cilium-envoy")].resources.requests.cpu}{" "}{.spec.template.spec.containers[?(@.name=="cilium-envoy")].resources.requests.memory}{" "}{.spec.template.spec.containers[?(@.name=="cilium-envoy")].resources.limits.memory}'
+      expected:
+        - "{{ cilium.resources.envoy.requests.cpu }}"
+        - "{{ cilium.resources.envoy.requests.memory }}"
+        - "{{ cilium.resources.envoy.limits.memory }}"
+    - name: cilium-operator
+      kind: deployment
+      jsonpath: '{.spec.template.spec.containers[0].resources.requests.cpu}{" "}{.spec.template.spec.containers[0].resources.requests.memory}{" "}{.spec.template.spec.containers[0].resources.limits.cpu}{" "}{.spec.template.spec.containers[0].resources.limits.memory}'
+      expected:
+        - "{{ cilium.resources.operator.requests.cpu }}"
+        - "{{ cilium.resources.operator.requests.memory }}"
+        - "{{ cilium.resources.operator.limits.cpu }}"
+        - "{{ cilium.resources.operator.limits.memory }}"
+    - name: traefik
+      kind: deployment
+      jsonpath: '{.spec.template.spec.containers[0].resources.requests.cpu}{" "}{.spec.template.spec.containers[0].resources.requests.memory}{" "}{.spec.template.spec.containers[0].resources.limits.cpu}{" "}{.spec.template.spec.containers[0].resources.limits.memory}'
+      expected:
+        - "{{ traefik.resources.requests.cpu }}"
+        - "{{ traefik.resources.requests.memory }}"
+        - "{{ traefik.resources.limits.cpu }}"
+        - "{{ traefik.resources.limits.memory }}"
+  loop_control:
+    label: "{{ item.name }}"
+  register: cilium_component_resource_requirements
+  changed_when: false
+
+- name: Assert Cilium component resource requirements match inventory
+  ansible.builtin.assert:
+    that:
+      - item.stdout.split() == item.item.expected
+    fail_msg: "Expected {{ item.item.name }} resource requirements to match inventory."
+    success_msg: "{{ item.item.name }} resource requirements match inventory"
+  loop: "{{ cilium_component_resource_requirements.results }}"
+  loop_control:
+    label: "{{ item.item.name }}"

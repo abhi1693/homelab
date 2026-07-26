@@ -1,6 +1,7 @@
 ---
 name: jellyfin-helmop
 defaultNamespace: fleet-local
+paused: false
 labels:
   app.kubernetes.io/name: jellyfin
   app.kubernetes.io/part-of: media-stack
@@ -9,3 +10,11 @@ dependsOn:
   - name: rancher-project-entertainment
   - name: media-helm-repositories
   - name: media-storage
+diff:
+  comparePatches:
+    - apiVersion: v1
+      kind: PersistentVolumeClaim
+      name: jellyfin-shared-data-nfs
+      namespace: media
+      jsonPointers:
+        - /spec/volumeName

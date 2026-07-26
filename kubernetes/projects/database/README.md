@@ -25,7 +25,7 @@ PDBs, backups, and monitoring are treated as first-class configuration.
 | `cnpg-operator` | Installs CloudNativePG operator and CRDs. | Enables PostgreSQL `Cluster`, backups, monitoring, and poolers. |
 | `postgresql` | Shared PostgreSQL cluster, roles, databases, poolers, custom queries, and dashboards. | Primary relational database for many apps. |
 | `postgresql-networkpolicy` | Restricts database access. | Keeps apps on their approved pooler paths. |
-| `postgresql-pooler-pdb` | PDBs for app poolers. | Keeps at least one pooler pod available during voluntary disruption. |
+| `postgresql-pooler-pdb` | PDBs for multi-replica app poolers. | Keeps at least one redundant pooler pod available during voluntary disruption. |
 | `valkey` | Shared Valkey replication and Sentinel. | Queues and caches for apps. |
 | `valkey-networkpolicy` | Restricts Valkey/Sentinel access. | Keeps cache/queue access explicit. |
 
@@ -39,10 +39,16 @@ directly to the PostgreSQL primary. Each app should have:
 3. one app-specific Secret contract;
 4. one RW pooler with at least two instances when the app needs availability;
 5. one NetworkPolicy allowing only the app namespace to reach that pooler;
-6. one pooler PDB.
+6. one `minAvailable: 1` pooler PDB when the pooler has at least two replicas.
 
 This pattern keeps shared PostgreSQL efficient while preserving app-level
 boundaries.
+
+The ShipyardHQ release-builder Job is the only direct-client exception. Its
+long-running prerender step connects to `postgresql-rw` so a PgBouncer
+backend-DNS cache failure cannot abort a release. Paired NetworkPolicies select
+only `shipyardhq` pods with component `next-builder` and PostgreSQL instance
+pods on TCP 5432; ShipyardHQ runtime pods continue to use their RW pooler.
 
 ## PgBouncer Connection Budgets
 
@@ -58,13 +64,25 @@ declared app-side maximum connection demand.
 
 | Role | Pooler | App-side budget | Backend capacity | Role limit |
 | --- | --- | ---: | ---: | ---: |
-| `jellyfin` | `jellyfin-rw` | implicit | 12 | 15 |
-| `dispatcharr` | `dispatcharr-rw` | implicit | 6 | 8 |
-| `gitrank` | `git-rank-rw` | 8 | 8 | 8 |
-| `shipyardhq` | `shipyardhq-rw` | 16 | 32 | 32 |
-| `harbor` | `harbor-rw` | chart-managed | 36 | 36 |
-| `netbox` | `netbox-rw` | disabled | 6 | 10 |
-| `firefly` | `firefly-iii-rw` | implicit | 8 | 10 |
+| `jellyfin` | `jellyfin-rw` | implicit | 14 | 15 |
+| `shipyardhq` | `shipyardhq-rw` | 16 | 28 | 32 |
+| `harbor` | `harbor-rw` | chart-managed | 24 | 36 |
+| `netbox` | `netbox-rw` | disabled | 0 | 10 |
+| `wardn_hub` | `wardn-hub-rw` | implicit | 12 | 12 |
+| `wardn_ai` | `wardn-ai-rw` | implicit | 6 | 12 |
+| `firefly` | `firefly-iii-rw` | implicit | 4 | 10 |
+| `zitadel` | `zitadel-rw` | implicit | 16 | 24 |
+
+Paused and single-replica poolers intentionally have no PDB. A
+`minAvailable: 1` budget is useful only when another replica can remain
+available during a voluntary disruption.
+
+PostgreSQL itself is tuned for the 1Gi instance limit and the bounded pooler
+fleet. The cluster allows 160 connections, keeps 256MiB of shared buffers and
+4MiB of global per-operation memory, uses a 768MiB planner cache hint, and
+spreads routine checkpoints across a 15-minute interval. See the PostgreSQL
+app README for the measured connection, WAL, checkpoint, and autovacuum
+rationale.
 
 ## Valkey Contract
 

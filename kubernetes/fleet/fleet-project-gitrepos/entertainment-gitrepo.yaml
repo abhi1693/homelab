@@ -14,15 +14,14 @@ spec:
   clientSecretName: home-lab-apps-github
   pollingInterval: 1h0m0s
   paths:
-    - kubernetes/projects/entertainment/apps/media-dispatcharr
     - kubernetes/projects/entertainment/apps/media-do-squid-firewall
     - kubernetes/projects/entertainment/apps/media-flaresolverr
     - kubernetes/projects/entertainment/apps/media-helm-repositories
     - kubernetes/projects/entertainment/apps/media-jellyfin
     - kubernetes/projects/entertainment/apps/media-jellyseerr
     - kubernetes/projects/entertainment/apps/media-jellyseerr-networkpolicy
-    - kubernetes/projects/entertainment/apps/media-metube
-    - kubernetes/projects/entertainment/apps/media-profilarr
+    - kubernetes/projects/entertainment/apps/media-music-assistant
+    - kubernetes/projects/entertainment/apps/media-music-assistant-alexa-skill
     - kubernetes/projects/entertainment/apps/media-prowlarr
     - kubernetes/projects/entertainment/apps/media-qbittorrent
     - kubernetes/projects/entertainment/apps/media-radarr

@@ -12,7 +12,9 @@ namespace.
 ## Storage
 
 Firefly persists uploaded attachments under `/var/www/html/storage/upload` on
-the `firefly-iii-upload` Longhorn PVC. The claim starts at `256Mi`.
+the `firefly-iii-upload-nfs` PVC. NFS CSI provisions its retained NAS directory
+below `finance/firefly-iii-upload-nfs`; the claim advertises `256Mi` while the
+NAS controls actual capacity.
 
 Financial records are stored in the shared CloudNativePG PostgreSQL cluster via
 the `postgresql-pooler-firefly-iii-rw` PgBouncer pooler. The database and role

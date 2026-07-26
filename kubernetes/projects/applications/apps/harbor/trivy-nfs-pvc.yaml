@@ -1,0 +1,20 @@
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: harbor-trivy-cache-nfs
+  namespace: harbor
+  annotations:
+    helm.sh/resource-policy: keep
+  labels:
+    app.kubernetes.io/name: harbor
+    app.kubernetes.io/component: trivy
+    app.kubernetes.io/part-of: harbor
+    home-lab.io/project-slug: applications
+spec:
+  accessModes:
+    - ReadWriteMany
+  storageClassName: nfs-shared-retain
+  resources:
+    requests:
+      storage: 8Gi

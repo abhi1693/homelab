@@ -1,0 +1,80 @@
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: prometheus-data-nfs-prometheus-rancher-monitoring-prometheus-0
+  namespace: cattle-monitoring-system
+  annotations:
+    helm.sh/resource-policy: keep
+  labels:
+    app.kubernetes.io/name: prometheus
+    app.kubernetes.io/component: storage-migration
+    app.kubernetes.io/part-of: rancher-monitoring
+spec:
+  accessModes:
+    - ReadWriteOnce
+  storageClassName: nfs-shared-retain
+  volumeName: pvc-b4978100-a4f4-40f1-80c2-917438a57922
+  resources:
+    requests:
+      storage: 20Gi
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: am-data-nfs-alertmanager-rancher-monitoring-alertmanager-0
+  namespace: cattle-monitoring-system
+  annotations:
+    helm.sh/resource-policy: keep
+  labels:
+    app.kubernetes.io/name: alertmanager
+    app.kubernetes.io/component: storage-migration
+    app.kubernetes.io/part-of: rancher-monitoring
+spec:
+  accessModes:
+    - ReadWriteOnce
+  storageClassName: nfs-shared-retain
+  volumeName: pvc-c3ba698c-3214-4a22-a1b8-a70ce794c3fb
+  resources:
+    requests:
+      storage: 2Gi
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: am-data-nfs-alertmanager-rancher-monitoring-alertmanager-1
+  namespace: cattle-monitoring-system
+  annotations:
+    helm.sh/resource-policy: keep
+  labels:
+    app.kubernetes.io/name: alertmanager
+    app.kubernetes.io/component: storage-migration
+    app.kubernetes.io/part-of: rancher-monitoring
+spec:
+  accessModes:
+    - ReadWriteOnce
+  storageClassName: nfs-shared-retain
+  volumeName: pvc-e93f97c4-6c97-4235-a572-75ba6cdd6bda
+  resources:
+    requests:
+      storage: 2Gi
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: rancher-monitoring-grafana-nfs
+  namespace: cattle-monitoring-system
+  annotations:
+    helm.sh/resource-policy: keep
+  labels:
+    app.kubernetes.io/name: grafana
+    app.kubernetes.io/component: storage-migration
+    app.kubernetes.io/part-of: rancher-monitoring
+spec:
+  accessModes:
+    - ReadWriteOnce
+  storageClassName: nfs-shared-retain
+  volumeName: pvc-da80f89a-89ad-4c35-977c-973ed1c6ff92
+  resources:
+    requests:
+      storage: 2Gi

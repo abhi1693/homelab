@@ -1,0 +1,19 @@
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: music-assistant-alexa-skill-data
+  namespace: media
+  annotations:
+    helm.sh/resource-policy: keep
+    home-lab.io/storage-binding: dynamic
+  labels:
+    app.kubernetes.io/name: music-assistant-alexa-skill
+    app.kubernetes.io/part-of: media-stack
+spec:
+  accessModes:
+    - ReadWriteOnce
+  storageClassName: longhorn
+  resources:
+    requests:
+      storage: 1Gi

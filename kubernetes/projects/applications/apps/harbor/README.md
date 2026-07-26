@@ -8,10 +8,15 @@ Fleet deploys Harbor with the official chart in the Applications project.
 - namespace: `harbor`
 - public ingress: none
 - local ingress: `http://registry.home` via Traefik
-- registry storage: chart-managed Longhorn RWX PVC, `30Gi`
-- Trivy cache: chart-managed Longhorn RWO PVC, `8Gi`
+- registry storage: retained `harbor-registry-nfs` NFS RWX PVC, `50Gi`
+- Trivy cache: retained `harbor-trivy-cache-nfs` NFS RWX PVC, `8Gi`
 - PostgreSQL: `postgresql-pooler-harbor-rw.postgresql.svc.cluster.local`
 - Valkey: `valkey.valkey.svc.cluster.local:26379` Sentinel set `valkey`
+
+Harbor seeds Sentinel through the stable `valkey` Service. Do not enumerate
+the `valkey-node-*` headless pod records: those records are intentionally
+absent while a StatefulSet pod is replaced, whereas the Service only routes to
+ready Sentinel endpoints.
 
 ## ARM64 Images
 
@@ -34,8 +39,30 @@ carry plaintext keys. The `password` value in `harbor/harbor-secrets` must
 match `postgresql/harbor-postgresql-app`, and `secretKey` must be a stable
 16-character value.
 
+Harbor's own portal, core, jobservice, registry, registryctl, Trivy, and
+exporter images pull directly from GHCR. They must not use `registry.home`:
+doing so creates a circular bootstrap dependency that prevents Harbor from
+recovering when its registry service or backing storage is unavailable. Other
+cluster applications may continue to use Harbor proxy-cache paths.
+
 Harbor has one canonical `externalURL`; it is set to `http://registry.home` so
 token service URLs stay local-only.
+
+The registry claim is provisioned from `nfs-shared-retain`, which gives Harbor
+the isolated NAS directory `harbor/harbor-registry-nfs` below
+`192.168.3.115:/nfs/k3s-shared-storage`. The former Longhorn registry claim was
+removed after the NFS copy and live registry API were verified.
+
+The Trivy claim uses the same retained NFS class at
+`harbor/harbor-trivy-cache-nfs`. Its contents are disposable vulnerability and
+Java databases; scan coordination and report metadata remain in external
+Valkey. The migration intentionally starts with an empty NFS cache instead of
+copying the roughly 2.6GiB Longhorn cache, allowing Trivy to download clean
+databases. Fleet removed the old volume-template StatefulSet before recreating
+it against `harbor-trivy-cache-nfs`, avoiding an invalid immutable update. The
+old `data-harbor-trivy-0` claim and its Longhorn volume were retired after the
+replacement became Ready, downloaded its databases, and completed a Harbor
+scan.
 
 ## Monitoring
 
@@ -57,12 +84,12 @@ GitOps manifests keep the upstream path visible in Renovate metadata and use
 the Harbor-prefixed path for the runtime image:
 
 ```yaml
-# renovate: datasource=docker depName=ghcr.io/abhi1693/git-rank-backend
-image: registry.home/ghcr.io/abhi1693/git-rank-backend:1.2.28
+# renovate: datasource=docker depName=ghcr.io/abhi1693/shipyardhq
+image: registry.home/ghcr.io/abhi1693/shipyardhq:1.5.13
 ```
 
-Renovate checks `ghcr.io/abhi1693/git-rank-backend` for newer tags. Kubernetes
-pulls `registry.home/ghcr.io/abhi1693/git-rank-backend`, and Harbor fetches the
+Renovate checks `ghcr.io/abhi1693/shipyardhq` for newer tags. Kubernetes
+pulls `registry.home/ghcr.io/abhi1693/shipyardhq`, and Harbor fetches the
 artifact from GHCR on cache miss. The same pattern applies to Docker Hub and
 other configured proxy-cache projects.
 

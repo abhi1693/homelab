@@ -25,6 +25,9 @@ spec:
     - jsonPath: .status.conditions[?(@.type=="Ready")].status
       name: Ready
       type: string
+    - jsonPath: .status.conditions[?(@.type=="ProposalReady")].status
+      name: Proposal
+      type: string
     - jsonPath: .status.summary.healthy
       name: Healthy
       type: integer
@@ -212,7 +215,7 @@ spec:
                               type: array
                             replicas:
                               description: Replicas is the path to the chart value
-                                that renders Deployment spec.replicas.
+                                that renders target workload spec.replicas.
                               items:
                                 minLength: 1
                                 type: string
@@ -294,6 +297,7 @@ spec:
                         kind:
                           enum:
                           - Deployment
+                          - StatefulSet
                           type: string
                         name:
                           minLength: 1

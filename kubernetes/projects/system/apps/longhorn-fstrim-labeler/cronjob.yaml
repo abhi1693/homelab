@@ -38,6 +38,13 @@ spec:
               command:
                 - /bin/sh
                 - /scripts/label-longhorn-fstrim-pvcs.sh
+              resources:
+                requests:
+                  cpu: 10m
+                  memory: 32Mi
+                limits:
+                  cpu: 250m
+                  memory: 128Mi
               volumeMounts:
                 - name: labeler-script
                   mountPath: /scripts

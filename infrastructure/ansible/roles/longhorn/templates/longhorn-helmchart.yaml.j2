@@ -44,4 +44,12 @@ spec:
       replicaFileSyncHttpClientTimeout: {{ longhorn.replica_file_sync_http_client_timeout }}
       concurrentReplicaRebuildPerNodeLimit: {{ longhorn.concurrent_replica_rebuild_per_node_limit }}
       guaranteedInstanceManagerCPU: {{ longhorn.guaranteed_instance_manager_cpu }}
+      systemManagedCSIComponentsResourceLimits: {{ longhorn.resources.system_managed_csi_components | to_json | to_json }}
       v2DataEngine: {{ longhorn.v2_data_engine | lower }}
+    longhornManager:
+      resources:
+        requests:
+          cpu: {{ longhorn.resources.manager.requests.cpu }}
+          memory: {{ longhorn.resources.manager.requests.memory }}
+        limits:
+          memory: {{ longhorn.resources.manager.limits.memory }}

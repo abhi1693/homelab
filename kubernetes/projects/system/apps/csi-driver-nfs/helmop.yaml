@@ -1,0 +1,43 @@
+---
+apiVersion: fleet.cattle.io/v1alpha1
+kind: HelmOp
+metadata:
+  name: csi-driver-nfs
+  labels:
+    app.kubernetes.io/name: csi-driver-nfs
+    app.kubernetes.io/part-of: csi-driver-nfs
+    home-lab.io/project-slug: system
+spec:
+  defaultNamespace: kube-system
+  dependsOn:
+    - name: system-helm-repositories
+  labels:
+    app.kubernetes.io/name: csi-driver-nfs
+    app.kubernetes.io/part-of: csi-driver-nfs
+    home-lab.io/project-slug: system
+  targets:
+    - name: default
+      clusterGroup: default
+  targetRestrictions:
+    - name: default
+      clusterGroup: default
+  correctDrift:
+    enabled: true
+    force: true
+    keepFailHistory: true
+  downstreamResources:
+    - kind: ConfigMap
+      name: csi-driver-nfs-values
+  helm:
+    releaseName: csi-driver-nfs
+    repo: https://raw.githubusercontent.com/kubernetes-csi/csi-driver-nfs/master/charts
+    chart: csi-driver-nfs
+    version: 4.13.4
+    timeoutSeconds: 600
+    takeOwnership: true
+    valuesFrom:
+      - configMapKeyRef:
+          name: csi-driver-nfs-values
+          namespace: fleet-local
+          key: values.yaml
+    waitForJobs: true

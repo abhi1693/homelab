@@ -8,6 +8,7 @@ metadata:
     app.kubernetes.io/part-of: media-stack
     home-lab.io/project-slug: entertainment
 spec:
+  paused: false
   forceSyncGeneration: 17
   defaultNamespace: media
   dependsOn:
@@ -42,4 +43,3 @@ spec:
           name: jellyfin-values
           namespace: fleet-local
           key: values.yaml
-    waitForJobs: true

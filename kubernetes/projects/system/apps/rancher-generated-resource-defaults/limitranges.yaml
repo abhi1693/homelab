@@ -1,0 +1,131 @@
+---
+apiVersion: v1
+kind: LimitRange
+metadata:
+  name: generated-container-defaults
+  namespace: cattle-capi-system
+  labels:
+    app.kubernetes.io/name: rancher-generated-resource-defaults
+    app.kubernetes.io/part-of: rancher
+    home-lab.io/project-slug: system
+spec:
+  limits:
+    - type: Container
+      defaultRequest:
+        cpu: 25m
+        memory: 128Mi
+      default:
+        cpu: 500m
+        memory: 512Mi
+---
+apiVersion: v1
+kind: LimitRange
+metadata:
+  name: generated-container-defaults
+  namespace: cattle-fleet-local-system
+  labels:
+    app.kubernetes.io/name: rancher-generated-resource-defaults
+    app.kubernetes.io/part-of: rancher
+    home-lab.io/project-slug: system
+spec:
+  limits:
+    - type: Container
+      defaultRequest:
+        cpu: 300m
+        memory: 448Mi
+      default:
+        cpu: 1
+        memory: 768Mi
+---
+apiVersion: v1
+kind: LimitRange
+metadata:
+  name: generated-container-defaults
+  namespace: cattle-fleet-system
+  labels:
+    app.kubernetes.io/name: rancher-generated-resource-defaults
+    app.kubernetes.io/part-of: rancher
+    home-lab.io/project-slug: system
+spec:
+  limits:
+    - type: Container
+      defaultRequest:
+        cpu: 10m
+        memory: 32Mi
+      default:
+        memory: 256Mi
+---
+apiVersion: v1
+kind: LimitRange
+metadata:
+  name: generated-container-defaults
+  namespace: cattle-monitoring-system
+  labels:
+    app.kubernetes.io/name: rancher-generated-resource-defaults
+    app.kubernetes.io/part-of: rancher
+    home-lab.io/project-slug: system
+spec:
+  limits:
+    - type: Container
+      defaultRequest:
+        cpu: 10m
+        memory: 32Mi
+      default:
+        memory: 256Mi
+---
+apiVersion: v1
+kind: LimitRange
+metadata:
+  name: generated-container-defaults
+  namespace: cattle-system
+  labels:
+    app.kubernetes.io/name: rancher-generated-resource-defaults
+    app.kubernetes.io/part-of: rancher
+    home-lab.io/project-slug: system
+spec:
+  limits:
+    - type: Container
+      defaultRequest:
+        cpu: 25m
+        memory: 128Mi
+      default:
+        cpu: 500m
+        memory: 512Mi
+---
+apiVersion: v1
+kind: LimitRange
+metadata:
+  name: generated-container-defaults
+  namespace: fleet-default
+  labels:
+    app.kubernetes.io/name: rancher-generated-resource-defaults
+    app.kubernetes.io/part-of: rancher
+    home-lab.io/project-slug: system
+spec:
+  limits:
+    - type: Container
+      defaultRequest:
+        cpu: 10m
+        memory: 32Mi
+      default:
+        cpu: 250m
+        memory: 128Mi
+---
+apiVersion: v1
+kind: LimitRange
+metadata:
+  name: generated-container-defaults
+  namespace: fleet-local
+  labels:
+    app.kubernetes.io/name: rancher-generated-resource-defaults
+    app.kubernetes.io/part-of: rancher
+    home-lab.io/project-slug: system
+spec:
+  limits:
+    - type: Container
+      defaultRequest:
+        cpu: 10m
+        memory: 32Mi
+      default:
+        cpu: 250m
+        memory: 128Mi

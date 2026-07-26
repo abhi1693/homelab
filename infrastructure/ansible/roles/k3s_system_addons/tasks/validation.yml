@@ -52,6 +52,30 @@
     KUBECONFIG: /etc/rancher/k3s/k3s.yaml
   changed_when: false
 
+- name: Read kube-dns service routing
+  ansible.builtin.command:
+    argv:
+      - /usr/local/bin/k3s
+      - kubectl
+      - -n
+      - kube-system
+      - get
+      - service
+      - kube-dns
+      - -o
+      - jsonpath={.spec.selector.k8s-app}{" "}{.spec.internalTrafficPolicy}
+  environment:
+    KUBECONFIG: /etc/rancher/k3s/k3s.yaml
+  register: k3s_kube_dns_service_routing
+  changed_when: false
+
+- name: Assert kube-dns routes cluster-wide to CoreDNS
+  ansible.builtin.assert:
+    that:
+      - k3s_kube_dns_service_routing.stdout.split() == ['kube-dns', 'Cluster']
+    fail_msg: Expected kube-dns to select CoreDNS with cluster-wide routing.
+    success_msg: kube-dns selects CoreDNS with cluster-wide routing.
+
 - name: Read CoreDNS replica count
   ansible.builtin.command:
     argv:
@@ -185,3 +209,58 @@
     fail_msg: Expected kubectl top nodes to return metrics for all control-plane nodes.
     success_msg: "Metrics API returns node metrics for all control-plane nodes"
   loop: "{{ k3s_system_addons_expected_node_names }}"
+
+- name: Read Metrics Server resource requirements
+  ansible.builtin.command:
+    argv:
+      - /usr/local/bin/k3s
+      - kubectl
+      - -n
+      - kube-system
+      - get
+      - deployment
+      - metrics-server
+      - -o
+      - jsonpath={.spec.template.spec.containers[0].resources.requests.cpu}{" "}{.spec.template.spec.containers[0].resources.requests.memory}{" "}{.spec.template.spec.containers[0].resources.limits.cpu}{" "}{.spec.template.spec.containers[0].resources.limits.memory}
+  register: k3s_metrics_server_resource_requirements
+  changed_when: false
+
+- name: Read CoreDNS resource requirements
+  ansible.builtin.command:
+    argv:
+      - /usr/local/bin/k3s
+      - kubectl
+      - -n
+      - kube-system
+      - get
+      - deployment
+      - coredns
+      - -o
+      - jsonpath={.spec.template.spec.containers[0].resources.requests.cpu}{" "}{.spec.template.spec.containers[0].resources.requests.memory}{" "}{.spec.template.spec.containers[0].resources.limits.memory}
+  register: k3s_coredns_resource_requirements
+  changed_when: false
+
+- name: Assert CoreDNS resource requirements match inventory
+  ansible.builtin.assert:
+    that:
+      - k3s_coredns_resource_requirements.stdout.split() == k3s_coredns_expected_resources
+    fail_msg: Expected CoreDNS resource requirements to match inventory.
+    success_msg: "CoreDNS resource requirements match inventory"
+  vars:
+    k3s_coredns_expected_resources:
+      - "{{ k3s_system_addons.coredns.resources.requests.cpu }}"
+      - "{{ k3s_system_addons.coredns.resources.requests.memory }}"
+      - "{{ k3s_system_addons.coredns.resources.limits.memory }}"
+
+- name: Assert Metrics Server resource requirements match inventory
+  ansible.builtin.assert:
+    that:
+      - k3s_metrics_server_resource_requirements.stdout.split() == k3s_metrics_server_expected_resources
+    fail_msg: Expected Metrics Server resource requirements to match inventory.
+    success_msg: "Metrics Server resource requirements match inventory"
+  vars:
+    k3s_metrics_server_expected_resources:
+      - "{{ k3s_system_addons.metrics_server.resources.requests.cpu }}"
+      - "{{ k3s_system_addons.metrics_server.resources.requests.memory }}"
+      - "{{ k3s_system_addons.metrics_server.resources.limits.cpu }}"
+      - "{{ k3s_system_addons.metrics_server.resources.limits.memory }}"

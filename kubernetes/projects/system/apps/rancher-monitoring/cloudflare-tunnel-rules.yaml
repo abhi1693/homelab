@@ -1,0 +1,206 @@
+---
+apiVersion: monitoring.coreos.com/v1
+kind: PrometheusRule
+metadata:
+  name: cloudflare-tunnel-health
+  namespace: cattle-monitoring-system
+  labels:
+    app.kubernetes.io/name: cloudflare-tunnel-health
+    app.kubernetes.io/part-of: rancher-monitoring
+    home-lab.io/project-slug: system
+spec:
+  groups:
+    - name: cloudflare-tunnel.health
+      rules:
+        - alert: CloudflareTunnelConnectorTargetsLow
+          expr: |-
+            sum(
+              up{
+                namespace="cloudflare",
+                service="controlled-cloudflared-connector-headless"
+              }
+            ) < 2
+            or
+            absent(
+              up{
+                namespace="cloudflare",
+                service="controlled-cloudflared-connector-headless"
+              }
+            )
+          for: 5m
+          labels:
+            severity: warning
+          annotations:
+            summary: Fewer than two Cloudflare Tunnel connector targets are healthy
+            description: Rancher Monitoring has observed fewer than two healthy cloudflared scrape targets for more than 5 minutes, so connector redundancy is degraded.
+        - alert: CloudflareTunnelConnectorHAConnectionsLow
+          expr: |-
+            cloudflared_tunnel_ha_connections{
+              namespace="cloudflare",
+              service="controlled-cloudflared-connector-headless"
+            } < 4
+          for: 5m
+          labels:
+            severity: warning
+          annotations:
+            summary: Cloudflare Tunnel connector has fewer than four HA connections
+            description: Connector {{ $labels.pod }} has {{ printf "%.0f" $value }} active edge connections for more than 5 minutes; four are expected per connector.
+        - alert: CloudflareTunnelConnectorNotReady
+          expr: |-
+            kube_deployment_status_replicas_ready{
+              namespace="cloudflare",
+              deployment="controlled-cloudflared-connector"
+            }
+            <
+            kube_deployment_spec_replicas{
+              namespace="cloudflare",
+              deployment="controlled-cloudflared-connector"
+            }
+          for: 5m
+          labels:
+            severity: warning
+          annotations:
+            summary: A Cloudflare Tunnel connector replica is not ready
+            description: The connector Deployment has had fewer ready replicas than its desired count for more than 5 minutes.
+        - alert: CloudflareTunnelConnectorConfigVersionMismatch
+          expr: |-
+            max(
+              cloudflared_orchestration_config_version{
+                namespace="cloudflare",
+                service="controlled-cloudflared-connector-headless"
+              }
+            )
+            -
+            min(
+              cloudflared_orchestration_config_version{
+                namespace="cloudflare",
+                service="controlled-cloudflared-connector-headless"
+              }
+            )
+            != 0
+          for: 10m
+          labels:
+            severity: warning
+          annotations:
+            summary: Cloudflare Tunnel connectors disagree on configuration version
+            description: Connector replicas have reported different remotely managed configuration versions for more than 10 minutes.
+        - alert: CloudflareTunnelConnectorProxyErrors
+          expr: |-
+            sum(
+              increase(
+                cloudflared_proxy_connect_streams_errors{
+                  namespace="cloudflare",
+                  service="controlled-cloudflared-connector-headless"
+                }[10m]
+              )
+            ) > 0
+          for: 5m
+          labels:
+            severity: warning
+          annotations:
+            summary: Cloudflare Tunnel cannot connect to an origin
+            description: cloudflared has reported origin proxy connection errors during the last 10 minutes.
+        - alert: CloudflareTunnelConnectorHigh5xxRate
+          expr: |-
+            (
+              sum(
+                increase(
+                  cloudflared_tunnel_response_by_code{
+                    namespace="cloudflare",
+                    service="controlled-cloudflared-connector-headless",
+                    status_code=~"5.."
+                  }[10m]
+                )
+              )
+              /
+              clamp_min(
+                sum(
+                  increase(
+                    cloudflared_tunnel_total_requests{
+                      namespace="cloudflare",
+                      service="controlled-cloudflared-connector-headless"
+                    }[10m]
+                  )
+                ),
+                1
+              )
+            ) > 0.05
+            and
+            sum(
+              increase(
+                cloudflared_tunnel_total_requests{
+                  namespace="cloudflare",
+                  service="controlled-cloudflared-connector-headless"
+                }[10m]
+              )
+            ) >= 20
+          for: 5m
+          labels:
+            severity: warning
+          annotations:
+            summary: Cloudflare Tunnel 5xx response rate is high
+            description: More than 5% of at least 20 tunnel requests returned 5xx responses over a rolling 10-minute window for more than 5 minutes.
+        - alert: CloudflareTunnelControllerLeaderMissing
+          expr: |-
+            max(
+              leader_election_master_status{
+                namespace="cloudflare",
+                service="cloudflare-tunnel-ingress-controller-metrics"
+              }
+            ) < 1
+            or
+            absent(
+              leader_election_master_status{
+                namespace="cloudflare",
+                service="cloudflare-tunnel-ingress-controller-metrics"
+              }
+            )
+          for: 5m
+          labels:
+            severity: critical
+          annotations:
+            summary: Cloudflare Tunnel ingress controller has no leader
+            description: No controller replica has reported itself as leader for more than 5 minutes, so Ingress and tunnel configuration reconciliation is stopped.
+        - alert: CloudflareTunnelControllerReconciliationFailures
+          expr: |-
+            sum by (controller) (
+              increase(
+                controller_runtime_reconcile_errors_total{
+                  namespace="cloudflare",
+                  service="cloudflare-tunnel-ingress-controller-metrics"
+                }[10m]
+              )
+            ) > 0
+            or
+            sum by (controller) (
+              increase(
+                controller_runtime_terminal_reconcile_errors_total{
+                  namespace="cloudflare",
+                  service="cloudflare-tunnel-ingress-controller-metrics"
+                }[10m]
+              )
+            ) > 0
+            or
+            sum by (controller) (
+              increase(
+                controller_runtime_reconcile_panics_total{
+                  namespace="cloudflare",
+                  service="cloudflare-tunnel-ingress-controller-metrics"
+                }[10m]
+              )
+            ) > 0
+            or
+            sum by (controller) (
+              increase(
+                controller_runtime_reconcile_timeouts_total{
+                  namespace="cloudflare",
+                  service="cloudflare-tunnel-ingress-controller-metrics"
+                }[10m]
+              )
+            ) > 0
+          for: 5m
+          labels:
+            severity: warning
+          annotations:
+            summary: Cloudflare Tunnel ingress controller reconciliation is failing
+            description: Controller {{ $labels.controller }} has reported a reconciliation error, terminal error, panic, or timeout during the last 10 minutes.

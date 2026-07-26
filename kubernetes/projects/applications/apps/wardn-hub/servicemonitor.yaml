@@ -20,7 +20,7 @@ spec:
         operator: In
         values:
           - wardn-hub-api
-          - wardn-hub-events-worker
+          - wardn-hub-worker
   endpoints:
     - port: http
       path: /metrics

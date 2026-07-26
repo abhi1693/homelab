@@ -17,15 +17,15 @@ group so large media workloads avoid piling onto one node.
 ## Storage
 
 - Config: Longhorn PVC with retained bound volume
-- Completed media: existing `media-library-nas` PVC mounted at `/data`
-- Downloads: existing `media-downloads` PVC mounted at `/downloads`
+- Completed media: existing `media-library-nfs-csi` PVC mounted at `/data`
+- Downloads: existing `media-downloads-nfs-csi` PVC mounted at `/downloads`
 
 Keep downloads and completed library paths separate so importers never expose
 partial downloads as completed media.
 
 ## Network Boundary
 
-Ingress is allowed from Traefik, Jellyseerr, Jellyfin, Profilarr, Prowlarr, and
+Ingress is allowed from Traefik, Jellyseerr, Jellyfin, Prowlarr, and
 the qBittorrent smart queue controller on port `8989`. Egress allows DNS,
 Prowlarr, qBittorrent, Jellyfin, and external index/API traffic outside the pod
 and service CIDRs.

@@ -20,8 +20,8 @@ podOptions:
     kubernetes.io/arch: arm64
 resources:
   requests:
-    cpu: 10m
-    memory: 336Mi
+    cpu: 40m
+    memory: 287Mi
   limits:
     cpu: 200m
     memory: 496Mi
@@ -55,9 +55,8 @@ workload:
             TEST_URL: https://www.google.com
 persistence:
   config:
+    type: emptyDir
     size: 1Gi
-    storageClass: longhorn
-    volumeName: pvc-40259cc7-df59-4f05-b811-8c909c5da4d1
 networkPolicy:
   ingress:
     enabled: true

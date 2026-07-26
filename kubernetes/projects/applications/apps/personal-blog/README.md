@@ -2,6 +2,9 @@
 
 Fleet-managed deployment for the personal blog.
 
+The custom Deployment retains two ReplicaSet revisions; Git and Fleet history
+remain the primary rollback path.
+
 The public hostname is `blog.abhimanyu-saharan.com`.
 
 The app-owned Cloudflare Tunnel ingress and service are both named

@@ -264,6 +264,105 @@
     success_msg: "Longhorn default-replica-count setting matches {{ longhorn.default_replica_count }}"
   when: k3s_node.cluster_init | bool
 
+- name: Read Longhorn guaranteed instance manager CPU setting
+  ansible.builtin.command:
+    argv:
+      - /usr/local/bin/k3s
+      - kubectl
+      - -n
+      - "{{ longhorn.namespace }}"
+      - get
+      - settings.longhorn.io
+      - guaranteed-instance-manager-cpu
+      - -o
+      - 'jsonpath={.value}{"\t"}{.status.applied}'
+  environment:
+    KUBECONFIG: /etc/rancher/k3s/k3s.yaml
+  register: longhorn_guaranteed_instance_manager_cpu_setting
+  changed_when: false
+  when: k3s_node.cluster_init | bool
+
+- name: Assert Longhorn guaranteed instance manager CPU setting is applied
+  ansible.builtin.assert:
+    that:
+      - >-
+        ('"v1":"' ~ (longhorn.guaranteed_instance_manager_cpu | string) ~ '"')
+        in longhorn_guaranteed_instance_manager_cpu_setting.stdout
+      - >-
+        ('"v2":"' ~ (longhorn.guaranteed_instance_manager_cpu | string) ~ '"')
+        in longhorn_guaranteed_instance_manager_cpu_setting.stdout
+      - longhorn_guaranteed_instance_manager_cpu_setting.stdout.split()[-1] == 'true'
+    fail_msg: >-
+      Expected the Longhorn guaranteed-instance-manager-cpu setting to match
+      inventory and report applied=true.
+    success_msg: >-
+      Longhorn guaranteed-instance-manager-cpu setting is applied at
+      {{ longhorn.guaranteed_instance_manager_cpu }} percent.
+  when: k3s_node.cluster_init | bool
+
+- name: Read existing Longhorn volume replica counts
+  ansible.builtin.command:
+    argv:
+      - /usr/local/bin/k3s
+      - kubectl
+      - -n
+      - "{{ longhorn.namespace }}"
+      - get
+      - volumes.longhorn.io
+      - -o
+      - json
+  environment:
+    KUBECONFIG: /etc/rancher/k3s/k3s.yaml
+  register: longhorn_volume_replica_counts
+  changed_when: false
+  when: k3s_node.cluster_init | bool
+
+- name: Assert default Longhorn volumes use the configured replica count
+  ansible.builtin.assert:
+    that:
+      - >-
+        (
+          (longhorn_volume_replica_counts.stdout | from_json)['items']
+          | rejectattr(
+              'status.kubernetesStatus.namespace',
+              'in',
+              longhorn.single_replica_workload_namespaces
+            )
+          | rejectattr('spec.numberOfReplicas', 'equalto', longhorn.default_replica_count | int)
+          | list
+          | length
+        ) == 0
+    fail_msg: >-
+      Expected Longhorn volumes outside replicated workload namespaces to use
+      {{ longhorn.default_replica_count }} replicas
+    success_msg: >-
+      Longhorn volumes outside replicated workload namespaces use
+      {{ longhorn.default_replica_count }} replicas
+  when: k3s_node.cluster_init | bool
+
+- name: Assert replicated workload Longhorn volumes use one replica
+  ansible.builtin.assert:
+    that:
+      - >-
+        (
+          (longhorn_volume_replica_counts.stdout | from_json)['items']
+          | selectattr(
+              'status.kubernetesStatus.namespace',
+              'in',
+              longhorn.single_replica_workload_namespaces
+            )
+          | rejectattr('spec.numberOfReplicas', 'equalto', 1)
+          | list
+          | length
+        ) == 0
+    fail_msg: >-
+      Expected Longhorn volumes in {{ longhorn.single_replica_workload_namespaces | join(', ') }}
+      to use one replica
+    success_msg: >-
+      Longhorn volumes in {{ longhorn.single_replica_workload_namespaces | join(', ') }}
+      use one replica
+  when: k3s_node.cluster_init | bool
+
 - name: Read Longhorn engine replica timeout setting
   ansible.builtin.command:
     argv:
@@ -509,4 +608,61 @@
       - longhorn_namespace_pvcs.stdout | trim == ''
     fail_msg: Expected Longhorn system namespace to have no PVCs because PVC-backed persistence was not enabled.
     success_msg: "Longhorn system namespace has no PVCs"
+  when: k3s_node.cluster_init | bool
+
+- name: Read Longhorn Manager resource requirements
+  ansible.builtin.command:
+    argv:
+      - /usr/local/bin/k3s
+      - kubectl
+      - -n
+      - "{{ longhorn.namespace }}"
+      - get
+      - daemonset
+      - longhorn-manager
+      - -o
+      - jsonpath={.spec.template.spec.containers[?(@.name=="longhorn-manager")].resources.requests.cpu}{" "}{.spec.template.spec.containers[?(@.name=="longhorn-manager")].resources.requests.memory}{" "}{.spec.template.spec.containers[?(@.name=="longhorn-manager")].resources.limits.memory}
+  environment:
+    KUBECONFIG: /etc/rancher/k3s/k3s.yaml
+  register: longhorn_manager_resource_requirements
+  changed_when: false
+  when: k3s_node.cluster_init | bool
+
+- name: Assert Longhorn Manager resource requirements match inventory
+  ansible.builtin.assert:
+    that:
+      - longhorn_manager_resource_requirements.stdout.split() == longhorn_manager_expected_resources
+    fail_msg: Expected Longhorn Manager resource requirements to match inventory.
+    success_msg: "Longhorn Manager resource requirements match inventory"
+  vars:
+    longhorn_manager_expected_resources:
+      - "{{ longhorn.resources.manager.requests.cpu }}"
+      - "{{ longhorn.resources.manager.requests.memory }}"
+      - "{{ longhorn.resources.manager.limits.memory }}"
+  when: k3s_node.cluster_init | bool
+
+- name: Read Longhorn system-managed CSI resource setting
+  ansible.builtin.command:
+    argv:
+      - /usr/local/bin/k3s
+      - kubectl
+      - -n
+      - "{{ longhorn.namespace }}"
+      - get
+      - settings.longhorn.io
+      - system-managed-csi-components-resource-limits
+      - -o
+      - jsonpath={.value}
+  environment:
+    KUBECONFIG: /etc/rancher/k3s/k3s.yaml
+  register: longhorn_csi_resource_setting
+  changed_when: false
+  when: k3s_node.cluster_init | bool
+
+- name: Assert Longhorn system-managed CSI resources match inventory
+  ansible.builtin.assert:
+    that:
+      - (longhorn_csi_resource_setting.stdout | from_json) == longhorn.resources.system_managed_csi_components
+    fail_msg: Expected Longhorn system-managed CSI resource requirements to match inventory.
+    success_msg: "Longhorn system-managed CSI resource requirements match inventory"
   when: k3s_node.cluster_init | bool

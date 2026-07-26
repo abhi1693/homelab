@@ -25,9 +25,12 @@ The policy is tuned for steady rebalancing on the home Raspberry Pi cluster:
 - Protects controller-owned single-replica workloads with `minReplicas: 2`,
   avoiding availability gaps and unnecessary RWO volume detach/attach cycles.
   Workloads with two or more replicas remain eligible for balancing.
-- Allows Valkey Sentinel pods to move one at a time through the eviction API;
-  Valkey's PDB uses `maxUnavailable: 1`, and the descheduler policy also caps
-  evictions at one pod per namespace per pass.
+- Excludes Valkey from descheduler balancing. Even one-at-a-time evictions can
+  create avoidable Longhorn RWO detach/attach churn for the replicated Valkey
+  StatefulSet.
+- Excludes ZITADEL from descheduler balancing. The login pods recover after
+  replacement, but repeated voluntary evictions create unnecessary probe noise
+  for the identity provider.
 - Allows PostgreSQL cluster and pooler pods to move only through
   `LowNodeUtilization`; CNPG and pooler PDBs remain the hard gate, including
   the primary PDB with zero voluntary disruptions allowed.
@@ -35,9 +38,10 @@ The policy is tuned for steady rebalancing on the home Raspberry Pi cluster:
   thermal DaemonSets remain protected by descheduler's DaemonSet and node-fit
   checks.
 - Allows replicated Longhorn/NAS PVC-backed application pods to move when they
-  fit elsewhere, while protecting singleton PVC workloads.
+  fit elsewhere, while protecting singleton PVC workloads and explicitly
+  excluding Valkey.
 - Leaves PDB enforcement to the Kubernetes eviction API.
 - Excludes cluster/system namespaces from utilization and topology-spread
-  rebalancing. Valkey is movable, and PostgreSQL is movable only through
-  utilization balancing while remaining excluded from duplicate/topology-spread
-  rebalancing.
+  rebalancing. Valkey and ZITADEL are excluded from balancing, and PostgreSQL is
+  movable only through utilization balancing while remaining excluded from
+  duplicate/topology-spread rebalancing.

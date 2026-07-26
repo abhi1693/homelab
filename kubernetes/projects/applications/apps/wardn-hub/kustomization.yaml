@@ -12,12 +12,9 @@ resources:
   - api-rollout-waiter.yaml
   - next-builder-job.yaml
   - next-build-cleanup-cronjob.yaml
-  - mcp-registry-sync-cronjob.yaml
   - deployment-codex-app-server.yaml
   - deployment-api.yaml
-  - deployment-events-worker.yaml
-  - deployment-fix-rejected-worker.yaml
-  - deployment-review-worker.yaml
+  - deployment-worker.yaml
   - deployment-scoring.yaml
   - deployment-frontend.yaml
   - service.yaml

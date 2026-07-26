@@ -1,0 +1,11 @@
+---
+name: metallb-helmop
+defaultNamespace: fleet-local
+labels:
+  app.kubernetes.io/name: metallb
+  app.kubernetes.io/part-of: cluster-networking
+  home-lab.io/project-slug: system
+dependsOn:
+  - name: system-helm-repositories
+helm:
+  takeOwnership: true

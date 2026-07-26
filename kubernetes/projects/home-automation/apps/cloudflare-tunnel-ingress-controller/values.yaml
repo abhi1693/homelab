@@ -15,20 +15,47 @@ image:
   repository: registry.home/cr.strrl.dev/strrl/cloudflare-tunnel-ingress-controller
   pullPolicy: IfNotPresent
   # renovate: datasource=github-releases depName=STRRL/cloudflare-tunnel-ingress-controller
-  tag: 0.0.23
+  tag: 0.0.24
 imagePullSecrets:
   - name: harbor-registry
 cloudflared:
   replicaCount: 2
-  protocol: auto
+  protocol: http2
+  podAntiAffinity: true
   image:
     repository: registry.home/docker.io/cloudflare/cloudflared
     pullPolicy: IfNotPresent
     # renovate: datasource=github-releases depName=cloudflare/cloudflared
-    tag: 2026.7.1
+    tag: 2026.7.3
+  podSecurityContext:
+    runAsGroup: 65532
+    runAsNonRoot: true
+    runAsUser: 65532
+    seccompProfile:
+      type: RuntimeDefault
+  securityContext:
+    allowPrivilegeEscalation: false
+    capabilities:
+      drop:
+        - ALL
+    readOnlyRootFilesystem: true
+    runAsGroup: 65532
+    runAsNonRoot: true
+    runAsUser: 65532
+  probes:
+    readiness:
+      httpGet:
+        path: /ready
+        port: 44483
+      periodSeconds: 10
+      timeoutSeconds: 2
+      failureThreshold: 3
+  pdb:
+    enabled: true
+    minAvailable: 1
   resources:
     requests:
-      cpu: 65m
+      cpu: 40m
       memory: 48Mi
     limits:
       memory: 112Mi
@@ -40,14 +67,12 @@ nodeSelector:
   kubernetes.io/arch: arm64
 affinity:
   podAntiAffinity:
-    preferredDuringSchedulingIgnoredDuringExecution:
-      - weight: 100
-        podAffinityTerm:
-          labelSelector:
-            matchLabels:
-              app.kubernetes.io/name: cloudflare-tunnel-ingress-controller
-              app.kubernetes.io/instance: cloudflare-tunnel-ingress-controller
-          topologyKey: kubernetes.io/hostname
+    requiredDuringSchedulingIgnoredDuringExecution:
+      - labelSelector:
+          matchLabels:
+            app.kubernetes.io/name: cloudflare-tunnel-ingress-controller
+            app.kubernetes.io/instance: cloudflare-tunnel-ingress-controller
+        topologyKey: kubernetes.io/hostname
 podSecurityContext:
   runAsGroup: 65532
   runAsNonRoot: true

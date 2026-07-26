@@ -22,8 +22,8 @@ podOptions:
     kubernetes.io/arch: arm64
 resources:
   requests:
-    cpu: 50m
-    memory: 368Mi
+    cpu: 140m
+    memory: 395Mi
   limits:
     memory: 544Mi
 ingress:
@@ -133,10 +133,6 @@ networkPolicy:
           - podSelector:
               matchLabels:
                 app.kubernetes.io/instance: qbittorrent
-                app.kubernetes.io/name: qbittorrent
-          - podSelector:
-              matchLabels:
-                app.kubernetes.io/instance: qbittorrent-prowlarr
                 app.kubernetes.io/name: qbittorrent
         ports:
           - protocol: TCP

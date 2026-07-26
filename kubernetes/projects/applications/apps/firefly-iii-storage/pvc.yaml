@@ -2,19 +2,19 @@
 apiVersion: v1
 kind: PersistentVolumeClaim
 metadata:
-  name: firefly-iii-upload
+  name: firefly-iii-upload-nfs
   namespace: finance
   annotations:
     helm.sh/resource-policy: keep
-    home-lab.io/reset-at: "2026-06-14T10:20:00Z"
   labels:
     app.kubernetes.io/name: firefly-iii
     app.kubernetes.io/part-of: firefly-iii
     home-lab.io/project-slug: applications
 spec:
   accessModes:
-    - ReadWriteOnce
-  storageClassName: longhorn
+    - ReadWriteMany
+  storageClassName: nfs-shared-retain
+  volumeName: pvc-91a64b08-b55c-47cc-9376-9f4276034e8c
   resources:
     requests:
       storage: 256Mi

@@ -7,11 +7,12 @@ labels:
 dependsOn:
   - name: rancher-project-applications
   - name: firefly-iii
+  - name: csi-driver-nfs-helmop
 diff:
   comparePatches:
     - apiVersion: v1
       kind: PersistentVolumeClaim
-      name: firefly-iii-data-importer-config
+      name: firefly-iii-data-importer-config-nfs
       namespace: finance
       jsonPointers:
         - /spec/volumeName

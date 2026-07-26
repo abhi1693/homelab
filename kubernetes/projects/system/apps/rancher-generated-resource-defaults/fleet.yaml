@@ -1,0 +1,9 @@
+---
+name: rancher-generated-resource-defaults
+defaultNamespace: fleet-local
+labels:
+  app.kubernetes.io/name: rancher-generated-resource-defaults
+  app.kubernetes.io/part-of: rancher
+  home-lab.io/project-slug: system
+helm:
+  takeOwnership: true

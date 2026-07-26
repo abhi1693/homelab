@@ -15,3 +15,6 @@ The one-time Job handles existing PVCs when the bundle is first reconciled. The
 CronJob runs hourly so PVCs created later by Helm charts or StatefulSet
 `volumeClaimTemplates` receive the same labels without hand-editing generated
 claims.
+
+Both the one-time Job and hourly CronJob request `10m` CPU and `32Mi` memory and
+are capped at `250m` CPU and `128Mi` memory.

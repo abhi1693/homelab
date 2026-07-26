@@ -33,6 +33,15 @@ spec:
           annotations:
             summary: qBittorrent Smart Queues decisions are stale
             description: Smart Queues has not published a fresh non-idle queue decision for more than 15 minutes.
+        - alert: QbittorrentSmartQueuesBackupInternetActive
+          expr: |
+            max(qbt_guard_backup_internet_active{namespace="media", job="qbittorrent-smart-queues"}) == 1
+          for: 1m
+          labels:
+            severity: warning
+          annotations:
+            summary: qBittorrent Smart Queues detected backup internet
+            description: UniFi is routing through its failover-only WAN, so Smart Queues has stopped all torrents.
         - alert: QbittorrentSmartQueuesLowEffectiveCap
           expr: |
             max(qbt_guard_effective_cap_bytes_per_sec{namespace="media", job="qbittorrent-smart-queues", type="download"}) < 262144

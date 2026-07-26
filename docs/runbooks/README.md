@@ -21,3 +21,17 @@ Use this structure for new runbooks:
 
 Keep the first four sections present for every runbook. Add the remaining
 sections when they help the operator apply or undo a local change safely.
+
+## Storage
+
+- [Anime library relocation and Shoko recovery](storage/anime-library-relocation-and-shoko-recovery.md):
+  move misplaced anime into the NAS anime library, preserve media-manager
+  ownership, and repair unrecognized Shoko files.
+- [NAS rebuild maintenance](storage/nas-rebuild-maintenance.md): stop all
+  Kubernetes access to the NAS-backed media library before rebuilding the NAS.
+
+## Kubernetes
+
+- [Kubernetes resource policy](kubernetes-resource-policy.md): production
+  requests, selective limits, generated-container defaults, and Longhorn
+  exceptions.

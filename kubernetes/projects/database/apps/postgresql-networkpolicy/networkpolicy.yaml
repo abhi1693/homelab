@@ -37,6 +37,88 @@ spec:
         - protocol: TCP
           port: 8000
 ---
+apiVersion: cilium.io/v2
+kind: CiliumNetworkPolicy
+metadata:
+  name: postgresql-music-assistant-access
+  namespace: postgresql
+  labels:
+    app.kubernetes.io/name: postgresql
+    app.kubernetes.io/part-of: postgresql
+    home-lab.io/client: music-assistant
+spec:
+  endpointSelector:
+    matchLabels:
+      cnpg.io/cluster: postgresql
+      cnpg.io/podRole: instance
+  ingress:
+    # Music Assistant uses host networking for player discovery. Its source is
+    # the host identity when PostgreSQL is local and remote-node after failover.
+    - fromEntities:
+        - host
+        - remote-node
+      toPorts:
+        - ports:
+            - protocol: TCP
+              port: "5432"
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: postgresql-shipyardhq-next-builder-egress
+  namespace: shipyardhq
+  labels:
+    app.kubernetes.io/name: shipyardhq
+    app.kubernetes.io/part-of: shipyardhq
+spec:
+  podSelector:
+    matchLabels:
+      app.kubernetes.io/name: shipyardhq
+      app.kubernetes.io/component: next-builder
+  policyTypes:
+    - Egress
+  egress:
+    - to:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: postgresql
+          podSelector:
+            matchLabels:
+              cnpg.io/cluster: postgresql
+              cnpg.io/podRole: instance
+      ports:
+        - protocol: TCP
+          port: 5432
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: postgresql-shipyardhq-build-access
+  namespace: postgresql
+  labels:
+    app.kubernetes.io/name: postgresql
+    app.kubernetes.io/part-of: postgresql
+    home-lab.io/client: shipyardhq
+spec:
+  podSelector:
+    matchLabels:
+      cnpg.io/cluster: postgresql
+      cnpg.io/podRole: instance
+  policyTypes:
+    - Ingress
+  ingress:
+    - from:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: shipyardhq
+          podSelector:
+            matchLabels:
+              app.kubernetes.io/name: shipyardhq
+              app.kubernetes.io/component: next-builder
+      ports:
+        - protocol: TCP
+          port: 5432
+---
 apiVersion: networking.k8s.io/v1
 kind: NetworkPolicy
 metadata:
@@ -109,9 +191,7 @@ spec:
       - key: cnpg.io/poolerName
         operator: In
         values:
-          - postgresql-pooler-dispatcharr-rw
           - postgresql-pooler-firefly-iii-rw
-          - postgresql-pooler-git-rank-rw
           - postgresql-pooler-harbor-rw
           - postgresql-pooler-jellyfin-rw
           - postgresql-pooler-netbox-rw
@@ -664,136 +744,6 @@ spec:
             matchLabels:
               app.kubernetes.io/instance: jellyfin
               app.kubernetes.io/name: jellyfin
-      ports:
-        - protocol: TCP
-          port: 5432
-  egress:
-    - to:
-        - ipBlock:
-            cidr: 10.43.0.1/32
-      ports:
-        - protocol: TCP
-          port: 443
-    - to:
-        - ipBlock:
-            cidr: 192.168.3.108/32
-        - ipBlock:
-            cidr: 192.168.3.191/32
-        - ipBlock:
-            cidr: 192.168.3.243/32
-      ports:
-        - protocol: TCP
-          port: 6443
-    - to:
-        - podSelector:
-            matchLabels:
-              cnpg.io/cluster: postgresql
-              cnpg.io/podRole: instance
-      ports:
-        - protocol: TCP
-          port: 5432
-    - to:
-        - namespaceSelector:
-            matchLabels:
-              kubernetes.io/metadata.name: kube-system
-          podSelector:
-            matchLabels:
-              k8s-app: kube-dns
-      ports:
-        - protocol: UDP
-          port: 53
-        - protocol: TCP
-          port: 53
----
-apiVersion: networking.k8s.io/v1
-kind: NetworkPolicy
-metadata:
-  name: postgresql-dispatcharr-pooler-access
-  namespace: postgresql
-  labels:
-    app.kubernetes.io/name: postgresql-pooler
-    app.kubernetes.io/part-of: postgresql
-    home-lab.io/client: dispatcharr
-spec:
-  podSelector:
-    matchLabels:
-      cnpg.io/poolerName: postgresql-pooler-dispatcharr-rw
-  policyTypes:
-    - Ingress
-    - Egress
-  ingress:
-    - from:
-        - namespaceSelector:
-            matchLabels:
-              kubernetes.io/metadata.name: media
-          podSelector:
-            matchLabels:
-              app.kubernetes.io/name: dispatcharr
-      ports:
-        - protocol: TCP
-          port: 5432
-  egress:
-    - to:
-        - ipBlock:
-            cidr: 10.43.0.1/32
-      ports:
-        - protocol: TCP
-          port: 443
-    - to:
-        - ipBlock:
-            cidr: 192.168.3.108/32
-        - ipBlock:
-            cidr: 192.168.3.191/32
-        - ipBlock:
-            cidr: 192.168.3.243/32
-      ports:
-        - protocol: TCP
-          port: 6443
-    - to:
-        - podSelector:
-            matchLabels:
-              cnpg.io/cluster: postgresql
-              cnpg.io/podRole: instance
-      ports:
-        - protocol: TCP
-          port: 5432
-    - to:
-        - namespaceSelector:
-            matchLabels:
-              kubernetes.io/metadata.name: kube-system
-          podSelector:
-            matchLabels:
-              k8s-app: kube-dns
-      ports:
-        - protocol: UDP
-          port: 53
-        - protocol: TCP
-          port: 53
----
-apiVersion: networking.k8s.io/v1
-kind: NetworkPolicy
-metadata:
-  name: postgresql-git-rank-pooler-access
-  namespace: postgresql
-  labels:
-    app.kubernetes.io/name: postgresql-pooler
-    app.kubernetes.io/part-of: postgresql
-    home-lab.io/client: git-rank
-spec:
-  podSelector:
-    matchLabels:
-      cnpg.io/poolerName: postgresql-pooler-git-rank-rw
-  policyTypes:
-    - Ingress
-    - Egress
-  ingress:
-    - from:
-        - namespaceSelector:
-            matchLabels:
-              kubernetes.io/metadata.name: git-rank
-          podSelector:
-            matchLabels:
-              git-rank-psql-client: "true"
       ports:
         - protocol: TCP
           port: 5432

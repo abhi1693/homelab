@@ -34,9 +34,9 @@ spec:
           memoryRequest: [resources, requests, memory]
       metricProfileRef: resource-only
       scaling:
-        replicas: false
-        cpu: false
-        memory: false
+        replicas: true
+        cpu: true
+        memory: true
       bounds:
         replicas:
           min: 2
@@ -44,11 +44,11 @@ spec:
         cpu:
           maxIncreasePercent: 25
           maxDecreasePercent: 10
-          minChangePercent: 10
+          minChangePercent: 5
         memory:
           maxIncreasePercent: 25
           maxDecreasePercent: 10
-          minChangePercent: 10
+          minChangePercent: 5
       policy:
         maxProposalsPerHour: 1
         maxProposalsPerDay: 2
@@ -79,9 +79,9 @@ spec:
           memoryRequest: [login, resources, requests, memory]
       metricProfileRef: resource-only
       scaling:
-        replicas: false
-        cpu: false
-        memory: false
+        replicas: true
+        cpu: true
+        memory: true
       bounds:
         replicas:
           min: 2
@@ -89,11 +89,11 @@ spec:
         cpu:
           maxIncreasePercent: 25
           maxDecreasePercent: 10
-          minChangePercent: 10
+          minChangePercent: 5
         memory:
           maxIncreasePercent: 25
           maxDecreasePercent: 10
-          minChangePercent: 10
+          minChangePercent: 5
       policy:
         maxProposalsPerHour: 1
         maxProposalsPerDay: 2

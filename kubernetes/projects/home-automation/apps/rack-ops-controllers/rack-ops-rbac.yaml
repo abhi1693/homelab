@@ -25,13 +25,8 @@ rules:
       - bundles
     resourceNames:
       - flaresolverr-helmop
-      - git-rank
-      - indexly
       - jellyfin
-      - media-dispatcharr
       - media-do-squid-firewall
-      - media-metube
-      - media-profilarr
       - media-ryokan
       - media-shoko
       - personal-blog
@@ -91,10 +86,7 @@ rules:
     resources:
       - deployments
     resourceNames:
-      - dispatcharr
       - flaresolverr
-      - metube
-      - profilarr
       - prowlarr
       - qbittorrent
       - radarr
@@ -110,7 +102,6 @@ rules:
       - cronjobs
     resourceNames:
       - do-squid-firewall
-      - jellyfin-youtube-library-reconciler
     verbs:
       - get
       - patch
@@ -120,105 +111,6 @@ kind: RoleBinding
 metadata:
   name: rack-ops-workload-controller
   namespace: media
-  labels:
-    app.kubernetes.io/name: rack-ops
-    app.kubernetes.io/part-of: rack-ops
-    home-lab.io/project-slug: home-automation
-roleRef:
-  apiGroup: rbac.authorization.k8s.io
-  kind: Role
-  name: rack-ops-workload-controller
-subjects:
-  - kind: ServiceAccount
-    name: rack-ops
-    namespace: rack-ops
----
-apiVersion: rbac.authorization.k8s.io/v1
-kind: Role
-metadata:
-  name: rack-ops-workload-controller
-  namespace: git-rank
-  labels:
-    app.kubernetes.io/name: rack-ops
-    app.kubernetes.io/part-of: rack-ops
-    home-lab.io/project-slug: home-automation
-rules:
-  - apiGroups:
-      - apps
-    resources:
-      - deployments
-    resourceNames:
-      - git-rank-worker-default
-      - git-rank-worker-high
-    verbs:
-      - get
-      - patch
-  - apiGroups:
-      - batch
-    resources:
-      - cronjobs
-    resourceNames:
-      - git-rank-maintenance
-      - git-rank-monthly
-      - git-rank-sync-daily
-      - git-rank-weekly
-    verbs:
-      - get
-      - patch
----
-apiVersion: rbac.authorization.k8s.io/v1
-kind: RoleBinding
-metadata:
-  name: rack-ops-workload-controller
-  namespace: git-rank
-  labels:
-    app.kubernetes.io/name: rack-ops
-    app.kubernetes.io/part-of: rack-ops
-    home-lab.io/project-slug: home-automation
-roleRef:
-  apiGroup: rbac.authorization.k8s.io
-  kind: Role
-  name: rack-ops-workload-controller
-subjects:
-  - kind: ServiceAccount
-    name: rack-ops
-    namespace: rack-ops
----
-apiVersion: rbac.authorization.k8s.io/v1
-kind: Role
-metadata:
-  name: rack-ops-workload-controller
-  namespace: indexly
-  labels:
-    app.kubernetes.io/name: rack-ops
-    app.kubernetes.io/part-of: rack-ops
-    home-lab.io/project-slug: home-automation
-rules:
-  - apiGroups:
-      - apps
-    resources:
-      - deployments
-    resourceNames:
-      - indexly
-    verbs:
-      - get
-      - patch
-  - apiGroups:
-      - batch
-    resources:
-      - cronjobs
-    resourceNames:
-      - indexly-poll-sitemaps
-      - indexly-sync-subscriptions
-    verbs:
-      - get
-      - patch
----
-apiVersion: rbac.authorization.k8s.io/v1
-kind: RoleBinding
-metadata:
-  name: rack-ops-workload-controller
-  namespace: indexly
   labels:
     app.kubernetes.io/name: rack-ops
     app.kubernetes.io/part-of: rack-ops

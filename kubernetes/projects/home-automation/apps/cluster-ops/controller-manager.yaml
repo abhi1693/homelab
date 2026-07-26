@@ -10,6 +10,7 @@ metadata:
     app.kubernetes.io/part-of: cluster-ops
     home-lab.io/project-slug: home-automation
 spec:
+  revisionHistoryLimit: 2
   replicas: 1
   strategy:
     type: Recreate
@@ -43,7 +44,7 @@ spec:
       initContainers:
         - name: clone-home-lab
           # renovate: datasource=docker depName=ghcr.io/abhi1693/k8s-recommendation-engine
-          image: registry.home/ghcr.io/abhi1693/k8s-recommendation-engine:0.2.0
+          image: registry.home/ghcr.io/abhi1693/k8s-recommendation-engine:0.3.4
           imagePullPolicy: IfNotPresent
           command:
             - /bin/sh
@@ -80,6 +81,13 @@ spec:
                 secretKeyRef:
                   name: home-lab-apps-github
                   key: password
+          resources:
+            requests:
+              cpu: 25m
+              memory: 64Mi
+            limits:
+              cpu: 250m
+              memory: 192Mi
           securityContext:
             allowPrivilegeEscalation: false
             capabilities:
@@ -99,7 +107,7 @@ spec:
       containers:
         - name: manager
           # renovate: datasource=docker depName=ghcr.io/abhi1693/k8s-recommendation-engine
-          image: registry.home/ghcr.io/abhi1693/k8s-recommendation-engine:0.2.0
+          image: registry.home/ghcr.io/abhi1693/k8s-recommendation-engine:0.3.4
           imagePullPolicy: IfNotPresent
           command:
             - /bin/sh
@@ -122,6 +130,7 @@ spec:
                 --reconcile-interval "$RECONCILE_INTERVAL" \
                 --reconcile-timeout "$RECONCILE_TIMEOUT" \
                 --state-db /var/lib/k8s-recommendation-engine/shipyard.db \
+                --state-retention "$STATE_RETENTION" \
                 --git-worktree /git/home-lab \
                 --mode propose \
                 --proposal-kind commit \
@@ -130,7 +139,6 @@ spec:
                 --allow-default-branch-push \
                 --availability-recovery \
                 --max-concurrent-reconciles 1 \
-                --leader-elect \
                 --metrics-bind-address :8080 \
                 --health-probe-bind-address :8081
           env:
@@ -149,7 +157,9 @@ spec:
             - name: RECONCILE_INTERVAL
               value: 1m
             - name: RECONCILE_TIMEOUT
-              value: 2m
+              value: 5m
+            - name: STATE_RETENTION
+              value: 336h
             - name: GIT_BRANCH
               value: master
             - name: GIT_AUTHOR_NAME

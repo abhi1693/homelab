@@ -1,0 +1,16 @@
+---
+apiVersion: metallb.io/v1beta1
+kind: L2Advertisement
+metadata:
+  name: lan
+  namespace: metallb-system
+  labels:
+    app.kubernetes.io/name: metallb-config
+    app.kubernetes.io/part-of: cluster-networking
+    home-lab.io/project-slug: system
+spec:
+  ipAddressPools:
+    - ingress-services
+    - app-services
+  interfaces:
+    - eth0

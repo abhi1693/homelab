@@ -40,8 +40,6 @@ alloy:
             "https://shipyardhq.dev",
             "https://www.shipyardhq.dev",
             "https://hub.wardnai.dev",
-            "https://git-rank.dev",
-            "https://indexly.cc",
           ]
           include_metadata         = true
           max_allowed_payload_size = "2MiB"
@@ -73,11 +71,6 @@ alloy:
           }
 
           location {
-            minified_path_prefix = "https://indexly.cc/_next/static/"
-            path                 = "http://indexly.indexly.svc.cluster.local:3000/faro-sourcemaps/_next/static/"
-          }
-
-          location {
             minified_path_prefix = "https://shipyardhq.dev/_next/static/"
             path                 = "http://shipyardhq.shipyardhq.svc.cluster.local:3000/faro-sourcemaps/_next/static/"
           }
@@ -90,11 +83,6 @@ alloy:
           location {
             minified_path_prefix = "https://hub.wardnai.dev/_next/static/"
             path                 = "http://wardn-hub-frontend.wardn.svc.cluster.local:3000/faro-sourcemaps/_next/static/"
-          }
-
-          location {
-            minified_path_prefix = "https://git-rank.dev/_next/static/"
-            path                 = "http://git-rank-frontend.git-rank.svc.cluster.local:3000/faro-sourcemaps/_next/static/"
           }
 
           cache {
@@ -145,7 +133,7 @@ alloy:
       }
   resources:
     requests:
-      cpu: 50m
+      cpu: 10m
       memory: 128Mi
     limits:
       memory: 256Mi
@@ -153,7 +141,7 @@ alloy:
 configReloader:
   resources:
     requests:
-      cpu: 10m
+      cpu: 5m
       memory: 32Mi
     limits:
       memory: 64Mi

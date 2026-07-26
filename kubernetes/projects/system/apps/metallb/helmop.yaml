@@ -1,0 +1,44 @@
+---
+apiVersion: fleet.cattle.io/v1alpha1
+kind: HelmOp
+metadata:
+  name: metallb
+  namespace: fleet-local
+  labels:
+    app.kubernetes.io/name: metallb
+    app.kubernetes.io/part-of: cluster-networking
+    home-lab.io/project-slug: system
+spec:
+  defaultNamespace: metallb-system
+  dependsOn:
+    - name: system-helm-repositories
+  labels:
+    app.kubernetes.io/name: metallb
+    app.kubernetes.io/part-of: cluster-networking
+    home-lab.io/project-slug: system
+  targets:
+    - name: default
+      clusterGroup: default
+  targetRestrictions:
+    - name: default
+      clusterGroup: default
+  correctDrift:
+    enabled: true
+    force: true
+    keepFailHistory: true
+  downstreamResources:
+    - kind: ConfigMap
+      name: metallb-values
+  helm:
+    releaseName: metallb
+    repo: https://metallb.github.io/metallb
+    chart: metallb
+    version: 0.16.1
+    timeoutSeconds: 600
+    takeOwnership: true
+    valuesFrom:
+      - configMapKeyRef:
+          name: metallb-values
+          namespace: fleet-local
+          key: values.yaml
+    waitForJobs: true

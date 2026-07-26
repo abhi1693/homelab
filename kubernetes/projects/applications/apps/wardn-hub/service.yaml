@@ -10,6 +10,7 @@ metadata:
     app.kubernetes.io/part-of: wardn-hub
 spec:
   type: ClusterIP
+  trafficDistribution: PreferSameNode
   selector:
     app.kubernetes.io/name: wardn-hub-api
     app.kubernetes.io/component: api
@@ -30,6 +31,7 @@ metadata:
     app.kubernetes.io/part-of: wardn-hub
 spec:
   type: ClusterIP
+  trafficDistribution: PreferSameNode
   selector:
     app.kubernetes.io/name: wardn-hub-frontend
     app.kubernetes.io/component: frontend
@@ -50,6 +52,7 @@ metadata:
     app.kubernetes.io/part-of: wardn-hub
 spec:
   type: ClusterIP
+  trafficDistribution: PreferSameNode
   selector:
     app.kubernetes.io/name: wardn-hub-scoring
     app.kubernetes.io/component: scoring
@@ -70,6 +73,7 @@ metadata:
     app.kubernetes.io/part-of: wardn-hub
 spec:
   type: ClusterIP
+  trafficDistribution: PreferSameNode
   selector:
     app.kubernetes.io/name: wardn-hub-codex-app-server
     app.kubernetes.io/component: codex-app-server
@@ -82,17 +86,18 @@ spec:
 apiVersion: v1
 kind: Service
 metadata:
-  name: wardn-hub-events-worker
+  name: wardn-hub-worker
   namespace: wardn
   labels:
-    app.kubernetes.io/name: wardn-hub-events-worker
-    app.kubernetes.io/component: events-worker
+    app.kubernetes.io/name: wardn-hub-worker
+    app.kubernetes.io/component: worker
     app.kubernetes.io/part-of: wardn-hub
 spec:
   type: ClusterIP
+  trafficDistribution: PreferSameNode
   selector:
-    app.kubernetes.io/name: wardn-hub-events-worker
-    app.kubernetes.io/component: events-worker
+    app.kubernetes.io/name: wardn-hub-worker
+    app.kubernetes.io/component: worker
   ports:
     - name: metrics
       port: 8092

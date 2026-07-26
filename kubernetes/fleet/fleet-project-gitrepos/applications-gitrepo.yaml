@@ -18,9 +18,7 @@ spec:
     - kubernetes/projects/applications/apps/firefly-iii-storage
     - kubernetes/projects/applications/apps/firefly-iii
     - kubernetes/projects/applications/apps/firefly-iii-data-importer
-    - kubernetes/projects/applications/apps/git-rank
     - kubernetes/projects/applications/apps/harbor
-    - kubernetes/projects/applications/apps/indexly
     - kubernetes/projects/applications/apps/openbao
     - kubernetes/projects/applications/apps/personal-blog
     - kubernetes/projects/applications/apps/portfolio

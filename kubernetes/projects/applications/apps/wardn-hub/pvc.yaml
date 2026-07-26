@@ -2,37 +2,22 @@
 apiVersion: v1
 kind: PersistentVolumeClaim
 metadata:
-  name: wardn-hub-next-build-cache
+  name: wardn-hub-next-build-cache-nfs
   namespace: wardn
+  annotations:
+    helm.sh/resource-policy: keep
   labels:
     app.kubernetes.io/name: wardn-hub-frontend
     app.kubernetes.io/component: frontend
     app.kubernetes.io/part-of: wardn-hub
-    home-lab.io/longhorn-fstrim: disabled
 spec:
   accessModes:
     - ReadWriteMany
-  storageClassName: longhorn
+  storageClassName: nfs-shared-retain
+  volumeName: pvc-c967857e-16b4-40ac-a9d9-af69db0326c7
   resources:
     requests:
       storage: 4Gi
----
-apiVersion: v1
-kind: PersistentVolumeClaim
-metadata:
-  name: wardn-hub-codex-config
-  namespace: wardn
-  labels:
-    app.kubernetes.io/name: wardn-hub-api
-    app.kubernetes.io/component: review-automation
-    app.kubernetes.io/part-of: wardn-hub
-spec:
-  accessModes:
-    - ReadWriteMany
-  storageClassName: longhorn
-  resources:
-    requests:
-      storage: 1Gi
 ---
 apiVersion: v1
 kind: PersistentVolumeClaim

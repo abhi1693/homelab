@@ -3,6 +3,9 @@
 This bundle runs Network UPS Tools for the APC Back-UPS Pro 1500 connected by
 USB to `k8s-rpi1`, with PeaNUT as the web dashboard.
 
+The custom Deployment retains two ReplicaSet revisions; Git and Fleet history
+remain the primary rollback path.
+
 The internal endpoint is:
 
 - `http://ups.home`
@@ -33,6 +36,9 @@ The init container also supplies a minimal `upsmon.conf` with
 `SHUTDOWNCMD "/bin/true"` so a low-battery event does not try to power off a
 host from inside the privileged container. Cluster shutdown automation should be
 added separately as Git-managed desired state if needed.
+The configuration init container is bounded at `5m`/`16Mi` requests and
+`100m`/`64Mi` limits; the three long-running containers retain their existing
+workload-specific envelopes.
 
 PeaNUT reads `/config/settings.yml`, seeded from the `ups-monitoring` ConfigMap
 in [configmap.yaml](/home/asaharan/PycharmProjects/home-lab/kubernetes/projects/home-automation/apps/ups-monitoring/configmap.yaml).

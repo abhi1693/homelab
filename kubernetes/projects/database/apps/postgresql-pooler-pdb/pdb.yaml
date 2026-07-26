@@ -2,66 +2,6 @@
 apiVersion: policy/v1
 kind: PodDisruptionBudget
 metadata:
-  name: postgresql-pooler-git-rank-rw
-  namespace: postgresql
-  labels:
-    app.kubernetes.io/name: postgresql-pooler
-    app.kubernetes.io/part-of: postgresql
-    home-lab.io/client: git-rank
-spec:
-  minAvailable: 1
-  selector:
-    matchLabels:
-      cnpg.io/poolerName: postgresql-pooler-git-rank-rw
----
-apiVersion: policy/v1
-kind: PodDisruptionBudget
-metadata:
-  name: postgresql-pooler-jellyfin-rw
-  namespace: postgresql
-  labels:
-    app.kubernetes.io/name: postgresql-pooler
-    app.kubernetes.io/part-of: postgresql
-    home-lab.io/client: jellyfin
-spec:
-  minAvailable: 1
-  selector:
-    matchLabels:
-      cnpg.io/poolerName: postgresql-pooler-jellyfin-rw
----
-apiVersion: policy/v1
-kind: PodDisruptionBudget
-metadata:
-  name: postgresql-pooler-dispatcharr-rw
-  namespace: postgresql
-  labels:
-    app.kubernetes.io/name: postgresql-pooler
-    app.kubernetes.io/part-of: postgresql
-    home-lab.io/client: dispatcharr
-spec:
-  minAvailable: 1
-  selector:
-    matchLabels:
-      cnpg.io/poolerName: postgresql-pooler-dispatcharr-rw
----
-apiVersion: policy/v1
-kind: PodDisruptionBudget
-metadata:
-  name: postgresql-pooler-netbox-rw
-  namespace: postgresql
-  labels:
-    app.kubernetes.io/name: postgresql-pooler
-    app.kubernetes.io/part-of: postgresql
-    home-lab.io/client: netbox
-spec:
-  minAvailable: 1
-  selector:
-    matchLabels:
-      cnpg.io/poolerName: postgresql-pooler-netbox-rw
----
-apiVersion: policy/v1
-kind: PodDisruptionBudget
-metadata:
   name: postgresql-pooler-shipyardhq-rw
   namespace: postgresql
   labels:
@@ -92,17 +32,17 @@ spec:
 apiVersion: policy/v1
 kind: PodDisruptionBudget
 metadata:
-  name: postgresql-pooler-wardn-ai-rw
+  name: postgresql-pooler-wardn-hub-rw
   namespace: postgresql
   labels:
     app.kubernetes.io/name: postgresql-pooler
     app.kubernetes.io/part-of: postgresql
-    home-lab.io/client: wardn-ai
+    home-lab.io/client: wardn-hub
 spec:
   minAvailable: 1
   selector:
     matchLabels:
-      cnpg.io/poolerName: postgresql-pooler-wardn-ai-rw
+      cnpg.io/poolerName: postgresql-pooler-wardn-hub-rw
 ---
 apiVersion: policy/v1
 kind: PodDisruptionBudget

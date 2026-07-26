@@ -1,4 +1,3 @@
----
 apiVersion: apps/v1
 kind: Deployment
 metadata:
@@ -67,7 +66,7 @@ spec:
           resources:
             requests:
               cpu: 10m
-              memory: 96Mi
+              memory: 87Mi
             limits:
               memory: 160Mi
           startupProbe:
@@ -104,7 +103,7 @@ spec:
       volumes:
         - name: upload
           persistentVolumeClaim:
-            claimName: firefly-iii-upload
+            claimName: firefly-iii-upload-nfs
         - name: tmp
           emptyDir:
             sizeLimit: 512Mi

@@ -1,0 +1,23 @@
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: music-assistant
+  namespace: media
+  labels:
+    app.kubernetes.io/name: music-assistant
+    app.kubernetes.io/part-of: media-stack
+spec:
+  type: ClusterIP
+  trafficDistribution: PreferSameNode
+  selector:
+    app.kubernetes.io/name: music-assistant
+  ports:
+    - name: http
+      port: 8095
+      targetPort: http
+      protocol: TCP
+    - name: stream
+      port: 8097
+      targetPort: stream
+      protocol: TCP

@@ -1,0 +1,84 @@
+---
+image:
+  baseRepo: registry.home/registry.k8s.io
+  nfs:
+    repository: registry.home/registry.k8s.io/sig-storage/nfsplugin
+    tag: v4.13.4
+    pullPolicy: IfNotPresent
+
+kubeletDir: /var/lib/kubelet
+
+feature:
+  enableFSGroupPolicy: true
+  enableInlineVolume: false
+  propagateHostMountOptions: false
+
+controller:
+  replicas: 1
+  runOnControlPlane: true
+  enableSnapshotter: false
+  logLevel: 2
+  priorityClassName: system-cluster-critical
+  resources:
+    csiProvisioner:
+      requests:
+        cpu: 5m
+        memory: 32Mi
+      limits:
+        memory: 128Mi
+    csiResizer:
+      requests:
+        cpu: 5m
+        memory: 32Mi
+      limits:
+        memory: 128Mi
+    csiSnapshotter:
+      requests:
+        cpu: 10m
+        memory: 32Mi
+      limits:
+        memory: 128Mi
+    livenessProbe:
+      requests:
+        cpu: 5m
+        memory: 32Mi
+      limits:
+        memory: 64Mi
+    nfs:
+      requests:
+        cpu: 5m
+        memory: 64Mi
+      limits:
+        memory: 256Mi
+
+node:
+  maxUnavailable: 1
+  logLevel: 2
+  priorityClassName: system-cluster-critical
+  nodeSelector:
+    kubernetes.io/arch: arm64
+  resources:
+    livenessProbe:
+      requests:
+        cpu: 5m
+        memory: 32Mi
+      limits:
+        memory: 64Mi
+    nodeDriverRegistrar:
+      requests:
+        cpu: 5m
+        memory: 32Mi
+      limits:
+        memory: 128Mi
+    nfs:
+      requests:
+        cpu: 5m
+        memory: 64Mi
+      limits:
+        memory: 256Mi
+
+externalSnapshotter:
+  enabled: false
+
+storageClass:
+  create: false

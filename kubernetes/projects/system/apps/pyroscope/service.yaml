@@ -11,6 +11,7 @@ metadata:
     home-lab.io/project-slug: system
 spec:
   type: ClusterIP
+  trafficDistribution: PreferSameNode
   selector:
     app.kubernetes.io/name: pyroscope
     app.kubernetes.io/component: profiling-backend

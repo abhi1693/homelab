@@ -17,5 +17,3 @@ resources:
   - apiserver-egress-cnp.yaml
   - helmop.yaml
   - shared-pvc.yaml
-  - youtube-library-reconciler.yaml
-  - youtube-library-reconciler-networkpolicy.yaml

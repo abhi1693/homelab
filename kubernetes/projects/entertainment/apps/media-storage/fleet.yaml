@@ -1,10 +1,12 @@
 ---
 name: media-storage
 defaultNamespace: media
+paused: false
 labels:
   app.kubernetes.io/part-of: media-stack
   home-lab.io/project-slug: entertainment
 dependsOn:
   - name: rancher-project-entertainment
+  - name: csi-driver-nfs-helmop
 helm:
   takeOwnership: true

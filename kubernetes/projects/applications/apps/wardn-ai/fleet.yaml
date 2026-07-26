@@ -10,8 +10,16 @@ dependsOn:
   - name: postgresql-networkpolicy
   - name: postgresql-pooler-pdb
   - name: wardn-hub
+  - name: csi-driver-nfs-helmop
+diff:
+  comparePatches:
+    - apiVersion: v1
+      kind: PersistentVolumeClaim
+      name: wardn-ai-data-nfs
+      namespace: wardn
+      jsonPointers:
+        - /spec/volumeName
 helm:
   takeOwnership: true
   timeoutSeconds: 900
-  waitForJobs: true
 forceSyncGeneration: 1

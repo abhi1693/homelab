@@ -6,11 +6,12 @@ labels:
   home-lab.io/project-slug: applications
 dependsOn:
   - name: rancher-project-applications
+  - name: csi-driver-nfs-helmop
 diff:
   comparePatches:
     - apiVersion: v1
       kind: PersistentVolumeClaim
-      name: firefly-iii-upload
+      name: firefly-iii-upload-nfs
       namespace: finance
       jsonPointers:
         - /spec/volumeName

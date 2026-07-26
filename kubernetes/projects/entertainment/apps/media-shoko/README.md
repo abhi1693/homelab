@@ -2,13 +2,24 @@
 
 Shoko is the anime-only metadata and library manager for this stack.
 
+The deployment runs as a single replica with persistent configuration and
+library mounts.
+
+It retains two ReplicaSet revisions; Git and Fleet history remain the primary
+rollback path.
+
+The `media-anime` recommendation profile observes CPU and memory usage every
+five minutes and retains learning history for right-sizing. Resource and
+replica changes remain disabled while initial library scans establish the
+normal idle and scan baseline.
+
 The server runs at `http://anime.media.home` and listens in-cluster at
 `http://shoko.media.svc.cluster.local:8111`.
 
 ## Storage
 
 - Config and Shoko database: `shoko-config` mounted at `/home/shoko/.shoko`
-- Anime library: `media-library-nas` subPath `anime` mounted read-only at
+- Anime library: `media-library-nfs-csi` subPath `anime` mounted read-only at
   `/media/anime`
 - Legacy compatibility mount: `/mnt/anime`
 
@@ -30,3 +41,7 @@ For Jellyfin 10.11, add the `Shokofin Stable` plugin repository:
 
 Shoko does not replace a downloader. Ryokan downloads anime TV into the NAS
 anime folder, then Shoko/Shokofin handles the Jellyfin metadata layer.
+
+For moving anime that was stored under the Movies or TV roots, rescanning the
+anime folder, and repairing AniDB hash misses, follow the
+[anime library relocation and Shoko recovery runbook](../../../../../docs/runbooks/storage/anime-library-relocation-and-shoko-recovery.md).

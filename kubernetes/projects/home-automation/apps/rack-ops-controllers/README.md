@@ -7,7 +7,8 @@ Fleet metadata, and selected Kubernetes workloads.
 ## Runtime Shape
 
 - Main controller: `rack-ops` Deployment and ClusterIP metrics service
-- State: `rack-ops-state` Longhorn RWO PVC mounted at `/state`
+- State: `rack-ops-state-nfs` RWX PVC, backed by the retained NAS directory
+  `rack-ops/rack-ops-state-nfs`, mounted at `/state`
 - Policy: `rack-ops-policy` ConfigMap mounted at `/config/policy.yaml`
 - Metrics: `ServiceMonitor` and `PrometheusRule` resources
 - Secrets: SOPS-managed Home Assistant and registry credentials

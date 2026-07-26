@@ -1,0 +1,18 @@
+---
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+namespace: fleet-local
+resources:
+  - helmop.yaml
+  - storageclass.yaml
+configMapGenerator:
+  - name: csi-driver-nfs-values
+    files:
+      - values.yaml
+generatorOptions:
+  labels:
+    app.kubernetes.io/name: csi-driver-nfs
+    app.kubernetes.io/part-of: csi-driver-nfs
+    home-lab.io/project-slug: system
+configurations:
+  - kustomizeconfig.yaml

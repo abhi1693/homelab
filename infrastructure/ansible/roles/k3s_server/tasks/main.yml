@@ -12,6 +12,7 @@
       - item.split('=', 1)[0] | trim != ''
       - item.split('=', 1)[1] | trim != ''
       - item.split('=', 1)[0] != 'kube-apiserver-arg'
+      - item.split('=', 1)[0] != 'kube-scheduler-arg'
       - item.split('=', 1)[0] != 'kubelet-arg'
     fail_msg: "Expected k3s_server.extra_args item in key=value form and repeated component args in their dedicated lists: {{ item }}"
     success_msg: "K3s extra arg {{ item }} is valid"
@@ -26,6 +27,16 @@
     fail_msg: "Expected k3s_server.kube_apiserver_args item in key=value form: {{ item }}"
     success_msg: "K3s kube-apiserver arg {{ item }} is valid"
   loop: "{{ k3s_server.kube_apiserver_args }}"
+
+- name: Assert K3s kube-scheduler args use key=value format
+  ansible.builtin.assert:
+    that:
+      - "'=' in item"
+      - item.split('=', 1)[0] | trim != ''
+      - item.split('=', 1)[1] | trim != ''
+    fail_msg: "Expected k3s_server.kube_scheduler_args item in key=value form: {{ item }}"
+    success_msg: "K3s kube-scheduler arg {{ item }} is valid"
+  loop: "{{ k3s_server.kube_scheduler_args }}"
 
 - name: Assert K3s kubelet args use key=value format
   ansible.builtin.assert:

@@ -28,8 +28,8 @@ podOptions:
     kubernetes.io/hostname: k8s-rpi2
 resources:
   requests:
-    cpu: 85m
-    memory: 128Mi
+    cpu: 370m
+    memory: 168Mi
   limits:
     memory: 192Mi
 service:
@@ -40,6 +40,11 @@ service:
   torrent:
     enabled: true
     type: LoadBalancer
+    externalTrafficPolicy: Local
+    loadBalancerIP: 192.168.3.16
+    integrations:
+      metallb:
+        enabled: true
     ports:
       torrent:
         enabled: true
@@ -294,7 +299,7 @@ persistence:
   downloads:
     enabled: true
     type: pvc
-    existingClaim: media-downloads
+    existingClaim: media-downloads-nfs-csi
     mountPath: /downloads
 networkPolicy:
   ingress:

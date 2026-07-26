@@ -1,43 +1,47 @@
 apiVersion: v1
 kind: PersistentVolume
 metadata:
-  name: media-library-nas
+  name: media-library-nfs-csi
   annotations:
     helm.sh/resource-policy: keep
+    pv.kubernetes.io/provisioned-by: nfs.csi.k8s.io
   labels:
-    app.kubernetes.io/name: media-library-nas
+    app.kubernetes.io/name: media-library-nfs-csi
     app.kubernetes.io/part-of: media-stack
 spec:
   capacity:
-    storage: 1Ti
+    storage: 10Ti
   volumeMode: Filesystem
   accessModes:
     - ReadWriteMany
   persistentVolumeReclaimPolicy: Retain
-  storageClassName: nas-media
+  storageClassName: ""
   mountOptions:
     - vers=3
     - nolock
     - proto=tcp
-  nfs:
-    server: nas.home
-    path: /nfs/media
+  csi:
+    driver: nfs.csi.k8s.io
+    volumeHandle: 192.168.3.115#/nfs/media_new#
+    volumeAttributes:
+      server: 192.168.3.115
+      share: /nfs/media_new
 ---
 apiVersion: v1
 kind: PersistentVolumeClaim
 metadata:
-  name: media-library-nas
+  name: media-library-nfs-csi
   namespace: media
   annotations:
     helm.sh/resource-policy: keep
   labels:
-    app.kubernetes.io/name: media-library-nas
+    app.kubernetes.io/name: media-library-nfs-csi
     app.kubernetes.io/part-of: media-stack
 spec:
   accessModes:
     - ReadWriteMany
-  storageClassName: nas-media
-  volumeName: media-library-nas
+  storageClassName: ""
+  volumeName: media-library-nfs-csi
   resources:
     requests:
-      storage: 1Ti
+      storage: 10Ti

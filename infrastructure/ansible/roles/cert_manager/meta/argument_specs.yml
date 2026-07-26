@@ -80,3 +80,8 @@ argument_specs:
             required: true
             description:
               - High-availability replica count for the cert-manager CA injector.
+          resources:
+            type: dict
+            required: true
+            description:
+              - Resource envelopes for cert-manager controllers and the startup API check.

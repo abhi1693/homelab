@@ -31,6 +31,9 @@ argument_specs:
           protect_kernel_defaults:
             type: bool
             required: true
+          systemd_limits:
+            type: dict
+            required: true
           extra_args:
             type: list
             elements: str
@@ -39,9 +42,16 @@ argument_specs:
             type: list
             elements: str
             required: true
+          kube_scheduler_args:
+            type: list
+            elements: str
+            required: true
           kubelet_args:
             type: list
             elements: str
+            required: true
+          kubelet_config:
+            type: dict
             required: true
           audit_logging:
             type: dict
@@ -95,6 +105,12 @@ argument_specs:
             required: true
             description:
               - Default replica count for volumes created through the Longhorn UI.
+          single_replica_workload_namespaces:
+            type: list
+            elements: str
+            required: true
+            description:
+              - Kubernetes namespaces whose replicated workloads use one Longhorn replica per volume.
           default_data_locality:
             type: str
             required: true
@@ -195,3 +211,8 @@ argument_specs:
             required: true
             description:
               - Anti-affinity preset for Longhorn CSI controller sidecars.
+          resources:
+            type: dict
+            required: true
+            description:
+              - Resource envelopes for Longhorn Manager and system-managed CSI components.

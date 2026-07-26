@@ -11,6 +11,7 @@ metadata:
     home-lab.io/project-slug: applications
 spec:
   type: ClusterIP
+  trafficDistribution: PreferSameNode
   selector:
     app.kubernetes.io/name: firefly-iii-data-importer
     app.kubernetes.io/component: web

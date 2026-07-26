@@ -13,37 +13,66 @@ Kubernetes manifests for custom services.
 - `Radarr`: movie management.
 - `Shoko`: anime metadata and library management for Jellyfin/Shokofin.
 - `Jellyfin`: video, anime, and live TV media server.
-- `MeTube`: browser UI for yt-dlp downloads into Jellyfin's YouTube library.
 - `Seerr`: Jellyfin request portal. The Kubernetes release and internal Service
   name remain `jellyseerr` for compatibility, but the workload runs the official
   Seerr chart/image.
+- `Music Assistant`: authenticated YouTube Music account mirror, persistent
+  local cache, on-device audio-similarity radio, recommendations, PWA, and
+  playback.
 
 All app releases run in the `media` namespace, which is assigned to the Rancher
 `Entertainment` project.
 
 The completed media library is stored on the NAS NFS export
-`nas.home:/nfs/media`. The storage bundle binds that export to the
-`media/media-library-nas` PVC with a requested capacity of `1Ti`.
+`192.168.3.115:/nfs/media_new`. The storage bundle binds that export to the
+`media/media-library-nfs-csi` PVC through the upstream NFS CSI driver, with a
+requested capacity of `10Ti`. This is an advertised Kubernetes capacity rather
+than an NFS quota; the NAS controls the export's actual available space. The
+PV/PVC pair is statically bound with no StorageClass, so the driver mounts the
+existing export root and does not create a server-side subdirectory.
 
 Sonarr and Radarr mount the completed-media PVC at `/data`. Jellyfin mounts the
 same PVC at `/media`, while keeping its own application data under its
 chart-managed `/data` PVC.
 
+Music Assistant mounts the same completed-library PVC twice: the common
+`/library/music` tree is read-only at `/media`, while
+`/library/music/YouTube Music` is writable at `/library-cache/music/YouTube
+Music` for atomic background cache publication. Production allows three
+concurrent yt-dlp track downloads; each stages on the retained application PVC
+before its completed file is atomically copied to NFS. The provider catalog and
+queue live in PostgreSQL rather than on this claim.
+
+The retired music applications' app-owned Longhorn PVCs are deleted with their
+Fleet bundles. Their old shared-export directories—`music/Lidarr`,
+`music/Aurral`, and `downloads/slskd`—remain on the NAS. Those paths are
+operator-owned retained data and are not removed by Kubernetes retirement.
+
 The previous Longhorn `media-library` PVC and standalone Longhorn volume are no
 longer declared. Do not recreate `media-library`; the NAS-backed
-`media-library-nas` PVC is the completed-media library.
+`media-library-nfs-csi` PVC is the completed-media library.
 
 Downloads are intentionally separated from the completed Jellyfin library.
 The qBittorrent clients, Sonarr, Ryokan, and Radarr mount the
-`media-downloads` Longhorn PVC; Jellyfin does not mount it. The qBittorrent
+`media-downloads-nfs-csi` PVC backed by `192.168.3.115:/nfs/torrents`; Jellyfin
+does not mount it. The claim advertises exactly `3T` (decimal 3 TB), matching
+the downloads export ceiling; the NAS remains the quota enforcement boundary.
+The qBittorrent
 clients write incomplete and completed torrent payloads to `/downloads`, then
-Sonarr/Radarr import finished TV and movies into `/data/tv` or `/data/movies`.
+Sonarr imports finished TV into `/data/tv`. Radarr imports normal movies into
+`/data/movies` and anime movies into `/data/anime`.
 Ryokan mounts `/downloads` because qBittorrent reports anime torrent paths relative to that
 root, but it only processes torrents from the anime qBittorrent client using
 the `anime` category. Ryokan imports anime into `/media/anime`, which is the
-NAS anime subfolder. Shoko and Jellyfin both scan the NAS anime library
-read-only at `/media/anime`. This keeps Jellyfin from scanning partial
-downloads and preserves the completed-media PVC as the final library only.
+NAS anime subfolder and the same directory Radarr sees as `/data/anime` for
+anime movies. Shoko scans the NAS anime library read-only at `/media/anime`,
+and Jellyfin scans the same completed library path. This keeps Jellyfin from
+scanning partial downloads and preserves the completed-media PVC as the final
+library only.
+
+Use the
+[anime library relocation and Shoko recovery runbook](../../../../../docs/runbooks/storage/anime-library-relocation-and-shoko-recovery.md)
+when correcting anime that was previously imported below `movies` or `tv`.
 
 The qBittorrent clients stop torrents immediately after completion by using a
 zero ratio and zero seeding-time limit. Sonarr and Radarr have
@@ -54,16 +83,12 @@ qBittorrent client and uses move mode so completed anime lands in the
 NAS-backed `/media/anime` library and is removed from `/downloads` after
 import.
 
-The storage bundle's keeper pod prepares the shared download category
-directories (`/downloads/tv`, `/downloads/movies`, `/downloads/anime`,
-`/downloads/prowlarr`, and matching `/downloads/temp/*` paths) with the media
-apps' UID/GID so qBittorrent category paths and Sonarr/Radarr remote-path
-health checks stay aligned.
-
-The `media-downloads` PVC opts into Longhorn's `daily-filesystem-trim`
-RecurringJob. The system project's `longhorn-fstrim-labeler` bundle also labels
-all Longhorn PVCs and matching Longhorn volumes for the same job, allowing
-Longhorn to reclaim blocks freed by torrent imports and cleanup.
+The legacy Longhorn-backed `media-downloads` PVC and the former direct-NFS
+`media-library-nas`, `media-library-nas-v2`, and `media-downloads-nas` PV/PVC
+pairs were removed after Fleet reported both NFS CSI claims bound and every
+current media consumer was verified against them. The static direct-NFS PVs
+used `Retain`, so deleting their Kubernetes objects did not remove either NAS
+export or its data. No migration Job remains in desired state.
 
 The qBittorrent clients also auto-add the `ngosang/trackerslist`
 `trackers_all.txt` public tracker fallback list to new downloads. This can help
@@ -99,29 +124,20 @@ TrueCharts' default `amd64` node selector with:
 - `http://requests.media.home`
 - `http://sonarr.media.home`
 - `http://radarr.media.home`
-- `http://ryokan.media.home`
+- `https://music.media.home`
+- `http://requests.anime.media.home`
 - `http://anime.media.home`
-- `http://dispatcharr.media.home`
-- `http://invite.media.home`
-- `http://profilarr.media.home`
 - `http://prowlarr.media.home`
 - `https://qbittorrent.media.home`
-- `http://youtube.media.home`
 
-Legacy qBittorrent split-client hostnames remain as HTTP aliases to
-`qbittorrent.media.home` while dependent app settings are consolidated:
+qBittorrent exposes torrent TCP/UDP port `53181` through the fixed MetalLB
+Layer 2 VIP `192.168.3.16`.
 
-- `http://qbittorrent-movies.media.home`
-- `http://qbittorrent-anime.media.home`
-- `http://qbittorrent-prowlarr.media.home`
-
-qBittorrent exposes torrent TCP/UDP port `53181` through a Cilium LoadBalancer.
-
-The app-service pool starts at `192.168.3.16`, so the TV/default qBittorrent
-service is the expected first assigned IP when no other app LoadBalancer has
-consumed it. If WAN inbound torrent connectivity is needed, configure matching
-TCP/UDP gateway port forwards to the assigned qBittorrent LoadBalancer IP;
-Fleet only declares the in-cluster service and Cilium LoadBalancer. Under ISP
+The qBittorrent Service requests `192.168.3.16` explicitly from the
+`app-services` pool, so its gateway port-forward target does not depend on
+allocation order. If WAN inbound torrent connectivity is needed, configure
+matching TCP/UDP gateway port forwards to the assigned qBittorrent LoadBalancer
+IP; Fleet declares the in-cluster service and MetalLB allocation. Under ISP
 CGNAT, gateway forwarding does not make qBittorrent publicly connectable; the
 client still downloads over outbound peer connections, but low-health releases
 are more likely to stall.
@@ -134,12 +150,14 @@ instead of routing the whole media stack through a random free OpenVPN endpoint.
 
 The live public-indexer proxy is a Squid instance on the DigitalOcean Droplet
 `squid-proxy` at `157.230.236.164:3128`. Prowlarr has an HTTP indexer proxy
-named `DigitalOcean Squid` with the `do-proxy` tag. The Droplet stores the proxy
-credentials at `/root/prowlarr-squid-credentials.txt`. The DigitalOcean cloud
-firewall allows `3128/tcp` only from the current media namespace egress IP and is
-kept current by the `do-squid-firewall` CronJob. The Droplet-local UFW and Squid
-rules allow authenticated proxy traffic; the cloud firewall is the dynamic source
-IP allowlist.
+named `DigitalOcean Squid` with the `do-proxy` tag. Ryokan uses the same proxy
+through its SOPS-encrypted `HTTPS_PROXY` value because the home ISP resets
+direct Nyaa TLS connections. The Droplet stores the proxy credentials at
+`/root/prowlarr-squid-credentials.txt`. The DigitalOcean cloud firewall allows
+`3128/tcp` only from the current media namespace egress IP and is kept current
+by the `do-squid-firewall` CronJob. The Droplet-local UFW and Squid rules allow
+authenticated proxy traffic; the cloud firewall is the dynamic source IP
+allowlist.
 
 Cloudflare-protected public indexers are routed through the in-cluster
 FlareSolverr service at `http://flaresolverr.media.svc.cluster.local:8191`.
@@ -164,12 +182,10 @@ application PVC rather than in Git.
    `http://qbittorrent.media.svc.cluster.local:8080` with categories for `tv`,
    `movies`, `anime`, and `prowlarr`.
 2. qBittorrent is configured with category-specific save paths under
-   `/downloads`. Legacy service names for `qbittorrent-movies`,
-   `qbittorrent-anime`, and `qbittorrent-prowlarr` route to the same pod so
-   existing app settings keep working during consolidation. qBittorrent WebUI
-   auth is enforced for edge and in-cluster clients; keep automation
-   credentials in the `qbittorrent-cleanup` Kubernetes Secret and in the
-   dependent apps' own config stores.
+   `/downloads`. All dependent apps use the canonical `qbittorrent` Service;
+   qBittorrent WebUI auth is enforced for edge and in-cluster clients. Keep
+   automation credentials in the `qbittorrent-cleanup` Kubernetes Secret and
+   in the dependent apps' own config stores.
 3. Keep qBittorrent listening on fixed TCP/UDP port `53181` and configure a
    matching gateway port forward to the qBittorrent LoadBalancer IP when WAN
    inbound peer connectivity is needed.
@@ -269,38 +285,23 @@ application PVC rather than in Git.
     the Radarr-compatible Seerr entry must use URL Base `/radarr`.
     Shoko/Shokofin still owns anime metadata in Jellyfin after files are
     imported.
-17. In Profilarr, connect Radarr at
-    `http://radarr.media.svc.cluster.local:7878` and Sonarr at
-    `http://sonarr.media.svc.cluster.local:8989`. Use `Settings > Onboarding`
-    to link the Dictionarry v2 database and configure sync. Manage normal movie
-    and TV quality profiles, custom formats, delay profiles, media-management
-    naming, quality definitions, and miscellaneous media-management settings
-    through Profilarr instead of manually recreating guide profiles in each Arr
-    app.
+17. Manage the existing movie and TV quality profiles, custom formats, delay
+    profiles, naming, quality definitions, and media-management settings
+    directly in Radarr and Sonarr.
     Keep Radarr's built-in Propers/Repacks preference set to
-    `Do Not Prefer` so profile-managed Repack/Proper custom formats control
+    `Do Not Prefer` so Repack/Proper custom formats control
     that behavior. Add Radarr's `Emby / Jellyfin` notification connection to
     `jellyfin.media.svc.cluster.local:8096` with `Update Library` enabled,
     import/upgrade/rename/delete triggers enabled, and path mapping
     `/data -> /media` so Jellyfin refreshes imported movie paths immediately.
-18. In Radarr, use a separate anime movie profile instead of changing the normal
-    movie profile. Manage that profile through Profilarr/Dictionarry as well,
-    using the anime movie profile and custom formats that match the live stack's
-    scoring policy. Use this profile only for anime movies unless a second
+18. In Radarr, add `/data/anime` as the anime movie root and use the separate
+    anime movie profile and custom formats that match the live stack's scoring
+    policy. Use this root and profile only for anime movies unless a second
     anime-only Radarr instance is added later.
 19. In Shoko, complete first-run setup at `http://anime.media.home` and add
     `/media/anime` as the anime import folder. This mount is read-only in
     Kubernetes so Shoko can scan metadata without moving or rewriting files.
-20. In Dispatcharr, complete first-run setup at
-    `http://dispatcharr.media.home`, add the public India M3U playlist
-    `https://iptv-org.github.io/iptv/countries/in.m3u`, add the XMLTV guide
-    `https://iptv-epg.org/files/epg-in.xml`, and create the channels Jellyfin
-    should see. Jellyfin Live TV should point at Dispatcharr's filtered `EPG`
-    profile, where channels with zero XMLTV program rows or dead upstream
-    streams are disabled:
-    `http://dispatcharr.media.svc.cluster.local:9191/hdhr/EPG` and
-    `http://dispatcharr.media.svc.cluster.local:9191/output/epg/EPG`.
-21. In Jellyfin, add libraries:
+20. In Jellyfin, add libraries:
     - TV: `/media/tv` as a Shows/`tvshows` library.
     - Anime: `/media/anime` as a Shows/`tvshows` library, not Movies. Use
       Shokofin/Shoko metadata for this library instead of Sonarr local NFO
@@ -315,7 +316,7 @@ application PVC rather than in Git.
     Jellyfin should read local `Nfo` files first and should not write metadata
     back into the media library. Keep hardware transcoding disabled until the
     deployment has a supported GPU/VPU device mounted.
-22. In Seerr, connect Jellyfin at
+21. In Seerr, connect Jellyfin at
     `http://jellyfin.media.svc.cluster.local:8096`, Sonarr at
     `http://sonarr.media.svc.cluster.local:8989`, Ryokan's Sonarr API shim at
     `http://ryokan.media.svc.cluster.local:8978`, and Radarr at
@@ -334,6 +335,21 @@ application PVC rather than in Git.
     covering local media hosts, currently
     `*.cluster.local,*.svc.cluster.local,*.media.home,watch.media.home,localhost,127.0.0.1`,
     so Radarr, Sonarr, and Jellyfin stay direct instead of going through Squid.
+
+## Music Initial Wiring
+
+1. Open `https://music.media.home`, create the Music Assistant administrator,
+   enable the built-in Sendspin web player, and add `/media` as a local
+   filesystem music source when retained local media should be indexed.
+2. Confirm the Fleet-managed **YouTube Music** source loads. It reads the
+   browser cookie from `music-assistant-secrets`, stores it encrypted in Music
+   Assistant, mirrors the account snapshot into PostgreSQL, and caches audio
+   under `music/YouTube Music` without a PO-token service.
+3. Replace the SOPS value and increment Music Assistant's
+   `home-lab.io/ytmusic-cookie-revision` pod-template annotation when YouTube
+   expires the session.
+
+Only configure media sources and downloads that you have the right to access.
+
 qBittorrent uses its built-in WebUI authentication on both edge and in-cluster
-access. Profilarr is protected at the Traefik edge by the
-`media-edge-basic-auth` middleware.
+access.

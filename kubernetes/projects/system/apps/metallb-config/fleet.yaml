@@ -1,0 +1,11 @@
+---
+name: metallb-config
+defaultNamespace: metallb-system
+labels:
+  app.kubernetes.io/name: metallb-config
+  app.kubernetes.io/part-of: cluster-networking
+  home-lab.io/project-slug: system
+dependsOn:
+  - name: metallb-helmop
+helm:
+  takeOwnership: true

@@ -366,6 +366,20 @@
     rancher_fleet_agent_image: "{{ (rancher.fleet | default({})).agent_image | default({}) }}"
     rancher_fleet_imagescan: "{{ (rancher.fleet | default({})).imagescan | default({}) }}"
 
+- name: Assert Rancher HelmChart configures Fleet resource requirements
+  ansible.builtin.assert:
+    that:
+      - rancher_fleet_values.resources.fleetController == rancher.fleet.resources.fleet_controller
+      - rancher_fleet_values.resources.fleetCleanup == rancher.fleet.resources.fleet_cleanup
+      - rancher_fleet_values.resources.fleetAgentmanagement == rancher.fleet.resources.fleet_agentmanagement
+      - rancher_fleet_values.resources.gitjob == rancher.fleet.resources.gitjob
+      - rancher_fleet_values.resources.helmops == rancher.fleet.resources.helmops
+    fail_msg: Expected Rancher HelmChart Fleet resources to match inventory.
+    success_msg: "Rancher HelmChart Fleet resource requirements match inventory"
+  vars:
+    rancher_helm_values: "{{ rancher_values_content.stdout | from_yaml }}"
+    rancher_fleet_values: "{{ rancher_helm_values.fleet | from_yaml }}"
+
 - name: Read Fleet controller ImageScan enablement
   ansible.builtin.command:
     argv:

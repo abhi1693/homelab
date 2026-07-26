@@ -2,7 +2,7 @@
 apiVersion: batch/v1
 kind: Job
 metadata:
-  name: longhorn-fstrim-labeler-20260714
+  name: longhorn-fstrim-labeler-20260719
   namespace: longhorn-system
   labels:
     app.kubernetes.io/name: longhorn-fstrim-labeler
@@ -32,6 +32,13 @@ spec:
           command:
             - /bin/sh
             - /scripts/label-longhorn-fstrim-pvcs.sh
+          resources:
+            requests:
+              cpu: 10m
+              memory: 32Mi
+            limits:
+              cpu: 250m
+              memory: 128Mi
           volumeMounts:
             - name: labeler-script
               mountPath: /scripts

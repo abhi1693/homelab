@@ -7,4 +7,4 @@ It currently owns:
 
 - `harbor` -> `https://helm.goharbor.io`
 - `openbao` -> `https://openbao.github.io/openbao-helm`
-- `zitadel` -> `https://charts.zitadel.com`
+- `zitadel` -> `oci://ghcr.io/zitadel/zitadel-charts/zitadel`

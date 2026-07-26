@@ -47,10 +47,6 @@ spec:
             matchLabels:
               app.kubernetes.io/instance: qbittorrent
               app.kubernetes.io/name: qbittorrent
-        - podSelector:
-            matchLabels:
-              app.kubernetes.io/instance: qbittorrent-anime
-              app.kubernetes.io/name: qbittorrent
       ports:
         - protocol: TCP
           port: 8080

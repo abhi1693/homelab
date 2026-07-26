@@ -7,3 +7,14 @@ labels:
   home-lab.io/project-slug: system
 dependsOn:
   - name: system-helm-repositories
+  - name: csi-driver-nfs-helmop
+diff:
+  comparePatches:
+    - apiVersion: v1
+      kind: PersistentVolumeClaim
+      name: loki-data-nfs-migration
+      namespace: cattle-monitoring-system
+      jsonPointers:
+        - /spec/volumeName
+helm:
+  waitForJobs: true

@@ -1,0 +1,28 @@
+---
+loadBalancerClass: ""
+
+crds:
+  enabled: true
+
+# Layer 2 mode does not need an FRR or FRR-K8s dataplane.
+frrk8s:
+  enabled: false
+speaker:
+  frr:
+    enabled: false
+  priorityClassName: system-node-critical
+  resources:
+    requests:
+      cpu: 20m
+      memory: 64Mi
+    limits:
+      memory: 192Mi
+
+controller:
+  priorityClassName: system-cluster-critical
+  resources:
+    requests:
+      cpu: 20m
+      memory: 64Mi
+    limits:
+      memory: 192Mi

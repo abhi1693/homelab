@@ -15,4 +15,3 @@ Plugin Pages_2.4.9.0|https://github.com/IAmParadox27/jellyfin-plugin-pages/relea
 Shoko_6.0.5.11|https://github.com/ShokoAnime/Shokofin/releases/download/v6.0.5/shoko_6.0.5.0_for_10.11.zip|sha256:3e6fee32e82a480384c66af88d0869bcf68bed9a897ac7023f37aeafb4666bef
 TMDb Box Sets_13.0.0.0|https://repo.jellyfin.org/files/plugin/tmdb-box-sets/tmdb-box-sets_13.0.0.0.zip|sha256:713bfb0335150a0d68619fa850d2e6c4d95ea2fac5640f0f4b38ff00f99a86e3
 Trakt_29.0.0.0|https://repo.jellyfin.org/files/plugin/trakt/trakt_29.0.0.0.zip|sha256:1305da8e6aaea20631cdc5f2585164e85dc176d8d5d733dcba58520a1b9e9783
-YouTube Metadata_1.0.3.15|https://github.com/ankenyr/jellyfin-youtube-metadata-plugin/releases/download/v1.0.3.15/youtube-metadata_1.0.3.15.zip|sha256:3662f63b15449fc88cbe8aad18b586a3ddfe555b738878117a69e71a65a42f3d

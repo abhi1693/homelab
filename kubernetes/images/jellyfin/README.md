@@ -125,7 +125,6 @@ The baked plugin set currently includes:
 - Shoko `6.0.5.11`
 - TMDb Box Sets `13.0.0.0`
 - Trakt `29.0.0.0`
-- YouTube Metadata `1.0.3.15`
 
 ## Risk
 

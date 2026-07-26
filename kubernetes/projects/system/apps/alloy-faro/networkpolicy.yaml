@@ -85,13 +85,6 @@ spec:
               app.kubernetes.io/component: web
         - namespaceSelector:
             matchLabels:
-              kubernetes.io/metadata.name: indexly
-          podSelector:
-            matchLabels:
-              app.kubernetes.io/name: indexly
-              app.kubernetes.io/component: web
-        - namespaceSelector:
-            matchLabels:
               kubernetes.io/metadata.name: shipyardhq
           podSelector:
             matchLabels:
@@ -103,13 +96,6 @@ spec:
           podSelector:
             matchLabels:
               app.kubernetes.io/name: wardn-hub-frontend
-              app.kubernetes.io/component: frontend
-        - namespaceSelector:
-            matchLabels:
-              kubernetes.io/metadata.name: git-rank
-          podSelector:
-            matchLabels:
-              app.kubernetes.io/name: git-rank-frontend
               app.kubernetes.io/component: frontend
       ports:
         - protocol: TCP

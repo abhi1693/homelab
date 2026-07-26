@@ -9,7 +9,8 @@ make Fleet report the namespace as missing or not owned, and namespace deletion
 would delete every workload in that namespace. Treat Pod Security Admission
 label rollout as a one-namespace-at-a-time change.
 
-This runbook documents the safe pattern validated on the `git-rank` namespace.
+This runbook documents the repository pattern used by application namespaces
+such as `personal-blog`.
 
 ## Rules
 
@@ -44,10 +45,10 @@ Example `fleet.yaml`:
 
 ```yaml
 ---
-name: git-rank
-defaultNamespace: git-rank
+name: personal-blog
+defaultNamespace: personal-blog
 labels:
-  app.kubernetes.io/part-of: git-rank
+  app.kubernetes.io/part-of: personal-blog
   home-lab.io/project-slug: applications
 dependsOn:
   - name: rancher-project-applications
@@ -62,19 +63,19 @@ Example `namespace.yaml`:
 apiVersion: v1
 kind: Namespace
 metadata:
-  name: git-rank
+  name: personal-blog
   labels:
     app.kubernetes.io/managed-by: Helm
-    app.kubernetes.io/part-of: git-rank
+    app.kubernetes.io/part-of: personal-blog
     field.cattle.io/projectId: p-applications
-    kubernetes.io/metadata.name: git-rank
+    kubernetes.io/metadata.name: personal-blog
     pod-security.kubernetes.io/audit: restricted
     pod-security.kubernetes.io/warn: restricted
   annotations:
     field.cattle.io/projectId: local:p-applications
     helm.sh/resource-policy: keep
-    meta.helm.sh/release-name: git-rank
-    meta.helm.sh/release-namespace: git-rank
+    meta.helm.sh/release-name: personal-blog
+    meta.helm.sh/release-namespace: personal-blog
 ```
 
 For `meta.helm.sh/release-name` and `meta.helm.sh/release-namespace`, match the

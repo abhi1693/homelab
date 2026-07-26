@@ -107,3 +107,31 @@
       - kube_vip_readyz.stdout | trim == 'ok'
     fail_msg: "Expected K3s API /readyz endpoint to return ok through https://{{ k3s.registration_vip }}:6443"
     success_msg: "K3s API is reachable through the kube-vip endpoint"
+
+- name: Read kube-vip resource requirements
+  ansible.builtin.command:
+    argv:
+      - /usr/local/bin/k3s
+      - kubectl
+      - -n
+      - kube-system
+      - get
+      - daemonset
+      - kube-vip-ds
+      - -o
+      - jsonpath={.spec.template.spec.containers[0].resources.requests.cpu}{" "}{.spec.template.spec.containers[0].resources.requests.memory}{" "}{.spec.template.spec.containers[0].resources.limits.cpu}{" "}{.spec.template.spec.containers[0].resources.limits.memory}
+  register: kube_vip_resource_requirements
+  changed_when: false
+
+- name: Assert kube-vip resource requirements match inventory
+  ansible.builtin.assert:
+    that:
+      - kube_vip_resource_requirements.stdout.split() == kube_vip_expected_resources
+    fail_msg: Expected kube-vip resource requirements to match inventory.
+    success_msg: "kube-vip resource requirements match inventory"
+  vars:
+    kube_vip_expected_resources:
+      - "{{ kube_vip.resources.requests.cpu }}"
+      - "{{ kube_vip.resources.requests.memory }}"
+      - "{{ kube_vip.resources.limits.cpu }}"
+      - "{{ kube_vip.resources.limits.memory }}"

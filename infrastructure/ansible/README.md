@@ -22,12 +22,30 @@ components to reconcile itself. It is responsible for host-level and
 bootstrap-level work:
 
 - installing and configuring K3s;
+- installing shared Kubernetes-node packages such as the NFS client utilities;
 - writing K3s config files and registry mirror config;
+- rendering control-plane and kubelet feature gates for K3s-managed Kubernetes features;
+- enabling Cilium kube-proxy replacement behavior and managing cluster DNS add-ons;
 - enabling API audit logging and secrets encryption settings;
 - installing Cilium through the Cilium CLI;
 - creating K3s static manifests such as HelmChart and HelmChartConfig files;
-- configuring Longhorn, Rancher, cert-manager, kube-vip, and Fleet bootstrap;
+- configuring Longhorn with three replicas by default, plus Rancher,
+  cert-manager, kube-vip, and Fleet bootstrap;
 - validating the resulting state from outside the GitOps control plane.
+
+Bootstrap-managed Kubernetes components also carry production resource
+envelopes in the inventory and rendered chart values. Networking and storage
+datapaths keep CPU burstable while declaring CPU/memory requests and memory
+limits; finite controllers and init work receive CPU limits as well. The shared
+policy and Longhorn exceptions are documented in
+[`docs/runbooks/kubernetes-resource-policy.md`](../../docs/runbooks/kubernetes-resource-policy.md).
+Longhorn instance managers reserve 12 percent of each node's CPU, and each
+Rancher replica requests 200m CPU; both remain able to burst to their configured
+limits or the node's available capacity.
+The Longhorn role also reconciles existing volume replica counts to the
+inventory default, except for explicitly listed replicated-workload namespaces
+whose volumes use one storage replica. PostgreSQL and Valkey use this exception
+because each already maintains three application-level data copies.
 
 ## Execution Model
 

@@ -13,6 +13,7 @@ configurations:
   - kustomizeconfig.yaml
 resources:
   - namespace.yaml
+  - limitrange.yaml
   - secrets.sops.yaml
   - registry-secrets.sops.yaml
   - db-performance-grafana-dashboard.yaml

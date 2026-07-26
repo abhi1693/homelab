@@ -2,8 +2,10 @@
 apiVersion: v1
 kind: PersistentVolumeClaim
 metadata:
-  name: jellyfin-shared-data
+  name: jellyfin-shared-data-nfs
   namespace: media
+  annotations:
+    helm.sh/resource-policy: keep
   labels:
     app.kubernetes.io/name: jellyfin
     app.kubernetes.io/part-of: media-stack
@@ -11,7 +13,8 @@ metadata:
 spec:
   accessModes:
     - ReadWriteMany
-  storageClassName: longhorn
+  storageClassName: nfs-shared-retain
+  volumeName: pvc-33288887-1bce-4adb-8d11-06ca7224e523
   resources:
     requests:
       storage: 20Gi

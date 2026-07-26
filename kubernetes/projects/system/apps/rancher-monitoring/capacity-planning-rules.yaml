@@ -48,41 +48,33 @@ spec:
         - record: home_lab:pod_cpu_requests_cores:scheduler
           expr: |-
             (
-              home_lab:pod_cpu_container_requests_cores:sum
-              unless on(namespace, pod, uid, node)
-              (
-                home_lab:pod_cpu_init_requests_cores:max
-                > on(namespace, pod, uid, node)
-                home_lab:pod_cpu_container_requests_cores:sum
-              )
-            )
-            or
-            (
               home_lab:pod_cpu_init_requests_cores:max
               > on(namespace, pod, uid, node)
               home_lab:pod_cpu_container_requests_cores:sum
             )
+            or on(namespace, pod, uid, node)
+            home_lab:pod_cpu_container_requests_cores:sum
+            or on(namespace, pod, uid, node)
+            home_lab:pod_cpu_init_requests_cores:max
         - record: home_lab:pod_memory_requests_bytes:scheduler
           expr: |-
-            (
-              home_lab:pod_memory_container_requests_bytes:sum
-              unless on(namespace, pod, uid, node)
-              (
-                home_lab:pod_memory_init_requests_bytes:max
-                > on(namespace, pod, uid, node)
-                home_lab:pod_memory_container_requests_bytes:sum
-              )
-            )
-            or
             (
               home_lab:pod_memory_init_requests_bytes:max
               > on(namespace, pod, uid, node)
               home_lab:pod_memory_container_requests_bytes:sum
             )
-        - record: home_lab:cluster_cpu_effective_requests_cores:sum
-          expr: sum(home_lab:pod_cpu_requests_cores:scheduler)
-        - record: home_lab:cluster_memory_effective_requests_bytes:sum
-          expr: sum(home_lab:pod_memory_requests_bytes:scheduler)
+            or on(namespace, pod, uid, node)
+            home_lab:pod_memory_container_requests_bytes:sum
+            or on(namespace, pod, uid, node)
+            home_lab:pod_memory_init_requests_bytes:max
+        - record: home_lab:cluster_cpu_scheduled_requests_cores:sum
+          expr: sum(home_lab:pod_cpu_requests_cores:scheduler{node!=""}) or vector(0)
+        - record: home_lab:cluster_memory_scheduled_requests_bytes:sum
+          expr: sum(home_lab:pod_memory_requests_bytes:scheduler{node!=""}) or vector(0)
+        - record: home_lab:cluster_cpu_pending_demand_cores:sum
+          expr: sum(home_lab:pod_cpu_requests_cores:scheduler{node=""}) or vector(0)
+        - record: home_lab:cluster_memory_pending_demand_bytes:sum
+          expr: sum(home_lab:pod_memory_requests_bytes:scheduler{node=""}) or vector(0)
         - record: home_lab:cluster_cpu_limits_cores:sum
           expr: |-
             sum(
@@ -105,9 +97,9 @@ spec:
           expr: max by (node) (kube_node_status_allocatable{resource="cpu",unit="core"})
         - record: home_lab:node_memory_allocatable_bytes
           expr: max by (node) (kube_node_status_allocatable{resource="memory",unit="byte"})
-        - record: home_lab:node_cpu_effective_requests_cores:sum
+        - record: home_lab:node_cpu_scheduled_requests_cores:sum
           expr: sum by (node) (home_lab:pod_cpu_requests_cores:scheduler{node!=""})
-        - record: home_lab:node_memory_effective_requests_bytes:sum
+        - record: home_lab:node_memory_scheduled_requests_bytes:sum
           expr: sum by (node) (home_lab:pod_memory_requests_bytes:scheduler{node!=""})
         - record: home_lab:node_cpu_usage_cores:rate5m
           expr: |-
@@ -123,15 +115,19 @@ spec:
               * on(instance) group_left(node)
               label_replace(max by (node, internal_ip) (kube_node_info), "instance", "$1:10250", "internal_ip", "(.*)")
             )
-        - record: home_lab:namespace_cpu_effective_requests_cores:sum
-          expr: sum by (namespace) (home_lab:pod_cpu_requests_cores:scheduler)
-        - record: home_lab:namespace_memory_effective_requests_bytes:sum
-          expr: sum by (namespace) (home_lab:pod_memory_requests_bytes:scheduler)
+        - record: home_lab:namespace_cpu_scheduled_requests_cores:sum
+          expr: sum by (namespace) (home_lab:pod_cpu_requests_cores:scheduler{node!=""})
+        - record: home_lab:namespace_memory_scheduled_requests_bytes:sum
+          expr: sum by (namespace) (home_lab:pod_memory_requests_bytes:scheduler{node!=""})
+        - record: home_lab:namespace_cpu_pending_demand_cores:sum
+          expr: sum by (namespace) (home_lab:pod_cpu_requests_cores:scheduler{node=""})
+        - record: home_lab:namespace_memory_pending_demand_bytes:sum
+          expr: sum by (namespace) (home_lab:pod_memory_requests_bytes:scheduler{node=""})
         - record: home_lab:namespace_cpu_usage_cores:rate5m
           expr: sum by (namespace) (rate(container_cpu_usage_seconds_total{container!="",image!="",pod!=""}[5m]))
         - record: home_lab:namespace_memory_working_set_bytes:sum
           expr: sum by (namespace) (container_memory_working_set_bytes{container!="",image!="",pod!=""})
-        - record: home_lab:node_namespace_cpu_effective_requests_cores:sum
+        - record: home_lab:node_namespace_cpu_scheduled_requests_cores:sum
           expr: sum by (node, namespace) (home_lab:pod_cpu_requests_cores:scheduler{node!=""})
-        - record: home_lab:node_namespace_memory_effective_requests_bytes:sum
+        - record: home_lab:node_namespace_memory_scheduled_requests_bytes:sum
           expr: sum by (node, namespace) (home_lab:pod_memory_requests_bytes:scheduler{node!=""})

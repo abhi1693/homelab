@@ -23,4 +23,6 @@ the importer UI to connect it.
 
 Importer JSON configuration files are persisted under
 `/var/www/html/storage/configurations` on the
-`firefly-iii-data-importer-config` Longhorn PVC. The claim starts at `256Mi`.
+`firefly-iii-data-importer-config-nfs` PVC. NFS CSI provisions its retained NAS
+directory below `finance/firefly-iii-data-importer-config-nfs`; the claim
+advertises `256Mi` while the NAS controls actual capacity.
