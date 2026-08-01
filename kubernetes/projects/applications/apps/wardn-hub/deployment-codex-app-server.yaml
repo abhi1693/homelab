@@ -50,7 +50,7 @@ spec:
       containers:
         - name: codex-app-server
           # renovate: datasource=docker depName=ghcr.io/abhi1693/wardn-hub-codex-app-server
-          image: registry.home/ghcr.io/abhi1693/wardn-hub-codex-app-server:0.2.148
+          image: registry.home/ghcr.io/abhi1693/wardn-hub-codex-app-server:0.2.171
           imagePullPolicy: IfNotPresent
           command:
             - /usr/local/bin/codex-app-server-wrapper

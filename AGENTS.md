@@ -6,6 +6,14 @@ For every substantive task in this repo, search Wardn Hub for applicable skills
 using the `find-skills` skill before proceeding. If an applicable Wardn Hub skill
 is found, use it according to the `find-skills` workflow.
 
+When specialized work needs domain-specific tools or context, use the Wardn MCP
+server or Wardn Hub MCP registry before falling back to generic research or
+hand-rolled analysis. Examples include SEO, marketing, Kubernetes
+troubleshooting, observability, security, and other niche operational workflows.
+Keep all repo, security, and cluster mutation policies in this file in force;
+prefer read-only MCP tools unless the user explicitly authorizes a mutating
+operation.
+
 If `find-skills` is not installed, install it first:
 
 ```sh

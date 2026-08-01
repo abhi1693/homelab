@@ -61,7 +61,7 @@ spec:
       containers:
         - name: imgproxy
           # renovate: datasource=github-releases depName=imgproxy/imgproxy
-          image: registry.home/ghcr.io/imgproxy/imgproxy:v4.0.11
+          image: registry.home/ghcr.io/imgproxy/imgproxy:v4.0.12
           imagePullPolicy: IfNotPresent
           envFrom:
             - configMapRef:

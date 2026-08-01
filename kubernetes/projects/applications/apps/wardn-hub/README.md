@@ -12,6 +12,10 @@ releases generate new pod templates.
 The frontend is exposed through the Cloudflare tunnel ingress at
 `https://hub.wardnai.dev`. Browser API calls use the frontend's same-origin
 Next.js rewrite to reach `wardn-hub-api` inside the cluster.
+Public registry pages keep their one-hour Next.js cache enabled. The frontend
+also exposes the protected `/api/revalidate/registry` route for on-demand
+registry cache invalidation; authenticate that route with the
+`WARDN_HUB_REVALIDATE_TOKEN` value from the `wardn-hub` Secret.
 
 Authentication is configured for Zitadel through OpenID Connect:
 
@@ -30,11 +34,13 @@ The worker runs the application-owned `events`, `submission-review`,
 `submission-repair`, `mcp-registry-sync`, `skill-maintenance`, and
 `skill-import` job lanes.
 Each lane holds a session-level PostgreSQL advisory lock for its lifetime.
-Running more than one worker replica is safe: only one replica owns a given lane
-at a time, and PostgreSQL releases the lock automatically if its worker exits or
-loses the connection. Review and repair remain DB-driven, execute one
-submission per child process, and use Codex app-server without exposing webhook
-endpoints.
+Production declares one worker replica, and the recommendation profile caps the
+worker at one replica. Running more than one worker replica remains safe if the
+manifest and profile bounds are intentionally raised: only one replica owns a
+given lane at a time, and PostgreSQL releases the lock automatically if its
+worker exits or loses the connection. Review and repair remain DB-driven,
+execute one submission per child process, and use Codex app-server without
+exposing webhook endpoints.
 
 Skill security auditing is enabled through `WARDN_HUB_SKILL_AUDIT_ENABLED`.
 GitHub imports and refreshes immediately drain the pending-audit queue after

@@ -4,6 +4,13 @@ defaultNamespace: wardn
 labels:
   app.kubernetes.io/part-of: wardn-ai
   home-lab.io/project-slug: applications
+correctDrift:
+  enabled: false
+targetCustomizations:
+  - name: local-disable-drift
+    clusterName: local
+    correctDrift:
+      enabled: false
 dependsOn:
   - name: rancher-project-applications
   - name: postgresql

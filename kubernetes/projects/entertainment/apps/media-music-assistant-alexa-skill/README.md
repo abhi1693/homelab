@@ -3,11 +3,12 @@
 This companion bundle supplies the service that Music Assistant's Alexa player
 provider expects on port `5000`. The player provider can discover Echo devices
 through the Amazon account without this service, but queue transfer and direct
-play require the separate Alexa Skill Prototype API and an Alexa custom skill.
+play require the separate Alexa Skill Prototype API. Playback uses the Custom
+Skill model and is limited to one Alexa device per command.
 
 ## Runtime Shape
 
-- Image: `ghcr.io/alams154/music-assistant-skill:0.0.39-beta`
+- Image: `ghcr.io/abhi1693/music-assistant-skill:0.0.46-beta`
 - Internal API:
   `http://music-assistant-alexa-skill.media.svc.cluster.local:5000`
 - Public skill and setup endpoint:
@@ -23,10 +24,20 @@ Assistant's port `8097`; screenless Echo devices must be able to fetch that
 HTTPS URL. Cloudflare Tunnel creates both DNS records and origin routes from the
 two `cloudflare-tunnel` Ingress objects.
 
-The skill image is a third-party beta prototype, not part of the Music
-Assistant server. Keep it pinned to an immutable digest and re-test playback
-before upgrades.
+The skill remains a beta prototype outside the Music Assistant server, but its
+deployed source is now maintained in the
+`abhi1693/music-assistant-alexa-skill-prototype` fork. Keep it pinned to an
+immutable ARM64 digest and re-test playback before upgrades.
 
+The fork assigns an opaque command ID to every pushed Music Assistant stream.
+An Alexa invocation claims one pending command, and its `AudioPlayer` callbacks
+update that exact command to started, stopped, finished, or failed. Music
+Assistant waits for the started acknowledgement instead of showing playback
+immediately after sending an Alexa text command. The skill does not re-enqueue
+transient flow URLs after `PlaybackNearlyFinished`; those URLs can expire while
+Music Assistant tears down the previous queue and previously produced a stale
+`404` restart loop. The source repository covers command claiming, event
+correlation, queue tokens, and idle status handling with regression tests.
 ## Persistent State
 
 ASK CLI authorization is stored under `/data/.ask` on the retained PVC. Pod
@@ -90,15 +101,25 @@ Music Assistant's core webserver base URL is also pinned to
 `https://music.media.home`, so the provider's Amazon authentication proxy opens
 under the HTTPS ingress instead of the direct `192.168.3.135:8095` listener.
 Amazon's account inventory includes offline devices, so discovery alone is not
-a liveness signal. The generated provider overlay initializes each player from
-Amazon's `online` flag and polls the shared device inventory at most once every
-15 seconds across all Echo players. This bounds online recovery to the next
-short poll without making one request per device. A device that goes offline is
+a liveness signal. Players use the stable Amazon serial as their internal ID
+while retaining the account name as their display name. The generated provider
+overlay skips group-like Amazon inventory entries so Music Assistant only
+exposes physical Alexa devices for playback.
+
+The provider polls the shared device inventory at most once every 15 seconds
+across all Echo players. This bounds online recovery to the next short poll
+without making one request per device. A physical device that goes offline is
 marked unavailable and idle; an inventory request failure retains the last
 confirmed state instead of declaring every player offline. Each coalesced
 refresh also reads Amazon's account-wide volume snapshot. Reported Echo volumes
 initialize and update the Music Assistant slider, while a missing volume entry
 or failed volume request retains the last confirmed value.
+The bridge rejects metadata updates that reference a command lost during a
+bridge restart. This prevents a still-running Music Assistant process from
+recreating an untargeted pending command whose old flow URL can later be
+claimed by the wrong Echo invocation. An idle Resume action is rejected inside
+Music Assistant without contacting Amazon, and a valid Resume waits for a new
+correlated playback-started callback before the player returns to `PLAYING`.
 The pinned provider release accepts Amazon login POSTs only below
 `/ap/signin/*` and GETs only the proxy root, but Amazon's current challenge
 flow uses both methods below `/ap/cvf`, `/ap/register`, `/ap/forgotpassword`,
@@ -124,19 +145,22 @@ Amazon gates:
   **Skill testing is enabled in: Development**. If Amazon returns `403`, first
   enable **Skill Access Management** for that developer account and confirm the
   same Amazon identity owns the development skill and the Echo household.
-- `/ma/latest-url` is idle until Music Assistant successfully discovers an
-  Echo player and starts the first direct playback. The player provider then
-  pushes its transient stream URL to this API.
+- `/ma/latest-url` is idle until Music Assistant creates the first correlated
+  playback command. `/ma/playback-status/<commandId>` distinguishes pending,
+  claimed, started, stopped, finished, and failed commands.
 - `/alexa/latest-url`, empty APL metadata, and `No recent invocations` remain
   idle until the enabled Alexa skill is invoked. They do not indicate that the
-  Flask service or ingress is down. A startup-generated status overlay renders
-  these expected `404` responses as yellow idle states while preserving red
-  status for unexpected API errors.
+  Flask service or ingress is down. The fork renders these expected `404`
+  responses as yellow idle states while preserving red status for unexpected
+  API errors.
 
 After development testing is enabled, authenticate the Music Assistant Alexa
 provider again. The `en-IN` deployment uses `amazon.in`; a successful login
 creates a retained cookie under `/data/.alexa`, discovers the Echo players, and
 allows the first direct-play request to populate both sides of the status page.
+
+A timeout on any Alexa command is explicitly written back as failed before
+Music Assistant clears its local state.
 
 ## Network Boundary
 
@@ -154,4 +178,5 @@ must be public for screenless Echo playback.
 Official and upstream references:
 
 - <https://www.music-assistant.io/player-support/alexa/>
+- <https://github.com/abhi1693/music-assistant-alexa-skill-prototype>
 - <https://github.com/alams154/music-assistant-alexa-skill-prototype>

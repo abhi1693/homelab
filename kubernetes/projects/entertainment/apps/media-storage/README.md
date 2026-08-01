@@ -262,11 +262,17 @@ application PVC rather than in Git.
 15. In Sonarr, keep one qBittorrent download client using the `tv` category and
     `http://qbittorrent.media.svc.cluster.local:8080`.
     Sonarr owns normal TV only, with `/data/tv` as its only root folder and
-    `[TV] WEB-1080p` as the active request profile. Keep the local quality
-    policy for the active Sonarr/Radarr request profiles set so 2160p WEB and
-    `Bluray-2160p` are allowed with a `Bluray-2160p` cutoff, while
-    `HDTV-2160p` and 2160p Remux stay disabled. Add Sonarr's `Emby / Jellyfin`
-    notification connection to
+    `[TV] WEB-1080p` as the active request profile. Cap the active automatic
+    Sonarr and Radarr request profiles at 1080p and use `Bluray-1080p` as their
+    cutoff so lower-quality files can still upgrade without automatically
+    replacing 1080p media with 2160p copies. Keep separate 2160p/UHD profiles
+    unassigned from the default Seerr mappings and select one only for an
+    explicit manual request. When cleaning pre-policy queue entries, remove and
+    blocklist a torrent with its download data only when every item in that
+    torrent already has a library file and progress is at most 30 percent.
+    Preserve mixed or missing-item torrents and pure upgrades above 30 percent
+    so useful downloads and already-spent bandwidth are not discarded. Add
+    Sonarr's `Emby / Jellyfin` notification connection to
     `jellyfin.media.svc.cluster.local:8096` with `Update Library` enabled,
     import/upgrade/rename/delete triggers enabled, and path mapping
     `/data -> /media` so Jellyfin refreshes the imported TV paths immediately.
@@ -284,7 +290,9 @@ application PVC rather than in Git.
     `SONARR_ANIME_API_KEY` and Radarr API compatibility with `RADARR_API_KEY`;
     the Radarr-compatible Seerr entry must use URL Base `/radarr`.
     Shoko/Shokofin still owns anime metadata in Jellyfin after files are
-    imported.
+    imported. Keep Ryokan's preferred and cutoff resolution at 1080p so its
+    scheduled upgrade search can improve source quality without crossing the
+    automatic resolution ceiling.
 17. Manage the existing movie and TV quality profiles, custom formats, delay
     profiles, naming, quality definitions, and media-management settings
     directly in Radarr and Sonarr.

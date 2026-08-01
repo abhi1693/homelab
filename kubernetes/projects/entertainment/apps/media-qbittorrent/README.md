@@ -131,11 +131,13 @@ more than the listener port.
 
 `qbittorrent-smart-queues` polls the UDM at `https://192.168.3.1` for current
 combined primary-WAN download and upload usage and treats `2.5 TB` as the hard
-monthly qBittorrent guardrail. It also derives a daily guardrail by dividing the
-monthly guardrail by the number of days in the current month. While usage is
-under both guardrails, it sets a conservative qBittorrent download limit from
-the tighter of the remaining monthly budget and the remaining daily budget.
-There is no client-activity based bypass.
+monthly qBittorrent guardrail. The billing cycle starts on the 17th in the
+gateway's reporting timezone and runs through the 16th inclusive. It also
+derives a daily guardrail by dividing the monthly guardrail by the number of
+days in the current billing cycle. While usage is under both guardrails, it sets
+a conservative qBittorrent download limit from the tighter of the remaining
+monthly budget and the remaining daily budget. There is no client-activity
+based bypass.
 
 UniFi usage periods follow the reporting timezone discovered from the gateway,
 currently `Asia/Kolkata`, rather than UTC. Completed local days come from daily
@@ -171,18 +173,24 @@ selection resumes only after both active-WAN state and combined usage accounting
 are available again.
 
 `qbittorrent-smart-queues` runs as a single-replica Deployment in continuous
-mode, polling every 30 seconds after each pass. It keeps or resumes up to three
-active download workers per qBittorrent category, capped by the effective
-download limit divided by the productive minimum rate so a low quota cap cannot
-start more workers than it can feed. Stalled torrents that are
-already listening for peers are allowed to remain active above those category
-worker limits at all times, so a returning seeder can move them immediately
-without blocking replacement workers. The deployed selector uses the balanced
-strategy, so priority requests still win first, then torrent health, progress,
-remaining size, ETA, current seeds, and availability are evaluated before media
-queue focus. This keeps a slow or seedless queue item from replacing a torrent
-that is currently making useful progress. A productive active torrent can be
-preempted only when a stopped candidate's balanced score is materially better.
+mode, polling every 30 seconds after each pass. It keeps or resumes up to five
+useful active download workers total across qBittorrent categories. The
+per-category ceiling is also five, so the aggregate cap governs when multiple
+categories have candidates. The effective download limit divided by the
+productive minimum rate can lower that total when a low quota cap cannot feed
+all five workers. The global upload ceiling is independently configurable through
+`QBT_SINGLE_DOWNLOAD_UPLOAD_LIMIT_BYTES_PER_SEC`; production limits it to
+5 kbps (625 bytes per second). Storage-constrained recovery remains limited to
+five workers.
+Stalled torrents that are already listening for peers are allowed to remain
+active above the useful worker limit at all times, so a returning seeder can
+move them immediately without blocking replacement workers. The deployed
+selector uses the balanced strategy, so priority requests still win first, then
+torrent health, progress, remaining size, ETA, current seeds, and availability
+are evaluated before media queue focus. This keeps a slow or seedless queue item
+from replacing a torrent that is currently making useful progress. A
+productive active torrent can be preempted only when a stopped candidate's
+balanced score is materially better.
 When `SONARR_API_KEY` is present from `media-jellyfin-arr-api-keys`, Sonarr
 queue position and episode metadata determine the focused series and next
 episode; otherwise the guard falls back to parsed torrent names. This keeps

@@ -33,8 +33,6 @@ spec:
       nodeSelector:
         kubernetes.io/arch: arm64
       securityContext:
-        fsGroup: 1000
-        fsGroupChangePolicy: OnRootMismatch
         seccompProfile:
           type: RuntimeDefault
       affinity:
@@ -57,8 +55,7 @@ spec:
               app.kubernetes.io/component: frontend
       containers:
         - name: frontend
-          # renovate: datasource=github-releases depName=abhi1693/wardn-ai
-          image: registry.home/ghcr.io/abhi1693/wardn-ai-frontend:0.0.9
+          image: registry.home/ghcr.io/abhi1693/wardn-ai-frontend:0.0.29
           imagePullPolicy: IfNotPresent
           envFrom:
             - configMapRef:
@@ -70,7 +67,7 @@ spec:
           resources:
             requests:
               cpu: 30m
-              memory: 135Mi
+              memory: 265Mi
             limits:
               memory: 448Mi
           startupProbe:

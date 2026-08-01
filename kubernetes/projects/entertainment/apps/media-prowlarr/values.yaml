@@ -22,8 +22,8 @@ podOptions:
     kubernetes.io/arch: arm64
 resources:
   requests:
-    cpu: 140m
-    memory: 395Mi
+    cpu: 100m
+    memory: 346Mi
   limits:
     memory: 544Mi
 ingress:

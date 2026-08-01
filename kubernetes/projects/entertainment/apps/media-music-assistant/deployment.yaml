@@ -19,7 +19,7 @@ spec:
   template:
     metadata:
       annotations:
-        home-lab.io/ytmusic-catalog-revision: "2026-07-26-7"
+        home-lab.io/ytmusic-catalog-revision: "2026-07-28-1"
         home-lab.io/hf-token-revision: "2026-07-25-2"
         home-lab.io/ytmusic-cookie-revision: "2026-07-25-1"
       labels:
@@ -132,16 +132,16 @@ spec:
               import urllib.request
               from pathlib import Path
 
-              revision = "2b9335b80a4abadb046ab936019c6ca5905dda4c"
+              revision = "fcd8f6aae01d66fe5e8671f2ea50f1d58eb3ab77"
               expected_hashes = {
                   "__init__.py": (
-                      "406cd4feae6addea595bd24009ad278863bf32bf6f6379b13ed17ac12a2f8143"
+                      "7c234bc3879191d43c8d3396ed6d2f13905f592bb5ebd93890ec7630d0d88646"
                   ),
                   "catalog.py": (
                       "2b9982e1faae6668841d8da7a7122eecb9ac702493d5aff208d8e63e47a84929"
                   ),
                   "manifest.json": (
-                      "50027c3a0ebfd75ca86fadde58cbee5c1ab579d14d8dbd1acc07ba8e9a172481"
+                      "92f43eb07ea0bec8c5c05a4f0b3ccf3acbd56bc6503ba84cfc3aa99793fb2ef4"
                   ),
               }
               provider_dir = Path(os.environ["YTMUSIC_PROVIDER_DIR"])
@@ -356,6 +356,13 @@ spec:
               """: """from alexapy import AlexaAPI, AlexaLogin, AlexaProxy
               from alexapy.helpers import get_json_value
               """,
+                  """    PlaybackState,
+                  PlayerFeature,
+                  ProviderFeature,
+              """: """    PlaybackState,
+                  PlayerFeature,
+                  ProviderFeature,
+              """,
                   """class AlexaDevice:
                   \"\"\"Representation of an Alexa Device.\"\"\"
 
@@ -372,8 +379,24 @@ spec:
                   _device_family: str
                   _cluster_members: str
                   _locale: str
+                  _name: str
                   _online: bool
                   _volume_level: int | None
+              """,
+                  """        self._attr_supported_features = {
+                          PlayerFeature.PLAY_MEDIA,
+                          PlayerFeature.VOLUME_SET,
+                          PlayerFeature.PAUSE,
+                      }
+                      self._attr_name = player_id
+                      self._attr_device_info = DeviceInfo()
+              """: """        self._attr_supported_features = {
+                          PlayerFeature.PLAY_MEDIA,
+                          PlayerFeature.VOLUME_SET,
+                          PlayerFeature.PAUSE,
+                      }
+                      self._attr_name = device._name
+                      self._attr_device_info = DeviceInfo()
               """,
                   """        self._attr_device_info = DeviceInfo()
                       self._attr_powered = False
@@ -412,6 +435,7 @@ spec:
                           self._attr_elapsed_time = 0
                           self._attr_elapsed_time_last_updated = None
                           self._last_stream_url = None
+                          self._last_command_id = None
                           self._last_meta_checksum = None
                       self.update_state()
                       return True
@@ -440,6 +464,7 @@ spec:
                       self._intents: list[dict[str, Any]] | None = None
                       self._invocation_name: str | None = None
                       self._availability_lock = asyncio.Lock()
+                      self._playback_command_lock = asyncio.Lock()
                       self._availability_last_refresh = 0.0
               """,
                   """        if devices is None:
@@ -450,18 +475,39 @@ spec:
                           return
                       volumes = await self._get_device_volumes()
                       self._availability_last_refresh = self.mass.loop.time()
+                      online_by_serial = {
+                          str(device["serialNumber"]): bool(
+                              device.get("online", False)
+                          )
+                          for device in devices
+                          if device.get("serialNumber")
+                      }
 
                       alexa_locale = str(self.config.get_value(CONF_ALEXA_LANGUAGE, "en-US"))
+              """,
+                  """                dev_name = device["accountName"]
+                              player_id = dev_name
+              """: """                dev_name = str(device["accountName"])
+                              player_id = str(device["serialNumber"])
+              """,
+                  """                device_object._device_family = device["deviceOwnerCustomerId"]
+              """: """                device_object._device_family = str(
+                                  device.get("deviceFamily", "")
+                              )
               """,
                   """                device_object._cluster_members = device["clusterMembers"]
                               device_object._locale = alexa_locale
                               self.devices[player_id] = device_object
-              """: """                device_object._cluster_members = device["clusterMembers"]
+              """: """                if device_object._device_family == "WHA":
+                                  continue
+                              device_object._cluster_members = device["clusterMembers"]
                               device_object._locale = alexa_locale
-                              device_object._online = bool(device.get("online", False))
-                              device_object._volume_level = volumes.get(
-                                  device["serialNumber"]
+                              device_object._name = dev_name
+                              device_object._online = online_by_serial.get(
+                                  player_id,
+                                  False,
                               )
+                              device_object._volume_level = volumes.get(player_id)
                               self.devices[player_id] = device_object
               """,
                   """        await self._load_intents()
@@ -513,17 +559,22 @@ spec:
                           if devices is None:
                               return
                           volumes = await self._get_device_volumes()
-                          online_by_player_id = {
-                              str(device["accountName"]): bool(
+                          online_by_serial = {
+                              str(device["serialNumber"]): bool(
                                   device.get("online", False)
                               )
                               for device in devices
-                              if device.get("accountName")
+                              if device.get("serialNumber")
                           }
                           for player_id, device in self.devices.items():
-                              is_online = online_by_player_id.get(
-                                  player_id,
+                              if device._device_family == "WHA":
+                                  continue
+                              is_online = online_by_serial.get(
+                                  device.device_serial_number,
                                   False,
+                              )
+                              volume_level = volumes.get(
+                                  device.device_serial_number
                               )
                               device._online = is_online
                               player = self.mass.players.get_player(player_id)
@@ -535,9 +586,7 @@ spec:
                                       player_id,
                                       "online" if is_online else "offline",
                                   )
-                              player.set_volume_level(
-                                  volumes.get(device.device_serial_number)
-                              )
+                              player.set_volume_level(volume_level)
 
                   @lock
                   async def _load_intents(self) -> None:
@@ -548,6 +597,304 @@ spec:
                   if source.count(original) != 1:
                       raise RuntimeError(
                           "Alexa provider liveness hooks changed; review the overlay"
+                      )
+                  source = source.replace(original, replacement)
+
+              playback_replacements = {
+                  """    async def play(self) -> None:
+                      \"\"\"Handle PLAY command on the player.\"\"\"
+                      provider = cast("AlexaProvider", self.provider)
+
+                      utter = await provider.get_intent_utterance("AMAZON.ResumeIntent", "resume")
+                      await self.api.run_custom(utter)
+
+                      self._attr_playback_state = PlaybackState.PLAYING
+                      self.update_state()
+              """: """    async def play(self) -> None:
+                      \"\"\"Resume only a correlated Alexa stream.\"\"\"
+                      provider = cast("AlexaProvider", self.provider)
+                      if (
+                          self._last_stream_url is None
+                          or self._last_command_id is None
+                      ):
+                          self._attr_playback_state = PlaybackState.IDLE
+                          self._attr_current_media = None
+                          self.update_state()
+                          raise ActionUnavailable(
+                              "Alexa has no active stream to resume"
+                          )
+
+                      command_id = self._last_command_id
+                      try:
+                          await api_request(
+                              self.provider,
+                              "/ma/playback-event",
+                              method="POST",
+                              json_data={
+                                  "commandId": command_id,
+                                  "eventType": (
+                                      "MusicAssistant.ResumeRequested"
+                                  ),
+                              },
+                              timeout=5,
+                          )
+                      except ActionUnavailable as err:
+                          if "Status code: 404" in str(err):
+                              self._last_stream_url = None
+                              self._last_command_id = None
+                              self._last_meta_checksum = None
+                              self._attr_playback_state = PlaybackState.IDLE
+                              self._attr_current_media = None
+                              self.update_state()
+                          raise
+
+                      utter = await provider.get_intent_utterance(
+                          "AMAZON.ResumeIntent",
+                          "resume",
+                      )
+                      try:
+                          await self.api.run_custom(utter)
+                          await self._wait_for_playback_started(command_id)
+                      except ActionUnavailable as err:
+                          try:
+                              await api_request(
+                                  self.provider,
+                                  "/ma/playback-event",
+                                  method="POST",
+                                  json_data={
+                                      "commandId": command_id,
+                                      "eventType": (
+                                          "MusicAssistant.ResumeFailed"
+                                      ),
+                                      "error": str(err),
+                                  },
+                                  timeout=5,
+                              )
+                          except Exception as callback_error:
+                              _LOGGER.warning(
+                                  "Could not mark Alexa resume %s failed: %s",
+                                  command_id,
+                                  callback_error,
+                              )
+                          self._attr_playback_state = PlaybackState.PAUSED
+                          self.update_state()
+                          raise
+
+                      self._attr_playback_state = PlaybackState.PLAYING
+                      self.update_state()
+              """,
+                  """    async def play_media(self, media: PlayerMedia) -> None:
+                      \"\"\"Handle PLAY MEDIA on the player.\"\"\"
+                      stream_url = await self.provider.mass.streams.resolve_stream_url(self.player_id, media)
+              """: """    async def play_media(self, media: PlayerMedia) -> None:
+                      \"\"\"Handle PLAY MEDIA on the player without cross-device claims.\"\"\"
+                      provider = cast("AlexaProvider", self.provider)
+                      async with provider._playback_command_lock:
+                          await self._play_media_locked(media)
+
+                  async def _play_media_locked(self, media: PlayerMedia) -> None:
+                      \"\"\"Push and invoke one serialized Alexa playback command.\"\"\"
+                      stream_url = await self.provider.mass.streams.resolve_stream_url(self.player_id, media)
+              """,
+                  """        # Keep last stream url pushed (set in play_media)
+                      self._last_stream_url: str | None = None
+              """: """        # Keep the active bridge command for metadata and callbacks.
+                      self._last_stream_url: str | None = None
+                      self._last_command_id: str | None = None
+              """,
+                  """        return AlexaAPI(self.device, provider.login)
+
+                  def set_available(self, available: bool) -> bool:
+              """: """        return AlexaAPI(self.device, provider.login)
+
+                  async def _wait_for_playback_started(
+                      self,
+                      command_id: str,
+                      timeout: float = 20,
+                  ) -> dict[str, Any]:
+                      \"\"\"Wait until the skill confirms AudioPlayer playback.\"\"\"
+                      deadline = self.mass.loop.time() + timeout
+                      while True:
+                          response = await api_request(
+                              self.provider,
+                              f"/ma/playback-status/{command_id}",
+                              method="GET",
+                              timeout=5,
+                          )
+                          status_data = json.loads(response)
+                          status = status_data.get("status")
+                          if status == "started":
+                              return status_data
+                          if status in {"failed", "finished", "stopped"}:
+                              error = status_data.get("error") or status
+                              raise ActionUnavailable(
+                                  "Alexa playback command "
+                                  f"{command_id} ended before start: {error}"
+                              )
+                          if self.mass.loop.time() >= deadline:
+                              raise ActionUnavailable(
+                                  "Alexa did not confirm playback for command "
+                                  f"{command_id} within {timeout:g} seconds"
+                              )
+                          await asyncio.sleep(0.5)
+
+                  def set_available(self, available: bool) -> bool:
+              """,
+                  """        payload = {
+                          "streamUrl": stream_url,
+                          "title": media.title,
+                          "artist": media.artist,
+                          "album": media.album,
+                          "imageUrl": media.image_url,
+                      }
+
+                      await api_request(
+                          self.provider,
+                          "/ma/push-url",
+                          method="POST",
+                          json_data=payload,
+                          timeout=10,
+                      )
+
+                      # Save last pushed stream url so metadata updates can reuse it
+                      self._last_stream_url = stream_url
+              """: """        payload = {
+                          "streamUrl": stream_url,
+                          "title": media.title,
+                          "artist": media.artist,
+                          "album": media.album,
+                          "imageUrl": media.image_url,
+                          "playerId": self.player_id,
+                          "targetDeviceSerial": self.device.device_serial_number,
+                          "targetDeviceFamily": self.device._device_family,
+                          "targetDeviceName": self.device._name,
+                      }
+
+                      response = await api_request(
+                          self.provider,
+                          "/ma/push-url",
+                          method="POST",
+                          json_data=payload,
+                          timeout=10,
+                      )
+                      response_data = json.loads(response)
+                      command_id = response_data.get("commandId")
+                      if not isinstance(command_id, str) or not command_id:
+                          raise ActionUnavailable(
+                              "Alexa bridge did not return a playback command ID"
+                          )
+
+                      # Save the command so metadata updates cannot enqueue playback.
+                      self._last_stream_url = stream_url
+                      self._last_command_id = command_id
+              """,
+                  """        await self.api.run_custom(ALEXA_LANGUAGE_COMMANDS[ask_command_key])
+                      self._attr_elapsed_time = 0
+                      self._attr_elapsed_time_last_updated = time.time()
+                      self._attr_playback_state = PlaybackState.PLAYING
+                      self._attr_current_media = media
+                      self.update_state()
+              """: """        try:
+                          await self.api.run_custom(
+                              ALEXA_LANGUAGE_COMMANDS[ask_command_key]
+                          )
+                          await self._wait_for_playback_started(command_id)
+                      except ActionUnavailable as err:
+                          try:
+                              await api_request(
+                                  self.provider,
+                                  "/ma/playback-event",
+                                  method="POST",
+                                  json_data={
+                                      "commandId": command_id,
+                                      "eventType": (
+                                          "MusicAssistant.PlaybackFailed"
+                                      ),
+                                      "error": str(err),
+                                  },
+                                  timeout=5,
+                              )
+                          except Exception as callback_error:
+                              _LOGGER.warning(
+                                  "Could not mark Alexa command %s failed: %s",
+                                  command_id,
+                                  callback_error,
+                              )
+                          self._last_stream_url = None
+                          self._last_command_id = None
+                          self._attr_elapsed_time = 0
+                          self._attr_elapsed_time_last_updated = None
+                          self._attr_playback_state = PlaybackState.IDLE
+                          self._attr_current_media = None
+                          self.update_state()
+                          raise
+
+                      self._attr_elapsed_time = 0
+                      self._attr_elapsed_time_last_updated = time.time()
+                      self._attr_playback_state = PlaybackState.PLAYING
+                      self._attr_current_media = media
+                      self.update_state()
+              """,
+                  """        if self._last_stream_url is None:
+                          return
+              """: """        if (
+                          self._last_stream_url is None
+                          or self._last_command_id is None
+                      ):
+                          return
+              """,
+                  """            payload = {
+                              "streamUrl": stream_url,
+                              "title": title,
+                              "artist": artist,
+                              "album": album,
+                              "imageUrl": image_url,
+                          }
+              """: """            payload = {
+                              "commandId": self._last_command_id,
+                              "streamUrl": stream_url,
+                              "title": title,
+                              "artist": artist,
+                              "album": album,
+                              "imageUrl": image_url,
+                          }
+              """,
+                  """            await api_request(
+                              self.provider, "/ma/push-url", method="POST", json_data=payload, timeout=10
+                          )
+
+                          # store last pushed values
+                          self._last_meta_checksum = meta_checksum
+              """: """            try:
+                              await api_request(
+                                  self.provider,
+                                  "/ma/push-url",
+                                  method="POST",
+                                  json_data=payload,
+                                  timeout=10,
+                              )
+                          except ActionUnavailable as err:
+                              if "Status code: 404" not in str(err):
+                                  raise
+                              _LOGGER.info(
+                                  "Discarding Alexa command %s lost after "
+                                  "bridge restart",
+                                  self._last_command_id,
+                              )
+                              self._last_stream_url = None
+                              self._last_command_id = None
+                              self._last_meta_checksum = None
+                              return
+
+                          # store last pushed values
+                          self._last_meta_checksum = meta_checksum
+              """,
+              }
+
+              for original, replacement in playback_replacements.items():
+                  if source.count(original) != 1:
+                      raise RuntimeError(
+                          "Alexa provider playback hooks changed; review the overlay"
                       )
                   source = source.replace(original, replacement)
 
@@ -633,6 +980,7 @@ spec:
               from urllib.parse import quote
 
               from cryptography.fernet import Fernet, InvalidToken
+              from music_assistant.helpers.app_vars import app_var
 
               settings_path = Path(
                   os.environ.get("MASS_SETTINGS_PATH", "/data/settings.json")
@@ -908,8 +1256,58 @@ spec:
                       + fernet.encrypt(plaintext.encode()).decode()
                   )
 
+              def decrypted_or_plain(current_value: object) -> str:
+                  if not isinstance(current_value, str) or not current_value:
+                      return ""
+                  if current_value.startswith(encryption_prefix):
+                      try:
+                          return fernet.decrypt(
+                              current_value.removeprefix(
+                                  encryption_prefix
+                              ).encode()
+                          ).decode()
+                      except (InvalidToken, UnicodeDecodeError):
+                          return ""
+                  return current_value
+
+              def first_text(*values: object) -> str:
+                  for value in values:
+                      text = decrypted_or_plain(value).strip()
+                      if text:
+                          return text
+                  return ""
+
               current_ytmusic = providers.get(ytmusic_instance_id, {})
               current_ytmusic_values = current_ytmusic.get("values", {})
+              lastfm_values = {}
+              for lastfm_instance_id in (
+                  "lastfm_recommendations",
+                  "lastfm_recommendations--home",
+                  "lastfm",
+              ):
+                  lastfm_provider = providers.get(lastfm_instance_id)
+                  if isinstance(lastfm_provider, dict):
+                      values = lastfm_provider.get("values", {})
+                      if isinstance(values, dict):
+                          lastfm_values = values
+                          break
+              lastfm_api_key_plaintext = first_text(
+                  current_ytmusic_values.get("lastfm_api_key"),
+                  lastfm_values.get("api_key"),
+                  app_var("lastfm_api_key"),
+              )
+              lastfm_api_key = (
+                  encrypted_value(
+                      lastfm_api_key_plaintext,
+                      current_ytmusic_values.get("lastfm_api_key"),
+                  )
+                  if lastfm_api_key_plaintext
+                  else ""
+              )
+              lastfm_username = first_text(
+                  current_ytmusic_values.get("lastfm_username"),
+                  lastfm_values.get("username"),
+              )
               ytmusic_cookie = encrypted_value(
                   os.environ["YTMUSIC_COOKIE"],
                   current_ytmusic_values.get("cookie_header"),
@@ -947,6 +1345,19 @@ spec:
                           "cache_upgrade_target_bitrate_kbps": 256,
                           "cache_upgrade_recheck_days": 30,
                           "cache_catalog_postgres_dsn": ytmusic_catalog_dsn,
+                          "lastfm_api_key": lastfm_api_key,
+                          "lastfm_username": lastfm_username,
+                          "lastfm_seed_tracks": first_text(
+                              current_ytmusic_values.get("lastfm_seed_tracks")
+                          ),
+                          "lastfm_seed_artists": first_text(
+                              current_ytmusic_values.get("lastfm_seed_artists")
+                          ),
+                          "lastfm_tags": first_text(
+                              current_ytmusic_values.get("lastfm_tags")
+                          ),
+                          "lastfm_max_tracks": 100,
+                          "lastfm_prefetch_enabled": True,
                       },
                       "type": "music",
                       "domain": "ytmusic",

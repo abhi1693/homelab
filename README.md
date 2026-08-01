@@ -10,7 +10,7 @@ and <a href=".github/workflows/validation.yml">GitHub Actions</a></em></p>
 <p>
   <img alt="Ansible bootstrap" src="https://img.shields.io/badge/Ansible-bootstrap-1A1918?style=flat-square&amp;logo=ansible&amp;logoColor=white">
   <img alt="Rancher Fleet GitOps" src="https://img.shields.io/badge/Rancher%20Fleet-GitOps-0075A8?style=flat-square&amp;logo=rancher&amp;logoColor=white">
-  <img alt="Renovate 43.280.2" src="https://img.shields.io/badge/Renovate-43.280.2-1A1F6C?style=flat-square&amp;logo=renovatebot&amp;logoColor=white">
+  <img alt="Renovate 43.285.7" src="https://img.shields.io/badge/Renovate-43.285.7-1A1F6C?style=flat-square&amp;logo=renovatebot&amp;logoColor=white">
 </p>
 
 <p>
@@ -97,7 +97,7 @@ and selected application integrations.
 | GitHub | Repository hosting, GitHub Actions validation, GHCR image sources, app webhooks. | Workflows, manifests, Renovate metadata, Harbor proxy paths. |
 | Cloudflare | Public tunnel ingress, DNS automation for public routes, DNS01 certificate solving, R2-backed app storage. | Tunnel ingress class, cert-manager issuer configuration, app secret contracts. |
 | Let's Encrypt | Public TLS certificates through cert-manager ACME. | cert-manager ClusterIssuer settings. |
-| UniFi gateway | LAN routing and the internal DNS target. | ExternalDNS UniFi app plus VLAN and firewall notes; Kubernetes VIPs use ordinary connected-VLAN routing. |
+| UniFi gateway | LAN routing, internal DNS, mDNS reflection, and scoped cross-VLAN player control. | ExternalDNS UniFi app plus VLAN and firewall notes; Kubernetes VIPs use ordinary connected-VLAN routing, while Music Assistant has a least-privilege Google Cast policy. |
 | NAS | NFS exports for media plus retained per-PVC shared application storage. | Static media PVs, the `nfs-shared-retain` StorageClass, application claims, and storage runbooks. |
 | External registries | Upstream images from Docker Hub, GHCR, OCI registries, and vendor registries. | Harbor proxy/cache paths and Renovate update comments. |
 | App SaaS APIs | App-specific integrations such as GitHub, Clerk, Sanity, payment APIs, and similar services. | Per-app manifests and README secret contracts. |
@@ -1047,7 +1047,7 @@ App and component deep dives:
 | [kubernetes/projects/entertainment/apps/media-jellyfin/README.md](kubernetes/projects/entertainment/apps/media-jellyfin/README.md) | Jellyfin media server. |
 | [kubernetes/projects/entertainment/apps/media-jellyseerr/README.md](kubernetes/projects/entertainment/apps/media-jellyseerr/README.md) | Jellyseerr media request portal. |
 | [kubernetes/projects/entertainment/apps/media-music-assistant/README.md](kubernetes/projects/entertainment/apps/media-music-assistant/README.md) | Music Assistant discovery, playback, and provider wiring. |
-| [kubernetes/projects/entertainment/apps/media-music-assistant-alexa-skill/README.md](kubernetes/projects/entertainment/apps/media-music-assistant-alexa-skill/README.md) | Persistent Alexa custom-skill bridge and public player-stream wiring. |
+| [kubernetes/projects/entertainment/apps/media-music-assistant-alexa-skill/README.md](kubernetes/projects/entertainment/apps/media-music-assistant-alexa-skill/README.md) | Persistent Alexa Custom/Music-model bridge and public player-stream wiring. |
 | [kubernetes/projects/entertainment/apps/media-prowlarr/README.md](kubernetes/projects/entertainment/apps/media-prowlarr/README.md) | Prowlarr indexer management. |
 | [kubernetes/projects/entertainment/apps/media-qbittorrent/README.md](kubernetes/projects/entertainment/apps/media-qbittorrent/README.md) | qBittorrent peer traffic and automation. |
 | [kubernetes/projects/entertainment/apps/media-radarr/README.md](kubernetes/projects/entertainment/apps/media-radarr/README.md) | Radarr movie library automation. |

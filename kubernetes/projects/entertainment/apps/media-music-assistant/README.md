@@ -22,6 +22,12 @@ streaming. The singleton server therefore uses host networking and is pinned to
 `k8s-rpi4` (`192.168.3.135`). Players must be able to reach that address,
 including the default stream port `8097`. Native Sendspin clients use `8927`;
 the browser player uses the authenticated Sendspin path on the main web port.
+The Bedroom Google Cast speaker is reserved at `192.168.4.241`. UniFi reflects
+its mDNS advertisement across VLANs, while the scoped
+`Allow Music Assistant Google Cast` policy permits only TCP `8008`, `8009`, and
+`8443` from this Music Assistant host to that speaker. Discovery without that
+unicast policy produces a registered player followed by a
+`pychromecast.socket_client` timeout on port `8009`.
 The Traefik ingress exposes only the PWA/API on `8095`. It terminates HTTPS
 with the cert-manager-managed Home Lab Local CA certificate and permanently
 redirects browser HTTP requests to HTTPS so WebRTC and credential-bearing
@@ -93,14 +99,17 @@ Music Assistant merges online and offline sources into one library:
 - **Alexa** uses the separately deployed Music Assistant Alexa Skill Prototype.
   Music Assistant calls its authenticated cluster API, Amazon calls its public
   HTTPS skill endpoint, and screenless Echo devices fetch transient stream URLs
-  through the dedicated public port `8097` ingress. The provider honors
-  Amazon's device `online` flag and coalesces availability refreshes to one
-  account inventory request every 15 seconds, so newly powered Echo devices
-  become selectable promptly while unplugged devices remain idle and
-  unavailable instead of accepting playback optimistically. The same account
-  refresh reads Amazon's authoritative device-volume snapshot, so physical
-  volume-button changes and the initial Echo volume are reflected in Music
-  Assistant without first moving the app slider.
+  through the dedicated public port `8097` ingress. Each playback request has a
+  correlated command ID, and Music Assistant reports playing only after the
+  skill returns `AudioPlayer.PlaybackStarted`. The provider uses stable Amazon
+  serial IDs, skips group-like Amazon inventory entries, and coalesces account
+  inventory and authoritative volume refreshes to one request every 15 seconds.
+  Physical volume-button changes and initial Echo volume therefore update Music
+  Assistant without first moving the app slider. Playback is limited to one
+  Alexa device per command. An idle Echo cannot be resumed: the provider
+  returns the player to `IDLE` without calling Amazon or falsely showing
+  playback. Valid resume requests wait for a new correlated playback-started
+  event.
 When the same item exists in the local and YouTube Music sources, Music
 Assistant can link the provider mappings and prefer the highest-quality
 available version. Discovery, account synchronization, caching, and online
@@ -284,6 +293,14 @@ supported by Music Assistant upstream.
   Amazon's `We're unable to verify your mobile number` loop is a separate
   Amazon account trust/risk block reported across unofficial Alexa clients;
   stop retrying and ask Amazon Support to clear the account verification block.
+- `alexapy.errors.AlexapyTooManyRequestsError` during rapid player controls is
+  Amazon throttling the unofficial account API. `alexapy` backs off and retries
+  the request. Avoid repeated clicks while it is retrying; invalid resume
+  requests are rejected locally and no longer consume another Amazon request.
+- `Accepting unencrypted legacy connection (transition mode)` from
+  `aiosendspin` is the local Music Assistant Companion connecting over
+  `127.0.0.1`. It is unrelated to Alexa and does not expose that connection
+  beyond the pod's loopback boundary.
 - `k8s-rpi4` must keep `8095`, `8097`, and `8927` available. If the server is
   intentionally moved, update the node selector and documented address
   together.
