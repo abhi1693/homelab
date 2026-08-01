@@ -44,7 +44,7 @@ spec:
       initContainers:
         - name: clone-home-lab
           # renovate: datasource=docker depName=ghcr.io/abhi1693/k8s-recommendation-engine
-          image: registry.home/ghcr.io/abhi1693/k8s-recommendation-engine:0.3.4
+          image: registry.home/ghcr.io/abhi1693/k8s-recommendation-engine:0.3.5
           imagePullPolicy: IfNotPresent
           command:
             - /bin/sh
@@ -107,7 +107,7 @@ spec:
       containers:
         - name: manager
           # renovate: datasource=docker depName=ghcr.io/abhi1693/k8s-recommendation-engine
-          image: registry.home/ghcr.io/abhi1693/k8s-recommendation-engine:0.3.4
+          image: registry.home/ghcr.io/abhi1693/k8s-recommendation-engine:0.3.5
           imagePullPolicy: IfNotPresent
           command:
             - /bin/sh

@@ -65,10 +65,10 @@ spec:
               protocol: TCP
           resources:
             requests:
-              cpu: 10m
-              memory: 87Mi
+              cpu: 30m
+              memory: 126Mi
             limits:
-              memory: 160Mi
+              memory: 256Mi
           startupProbe:
             httpGet:
               path: /healthcheck

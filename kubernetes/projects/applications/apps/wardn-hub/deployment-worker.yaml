@@ -10,7 +10,7 @@ metadata:
     app.kubernetes.io/part-of: wardn-hub
 spec:
   revisionHistoryLimit: 2
-  replicas: 2
+  replicas: 1
   selector:
     matchLabels:
       app.kubernetes.io/name: wardn-hub-worker
@@ -61,7 +61,7 @@ spec:
       initContainers:
         - name: wait-for-api-rollout
           # renovate: datasource=github-releases depName=abhi1693/wardn-hub
-          image: registry.home/ghcr.io/abhi1693/wardn-hub-backend:0.2.148
+          image: registry.home/ghcr.io/abhi1693/wardn-hub-backend:0.2.171
           imagePullPolicy: IfNotPresent
           command:
             - python
@@ -95,7 +95,7 @@ spec:
       containers:
         - name: worker
           # renovate: datasource=github-releases depName=abhi1693/wardn-hub
-          image: registry.home/ghcr.io/abhi1693/wardn-hub-backend:0.2.148
+          image: registry.home/ghcr.io/abhi1693/wardn-hub-backend:0.2.171
           imagePullPolicy: IfNotPresent
           command:
             - python

@@ -9,15 +9,20 @@ metadata:
     app.kubernetes.io/part-of: wardn-ai
 spec:
   revisionHistoryLimit: 2
-  replicas: 1
+  replicas: 2
   selector:
     matchLabels:
       app.kubernetes.io/name: wardn-ai-api
       app.kubernetes.io/component: api
   strategy:
-    type: Recreate
+    type: RollingUpdate
+    rollingUpdate:
+      maxSurge: 1
+      maxUnavailable: 0
   template:
     metadata:
+      annotations:
+        home-lab.io/config-revision: "mcp-runtime-gateway-0.0.29"
       labels:
         app.kubernetes.io/name: wardn-ai-api
         app.kubernetes.io/component: api
@@ -28,8 +33,6 @@ spec:
       serviceAccountName: wardn-ai-api
       automountServiceAccountToken: false
       securityContext:
-        fsGroup: 1000
-        fsGroupChangePolicy: OnRootMismatch
         seccompProfile:
           type: RuntimeDefault
       imagePullSecrets:
@@ -56,8 +59,7 @@ spec:
               app.kubernetes.io/component: api
       initContainers:
         - name: migrate-db
-          # renovate: datasource=github-releases depName=abhi1693/wardn-ai
-          image: registry.home/ghcr.io/abhi1693/wardn-ai-backend:0.0.9
+          image: registry.home/ghcr.io/abhi1693/wardn-ai-backend:0.0.29
           imagePullPolicy: IfNotPresent
           command:
             - alembic
@@ -106,8 +108,7 @@ spec:
               mountPath: /app/data
       containers:
         - name: api
-          # renovate: datasource=github-releases depName=abhi1693/wardn-ai
-          image: registry.home/ghcr.io/abhi1693/wardn-ai-backend:0.0.9
+          image: registry.home/ghcr.io/abhi1693/wardn-ai-backend:0.0.29
           imagePullPolicy: IfNotPresent
           envFrom:
             - configMapRef:
@@ -139,7 +140,7 @@ spec:
           resources:
             requests:
               cpu: 50m
-              memory: 147Mi
+              memory: 179Mi
             limits:
               cpu: "1"
               memory: 1Gi
@@ -184,7 +185,7 @@ spec:
             claimName: wardn-ai-data-nfs
         - name: kubernetes-service-account
           projected:
-            defaultMode: 0440
+            defaultMode: 0444
             sources:
               - serviceAccountToken:
                   path: token

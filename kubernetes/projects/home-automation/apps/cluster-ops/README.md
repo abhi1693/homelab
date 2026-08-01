@@ -26,6 +26,11 @@ for every profile:
 - Production profiles generally run with replica, CPU-request, and
   memory-request management enabled; persisted learning history still feeds
   the stability and safety gates before Git proposals are committed
+- Every workload with replica management enabled must declare explicit
+  `bounds.replicas` min/max values. The engine also requires traffic demand or
+  availability recovery before CPU/memory-only pressure can scale replicas, so
+  resource-only profiles use those signals for request sizing rather than
+  runaway scale-out.
 - The Ryokan and Shoko workloads in `media-anime-profile.yaml` start in
   observe-only mode because their initial baseline includes first-run setup and
   Shoko library scanning. The profile records resource history every five
@@ -39,7 +44,9 @@ for every profile:
 - Literal-manifest profiles keep memory limits in the workload manifests; keep
   those limits above the recommendation headroom because the engine currently
   adjusts memory requests, not paired memory limits
-- Shipyard profile: `shipyard-profile.yaml`
+- Shipyard profile: `shipyard-profile.yaml`; the background worker is capped at
+  three replicas because each Node.js worker has meaningful fixed memory
+  overhead and its resource-only metric profile has no queue-demand signal
 - Wardn Hub profile: `wardn-hub-profile.yaml`; all five live production
   Deployments, including the consolidated application worker, run with scaling
   enabled

@@ -20,6 +20,13 @@ Financial records are stored in the shared CloudNativePG PostgreSQL cluster via
 the `postgresql-pooler-firefly-iii-rw` PgBouncer pooler. The database and role
 are owned by the database project PostgreSQL bundle.
 
+## Resources
+
+The web container requests `20m` CPU and `160Mi` memory, with no CPU limit and
+a `256Mi` memory limit. The memory headroom accommodates Firefly's sequential
+database integrity and running-balance maintenance commands; do not run
+memory-intensive maintenance commands concurrently in the web container.
+
 ## Scheduled Tasks
 
 The `firefly-iii-cron` CronJob calls Firefly's static cron endpoint daily at

@@ -1,0 +1,26 @@
+---
+apiVersion: cilium.io/v2
+kind: CiliumNetworkPolicy
+metadata:
+  name: wardn-ai-k8s-aiops-rancher-egress
+  namespace: wardn-org-d6fbdc5ef8-ws-b7a554adc3
+  labels:
+    app.kubernetes.io/name: wardn-mcp-runtime
+    app.kubernetes.io/part-of: wardn-ai
+    wardn.ai/installation-id: 70c9c489-99d0-493a-8029-3885765d30dc
+spec:
+  endpointSelector:
+    matchLabels:
+      app.kubernetes.io/name: wardn-mcp-runtime
+      wardn.ai/installation-id: 70c9c489-99d0-493a-8029-3885765d30dc
+  egress:
+    - toServices:
+        - k8sService:
+            namespace: kube-system
+            serviceName: traefik
+      toPorts:
+        - ports:
+            - port: "443"
+              protocol: TCP
+            - port: "8443"
+              protocol: TCP

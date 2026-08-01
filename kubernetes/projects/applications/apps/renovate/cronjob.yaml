@@ -40,7 +40,7 @@ spec:
           containers:
             - name: renovate
               # renovate: datasource=github-releases depName=renovatebot/renovate
-              image: registry.home/docker.io/renovate/renovate:43.281.0
+              image: registry.home/docker.io/renovate/renovate:43.288.0
               imagePullPolicy: IfNotPresent
               env:
                 - name: LOG_LEVEL

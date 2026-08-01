@@ -12,13 +12,14 @@ server:
     home-lab.io/restart-generation: "2026-07-12-post-seal-migration-1"
   resources:
     requests:
-      cpu: 50m
-      memory: 78Mi
+      cpu: 70m
+      memory: 62Mi
     limits:
       memory: 256Mi
   updateStrategyType: RollingUpdate
   nodeSelector:
     kubernetes.io/arch: arm64
+    kubernetes.io/hostname: k8s-rpi3
   ingress:
     enabled: true
     ingressClassName: traefik

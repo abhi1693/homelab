@@ -43,6 +43,11 @@ The web UI is available at `http://requests.anime.media.home`.
    - Radarr API Compatibility uses the existing `RADARR_API_KEY` from
      `arr-api-keys`; Seerr should point its anime-movie Radarr entry at
      `http://ryokan.media.svc.cluster.local:8978` with URL Base `/radarr`.
+7. In Settings -> Quality, keep both the preferred and cutoff resolution at
+   `1080`, with WEB preferred and Blu-ray as the cutoff source. This lets the
+   scheduled upgrade search improve anime through 1080p without automatically
+   replacing it with a 2160p copy. Use interactive/manual grabs for any
+   explicitly requested higher-resolution exception.
 
 Ryokan mounts `/downloads` so it can read qBittorrent's reported anime torrent
 paths, and `/media/anime` as the NAS-backed anime library.

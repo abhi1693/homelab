@@ -64,7 +64,7 @@ spec:
       initContainers:
         - name: restore-next-build
           # renovate: datasource=docker depName=ghcr.io/abhi1693/shipyardhq
-          image: registry.home/ghcr.io/abhi1693/shipyardhq:1.5.13
+          image: registry.home/ghcr.io/abhi1693/shipyardhq:1.5.16
           imagePullPolicy: IfNotPresent
           command:
             - /bin/sh
@@ -228,7 +228,7 @@ spec:
       containers:
         - name: web
           # renovate: datasource=docker depName=ghcr.io/abhi1693/shipyardhq
-          image: registry.home/ghcr.io/abhi1693/shipyardhq:1.5.13
+          image: registry.home/ghcr.io/abhi1693/shipyardhq:1.5.16
           imagePullPolicy: IfNotPresent
           command:
             - node
@@ -365,7 +365,7 @@ metadata:
     app.kubernetes.io/part-of: shipyardhq
 spec:
   revisionHistoryLimit: 2
-  replicas: 1
+  replicas: 2
   progressDeadlineSeconds: 4200
   selector:
     matchLabels:
@@ -425,7 +425,7 @@ spec:
       containers:
         - name: worker
           # renovate: datasource=docker depName=ghcr.io/abhi1693/shipyardhq
-          image: registry.home/ghcr.io/abhi1693/shipyardhq:1.5.13
+          image: registry.home/ghcr.io/abhi1693/shipyardhq:1.5.16
           imagePullPolicy: IfNotPresent
           command:
             - npm
@@ -496,8 +496,8 @@ spec:
               value: postgresql://$(POSTGRES_USER):$(POSTGRES_PASSWORD)@postgresql-pooler-shipyardhq-rw.postgresql.svc.cluster.local:5432/$(POSTGRES_DB)?sslmode=disable
           resources:
             requests:
-              cpu: 30m
-              memory: 497Mi
+              cpu: 80m
+              memory: 613Mi
             limits:
               memory: 896Mi
           securityContext:

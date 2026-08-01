@@ -28,10 +28,12 @@ podOptions:
     kubernetes.io/hostname: k8s-rpi2
 resources:
   requests:
-    cpu: 370m
-    memory: 168Mi
+    cpu: 340m
+    # qBittorrent restores roughly 800 torrents at startup and needs room for
+    # peer-reconnect bursts; lower limits repeatedly OOM-killed the client.
+    memory: 211Mi
   limits:
-    memory: 192Mi
+    memory: 2Gi
 service:
   main:
     ports:

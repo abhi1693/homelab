@@ -38,78 +38,10 @@ spec:
         runAsGroup: 1000
         seccompProfile:
           type: RuntimeDefault
-      initContainers:
-        - name: prepare-status-overlay
-          # renovate: datasource=docker depName=ghcr.io/alams154/music-assistant-skill
-          image: registry.home/ghcr.io/alams154/music-assistant-skill:0.0.39-beta@sha256:ad7ec55a51d9304032a74d8ae0fda43743bf64ae68afa49dd6949d9477726ccf
-          imagePullPolicy: IfNotPresent
-          command:
-            - /usr/bin/python3
-            - -c
-          args:
-            - |
-              from pathlib import Path
-
-              source_path = Path("/app/src/endpoints/status.py")
-              patch_path = Path(
-                  "/data/provider-patches/alexa-skill/status.py"
-              )
-              source = source_path.read_text(encoding="utf-8")
-              replacements = {
-                  (
-                      """f'<span class="led red"></span> Music Assistant API responded """
-                      """{resp.status_code} for /ma/latest-url'"""
-                  ): (
-                      2,
-                      """f'<span class="led {"yellow" if resp.status_code == 404 else "red"}"></span> """
-                      """{"Music Assistant bridge idle - no stream pushed yet" if resp.status_code == 404 else "Music Assistant API responded " + str(resp.status_code) + " for /ma/latest-url"}'""",
-                  ),
-                  (
-                      """f'<span class="led red"></span> Alexa API responded """
-                      """{resp.status_code} for /alexa/latest-url'"""
-                  ): (
-                      2,
-                      """f'<span class="led {"yellow" if resp.status_code == 404 else "red"}"></span> """
-                      """{"Alexa bridge idle - no skill invocation yet" if resp.status_code == 404 else "Alexa API responded " + str(resp.status_code) + " for /alexa/latest-url"}'""",
-                  ),
-                  "background:#fdf2f2": (
-                      4,
-                      """background:{'#fff9e6' if resp.status_code == 404 else '#fdf2f2'}""",
-                  ),
-              }
-
-              for original, (expected_count, replacement) in replacements.items():
-                  if source.count(original) != expected_count:
-                      raise RuntimeError(
-                          "Alexa skill status source changed; review the overlay"
-                      )
-                  source = source.replace(original, replacement)
-
-              compile(source, str(patch_path), "exec")
-              patch_path.parent.mkdir(parents=True, exist_ok=True)
-              temporary_path = patch_path.with_suffix(".py.tmp")
-              temporary_path.write_text(source, encoding="utf-8")
-              temporary_path.chmod(0o444)
-              temporary_path.replace(patch_path)
-          resources:
-            requests:
-              cpu: 10m
-              memory: 32Mi
-            limits:
-              memory: 64Mi
-          securityContext:
-            allowPrivilegeEscalation: false
-            readOnlyRootFilesystem: true
-            capabilities:
-              drop:
-                - ALL
-          volumeMounts:
-            - name: data
-              mountPath: /data
       containers:
         - name: alexa-skill
-          # renovate: datasource=docker depName=ghcr.io/alams154/music-assistant-skill
-          image: registry.home/ghcr.io/alams154/music-assistant-skill:0.0.39-beta@sha256:ad7ec55a51d9304032a74d8ae0fda43743bf64ae68afa49dd6949d9477726ccf
+          # renovate: datasource=docker depName=ghcr.io/abhi1693/music-assistant-skill
+          image: registry.home/ghcr.io/abhi1693/music-assistant-skill:0.0.46-beta@sha256:fc9a24d28368acc7d308fb9feae973cd04d0deb95a8f4f5fd60b8cd7cf052170
           imagePullPolicy: IfNotPresent
           env:
             - name: SKILL_HOSTNAME
@@ -171,10 +103,6 @@ spec:
           volumeMounts:
             - name: data
               mountPath: /data
-            - name: data
-              mountPath: /app/src/endpoints/status.py
-              subPath: provider-patches/alexa-skill/status.py
-              readOnly: true
             - name: build
               mountPath: /app/build
             - name: app-tmp

@@ -4,11 +4,14 @@ kind: Kustomization
 resources:
   - secrets.sops.yaml
   - serviceaccount.yaml
+  - rbac.yaml
   - pvc.yaml
   - configmap.yaml
   - deployment-api.yaml
+  - deployment-worker.yaml
   - deployment-frontend.yaml
   - service.yaml
   - certificate.yaml
   - ingress.yaml
   - networkpolicy.yaml
+  - mcp-runtime-rancher-egress-cnp.yaml

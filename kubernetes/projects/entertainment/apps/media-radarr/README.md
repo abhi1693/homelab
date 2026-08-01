@@ -35,6 +35,10 @@ outside the pod and service CIDRs.
 ## Operating Notes
 
 - Prowlarr should remain the indexer source of truth.
+- Keep the default `[TRaSH] HD Bluray + WEB` automatic request profile capped
+  at `Bluray-1080p`, and disable every quality above 1080p in all default
+  automatic profiles. Retain separate 2160p/UHD profiles only for explicit
+  manual selection; do not assign them to the default Seerr request mapping.
 - Keep anime movies on the dedicated anime quality profile and `/data/anime`
   root; do not import them into `/data/movies`.
 - Keep Radarr download client and API credentials out of Git.

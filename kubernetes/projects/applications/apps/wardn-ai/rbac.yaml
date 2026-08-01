@@ -1,0 +1,83 @@
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: wardn-ai-runtime-manager
+  labels:
+    app.kubernetes.io/name: wardn-ai-api
+    app.kubernetes.io/component: api
+    app.kubernetes.io/part-of: wardn-ai
+rules:
+  - apiGroups:
+      - ""
+    resources:
+      - namespaces
+    verbs:
+      - create
+      - get
+  - apiGroups:
+      - ""
+    resources:
+      - secrets
+      - services
+    verbs:
+      - create
+      - delete
+      - update
+  - apiGroups:
+      - apps
+    resources:
+      - deployments
+    verbs:
+      - create
+      - delete
+      - get
+      - update
+  - apiGroups:
+      - apps
+    resources:
+      - deployments/scale
+    verbs:
+      - patch
+  - apiGroups:
+      - networking.k8s.io
+    resources:
+      - ingresses
+      - networkpolicies
+    verbs:
+      - create
+      - delete
+      - update
+  - apiGroups:
+      - cilium.io
+    resources:
+      - ciliumnetworkpolicies
+    verbs:
+      - create
+      - delete
+      - update
+  - apiGroups:
+      - projectcalico.org
+    resources:
+      - networkpolicies
+    verbs:
+      - create
+      - delete
+      - update
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: wardn-ai-runtime-manager
+  labels:
+    app.kubernetes.io/name: wardn-ai-api
+    app.kubernetes.io/component: api
+    app.kubernetes.io/part-of: wardn-ai
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: wardn-ai-runtime-manager
+subjects:
+  - kind: ServiceAccount
+    name: wardn-ai-api
+    namespace: wardn

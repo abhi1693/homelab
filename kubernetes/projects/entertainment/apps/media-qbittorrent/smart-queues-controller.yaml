@@ -54,7 +54,7 @@ spec:
       containers:
         - name: qbittorrent-smart-queues
           # renovate: datasource=docker depName=ghcr.io/abhi1693/qbittorrent-smart-queues
-          image: registry.home/ghcr.io/abhi1693/qbittorrent-smart-queues:0.1.67
+          image: registry.home/ghcr.io/abhi1693/qbittorrent-smart-queues:0.1.69
           imagePullPolicy: IfNotPresent
           ports:
             - name: metrics
@@ -101,6 +101,8 @@ spec:
               value: /proxy/network
             - name: UDM_VERIFY_TLS
               value: "false"
+            - name: UDM_BILLING_CYCLE_DAY
+              value: "17"
             - name: UDM_MONTHLY_DOWNLOAD_QUOTA_BYTES
               value: "2500000000000"
             - name: UDM_MONTHLY_DOWNLOAD_GUARDRAIL_BYTES
@@ -173,9 +175,11 @@ spec:
             - name: QBT_DOWNLOAD_STORAGE_RECOVERY_MIN_RATE_BYTES_PER_SEC
               value: "65536"
             - name: QBT_SINGLE_DOWNLOAD_NORMAL_MAX_ACTIVE_DOWNLOADS
-              value: "1"
+              value: "5"
             - name: QBT_SINGLE_DOWNLOAD_MAX_ACTIVE_DOWNLOADS_PER_CATEGORY
-              value: "3"
+              value: "5"
+            - name: QBT_SINGLE_DOWNLOAD_MAX_TOTAL_ACTIVE_DOWNLOADS
+              value: "5"
             - name: QBT_SINGLE_DOWNLOAD_PARK_STALLED_ENABLED
               value: "true"
             - name: QBT_SINGLE_DOWNLOAD_PARK_STALLED_SAMPLES
@@ -349,7 +353,7 @@ spec:
             - name: QBT_UNCAPPED_DOWNLOAD_WINDOW_MAX_ACTIVE_DOWNLOADS
               value: "5"
             - name: QBT_SINGLE_DOWNLOAD_UPLOAD_LIMIT_BYTES_PER_SEC
-              value: "524288"
+              value: "625"
             - name: QBT_SINGLE_DOWNLOAD_STALL_CHECK_SECONDS
               value: "300"
             - name: QBT_SINGLE_DOWNLOAD_MIN_PROGRESS_BYTES

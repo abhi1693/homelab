@@ -33,5 +33,9 @@ and service CIDRs.
 ## Operating Notes
 
 - Prowlarr should remain the indexer source of truth.
+- Keep `[TV] WEB-1080p` as the default automatic request profile, allow quality
+  upgrades through `Bluray-1080p`, and leave every quality above 1080p
+  disabled in that profile. Retain separate 2160p profiles only for explicit
+  manual selection; do not assign them to the default Seerr request mapping.
 - Keep application API keys out of Git.
 - Change chart configuration in `values.yaml` and let Fleet reconcile.

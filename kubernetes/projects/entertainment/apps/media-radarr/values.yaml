@@ -21,7 +21,7 @@ podOptions:
 resources:
   requests:
     cpu: 100m
-    memory: 368Mi
+    memory: 356Mi
   limits:
     memory: 976Mi
 ingress:

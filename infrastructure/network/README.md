@@ -7,7 +7,7 @@ Kubernetes API.
 
 | Path | Purpose |
 | --- | --- |
-| `unifi/` | UniFi VLAN assumptions and operational notes for Layer 2 service VIP advertisement. |
+| `unifi/` | UniFi VLAN, inter-zone player access, and Layer 2 service VIP assumptions. |
 
 ## Why This Exists
 
@@ -22,6 +22,7 @@ configuration:
 - App LoadBalancer pool.
 - Cluster VLAN and gateway address.
 - Inter-VLAN firewall requirements.
+- Scoped Music Assistant access to Google Cast players across VLANs.
 - Optional break-glass access-port behavior.
 
 ## How It Fits The Cluster

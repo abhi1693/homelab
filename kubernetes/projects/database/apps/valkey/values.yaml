@@ -98,7 +98,7 @@ replica:
   resources:
     requests:
       cpu: 50m
-      memory: 245Mi
+      memory: 199Mi
     limits:
       memory: 256Mi
 metrics:

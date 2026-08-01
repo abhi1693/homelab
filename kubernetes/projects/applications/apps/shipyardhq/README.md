@@ -130,6 +130,11 @@ The `shipyardhq-worker` Deployment runs `npm run worker` from the same
 application image. It consumes BullMQ event envelopes and owns scheduled jobs
 declared in ShipyardHQ source, replacing the legacy curl CronJobs.
 
+The worker runs three replicas. The `cluster-ops/shipyard` recommendation
+profile caps managed worker replicas at three because the worker's resource-only
+metrics do not include queue demand and each Node.js worker adds fixed memory
+overhead.
+
 The worker does not run Prisma migrations. Its `wait-for-web-rollout` init
 container follows the NetBox chart worker pattern and waits for
 `deployment/shipyardhq` to finish rolling out before starting the worker. Its

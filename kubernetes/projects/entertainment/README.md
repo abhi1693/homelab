@@ -31,7 +31,7 @@ apps.
 | `media-sonarr` | TV library automation. | Prowlarr, qBittorrent, completed media PVC. |
 | `media-radarr` | Movie library automation. | Prowlarr, qBittorrent, completed media PVC. |
 | `media-music-assistant` | Authenticated YouTube Music account mirror, persistent local playback cache, local audio-similarity radio, HTTPS PWA, MCP access, and playback. | Hash-pinned YouTube Music provider, SOPS-fed account cookie, PostgreSQL cache catalog, NAS music storage, Sonic Analysis, Last.fm, host-network players. |
-| `media-music-assistant-alexa-skill` | Alexa custom-skill bridge for Music Assistant playback. | Amazon Developer authorization, public skill endpoint, public port `8097` stream route, retained ASK credentials. |
+| `media-music-assistant-alexa-skill` | Alexa Custom Skill bridge for Music Assistant playback. | Amazon Developer authorization, public bridge endpoint, public port `8097` stream route, retained ASK credentials. |
 | `media-ryokan` | Anime request/import workflow. | qBittorrent anime category, NAS anime library, controlled Squid HTTPS egress. |
 | `media-shoko` | Anime metadata and library management. | NAS anime library, Jellyfin/Shokofin workflow. |
 | `media-jellyfin` | Media server. | NAS media library, custom image, PostgreSQL experiment, shared metadata PVCs. |
