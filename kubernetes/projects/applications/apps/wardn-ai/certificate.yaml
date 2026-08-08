@@ -13,8 +13,10 @@ spec:
   commonName: "*.home"
   dnsNames:
     - "*.home"
+    - "*.ai.home"
     - home
     - ai.home
+    - wa.bridge.ai.home
   duration: 2160h
   renewBefore: 360h
   privateKey:

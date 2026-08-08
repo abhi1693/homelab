@@ -494,9 +494,9 @@ poolers:
     poolMode: session
     instances: 0
     monitoring:
-      enabled: true
+      enabled: false
       podMonitor:
-        enabled: true
+        enabled: false
     parameters:
       max_client_conn: "50"
       default_pool_size: "3"
@@ -633,7 +633,7 @@ poolers:
   - name: firefly-iii-rw
     type: rw
     poolMode: session
-    instances: 1
+    instances: 0
     monitoring:
       enabled: true
       podMonitor:

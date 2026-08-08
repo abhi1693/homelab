@@ -8,7 +8,7 @@ no separate music acquisition application or bridge is required.
 ## Runtime Shape
 
 - Namespace: `media`
-- Music Assistant: `ghcr.io/music-assistant/server:2.10.0b7`
+- Music Assistant: `ghcr.io/music-assistant/server:2.10.0b10`
 - Browser URL: `https://music.media.home`
 - Direct LAN URL: `http://192.168.3.135:8095`
 - Public Alexa stream URL: `https://music-stream.abhimanyu-saharan.com`
@@ -51,9 +51,10 @@ This deployment deliberately preserves the official container's host-network
 shape, persists `/data`, and mounts the existing Kubernetes-managed NFS library
 instead of giving the container privileges to mount NFS itself.
 
-The `2.10.0b7` beta is pinned deliberately because it bundles MCP provider
-`0.17.0`. The stable `2.9.x` line still bundles `0.7.1`, which cannot safely
-complete the Connect Wizard through this TLS-terminating Traefik ingress.
+The `2.10.0b*` beta line is tracked deliberately because it bundles the newer
+MCP provider required for the Connect Wizard through this TLS-terminating
+Traefik ingress. The stable `2.9.x` line still bundles an older provider that
+cannot safely complete that flow.
 
 ## Architecture
 
@@ -173,7 +174,7 @@ supported by Music Assistant upstream.
   dependencies.
 - The custom provider source is pinned to
   `abhi1693/music-assistant-yt-music` commit
-  `2b9335b80a4abadb046ab936019c6ca5905dda4c`. The init container downloads
+  `fcd8f6aae01d66fe5e8671f2ea50f1d58eb3ab77`. The init container downloads
   that immutable revision when the retained copy is absent or fails its
   expected SHA-256 values, verifies every source file, and stores the source
   unchanged. Production dependency versions remain pinned in the retained
@@ -272,21 +273,17 @@ supported by Music Assistant upstream.
 - The same init container pins the core webserver base URL to the HTTPS ingress
   so provider authentication helpers do not emit direct-IP callback URLs.
 - Alexa's successful-login handler must notify Music Assistant's temporary
-  authentication callback itself. The pinned beta sends that server-side
-  request to the browser-facing HTTPS URL, but the container does not trust the
-  private issuer for `music.media.home`, causing the final sign-in POST to
-  return `500`. The provider overlay keeps the browser-facing callback on HTTPS
-  while sending this internal notification to Music Assistant's plaintext
-  loopback listener on the webserver controller's configured publish port.
-- The pinned Music Assistant beta registers Alexa authentication POSTs only
-  below `/ap/signin/*` and GETs only the proxy root, while Amazon also uses GET
-  and POST requests below `/ap/cvf`, `/ap/register`, `/ap/forgotpassword`, and
-  the bare `/ap/signin` path. On every start, the init container copies the
-  image's Alexa provider to the retained data volume and routes both methods
-  below the temporary `/ap/*` authentication path; the main container mounts
-  the patched file read-only. The init container fails if the upstream source
-  no longer has the expected route blocks, making upgrades reviewable instead
-  of silently carrying a stale patch.
+  authentication callback itself. The pinned beta registers one wildcard setup
+  proxy route below `/setup_flow/alexa_proxy/<flow-id>/`, but still sends that
+  server-side notification to the browser-facing HTTPS URL. The container does
+  not trust the private issuer for `music.media.home`, causing the final sign-in
+  POST to return `500`. The setup-flow overlay keeps the browser-facing
+  callback on HTTPS while sending this internal notification to Music
+  Assistant's plaintext loopback listener on the webserver controller's
+  configured publish port. The main container mounts the patched provider and
+  setup-flow files read-only. The init container fails if upstream changes the
+  expected blocks, making upgrades reviewable instead of silently carrying a
+  stale patch.
 - Do not start another Alexa authentication while one is pending. Dynamic
   routes remain registered until the active helper completes or times out, so
   overlapping attempts fail with `Route /alexa/auth/proxy/ already registered`.

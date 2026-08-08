@@ -1,0 +1,106 @@
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: profilarr
+  namespace: media
+  labels:
+    app.kubernetes.io/name: profilarr
+    app.kubernetes.io/part-of: media-stack
+    home-lab.io/project-slug: entertainment
+spec:
+  revisionHistoryLimit: 2
+  replicas: 1
+  strategy:
+    type: Recreate
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: profilarr
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: profilarr
+        app.kubernetes.io/part-of: media-stack
+        home-lab.io/topology-group: media-profile-management
+    spec:
+      automountServiceAccountToken: false
+      terminationGracePeriodSeconds: 30
+      nodeSelector:
+        kubernetes.io/arch: arm64
+      securityContext:
+        fsGroup: 1000
+        fsGroupChangePolicy: OnRootMismatch
+        runAsNonRoot: true
+        runAsUser: 1000
+        runAsGroup: 1000
+        seccompProfile:
+          type: RuntimeDefault
+      containers:
+        - name: profilarr
+          # renovate: datasource=docker depName=ghcr.io/dictionarry-hub/profilarr
+          image: registry.home/ghcr.io/dictionarry-hub/profilarr:2.0.9
+          imagePullPolicy: IfNotPresent
+          env:
+            - name: TZ
+              value: Asia/Kolkata
+            - name: PUID
+              value: "1000"
+            - name: PGID
+              value: "1000"
+            - name: UMASK
+              value: "022"
+            - name: AUTH
+              value: "on"
+            - name: ORIGIN
+              value: http://profilarr.media.home
+            - name: PORT
+              value: "6868"
+          ports:
+            - name: http
+              containerPort: 6868
+              protocol: TCP
+          resources:
+            requests:
+              cpu: 50m
+              memory: 256Mi
+            limits:
+              memory: 1Gi
+          startupProbe:
+            httpGet:
+              path: /api/v1/health
+              port: http
+            periodSeconds: 5
+            timeoutSeconds: 3
+            failureThreshold: 60
+          readinessProbe:
+            httpGet:
+              path: /api/v1/health
+              port: http
+            periodSeconds: 10
+            timeoutSeconds: 3
+            failureThreshold: 6
+          livenessProbe:
+            httpGet:
+              path: /api/v1/health
+              port: http
+            periodSeconds: 30
+            timeoutSeconds: 5
+            failureThreshold: 4
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: false
+            capabilities:
+              drop:
+                - ALL
+          volumeMounts:
+            - name: config
+              mountPath: /config
+            - name: tmp
+              mountPath: /tmp
+      volumes:
+        - name: config
+          persistentVolumeClaim:
+            claimName: profilarr-config
+        - name: tmp
+          emptyDir:
+            sizeLimit: 256Mi

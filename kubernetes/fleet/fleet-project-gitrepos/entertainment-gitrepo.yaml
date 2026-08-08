@@ -22,6 +22,7 @@ spec:
     - kubernetes/projects/entertainment/apps/media-jellyseerr-networkpolicy
     - kubernetes/projects/entertainment/apps/media-music-assistant
     - kubernetes/projects/entertainment/apps/media-music-assistant-alexa-skill
+    - kubernetes/projects/entertainment/apps/media-profilarr
     - kubernetes/projects/entertainment/apps/media-prowlarr
     - kubernetes/projects/entertainment/apps/media-qbittorrent
     - kubernetes/projects/entertainment/apps/media-radarr

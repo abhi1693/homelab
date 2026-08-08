@@ -16,6 +16,9 @@ while a recovered run no longer leaves `KubeJobFailed` alert noise for a day.
 Docker updates are disabled by default and re-enabled only for image names
 listed in `packageRules`. Each package rule also defines the versioning scheme,
 allowed version range, and branch automerge behavior for that image family.
+Wardn AI image pins are the exception: they use the `git-refs` datasource with
+`currentValue=master` so Renovate can update full commit-SHA image tags that
+Docker tag versioning ignores.
 
 ```mermaid
 flowchart TD
@@ -73,3 +76,11 @@ To add another automated image update:
 4. Set an explicit `allowedVersions` range for the image.
 5. Publish tags from the source repository in the version format selected by
    the package rule.
+
+For full commit-SHA image tags, use the `git-refs` form instead of the Docker
+datasource:
+
+```yaml
+# renovate: datasource=git-refs depName=github.com/abhi1693/wardn-ai currentValue=master
+image: registry.home/ghcr.io/abhi1693/wardn-ai-backend:<40-character-sha>
+```

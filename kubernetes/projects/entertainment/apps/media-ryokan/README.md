@@ -114,7 +114,7 @@ Fleet-managed PVC when capacity is the problem, then rerun the native rebuild.
   `graphql.anilist.co`, then retry after connectivity recovers. A successful
   workstation request does not prove that the Ryokan Pod can reach AniList.
 - **Nyaa search shows `No results` for a known title:** inspect the Ryokan logs
-  for `Nyaa request failed`. Ryokan 1.8 renders transport failures as an empty
+  for `Nyaa request failed`. Ryokan 1.8.x renders transport failures as an empty
   result set. Confirm the `ryokan-proxy` Secret exists, the
   `media-do-squid-firewall` CronJob is succeeding, and the remote Squid
   credential matches the encrypted proxy URL.

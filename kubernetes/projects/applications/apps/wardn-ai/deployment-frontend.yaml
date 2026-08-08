@@ -55,7 +55,8 @@ spec:
               app.kubernetes.io/component: frontend
       containers:
         - name: frontend
-          image: registry.home/ghcr.io/abhi1693/wardn-ai-frontend:0.0.29
+          # renovate: datasource=git-refs depName=github.com/abhi1693/wardn-ai currentValue=master
+          image: registry.home/ghcr.io/abhi1693/wardn-ai-frontend:0.0.37
           imagePullPolicy: IfNotPresent
           envFrom:
             - configMapRef:
@@ -66,8 +67,8 @@ spec:
               protocol: TCP
           resources:
             requests:
-              cpu: 30m
-              memory: 265Mi
+              cpu: 70m
+              memory: 306Mi
             limits:
               memory: 448Mi
           startupProbe:

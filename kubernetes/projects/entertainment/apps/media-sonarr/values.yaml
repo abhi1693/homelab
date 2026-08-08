@@ -20,8 +20,8 @@ podOptions:
     kubernetes.io/arch: arm64
 resources:
   requests:
-    cpu: 200m
-    memory: 430Mi
+    cpu: 330m
+    memory: 511Mi
   limits:
     memory: 864Mi
 ingress:
@@ -52,7 +52,7 @@ workload:
           nodeTaintsPolicy: Honor
 persistence:
   config:
-    size: 256Mi
+    size: 1Gi
     storageClass: longhorn
     volumeName: pvc-b7e4d48a-867b-4d63-9573-8d1a9da7bce9
   media:

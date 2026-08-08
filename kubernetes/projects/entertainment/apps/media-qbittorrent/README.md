@@ -38,6 +38,25 @@ thermal, and recovery decisions use service APIs plus the small
 `media/qbittorrent-smart-queues-state-nfs` PVC backed by a retained directory on
 the shared NAS export.
 
+`qbittorrent-downloads-layout` runs every five minutes and recreates the
+expected qBittorrent category directories on `media-downloads-nfs-csi`. This
+keeps cleanup of stale torrent payloads from breaking Sonarr, Radarr, Prowlarr,
+or Ryokan path checks that expect `/downloads/tv`, `/downloads/movies`,
+`/downloads/anime`, `/downloads/prowlarr`, and their temporary directories to
+exist. qBittorrent still stages incomplete payloads below `/downloads/temp`,
+but each category uses its own temporary subdirectory and moves completed files
+to the matching final category directory.
+
+`qbittorrent-state-backup` runs every 15 minutes on the qBittorrent node and
+copies qBittorrent's torrent catalog and core config from the Longhorn-backed
+`qbittorrent-config` PVC to the retained
+`media/qbittorrent-state-backup-nfs` PVC. Each snapshot includes
+`BT_backup`, categories, watched folders, RSS state, and qBittorrent config
+files, plus a checksum and `latest.txt` with torrent-state counts. Longhorn
+replication protects against a single replica loss but is not a catalog backup;
+restore from this NFS snapshot if the Longhorn config volume is ever faulted or
+recreated with an empty torrent catalog.
+
 The controller checks Rancher Monitoring Prometheus for Raspberry Pi CPU and
 NVMe temperatures before it can start or raise downloads. Thermal mitigation is
 staged: first throttle qBittorrent, then pause torrents and suspend configured

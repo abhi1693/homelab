@@ -623,8 +623,8 @@ These services are not just "apps"; they are the platform other apps depend on.
 
 | App | What it does | Notable dependencies |
 | --- | --- | --- |
-| Firefly III | Personal finance application. | PostgreSQL pooler, NFS upload PVC, internal Traefik ingress. |
-| Firefly III Data Importer | Imports financial data into Firefly III. | Firefly service, NFS config PVC. |
+| Firefly III | Paused personal finance application. | PostgreSQL pooler retained at 0 instances, NFS upload PVC, internal Traefik ingress. |
+| Firefly III Data Importer | Paused financial data import UI. | Firefly service, NFS config PVC. |
 | Harbor | Local registry and proxy/cache registry. | PostgreSQL, Valkey, NFS storage, monitoring. |
 | OpenBao | Lightweight secret-management experiment for the Wardn namespace. | Longhorn PVC, Traefik ingress. |
 | Personal Blog | Public blog deployment. | Harbor image, Cloudflare Tunnel, Sanity revalidation secret. |
@@ -646,8 +646,9 @@ These services are not just "apps"; they are the platform other apps depend on.
 
 | App | What it does |
 | --- | --- |
-| qBittorrent | Torrent client with category paths and LoadBalancer peer port exposure. |
+| qBittorrent | Torrent client with category paths, state snapshots, download-layout repair, and LoadBalancer peer port exposure. |
 | Prowlarr | Indexer manager for media applications. |
+| Profilarr | Quality profile, custom format, and quality-definition management for Radarr and Sonarr. |
 | Sonarr | TV library management. |
 | Radarr | Movie library management. |
 | Music Assistant | Player UI with an authenticated YouTube Music account mirror, persistent local cache, personalized Home recommendations, online song radio, and local audio-similarity radio. |
@@ -661,7 +662,9 @@ These services are not just "apps"; they are the platform other apps depend on.
 | media-do-squid-firewall | Keeps a remote Squid proxy firewall allowlist aligned with current egress. |
 
 The media stack is intentionally split between download storage and completed
-library storage. Download clients write to a NAS-backed downloads PVC.
+library storage. Download clients write to a NAS-backed downloads PVC, and
+qBittorrent keeps a retained NFS snapshot of its torrent catalog so Longhorn
+config-volume loss does not also erase the active download queue.
 Importers move completed content into the NAS-backed media library. Jellyfin
 scans the completed video library, not partial downloads. Music Assistant owns
 the music path directly: its hash-pinned authenticated YouTube provider mirrors
@@ -681,7 +684,7 @@ callback and Music Assistant's player-stream port.
 | App | What it does |
 | --- | --- |
 | Home Assistant | Home automation, packages from Git, HACS bootstrap, code-server sidecar. |
-| NetBox | Source of truth for IPAM, device inventory, cabling, DNS, and lifecycle documentation. |
+| NetBox | Paused source of truth for IPAM, device inventory, cabling, DNS, and lifecycle documentation. |
 | Cloudflare Tunnel ingress controller | Maps Kubernetes ingress intent to Cloudflare Tunnel routes. |
 | Rack Ops controllers | Rack/node automation, policy, monitoring, and guarded actions. |
 | UPS Monitoring | Network UPS Tools, PeaNUT dashboard, exporter, Grafana dashboard, and alerts. |
@@ -1048,6 +1051,7 @@ App and component deep dives:
 | [kubernetes/projects/entertainment/apps/media-jellyseerr/README.md](kubernetes/projects/entertainment/apps/media-jellyseerr/README.md) | Jellyseerr media request portal. |
 | [kubernetes/projects/entertainment/apps/media-music-assistant/README.md](kubernetes/projects/entertainment/apps/media-music-assistant/README.md) | Music Assistant discovery, playback, and provider wiring. |
 | [kubernetes/projects/entertainment/apps/media-music-assistant-alexa-skill/README.md](kubernetes/projects/entertainment/apps/media-music-assistant-alexa-skill/README.md) | Persistent Alexa Custom/Music-model bridge and public player-stream wiring. |
+| [kubernetes/projects/entertainment/apps/media-profilarr/README.md](kubernetes/projects/entertainment/apps/media-profilarr/README.md) | Profilarr profile and quality-definition sync for Radarr/Sonarr. |
 | [kubernetes/projects/entertainment/apps/media-prowlarr/README.md](kubernetes/projects/entertainment/apps/media-prowlarr/README.md) | Prowlarr indexer management. |
 | [kubernetes/projects/entertainment/apps/media-qbittorrent/README.md](kubernetes/projects/entertainment/apps/media-qbittorrent/README.md) | qBittorrent peer traffic and automation. |
 | [kubernetes/projects/entertainment/apps/media-radarr/README.md](kubernetes/projects/entertainment/apps/media-radarr/README.md) | Radarr movie library automation. |

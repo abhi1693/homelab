@@ -1,4 +1,3 @@
----
 apiVersion: apps/v1
 kind: Deployment
 metadata:
@@ -22,6 +21,8 @@ spec:
       maxUnavailable: 1
   template:
     metadata:
+      annotations:
+        home-lab.io/categorization-config-revision: "20260802T1745Z"
       labels:
         app.kubernetes.io/name: wardn-hub-worker
         app.kubernetes.io/component: worker
@@ -61,7 +62,7 @@ spec:
       initContainers:
         - name: wait-for-api-rollout
           # renovate: datasource=github-releases depName=abhi1693/wardn-hub
-          image: registry.home/ghcr.io/abhi1693/wardn-hub-backend:0.2.171
+          image: registry.home/ghcr.io/abhi1693/wardn-hub-backend:0.2.179
           imagePullPolicy: IfNotPresent
           command:
             - python
@@ -95,7 +96,7 @@ spec:
       containers:
         - name: worker
           # renovate: datasource=github-releases depName=abhi1693/wardn-hub
-          image: registry.home/ghcr.io/abhi1693/wardn-hub-backend:0.2.171
+          image: registry.home/ghcr.io/abhi1693/wardn-hub-backend:0.2.179
           imagePullPolicy: IfNotPresent
           command:
             - python
@@ -168,8 +169,8 @@ spec:
             failureThreshold: 4
           resources:
             requests:
-              cpu: 500m
-              memory: 768Mi
+              cpu: 370m
+              memory: 1200Mi
             limits:
               memory: 1536Mi
           securityContext:

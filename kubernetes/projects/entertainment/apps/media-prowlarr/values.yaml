@@ -5,7 +5,7 @@ image:
   repository: registry.home/oci.trueforge.org/containerforge/prowlarr
   pullPolicy: IfNotPresent
   # renovate: datasource=docker depName=oci.trueforge.org/containerforge/prowlarr
-  tag: "2.5"
+  tag: "2.6.1"
 imagePullSecret:
   harbor-registry:
     enabled: true
@@ -22,8 +22,8 @@ podOptions:
     kubernetes.io/arch: arm64
 resources:
   requests:
-    cpu: 100m
-    memory: 346Mi
+    cpu: 190m
+    memory: 359Mi
   limits:
     memory: 544Mi
 ingress:

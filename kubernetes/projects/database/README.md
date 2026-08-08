@@ -70,7 +70,7 @@ declared app-side maximum connection demand.
 | `netbox` | `netbox-rw` | disabled | 0 | 10 |
 | `wardn_hub` | `wardn-hub-rw` | implicit | 12 | 12 |
 | `wardn_ai` | `wardn-ai-rw` | implicit | 6 | 12 |
-| `firefly` | `firefly-iii-rw` | implicit | 4 | 10 |
+| `firefly` | `firefly-iii-rw` | disabled | 0 | 10 |
 | `zitadel` | `zitadel-rw` | implicit | 16 | 24 |
 
 Paused and single-replica poolers intentionally have no PDB. A

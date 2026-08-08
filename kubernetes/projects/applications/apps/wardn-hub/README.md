@@ -66,6 +66,11 @@ Sunday in the `Asia/Kolkata` time zone. Each run executes
 `python -m app.manage skills refresh`, reads active GitHub skill sources,
 stores changed bundles in PostgreSQL, and audits changed snapshots through the
 pending-audit queue in the same command.
+Every Wardn Hub Helm install or upgrade also runs the
+`wardn-hub-find-skills-refresh` hook after the API rollout is ready. That hook
+uses the rollout backend image to re-import `skills/find-skills` from
+`abhi1693/wardn-hub`, so the published bootstrap skill tracks the source that
+ships with each new Hub image instead of waiting for the weekly catalog refresh.
 
 New skill discovery runs from the `skill-import` lane at 03:17 every Saturday.
 Its configured importer arguments search repositories named `skills` with at
@@ -132,10 +137,12 @@ continues to use the separate Longhorn-backed `wardn-hub-codex-home` PVC.
 The unused legacy `wardn-hub-codex-config` Longhorn claim has been retired; the
 active Codex home claim is unaffected.
 
-The consolidated worker requests `150m` CPU and `512Mi` memory with a `1536Mi`
+The consolidated worker requests `370m` CPU and `1200Mi` memory with a `1536Mi`
 memory limit. CPU remains burstable for review, audit, and delivery spikes.
-The Codex app-server requests `90m` against an observed 7-day aggregate p99 of
-about `73m`, and the frontend requests `30m` against about `22m` p99.
+The Codex app-server requests `180m` CPU and `1Gi` memory with a `4Gi` memory
+limit. The higher cap preserves room above repeated near-`2Gi` review bursts
+while still bounding runaway sessions; the recommendation profile can continue
+tuning requests, but the memory limit stays in this manifest.
 
 ## Observability
 

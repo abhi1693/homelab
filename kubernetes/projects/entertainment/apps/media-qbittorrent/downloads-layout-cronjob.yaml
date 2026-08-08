@@ -1,0 +1,81 @@
+---
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: qbittorrent-downloads-layout
+  namespace: media
+  labels:
+    app.kubernetes.io/instance: qbittorrent
+    app.kubernetes.io/name: qbittorrent-downloads-layout
+    app.kubernetes.io/part-of: media-stack
+    home-lab.io/project-slug: entertainment
+spec:
+  schedule: "*/5 * * * *"
+  concurrencyPolicy: Forbid
+  successfulJobsHistoryLimit: 1
+  failedJobsHistoryLimit: 3
+  jobTemplate:
+    spec:
+      backoffLimit: 1
+      activeDeadlineSeconds: 120
+      template:
+        metadata:
+          labels:
+            app.kubernetes.io/instance: qbittorrent
+            app.kubernetes.io/name: qbittorrent-downloads-layout
+            app.kubernetes.io/part-of: media-stack
+            home-lab.io/project-slug: entertainment
+        spec:
+          restartPolicy: Never
+          automountServiceAccountToken: false
+          nodeSelector:
+            kubernetes.io/arch: arm64
+          securityContext:
+            fsGroup: 65532
+            runAsGroup: 65532
+            runAsNonRoot: true
+            runAsUser: 65532
+            seccompProfile:
+              type: RuntimeDefault
+          containers:
+            - name: ensure-layout
+              image: registry.home/docker.io/curlimages/curl:8.21.0
+              imagePullPolicy: IfNotPresent
+              securityContext:
+                allowPrivilegeEscalation: false
+                capabilities:
+                  drop:
+                    - ALL
+                readOnlyRootFilesystem: true
+              command:
+                - /bin/sh
+                - -ec
+                - |
+                  for path in \
+                    /downloads/anime \
+                    /downloads/movies \
+                    /downloads/prowlarr \
+                    /downloads/temp \
+                    /downloads/temp/anime \
+                    /downloads/temp/movies \
+                    /downloads/temp/prowlarr \
+                    /downloads/temp/tv \
+                    /downloads/tv
+                  do
+                    mkdir -p "$path"
+                  done
+                  echo "qBittorrent download layout is present"
+              resources:
+                requests:
+                  cpu: 5m
+                  memory: 16Mi
+                limits:
+                  cpu: 100m
+                  memory: 64Mi
+              volumeMounts:
+                - name: downloads
+                  mountPath: /downloads
+          volumes:
+            - name: downloads
+              persistentVolumeClaim:
+                claimName: media-downloads-nfs-csi

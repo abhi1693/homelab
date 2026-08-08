@@ -54,7 +54,7 @@ declared app-side maximum connection demand.
 | `netbox` | `netbox-rw` | disabled | 0 | 10 |
 | `wardn_hub` | `wardn-hub-rw` | implicit | 12 | 12 |
 | `wardn_ai` | `wardn-ai-rw` | implicit | 6 | 12 |
-| `firefly` | `firefly-iii-rw` | implicit | 4 | 10 |
+| `firefly` | `firefly-iii-rw` | disabled | 0 | 10 |
 | `zitadel` | `zitadel-rw` | 16 | 32 | 32 |
 | `music_assistant` | direct | 2 | 2 | 4 |
 
@@ -83,9 +83,10 @@ the same node and primary failover to another trusted K3s node.
 
 The requests use the latest available seven-day p95/p99 review with burst
 headroom. `wardn-hub-rw` requests 50m CPU per replica, `jellyfin-rw` requests
-15m, and the other poolers request 10m. Every configured pooler requests 56Mi
-memory and retains its 192Mi memory limit. With the NetBox pooler paused, the
-scheduler reserves 195m CPU and 616Mi memory across 11 active replicas.
+15m, and the other active poolers request 10m. Every active pooler requests 56Mi
+memory and retains its 192Mi memory limit. With the NetBox and Firefly poolers
+paused, the scheduler reserves 185m CPU and 560Mi memory across 10 active
+replicas.
 Wardn Hub's two replicas used 16m at p95 and 39m at p99 in aggregate, with a
 123m maximum. Their combined 100m request therefore preserves p99 headroom
 while CPU remains unlimited for short bursts. Revisit the requests if sustained
@@ -113,11 +114,11 @@ limit is unchanged.
 ## PostgreSQL runtime tuning
 
 The connection and memory settings are sized for the shared 1Gi PostgreSQL pod
-and the 11 active PgBouncer replicas:
+and the 12 active PgBouncer replicas:
 
 | Parameter | Value | Rationale |
 | --- | ---: | --- |
-| `max_connections` | 160 | The 14-day maximum was 104 and p99 was 90. The modeled pooler, control, replication, monitoring, and direct-client ceiling is about 129. |
+| `max_connections` | 160 | The 14-day maximum was 104 and p99 was 90. The modeled pooler, control, replication, monitoring, and direct-client ceiling is about 132. |
 | `shared_buffers` | 256MiB | Retains the 25% memory allocation; per-database cache-hit ratios remain between 98.7% and 99.99%. |
 | `effective_cache_size` | 768MiB | Gives the planner a realistic 75% cache hint for the 1Gi cgroup; it does not allocate memory. |
 | `work_mem` | 4MiB | Avoids multiplying a larger allocation across concurrent sort and hash operations. Expensive maintenance queries must use statement-local overrides. |

@@ -26,7 +26,7 @@ apps.
 | App | What it does | Key coupling |
 | --- | --- | --- |
 | `media-storage` | Owns the `media` namespace and the NAS-backed completed-library and downloads PVCs. | NFS CSI and existing NAS exports. |
-| `media-qbittorrent` | Torrent client and smart queue automation. | LoadBalancer peer port, downloads PVC, tracker refresh, rack automation. |
+| `media-qbittorrent` | Torrent client and smart queue automation. | LoadBalancer peer port, downloads PVC, state snapshots, tracker refresh, rack automation. |
 | `media-prowlarr` | Indexer manager. | qBittorrent, Sonarr, Radarr, FlareSolverr, optional proxy. |
 | `media-sonarr` | TV library automation. | Prowlarr, qBittorrent, completed media PVC. |
 | `media-radarr` | Movie library automation. | Prowlarr, qBittorrent, completed media PVC. |

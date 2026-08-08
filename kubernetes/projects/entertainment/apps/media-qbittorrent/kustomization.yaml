@@ -15,6 +15,9 @@ configurations:
 resources:
   - secrets.sops.yaml
   - helmop.yaml
+  - state-backup-pvc.yaml
+  - state-backup-cronjob.yaml
+  - downloads-layout-cronjob.yaml
   - smart-queues-apiserver-cnp.yaml
   - smart-queues-controller.yaml
   - smart-queues-grafana-dashboard.yaml

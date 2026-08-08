@@ -227,6 +227,7 @@ spec:
       strrl.dev/cloudflare-tunnel-ingress-controller: controlled-cloudflared-connector
   egress:
     - toEntities:
+        - host
         - remote-node
       toPorts:
         - ports:

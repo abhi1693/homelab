@@ -17,3 +17,22 @@ spec:
   resources:
     requests:
       storage: 5Gi
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: wardn-ai-whatsapp-bridge-data
+  namespace: wardn
+  annotations:
+    helm.sh/resource-policy: keep
+  labels:
+    app.kubernetes.io/name: wardn-ai-whatsapp-bridge
+    app.kubernetes.io/component: whatsapp-bridge
+    app.kubernetes.io/part-of: wardn-ai
+spec:
+  accessModes:
+    - ReadWriteMany
+  storageClassName: nfs-shared-retain
+  resources:
+    requests:
+      storage: 2Gi

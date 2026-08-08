@@ -9,7 +9,7 @@ This bundle installs the media request portal through a Fleet `HelmOp`.
 - Release: `jellyseerr`
 - Internal URL: `http://requests.media.home`
 - Ingress class: `traefik`
-- Image: Harbor proxy path for `docker.io/seerr/seerr`
+- Image: Harbor proxy path for `ghcr.io/seerr-team/seerr:v3.4.1`
 - Service: ClusterIP on port `10241`
 
 The workload runs as a non-root user with a retained config PVC.

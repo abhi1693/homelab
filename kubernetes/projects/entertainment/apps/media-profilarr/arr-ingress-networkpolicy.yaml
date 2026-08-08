@@ -1,0 +1,48 @@
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: radarr-from-profilarr
+  namespace: media
+  labels:
+    app.kubernetes.io/name: profilarr
+    app.kubernetes.io/part-of: media-stack
+spec:
+  podSelector:
+    matchLabels:
+      app.kubernetes.io/instance: radarr
+      app.kubernetes.io/name: radarr
+  policyTypes:
+    - Ingress
+  ingress:
+    - from:
+        - podSelector:
+            matchLabels:
+              app.kubernetes.io/name: profilarr
+      ports:
+        - protocol: TCP
+          port: 7878
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: sonarr-from-profilarr
+  namespace: media
+  labels:
+    app.kubernetes.io/name: profilarr
+    app.kubernetes.io/part-of: media-stack
+spec:
+  podSelector:
+    matchLabels:
+      app.kubernetes.io/instance: sonarr
+      app.kubernetes.io/name: sonarr
+  policyTypes:
+    - Ingress
+  ingress:
+    - from:
+        - podSelector:
+            matchLabels:
+              app.kubernetes.io/name: profilarr
+      ports:
+        - protocol: TCP
+          port: 8989
