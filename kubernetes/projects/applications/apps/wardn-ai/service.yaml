@@ -40,3 +40,24 @@ spec:
       port: 3000
       targetPort: http
       protocol: TCP
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: wardn-ai-whatsapp-bridge
+  namespace: wardn
+  labels:
+    app.kubernetes.io/name: wardn-ai-whatsapp-bridge
+    app.kubernetes.io/component: whatsapp-bridge
+    app.kubernetes.io/part-of: wardn-ai
+spec:
+  type: ClusterIP
+  trafficDistribution: PreferSameNode
+  selector:
+    app.kubernetes.io/name: wardn-ai-whatsapp-bridge
+    app.kubernetes.io/component: whatsapp-bridge
+  ports:
+    - name: http
+      port: 8090
+      targetPort: http
+      protocol: TCP

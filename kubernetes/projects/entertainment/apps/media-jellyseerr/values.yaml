@@ -1,9 +1,9 @@
 fullnameOverride: jellyseerr
 image:
   registry: registry.home
-  repository: docker.io/seerr/seerr
-  # renovate: datasource=docker depName=docker.io/seerr/seerr
-  tag: v3.3
+  repository: ghcr.io/seerr-team/seerr
+  # renovate: datasource=docker depName=ghcr.io/seerr-team/seerr
+  tag: v3.4.1
   pullPolicy: IfNotPresent
 extraEnv:
   - name: TZ
@@ -31,7 +31,7 @@ nodeSelector:
   kubernetes.io/arch: arm64
 resources:
   requests:
-    cpu: 40m
+    cpu: 50m
     memory: 324Mi
   limits:
     memory: 432Mi

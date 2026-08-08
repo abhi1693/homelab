@@ -62,9 +62,13 @@ trickplay data, root profile data, and Shokofin state.
 The PVC is sized for metadata growth and should only be expanded, not shrunk,
 after it has been created.
 
-The deployment leaves `JELLYFIN_DISABLE_TRICKPLAY_AND_CHAPTER_IMAGES=false` so
-Jellyfin's API-managed trickplay library options are preserved across pod
-restart.
+The deployment sets `JELLYFIN_DISABLE_TRICKPLAY_AND_CHAPTER_IMAGES=true` so
+Jellyfin does not restart the ARM64 ffmpeg trickplay/chapter extraction jobs
+that repeatedly become unresponsive on 4K/HDR media. Existing shared trickplay
+data can remain on the RWX PVC; the startup guard only prevents new failing
+extraction work from being scheduled by library settings. The current values
+patch the image entrypoint to follow `/data/root` through the shared-data
+symlink before Jellyfin starts.
 
 TrueCharts default PVC affinity remains disabled for this app, and the pod is
 restricted to ARM64 nodes. Rollouts use `Recreate` so upgrades do not run two

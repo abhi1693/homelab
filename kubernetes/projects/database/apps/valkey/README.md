@@ -13,7 +13,7 @@ through a Fleet `HelmOp`.
   replica
 - Metrics: chart exporter and `ServiceMonitor` are enabled
 - Replica data-container memory: recommendation-managed request with a manually
-  maintained `256Mi` limit that leaves headroom for safe request proposals
+  maintained `384Mi` limit that leaves headroom for safe request proposals
 
 The chart runs with authentication disabled. Access control is provided by the
 cluster network boundary in the separate `valkey-networkpolicy` bundle.

@@ -106,7 +106,9 @@ when changing the shared state contract.
 Set `JELLYFIN_DISABLE_TRICKPLAY_AND_CHAPTER_IMAGES=true` to force existing
 library option files under `/data/root` to disable trickplay image extraction,
 trickplay extraction during scans, chapter image extraction, and chapter image
-extraction during scans before Jellyfin starts.
+extraction during scans before Jellyfin starts. The startup hook follows
+symlinked shared-state paths, so deployments that place `/data/root` on the
+shared data volume are covered.
 
 The baked plugin set currently includes:
 

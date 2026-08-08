@@ -3,7 +3,7 @@
 NetBox is the source of truth for home-network planning, IPAM, device
 inventory, and rack/cabling documentation.
 
-The web UI is available at:
+The web UI is paused by default. When NetBox is re-enabled, it is available at:
 
 - `http://netbox.home`
 
@@ -14,15 +14,14 @@ Current choices:
 - NetBox version: `v4.6.3`
 - image: `registry.home/ghcr.io/abhi1693/home-lab-netbox:4.6.3-cf39083`
 - namespace: `netbox`
-- ingress class: `traefik`
-- web replicas: `0` (paused)
-- worker replicas: `0` (paused)
-- housekeeping: disabled while NetBox is paused
+- ingress: disabled
+- web replicas: `0`
+- worker replicas: `0`
+- housekeeping: disabled
 - PostgreSQL operator: CloudNativePG
 - PostgreSQL cluster chart: `cnpg/cluster`
 - PostgreSQL cluster instances: `3`
-- PostgreSQL write pooler: `postgresql-pooler-netbox-rw`, `0` instances while
-  NetBox is paused
+- PostgreSQL write pooler: `postgresql-pooler-netbox-rw`, `0` instances
 - queue/cache: shared Database project Valkey Sentinel service
 - media persistence: retained NAS directory through NFS CSI
 - required plugins:
@@ -40,7 +39,8 @@ in `cnpg-system`. The Database project `postgresql` HelmOp creates the shared
 `postgresql` cluster in the `postgresql` namespace. NetBox connects only to its
 app-specific write PgBouncer pooler at
 `postgresql-pooler-netbox-rw.postgresql.svc.cluster.local` using the
-manually-managed `postgresql-app` secret in the `netbox` namespace.
+manually-managed `postgresql-app` secret in the `netbox` namespace when the app
+and pooler are re-enabled.
 
 ## First login
 
@@ -53,13 +53,13 @@ kubectl -n netbox get secret netbox-superuser \
   -o jsonpath='{.data.password}' | base64 -d; echo
 ```
 
-Then log in as `admin` at `http://netbox.home`.
+Then log in as `admin` at `http://netbox.home` after the ingress is re-enabled.
 
 ## DNS
 
-ExternalDNS should publish `netbox.home` from the Ingress. If the DNS record is
-not created automatically, add `netbox.home` to the Traefik LoadBalancer IP
-`192.168.3.3`.
+ExternalDNS publishes `netbox.home` from the Ingress only while the ingress is
+enabled. If the DNS record is not created automatically after re-enabling
+NetBox, add `netbox.home` to the Traefik LoadBalancer IP `192.168.3.3`.
 
 ## Storage
 
@@ -75,10 +75,10 @@ during drift checks. The detached former Longhorn media claim was retired after
 its NFS copy was verified while NetBox remained paused.
 
 Housekeeping is disabled while NetBox is paused. When enabled, the CronJob
-retains neither successful nor failed Jobs. Retained housekeeping pods are
-still reported as consumers of the shared media PVC after they finish, which
-can make Longhorn reject a later CSI republish when no consumer pod is Pending.
-Job output remains available through centralized logs.
+retains neither successful nor failed Jobs. Retained housekeeping pods are still
+reported as consumers of the shared media PVC after they finish, which can make
+Longhorn reject a later CSI republish when no consumer pod is Pending. Job
+output remains available through centralized logs.
 
 ## Plugins
 
@@ -113,9 +113,8 @@ kubectl -n netbox create secret generic netbox-metatype-importer-config \
 
 ## HA model
 
-NetBox is currently paused with zero web, worker, and PgBouncer replicas, and
-housekeeping disabled. Its PVC, PostgreSQL database, role, and Valkey data are
-retained for a later restart. When active, the web Deployment uses pod
-anti-affinity and topology spread constraints, the worker is single-replica,
-and the write pool normally uses two PgBouncer instances. PostgreSQL itself
-remains a shared three-instance CloudNativePG cluster.
+NetBox is paused with zero web replicas, no worker, no housekeeping CronJob, no
+ingress, and a zero-instance PgBouncer pooler. Its PVC, PostgreSQL database,
+role, and Valkey data are retained across restarts. When re-enabled, the web
+Deployment uses pod anti-affinity and topology spread constraints, and
+PostgreSQL itself remains a shared three-instance CloudNativePG cluster.

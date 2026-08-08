@@ -22,7 +22,7 @@ spec:
   template:
     metadata:
       annotations:
-        home-lab.io/config-revision: "mcp-runtime-gateway-0.0.29"
+        home-lab.io/config-revision: "wardn-ai-0-0-37"
       labels:
         app.kubernetes.io/name: wardn-ai-api
         app.kubernetes.io/component: api
@@ -59,7 +59,8 @@ spec:
               app.kubernetes.io/component: api
       initContainers:
         - name: migrate-db
-          image: registry.home/ghcr.io/abhi1693/wardn-ai-backend:0.0.29
+          # renovate: datasource=git-refs depName=github.com/abhi1693/wardn-ai currentValue=master
+          image: registry.home/ghcr.io/abhi1693/wardn-ai-backend:0.0.37
           imagePullPolicy: IfNotPresent
           command:
             - alembic
@@ -108,7 +109,8 @@ spec:
               mountPath: /app/data
       containers:
         - name: api
-          image: registry.home/ghcr.io/abhi1693/wardn-ai-backend:0.0.29
+          # renovate: datasource=git-refs depName=github.com/abhi1693/wardn-ai currentValue=master
+          image: registry.home/ghcr.io/abhi1693/wardn-ai-backend:0.0.37
           imagePullPolicy: IfNotPresent
           envFrom:
             - configMapRef:
@@ -140,7 +142,7 @@ spec:
           resources:
             requests:
               cpu: 50m
-              memory: 179Mi
+              memory: 200Mi
             limits:
               cpu: "1"
               memory: 1Gi

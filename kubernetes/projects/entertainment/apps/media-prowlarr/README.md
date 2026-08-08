@@ -10,7 +10,7 @@ management.
 - Release: `prowlarr`
 - Internal URL: `http://prowlarr.media.home`
 - Ingress class: `traefik`
-- Image: Harbor proxy path for `oci.trueforge.org/containerforge/prowlarr`
+- Image: Harbor proxy path for `oci.trueforge.org/containerforge/prowlarr:2.6.1`
 
 Fleet orders Prowlarr after FlareSolverr because indexer configuration can use
 the FlareSolverr service for browser-challenge handling.

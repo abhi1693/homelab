@@ -68,13 +68,16 @@ workload:
             - -ec
             - |
               patched_entrypoint=/tmp/jellyfin-entrypoint.sh
-              sed '/plugin_name="$(basename "${image_plugin_dir}")"/a\
+              sed \
+                -e '/plugin_name="$(basename "${image_plugin_dir}")"/a\
                   case "${plugin_name}" in\
                     "Intro Skipper_"*|"InPlayer Episode Preview_"*|"Playback Reporting_"*)\
                       continue\
                       ;;\
                   esac
-              ' /entrypoint.sh > "${patched_entrypoint}"
+              ' \
+                -e 's|find "${data_root}/root" -type f -name options.xml -print0|find -L "${data_root}/root" -type f -name options.xml -print0|' \
+                /entrypoint.sh > "${patched_entrypoint}"
               chmod +x "${patched_entrypoint}"
 
               exec "${patched_entrypoint}"
@@ -103,7 +106,7 @@ workload:
             JELLYFIN_ENHANCED_AUTO_SKIP_OUTRO: "false"
             JELLYFIN_SHARED_DATA_DIR: /shared-data
             JELLYFIN_SHARED_DATA_PATHS: metadata:data/collections:data/subtitles:data/livetv:data/playlists:data/imdb-ratings-cache:data/trickplay:root:Shokofin
-            JELLYFIN_DISABLE_TRICKPLAY_AND_CHAPTER_IMAGES: "false"
+            JELLYFIN_DISABLE_TRICKPLAY_AND_CHAPTER_IMAGES: "true"
           probes:
             liveness:
               enabled: true
@@ -151,8 +154,8 @@ podOptions:
     kubernetes.io/arch: arm64
 resources:
   requests:
-    cpu: 1570m
-    memory: 1536Mi
+    cpu: 1700m
+    memory: 837Mi
   limits:
     cpu: 2500m
     memory: 4Gi

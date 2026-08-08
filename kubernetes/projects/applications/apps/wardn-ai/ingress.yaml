@@ -21,7 +21,21 @@ spec:
                 name: wardn-ai-api
                 port:
                   name: http
-          - path: /.well-known
+          - path: /.well-known/oauth-protected-resource
+            pathType: Prefix
+            backend:
+              service:
+                name: wardn-ai-api
+                port:
+                  name: http
+          - path: /.well-known/oauth-authorization-server
+            pathType: Prefix
+            backend:
+              service:
+                name: wardn-ai-api
+                port:
+                  name: http
+          - path: /.well-known/openid-configuration
             pathType: Prefix
             backend:
               service:
@@ -38,4 +52,31 @@ spec:
   tls:
     - hosts:
         - ai.home
+      secretName: wildcard-home-tls
+---
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: wardn-ai-whatsapp-bridge
+  namespace: wardn
+  labels:
+    app.kubernetes.io/name: wardn-ai-whatsapp-bridge
+    app.kubernetes.io/component: whatsapp-bridge
+    app.kubernetes.io/part-of: wardn-ai
+spec:
+  ingressClassName: traefik
+  rules:
+    - host: wa.bridge.ai.home
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: wardn-ai-whatsapp-bridge
+                port:
+                  name: http
+  tls:
+    - hosts:
+        - wa.bridge.ai.home
       secretName: wildcard-home-tls

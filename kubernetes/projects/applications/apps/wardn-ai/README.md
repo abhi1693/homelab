@@ -18,10 +18,11 @@ The API and its migration init container each request `50m` CPU, while the
 frontend requests `30m`. CPU limits preserve the API's burst ceiling and leave
 the frontend uncapped.
 
-Kubernetes MCP runtime pods keep Wardn AI's default `256Mi` memory request but
-raise the memory limit to `2Gi` through `WARDN_MCP_RUNTIME_KUBERNETES_MEMORY_LIMIT`.
-The higher limit gives package-backed MCP servers room for first-run dependency
-resolution without changing per-server manifests.
+Kubernetes MCP runtime pods request `768Mi` of memory and set a `1Gi` memory
+limit through `WARDN_MCP_RUNTIME_KUBERNETES_MEMORY_REQUEST` and
+`WARDN_MCP_RUNTIME_KUBERNETES_MEMORY_LIMIT`. The request keeps the scheduler from
+packing several dependency-heavy runtime pods onto one Raspberry Pi node, while
+the limit caps runaway package-backed MCP servers before they can starve kubelet.
 
 Hub MCP tool proposal writes use `WARDN_MCP_TOOL_PROPOSAL_API_TOKEN` from the
 `wardn-ai` SOPS secret. Keep it empty to disable proactive proposal submission,
@@ -40,3 +41,10 @@ The API and worker mount an explicit projected Kubernetes service-account
 volume for the runtime provider while keeping automatic token mounting disabled.
 Keep that projected volume world-readable (`0444`) so non-root UID/GID `1000`
 can read the token, namespace, and CA bundle without adding pod-level `fsGroup`.
+
+Workspace WhatsApp providers use the `wardn-ai-whatsapp-bridge` service for
+linked-device QR pairing and message events. Its session database is stored on
+the retained `wardn-ai-whatsapp-bridge-data` PVC, and Wardn API/frontend pods
+receive `WARDN_CHAT_PROVIDER_WHATSAPP_BRIDGE_BASE_URL` pointing at the cluster
+service URL. The `wa.bridge.ai.home` ingress is for local bridge diagnostics;
+Wardn itself uses the internal service name.

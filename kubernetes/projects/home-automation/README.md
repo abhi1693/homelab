@@ -24,7 +24,7 @@ Keeping these services in one project makes the boundary clear.
 | `cloudflare-tunnel-ingress-controller-networkpolicy` | Applies network boundaries for tunnel connector traffic. | Public ingress to app services. |
 | `cluster-ops` | Runs generic cluster operation controllers, including K8s Recommendation Engine profile runners. | Kubernetes API, Prometheus, Fleet-managed app state. |
 | `home-assistant` | Home automation runtime with Git-managed packages and code-server sidecar. | UniFi integration, device tracking, Longhorn config PVC. |
-| `netbox` | Source of truth for IPAM, device inventory, cabling, DNS, and lifecycle documentation. | PostgreSQL, Valkey, NFS media, custom image plugins. |
+| `netbox` | Paused source-of-truth app for IPAM, device inventory, cabling, DNS, and lifecycle documentation. | Retained PostgreSQL database, Valkey data, NFS media, custom image plugins. |
 | `rack-ops-controllers` | Rack and node automation controllers. | Kubernetes API, Home Assistant webhooks, NFS state, smart queues, thermal policy. |
 | `ups-monitoring` | NUT, PeaNUT dashboard, exporter, Grafana dashboard, and alerts. | USB UPS on a specific node, Home Assistant integration, monitoring. |
 
@@ -32,7 +32,8 @@ Keeping these services in one project makes the boundary clear.
 
 - Home Assistant is the local automation runtime, but some safety workflows are
   intentionally kept in Kubernetes controllers instead of Home Assistant.
-- NetBox is the source-of-truth system for inventory and network planning.
+- NetBox is the source-of-truth system for inventory and network planning, but
+  its runtime and database pooler are paused until needed.
 - UPS monitoring feeds both dashboards/alerts and Home Assistant integration.
 - Cloudflare tunnel control lets public apps expose hostnames without opening
   inbound ports on the home gateway.

@@ -49,7 +49,7 @@ spec:
       initContainers:
         - name: prepare-provider-runtime
           # renovate: datasource=docker depName=ghcr.io/music-assistant/server
-          image: registry.home/ghcr.io/music-assistant/server:2.10.0b7@sha256:11c4c2a66f4108bda0584ecafbbd64a6fa4a8ac566d24b571930ec3f035248d3
+          image: registry.home/ghcr.io/music-assistant/server:2.10.0b10@sha256:3a26f60dfa144c821a45c9ad49a2d0be55ce350b7a321388aee17c42d59b52f1
           imagePullPolicy: IfNotPresent
           env:
             - name: UV_CACHE_DIR
@@ -300,62 +300,26 @@ spec:
                   "play_audio_en-IN": "ask music assistant to play audio",
                   "play_audio_en-US": "ask music assistant to play audio","""
                   ),
-                  """                ConfigValueOption("en-US"),
-                              ConfigValueOption("en-CA"),""": (
-                      """                ConfigValueOption("en-US"),
-                              ConfigValueOption("en-CA"),
-                              ConfigValueOption("en-IN"),"""
-                  ),
-                  '            post_path = "/alexa/auth/proxy/ap/signin/*"': (
-                      '            auth_path = "/alexa/auth/proxy/ap/*"'
-                  ),
-                  """            # Register GET for the base proxy path
-                          mass.webserver.register_dynamic_route(proxy_path, proxy_handler, "GET")
-                          # Register POST for the specific signin helper path
-                          mass.webserver.register_dynamic_route(post_path, proxy_handler, "POST")""": (
-                      """            # Register the base page and Amazon auth sub-flow routes
-                          mass.webserver.register_dynamic_route(proxy_path, proxy_handler, "GET")
-                          mass.webserver.register_dynamic_route(auth_path, proxy_handler, "GET")
-                          mass.webserver.register_dynamic_route(auth_path, proxy_handler, "POST")"""
-                  ),
-                  """                mass.webserver.unregister_dynamic_route(proxy_path, "GET")
-                              mass.webserver.unregister_dynamic_route(post_path, "POST")""": (
-                      """                mass.webserver.unregister_dynamic_route(proxy_path, "GET")
-                              mass.webserver.unregister_dynamic_route(auth_path, "GET")
-                              mass.webserver.unregister_dynamic_route(auth_path, "POST")"""
-                  ),
-                  """                    # Notify the callback URL
-                                  async with aiohttp.ClientSession() as session:
-                                      await session.get(auth_helper.callback_url)
-                                      _LOGGER.info("Alexa Callback URL: %s", auth_helper.callback_url)""": (
-                      """                    # Notify the helper through the plaintext loopback listener.
-                                  # The browser-facing callback stays on the configured HTTPS origin,
-                                  # whose private CA is intentionally not trusted inside this container.
-                                  callback_url = auth_helper.callback_url
-                                  callback_path = callback_url.removeprefix(base_url)
-                                  local_callback_url = (
-                                      f"http://127.0.0.1:{mass.webserver.publish_port}"
-                                      f"{callback_path}"
-                                  )
-                                  async with aiohttp.ClientSession() as session:
-                                      callback_response = await session.get(local_callback_url)
-                                      callback_response.raise_for_status()
-                                      _LOGGER.info("Alexa Callback URL: %s", callback_url)"""
+                  """                    ConfigValueOption("en-US"),
+                                  ConfigValueOption("en-CA"),""": (
+                      """                    ConfigValueOption("en-US"),
+                                  ConfigValueOption("en-CA"),
+                                  ConfigValueOption("en-IN"),"""
                   ),
               }
 
               for original, replacement in replacements.items():
                   if source.count(original) != 1:
                       raise RuntimeError(
-                          "Alexa provider auth routes changed; review the overlay"
+                          "Alexa provider language options changed; review the overlay"
                       )
                   source = source.replace(original, replacement)
 
               liveness_replacements = {
-                  """from alexapy import AlexaAPI, AlexaLogin, AlexaProxy
-              """: """from alexapy import AlexaAPI, AlexaLogin, AlexaProxy
-              from alexapy.helpers import get_json_value
-              """,
+                  "from alexapy import AlexaAPI, AlexaLogin\n": (
+                      "from alexapy import AlexaAPI, AlexaLogin\n"
+                      "from alexapy.helpers import get_json_value\n"
+                  ),
                   """    PlaybackState,
                   PlayerFeature,
                   ProviderFeature,
@@ -897,6 +861,50 @@ spec:
                           "Alexa provider playback hooks changed; review the overlay"
                       )
                   source = source.replace(original, replacement)
+
+              patch_path.parent.mkdir(parents=True, exist_ok=True)
+              temporary_path = patch_path.with_suffix(".py.tmp")
+              temporary_path.write_text(source, encoding="utf-8")
+              temporary_path.chmod(0o444)
+              temporary_path.replace(patch_path)
+              PY
+
+              ALEXA_SETUP_FLOW_SOURCE="/app/venv/lib/python${source_python}/site-packages/music_assistant/providers/alexa/setup_flow.py" \
+              ALEXA_SETUP_FLOW_PATCH="/data/provider-patches/alexa/setup_flow.py" \
+                /app/venv/bin/python - <<'PY'
+              import os
+              from pathlib import Path
+
+              source_path = Path(os.environ["ALEXA_SETUP_FLOW_SOURCE"])
+              patch_path = Path(os.environ["ALEXA_SETUP_FLOW_PATCH"])
+              source = source_path.read_text(encoding="utf-8")
+              original = """            # the proxy captured the cookies; poke the flow's callback to resume it
+                          async with aiohttp.ClientSession() as http:
+                              await http.get(session.callback_url)
+                          return web.Response(text=_SUCCESS_HTML, content_type="text/html")
+              """
+              replacement = """            # the proxy captured the cookies; poke the flow's callback to resume it.
+                          # Keep the browser-facing callback URL on the configured HTTPS origin,
+                          # but notify Music Assistant through its plaintext loopback listener.
+                          callback_url = session.callback_url
+                          callback_path = callback_url.removeprefix(
+                              session.mass.webserver.base_url.rstrip("/")
+                          )
+                          local_callback_url = (
+                              f"http://127.0.0.1:{session.mass.webserver.publish_port}"
+                              f"{callback_path}"
+                          )
+                          async with aiohttp.ClientSession() as http:
+                              callback_response = await http.get(local_callback_url)
+                              callback_response.raise_for_status()
+                          return web.Response(text=_SUCCESS_HTML, content_type="text/html")
+              """
+
+              if source.count(original) != 1:
+                  raise RuntimeError(
+                      "Alexa setup-flow callback changed; review the overlay"
+                  )
+              source = source.replace(original, replacement)
 
               patch_path.parent.mkdir(parents=True, exist_ok=True)
               temporary_path = patch_path.with_suffix(".py.tmp")
@@ -1495,7 +1503,7 @@ spec:
       containers:
         - name: music-assistant
           # renovate: datasource=docker depName=ghcr.io/music-assistant/server
-          image: registry.home/ghcr.io/music-assistant/server:2.10.0b7@sha256:11c4c2a66f4108bda0584ecafbbd64a6fa4a8ac566d24b571930ec3f035248d3
+          image: registry.home/ghcr.io/music-assistant/server:2.10.0b10@sha256:3a26f60dfa144c821a45c9ad49a2d0be55ce350b7a321388aee17c42d59b52f1
           imagePullPolicy: IfNotPresent
           command:
             - /bin/sh
@@ -1577,6 +1585,10 @@ spec:
             - name: data
               mountPath: /app/venv/lib/python3.14/site-packages/music_assistant/providers/alexa/__init__.py
               subPath: provider-patches/alexa/__init__.py
+              readOnly: true
+            - name: data
+              mountPath: /app/venv/lib/python3.14/site-packages/music_assistant/providers/alexa/setup_flow.py
+              subPath: provider-patches/alexa/setup_flow.py
               readOnly: true
             - name: data
               mountPath: /app/venv/lib/python3.14/site-packages/music_assistant/providers/ytmusic

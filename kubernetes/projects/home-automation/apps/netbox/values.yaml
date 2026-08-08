@@ -89,7 +89,7 @@ startupProbe:
 service:
   type: ClusterIP
 ingress:
-  enabled: true
+  enabled: false
   className: traefik
   pathType: Prefix
   hosts:
@@ -129,7 +129,7 @@ housekeeping:
       cpu: 500m
       memory: 512Mi
 worker:
-  enabled: true
+  enabled: false
   replicaCount: 0
   pdb:
     enabled: false

@@ -1,0 +1,125 @@
+---
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: qbittorrent-state-backup
+  namespace: media
+  labels:
+    app.kubernetes.io/instance: qbittorrent
+    app.kubernetes.io/name: qbittorrent-state-backup
+    app.kubernetes.io/part-of: media-stack
+    home-lab.io/project-slug: entertainment
+spec:
+  schedule: "*/15 * * * *"
+  concurrencyPolicy: Forbid
+  successfulJobsHistoryLimit: 3
+  failedJobsHistoryLimit: 3
+  jobTemplate:
+    spec:
+      backoffLimit: 1
+      activeDeadlineSeconds: 300
+      template:
+        metadata:
+          labels:
+            app.kubernetes.io/instance: qbittorrent
+            app.kubernetes.io/name: qbittorrent-state-backup
+            app.kubernetes.io/part-of: media-stack
+            home-lab.io/project-slug: entertainment
+        spec:
+          restartPolicy: Never
+          automountServiceAccountToken: false
+          nodeSelector:
+            kubernetes.io/arch: arm64
+            kubernetes.io/hostname: k8s-rpi2
+          securityContext:
+            fsGroup: 65532
+            runAsGroup: 65532
+            runAsNonRoot: true
+            runAsUser: 65532
+            seccompProfile:
+              type: RuntimeDefault
+          containers:
+            - name: backup
+              image: registry.home/docker.io/curlimages/curl:8.21.0
+              imagePullPolicy: IfNotPresent
+              securityContext:
+                allowPrivilegeEscalation: false
+                capabilities:
+                  drop:
+                    - ALL
+                readOnlyRootFilesystem: true
+              command:
+                - /bin/sh
+                - -ec
+                - |
+                  backup_root=/backup/qbittorrent-state
+                  timestamp="$(date -u +%Y%m%dT%H%M%SZ)"
+                  snapshot_dir="$backup_root/snapshots"
+                  work_dir="$backup_root/.work-$timestamp"
+                  archive="$snapshot_dir/qbittorrent-state-$timestamp.tar.gz"
+
+                  mkdir -p "$snapshot_dir" "$work_dir"
+                  mkdir -p "$work_dir/qBittorrent"
+
+                  for path in \
+                    BT_backup \
+                    categories.json \
+                    qBittorrent.conf \
+                    qBittorrent-data.conf \
+                    watched_folders.json \
+                    rss
+                  do
+                    if [ -e "/config/qBittorrent/$path" ]; then
+                      cp -R "/config/qBittorrent/$path" "$work_dir/qBittorrent/"
+                    fi
+                  done
+
+                  fastresume_count="$(
+                    find /config/qBittorrent/BT_backup -maxdepth 1 \
+                      -type f -name '*.fastresume' 2>/dev/null | wc -l
+                  )"
+                  torrent_count="$(
+                    find /config/qBittorrent/BT_backup -maxdepth 1 \
+                      -type f -name '*.torrent' 2>/dev/null | wc -l
+                  )"
+
+                  tar -czf "$archive" -C "$work_dir" qBittorrent
+                  sha256sum "$archive" > "$archive.sha256"
+                  {
+                    echo "timestamp=$timestamp"
+                    echo "archive=$(basename "$archive")"
+                    echo "fastresume_count=$fastresume_count"
+                    echo "torrent_count=$torrent_count"
+                  } > "$snapshot_dir/latest.txt"
+
+                  find "$snapshot_dir" -maxdepth 1 -type f \
+                    -name 'qbittorrent-state-*.tar.gz' -print |
+                    sort -r |
+                    sed -n '97,$p' |
+                    while IFS= read -r old_archive; do
+                      rm -f "$old_archive" "$old_archive.sha256"
+                    done
+
+                  rm -rf "$work_dir"
+                  echo "Backed up qBittorrent state: fastresume=$fastresume_count torrent=$torrent_count archive=$archive"
+              resources:
+                requests:
+                  cpu: 5m
+                  memory: 16Mi
+                limits:
+                  cpu: 100m
+                  memory: 128Mi
+              volumeMounts:
+                - name: config
+                  mountPath: /config
+                  readOnly: true
+                - name: backup
+                  mountPath: /backup
+          volumes:
+            - name: config
+              persistentVolumeClaim:
+                claimName: qbittorrent-config
+                readOnly: true
+            - name: backup
+              persistentVolumeClaim:
+                claimName: qbittorrent-state-backup-nfs

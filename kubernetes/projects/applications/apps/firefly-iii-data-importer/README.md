@@ -3,6 +3,13 @@
 Firefly III Data Importer runs as an internal Applications project app in the
 `finance` namespace.
 
+## Status
+
+The importer is paused by default. The Deployment stays present with
+`replicas: 0`; the service, ingress, SOPS Secret, network policies, and config
+PVC remain declared. Re-enable it with Firefly III by restoring the Deployment
+to `1` replica.
+
 ## Access
 
 - Internal URL: `http://import.finance.home`

@@ -16,12 +16,14 @@ group so large media workloads avoid piling onto one node.
 
 ## Storage
 
-- Config: Longhorn PVC with retained bound volume
+- Config: 1Gi Longhorn PVC with retained bound volume
 - Completed media: existing `media-library-nfs-csi` PVC mounted at `/data`
 - Downloads: existing `media-downloads-nfs-csi` PVC mounted at `/downloads`
 
 Keep downloads and completed library paths separate so importers never expose
 partial downloads as completed media.
+The config PVC carries Sonarr's database, logs, backups, and media cover cache;
+keep enough free space for startup write checks and routine metadata growth.
 
 ## Network Boundary
 

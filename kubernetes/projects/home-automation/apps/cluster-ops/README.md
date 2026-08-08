@@ -50,6 +50,11 @@ for every profile:
 - Wardn Hub profile: `wardn-hub-profile.yaml`; all five live production
   Deployments, including the consolidated application worker, run with scaling
   enabled
+- Finance profile: `finance-profile.yaml` keeps the Firefly III and data
+  importer workload entries while they are paused at zero replicas, but all
+  scaling dimensions are disabled with zero replica bounds and constant zero
+  metric signals. Restore normal metrics and scaling only after restoring the
+  Firefly workloads.
 - shared state manifest: `controller-state-pvc.yaml`
 - compatibility state identifiers: the bound PVC remains
   `k8s-recommendation-engine-shipyard-state` and the SQLite file remains

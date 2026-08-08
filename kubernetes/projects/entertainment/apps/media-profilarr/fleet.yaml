@@ -1,0 +1,22 @@
+---
+name: media-profilarr
+defaultNamespace: media
+labels:
+  app.kubernetes.io/name: profilarr
+  app.kubernetes.io/part-of: media-stack
+  home-lab.io/project-slug: entertainment
+dependsOn:
+  - name: rancher-project-entertainment
+  - name: media-storage
+  - name: radarr
+  - name: sonarr
+diff:
+  comparePatches:
+    - apiVersion: v1
+      kind: PersistentVolumeClaim
+      name: profilarr-config
+      namespace: media
+      jsonPointers:
+        - /spec/volumeName
+helm:
+  takeOwnership: true

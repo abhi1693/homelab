@@ -10,6 +10,7 @@ resources:
   - deployment-api.yaml
   - deployment-worker.yaml
   - deployment-frontend.yaml
+  - deployment-whatsapp-bridge.yaml
   - service.yaml
   - certificate.yaml
   - ingress.yaml

@@ -1,64 +1,41 @@
-apiVersion: apps/v1
-kind: Deployment
+apiVersion: batch/v1
+kind: Job
 metadata:
-  name: wardn-hub-worker
+  name: wardn-hub-find-skills-refresh
   namespace: wardn
+  annotations:
+    helm.sh/hook: post-install,post-upgrade
+    helm.sh/hook-delete-policy: before-hook-creation,hook-succeeded
+    helm.sh/hook-weight: "20"
   labels:
     app.kubernetes.io/name: wardn-hub-worker
     app.kubernetes.io/component: worker
     app.kubernetes.io/part-of: wardn-hub
 spec:
-  revisionHistoryLimit: 2
-  replicas: 1
-  selector:
-    matchLabels:
-      app.kubernetes.io/name: wardn-hub-worker
-      app.kubernetes.io/component: worker
-  strategy:
-    type: RollingUpdate
-    rollingUpdate:
-      maxSurge: 0
-      maxUnavailable: 1
+  activeDeadlineSeconds: 600
+  backoffLimit: 0
+  completions: 1
+  parallelism: 1
   template:
     metadata:
-      annotations:
-        home-lab.io/categorization-config-revision: "20260802T1745Z"
       labels:
         app.kubernetes.io/name: wardn-hub-worker
         app.kubernetes.io/component: worker
         app.kubernetes.io/part-of: wardn-hub
         wardn-hub-api-client: "true"
-        wardn-hub-psql-client: "true"
         wardn-hub-api-rollout-waiter: "true"
+        wardn-hub-psql-client: "true"
     spec:
-      terminationGracePeriodSeconds: 21600
       automountServiceAccountToken: false
       serviceAccountName: wardn-hub-api-rollout-waiter
-      securityContext:
-        seccompProfile:
-          type: RuntimeDefault
+      restartPolicy: Never
       imagePullSecrets:
         - name: harbor-registry
       nodeSelector:
         kubernetes.io/arch: arm64
-      affinity:
-        podAntiAffinity:
-          preferredDuringSchedulingIgnoredDuringExecution:
-            - weight: 100
-              podAffinityTerm:
-                labelSelector:
-                  matchLabels:
-                    app.kubernetes.io/name: wardn-hub-worker
-                    app.kubernetes.io/component: worker
-                topologyKey: kubernetes.io/hostname
-      topologySpreadConstraints:
-        - maxSkew: 1
-          topologyKey: kubernetes.io/hostname
-          whenUnsatisfiable: ScheduleAnyway
-          labelSelector:
-            matchLabels:
-              app.kubernetes.io/name: wardn-hub-worker
-              app.kubernetes.io/component: worker
+      securityContext:
+        seccompProfile:
+          type: RuntimeDefault
       initContainers:
         - name: wait-for-api-rollout
           # renovate: datasource=github-releases depName=abhi1693/wardn-hub
@@ -94,14 +71,22 @@ spec:
             - secretRef:
                 name: wardn-hub-github
       containers:
-        - name: worker
+        - name: refresh-find-skills
           # renovate: datasource=github-releases depName=abhi1693/wardn-hub
           image: registry.home/ghcr.io/abhi1693/wardn-hub-backend:0.2.179
           imagePullPolicy: IfNotPresent
           command:
             - python
             - -m
-            - app.cli.worker
+            - app.manage
+            - skills
+            - import-github
+            - --repo
+            - abhi1693/wardn-hub
+            - --subfolder
+            - skills/find-skills
+            - --output
+            - text
           envFrom:
             - configMapRef:
                 name: wardn-hub
@@ -115,11 +100,6 @@ spec:
                 secretKeyRef:
                   name: wardn-hub-github
                   key: GITHUB_TOKEN
-            - name: WARDN_HUB_TOKEN
-              valueFrom:
-                secretKeyRef:
-                  name: wardn-hub-mcp-registry-sync
-                  key: WARDN_HUB_TOKEN
             - name: POSTGRES_USER
               valueFrom:
                 secretKeyRef:
@@ -142,31 +122,9 @@ spec:
                 fieldRef:
                   fieldPath: metadata.name
             - name: WARDN_HUB_OTEL_SERVICE_NAME
-              value: wardn-hub-worker
+              value: wardn-hub-find-skills-refresh
             - name: WARDN_HUB_OTEL_RESOURCE_ATTRIBUTES
-              value: service.namespace=wardn-hub,deployment.environment.name=production,service.instance.id=$(POD_NAME),k8s.namespace.name=wardn,k8s.deployment.name=wardn-hub-worker,k8s.pod.name=$(POD_NAME),k8s.container.name=worker
-          ports:
-            - name: metrics
-              containerPort: 8092
-              protocol: TCP
-          startupProbe:
-            tcpSocket:
-              port: metrics
-            periodSeconds: 5
-            timeoutSeconds: 3
-            failureThreshold: 30
-          readinessProbe:
-            tcpSocket:
-              port: metrics
-            periodSeconds: 10
-            timeoutSeconds: 3
-            failureThreshold: 6
-          livenessProbe:
-            tcpSocket:
-              port: metrics
-            periodSeconds: 30
-            timeoutSeconds: 5
-            failureThreshold: 4
+              value: service.namespace=wardn-hub,deployment.environment.name=production,service.instance.id=$(POD_NAME),k8s.namespace.name=wardn,k8s.job.name=wardn-hub-find-skills-refresh,k8s.pod.name=$(POD_NAME),k8s.container.name=refresh-find-skills
           resources:
             requests:
               cpu: 370m

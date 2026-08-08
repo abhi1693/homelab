@@ -1,0 +1,20 @@
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: qbittorrent-state-backup-nfs
+  namespace: media
+  annotations:
+    helm.sh/resource-policy: keep
+  labels:
+    app.kubernetes.io/instance: qbittorrent
+    app.kubernetes.io/name: qbittorrent-state-backup
+    app.kubernetes.io/part-of: media-stack
+    home-lab.io/project-slug: entertainment
+spec:
+  accessModes:
+    - ReadWriteMany
+  storageClassName: nfs-shared-retain
+  resources:
+    requests:
+      storage: 5Gi

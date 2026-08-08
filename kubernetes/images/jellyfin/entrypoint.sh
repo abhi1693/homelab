@@ -555,7 +555,7 @@ disable_trickplay_and_chapter_image_options() {
     fi
 
     log "Jellyfin library options: disabled trickplay and chapter image extraction in ${option_file}"
-  done < <(find "${data_root}/root" -type f -name options.xml -print0)
+  done < <(find -L "${data_root}/root" -type f -name options.xml -print0)
 }
 
 write_server_id_file() {

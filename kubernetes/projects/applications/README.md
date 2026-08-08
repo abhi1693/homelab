@@ -21,9 +21,9 @@ secret contract each app expects.
 | App | What it does | Exposure | Key dependencies |
 | --- | --- | --- | --- |
 | `applications-helm-repositories` | Registers chart repositories used by this project. | None | Rancher ClusterRepo. |
-| `firefly-iii-storage` | Storage support for Firefly III. | None | Retained NFS CSI upload PVC. |
-| `firefly-iii` | Personal finance app. | Internal Traefik at `finance.home`. | PostgreSQL pooler, NFS upload PVC, SOPS Secret. |
-| `firefly-iii-data-importer` | Import UI for Firefly III. | Internal Traefik at `import.finance.home`. | Firefly service, NFS config PVC. |
+| `firefly-iii-storage` | Storage support for paused Firefly III. | None | Retained NFS CSI upload PVC. |
+| `firefly-iii` | Paused personal finance app. | Internal Traefik route retained at `finance.home`. | PostgreSQL pooler retained at 0 instances, NFS upload PVC, SOPS Secret. |
+| `firefly-iii-data-importer` | Paused import UI for Firefly III. | Internal Traefik route retained at `import.finance.home`. | Firefly service, NFS config PVC. |
 | `harbor` | Local registry and proxy/cache registry. | Internal Traefik at `registry.home`. | PostgreSQL, Valkey, Longhorn, monitoring. |
 | `openbao` | Lightweight OpenBao deployment for Wardn-related secret workflows. | Internal Traefik at `secrets.wardn.home`. | Longhorn PVC, manual init/unseal workflow. |
 | `personal-blog` | Public personal blog. | Cloudflare Tunnel at `blog.abhimanyu-saharan.com`. | Harbor image, Sanity webhook secret, ConfigMap. |

@@ -24,7 +24,7 @@ subsystem.
 | `rancher.yml` | Rancher install and Fleet settings. |
 | `fleet_apps.yml` | Fleet GitRepo bootstrap for app and project bundles. |
 | `smartctl_exporter.yml` | Host-level S.M.A.R.T. metrics service setup. |
-| `node_image_cache_prune.yml` | Break-glass prune of unused K3s image cache on explicitly selected nodes. |
+| `node_image_cache_prune.yml` | Break-glass prune of unused K3s image cache on explicitly selected nodes with bounded cache-size diagnostics. |
 
 ## How To Use Them
 

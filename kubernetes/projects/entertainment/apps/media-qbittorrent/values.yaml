@@ -28,10 +28,10 @@ podOptions:
     kubernetes.io/hostname: k8s-rpi2
 resources:
   requests:
-    cpu: 340m
+    cpu: 220m
     # qBittorrent restores roughly 800 torrents at startup and needs room for
     # peer-reconnect bursts; lower limits repeatedly OOM-killed the client.
-    memory: 211Mi
+    memory: 535Mi
   limits:
     memory: 2Gi
 service:
@@ -251,30 +251,46 @@ workload:
               set_config 'Preferences' 'WebUI@@Username' 'asaharan'
 
               if [ -d /downloads ]; then
-                mkdir -p /downloads/anime /downloads/movies /downloads/prowlarr /downloads/temp /downloads/tv
+                mkdir -p \
+                  /downloads/anime \
+                  /downloads/movies \
+                  /downloads/prowlarr \
+                  /downloads/temp \
+                  /downloads/temp/anime \
+                  /downloads/temp/movies \
+                  /downloads/temp/prowlarr \
+                  /downloads/temp/tv \
+                  /downloads/tv
               fi
 
               cat > /config/qBittorrent/categories.json <<'EOF'
               {
                   "anime": {
+                      "download_path": "/downloads/temp/anime",
                       "save_path": "/downloads/anime"
                   },
                   "movies": {
+                      "download_path": "/downloads/temp/movies",
                       "save_path": "/downloads/movies"
                   },
                   "priority-anime": {
+                      "download_path": "/downloads/temp/anime",
                       "save_path": "/downloads/anime"
                   },
                   "priority-movies": {
+                      "download_path": "/downloads/temp/movies",
                       "save_path": "/downloads/movies"
                   },
                   "priority-tv": {
+                      "download_path": "/downloads/temp/tv",
                       "save_path": "/downloads/tv"
                   },
                   "prowlarr": {
+                      "download_path": "/downloads/temp/prowlarr",
                       "save_path": "/downloads/prowlarr"
                   },
                   "tv": {
+                      "download_path": "/downloads/temp/tv",
                       "save_path": "/downloads/tv"
                   }
               }

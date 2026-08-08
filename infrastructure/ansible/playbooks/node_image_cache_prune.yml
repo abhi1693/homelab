@@ -41,7 +41,7 @@
         set -eu
         hostname
         df -h /var/lib/rancher/k3s/agent/containerd 2>/dev/null || true
-        du -xsh /var/lib/rancher/k3s/agent/containerd 2>/dev/null || true
+        timeout 20s du -xsh /var/lib/rancher/k3s/agent/containerd 2>/dev/null || true
         /usr/local/bin/k3s crictl images -q 2>/dev/null | wc -l
       args:
         executable: /bin/sh
@@ -66,7 +66,7 @@
         set -eu
         hostname
         df -h /var/lib/rancher/k3s/agent/containerd 2>/dev/null || true
-        du -xsh /var/lib/rancher/k3s/agent/containerd 2>/dev/null || true
+        timeout 20s du -xsh /var/lib/rancher/k3s/agent/containerd 2>/dev/null || true
         /usr/local/bin/k3s crictl images -q 2>/dev/null | wc -l
       args:
         executable: /bin/sh
