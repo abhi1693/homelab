@@ -1,0 +1,68 @@
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: home-assistant-go2rtc-boundary
+  namespace: home-assistant
+  labels:
+    app.kubernetes.io/name: home-assistant-go2rtc
+    app.kubernetes.io/part-of: home-automation
+    home-lab.io/project-slug: home-automation
+spec:
+  podSelector:
+    matchLabels:
+      app.kubernetes.io/name: home-assistant-go2rtc
+  policyTypes:
+    - Ingress
+    - Egress
+  ingress:
+    - from:
+        - podSelector:
+            matchLabels:
+              app.kubernetes.io/instance: home-assistant
+              app.kubernetes.io/name: home-assistant
+      ports:
+        - port: 1984
+          protocol: TCP
+    - from:
+        - ipBlock:
+            cidr: 192.168.0.0/16
+      ports:
+        - port: 8555
+          protocol: TCP
+        - port: 8555
+          protocol: UDP
+  egress:
+    - to:
+        - ipBlock:
+            cidr: 192.168.1.1/32
+        - ipBlock:
+            cidr: 192.168.1.174/32
+      ports:
+        - port: 7441
+          protocol: TCP
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: home-assistant-go2rtc-api-egress
+  namespace: home-assistant
+  labels:
+    app.kubernetes.io/name: home-assistant-go2rtc
+    app.kubernetes.io/part-of: home-automation
+    home-lab.io/project-slug: home-automation
+spec:
+  podSelector:
+    matchLabels:
+      app.kubernetes.io/instance: home-assistant
+      app.kubernetes.io/name: home-assistant
+  policyTypes:
+    - Egress
+  egress:
+    - to:
+        - podSelector:
+            matchLabels:
+              app.kubernetes.io/name: home-assistant-go2rtc
+      ports:
+        - port: 1984
+          protocol: TCP

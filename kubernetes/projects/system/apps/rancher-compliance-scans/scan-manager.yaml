@@ -71,6 +71,12 @@ spec:
       restartPolicy: OnFailure
       nodeSelector:
         kubernetes.io/arch: arm64
+        node-role.kubernetes.io/control-plane: "true"
+      tolerations:
+        - key: CriticalAddonsOnly
+          operator: Equal
+          value: "true"
+          effect: NoExecute
       containers:
         - name: kubectl
           image: rancher/kubectl:v1.35.2

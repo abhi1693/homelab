@@ -10,5 +10,11 @@ image:
   repository: rancher/kuberlr-kubectl
   tag: v7.0.1
 
-nodeSelector: {}
-tolerations: []
+nodeSelector:
+  kubernetes.io/arch: arm64
+  node-role.kubernetes.io/control-plane: "true"
+tolerations:
+  - key: CriticalAddonsOnly
+    operator: Equal
+    value: "true"
+    effect: NoExecute

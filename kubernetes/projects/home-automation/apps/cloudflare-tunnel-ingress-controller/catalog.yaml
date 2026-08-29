@@ -1,0 +1,19 @@
+---
+apiVersion: home-lab.io/v1alpha1
+kind: WorkloadCatalog
+metadata:
+  name: cloudflare-tunnel-ingress-controller
+spec:
+  displayName: Cloudflare Tunnel Ingress Controller
+  purpose: Convert approved Kubernetes ingress intent into Cloudflare Tunnel routes and managed connector replicas.
+  owner: home-lab
+  project: home-automation
+  cluster: home-k3s
+  lifecycle: active
+  criticality: critical
+  dataClassification: restricted
+  repository: https://github.com/abhi1693/home-lab
+  gitPath: kubernetes/projects/home-automation/apps/cloudflare-tunnel-ingress-controller
+  workloads:
+    - {key: home-k3s/cloudflare/apps/deployment/cloudflare-tunnel-ingress-controller, namespace: cloudflare, apiGroup: apps, kind: Deployment, name: cloudflare-tunnel-ingress-controller, desiredReplicas: 2, sourcePath: kubernetes/projects/home-automation/apps/cloudflare-tunnel-ingress-controller/values.yaml}
+    - {key: home-k3s/cloudflare/apps/deployment/controlled-cloudflared-connector, namespace: cloudflare, apiGroup: apps, kind: Deployment, name: controlled-cloudflared-connector, desiredReplicas: 2, sourcePath: kubernetes/projects/home-automation/apps/cloudflare-tunnel-ingress-controller/values.yaml}

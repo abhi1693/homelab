@@ -11,6 +11,57 @@ metadata:
     home-lab.io/project-slug: system
 automountServiceAccountToken: false
 ---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: opentelemetry-load-balancer
+  namespace: cattle-monitoring-system
+  labels:
+    app.kubernetes.io/name: opentelemetry-collector
+    app.kubernetes.io/component: telemetry-pipeline
+    app.kubernetes.io/part-of: rancher-monitoring
+    home-lab.io/project-slug: system
+automountServiceAccountToken: true
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: opentelemetry-load-balancer
+  namespace: cattle-monitoring-system
+  labels:
+    app.kubernetes.io/name: opentelemetry-collector
+    app.kubernetes.io/component: telemetry-pipeline
+    app.kubernetes.io/part-of: rancher-monitoring
+    home-lab.io/project-slug: system
+rules:
+  - apiGroups:
+      - discovery.k8s.io
+    resources:
+      - endpointslices
+    verbs:
+      - get
+      - list
+      - watch
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: opentelemetry-load-balancer
+  namespace: cattle-monitoring-system
+  labels:
+    app.kubernetes.io/name: opentelemetry-collector
+    app.kubernetes.io/component: telemetry-pipeline
+    app.kubernetes.io/part-of: rancher-monitoring
+    home-lab.io/project-slug: system
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: Role
+  name: opentelemetry-load-balancer
+subjects:
+  - kind: ServiceAccount
+    name: opentelemetry-load-balancer
+    namespace: cattle-monitoring-system
+---
 apiVersion: apps/v1
 kind: Deployment
 metadata:
@@ -22,7 +73,7 @@ metadata:
     app.kubernetes.io/part-of: rancher-monitoring
     home-lab.io/project-slug: system
 spec:
-  replicas: 1
+  replicas: 2
   revisionHistoryLimit: 2
   selector:
     matchLabels:
@@ -36,19 +87,35 @@ spec:
   template:
     metadata:
       annotations:
-        home-lab.io/collector-config-revision: "2026-07-22-tail-sampling"
+        home-lab.io/collector-config-revision: "2026-08-28-gateway-ha-v1"
       labels:
         app.kubernetes.io/name: opentelemetry-collector
         app.kubernetes.io/component: telemetry-pipeline
         app.kubernetes.io/part-of: rancher-monitoring
         home-lab.io/project-slug: system
+        home-lab.io/telemetry-role: gateway
     spec:
-      serviceAccountName: opentelemetry-collector
-      automountServiceAccountToken: false
+      serviceAccountName: opentelemetry-load-balancer
+      automountServiceAccountToken: true
       nodeSelector:
         kubernetes.io/arch: arm64
+        node-role.kubernetes.io/control-plane: "true"
+      tolerations:
+        - key: CriticalAddonsOnly
+          operator: Equal
+          value: "true"
+          effect: NoExecute
+      affinity:
+        podAntiAffinity:
+          requiredDuringSchedulingIgnoredDuringExecution:
+            - labelSelector:
+                matchLabels:
+                  app.kubernetes.io/name: opentelemetry-collector
+                  home-lab.io/telemetry-role: gateway
+              topologyKey: kubernetes.io/hostname
       containers:
         - name: collector
+          # renovate: datasource=docker depName=docker.io/otel/opentelemetry-collector-contrib
           image: docker.io/otel/opentelemetry-collector-contrib:0.155.0
           imagePullPolicy: IfNotPresent
           args:
@@ -90,9 +157,9 @@ spec:
           resources:
             requests:
               cpu: 10m
-              memory: 112Mi
+              memory: 64Mi
             limits:
-              memory: 176Mi
+              memory: 128Mi
           securityContext:
             allowPrivilegeEscalation: false
             capabilities:
@@ -110,3 +177,20 @@ spec:
         - name: config
           configMap:
             name: opentelemetry-collector
+---
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: opentelemetry-collector
+  namespace: cattle-monitoring-system
+  labels:
+    app.kubernetes.io/name: opentelemetry-collector
+    app.kubernetes.io/component: telemetry-pipeline
+    app.kubernetes.io/part-of: rancher-monitoring
+    home-lab.io/project-slug: system
+spec:
+  minAvailable: 1
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: opentelemetry-collector
+      home-lab.io/telemetry-role: gateway

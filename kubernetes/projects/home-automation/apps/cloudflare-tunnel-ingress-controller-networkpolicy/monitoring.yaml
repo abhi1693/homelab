@@ -17,7 +17,7 @@ spec:
     - name: metrics
       protocol: TCP
       port: 8080
-      targetPort: 8080
+      targetPort: 9090
 ---
 apiVersion: monitoring.coreos.com/v1
 kind: ServiceMonitor

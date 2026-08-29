@@ -15,18 +15,26 @@ image:
   repository: registry.home/cr.strrl.dev/strrl/cloudflare-tunnel-ingress-controller
   pullPolicy: IfNotPresent
   # renovate: datasource=github-releases depName=STRRL/cloudflare-tunnel-ingress-controller
-  tag: 0.0.24
+  tag: 0.1.0
 imagePullSecrets:
   - name: harbor-registry
 cloudflared:
   replicaCount: 2
   protocol: http2
   podAntiAffinity: true
+  nodeSelector:
+    kubernetes.io/arch: arm64
+    node-role.kubernetes.io/control-plane: "true"
+  tolerations:
+    - key: CriticalAddonsOnly
+      operator: Equal
+      value: "true"
+      effect: NoExecute
   image:
     repository: registry.home/docker.io/cloudflare/cloudflared
     pullPolicy: IfNotPresent
     # renovate: datasource=github-releases depName=cloudflare/cloudflared
-    tag: 2026.7.3
+    tag: 2026.8.2
   podSecurityContext:
     runAsGroup: 65532
     runAsNonRoot: true
@@ -65,6 +73,12 @@ cloudflaredServiceMonitor:
   scrapeTimeout: 10s
 nodeSelector:
   kubernetes.io/arch: arm64
+  node-role.kubernetes.io/control-plane: "true"
+tolerations:
+  - key: CriticalAddonsOnly
+    operator: Equal
+    value: "true"
+    effect: NoExecute
 affinity:
   podAntiAffinity:
     requiredDuringSchedulingIgnoredDuringExecution:

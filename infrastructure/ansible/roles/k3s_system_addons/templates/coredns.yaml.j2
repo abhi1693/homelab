@@ -104,12 +104,12 @@ spec:
       serviceAccountName: coredns
       tolerations:
         - key: CriticalAddonsOnly
-          operator: Exists
-        - key: node-role.kubernetes.io/control-plane
-          operator: Exists
-          effect: NoSchedule
+          operator: Equal
+          value: "true"
+          effect: NoExecute
       nodeSelector:
         kubernetes.io/os: linux
+        node-role.kubernetes.io/control-plane: "true"
       affinity:
         podAntiAffinity:
           requiredDuringSchedulingIgnoredDuringExecution:

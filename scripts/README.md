@@ -9,7 +9,9 @@ Ansible role or Kubernetes app bundle.
 | --- | --- |
 | `k8s-secret-to-sops-secret.py` | Converts an existing Kubernetes Secret shape into a SOPS Secrets Operator style resource. |
 | `check-kubernetes-resource-bounds.py` | Requires CPU/memory requests and memory limits on directly authored Kubernetes workloads, and rejects recommendation profiles whose minimum-change threshold can block their maximum decrease step. |
+| `check-renovate-policy.py` | Verifies non-critical GitOps dependency coverage and keeps cluster-foundational dependencies under manual upgrade control. |
 | `post-node-power-on.sh` | Helper for node power-on recovery or post-power operations. |
+| `run-pre-commit-validation.sh` | Runs the Ansible, YAML, Kubernetes, Terraform, shell, and Dockerfile checks used by the repository's pre-commit hooks. |
 | `safe-node-shutdown.sh` | Helper for guarded node shutdown workflows. |
 | `sync-readme-versions.py` | Reads pinned platform versions from Git-managed source files and checks or updates the static root README badge values. |
 

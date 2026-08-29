@@ -412,12 +412,29 @@ done
 copy_source_dirs() {
   local target_dir="$1"
   local source_dirs="$2"
+  local destination_path
+  local source_path
 
   IFS=':' read -r -a sources <<< "${source_dirs}"
   for source_dir in "${sources[@]}"; do
     if [ -d "${source_dir}" ]; then
       mkdir -p "${target_dir}"
-      cp -R "${source_dir}/." "${target_dir}/"
+      while IFS= read -r -d '' source_path; do
+        destination_path="${target_dir}/$(basename "${source_path}")"
+        if [ -d "${source_path}" ]; then
+          mkdir -p "${destination_path}"
+          cp -RL "${source_path}/." "${destination_path}/"
+        else
+          rm -f "${destination_path}"
+          cp -L "${source_path}" "${destination_path}"
+        fi
+      done < <(
+        find "${source_dir}" \
+          -mindepth 1 \
+          -maxdepth 1 \
+          ! -name '..*' \
+          -print0
+      )
     fi
   done
 }
@@ -633,6 +650,14 @@ if [ "${configured_plugin_name}" != "PostgreSQL" ]; then
 fi
 
 connection_string="Password=${POSTGRES_PASSWORD};User ID=${POSTGRES_USER};Host=${POSTGRES_HOST};Port=${POSTGRES_PORT};Database=${POSTGRES_DB}"
+
+if [ -n "${POSTGRES_MAX_POOL_SIZE:-}" ]; then
+  if ! [[ "${POSTGRES_MAX_POOL_SIZE}" =~ ^[1-9][0-9]*$ ]]; then
+    echo "Invalid POSTGRES_MAX_POOL_SIZE: expected a positive integer" >&2
+    exit 6
+  fi
+  connection_string="${connection_string};Maximum Pool Size=${POSTGRES_MAX_POOL_SIZE}"
+fi
 
 if [ -n "${POSTGRES_SSLMODE:-}" ]; then
   connection_string="${connection_string};SSL Mode=${POSTGRES_SSLMODE}"

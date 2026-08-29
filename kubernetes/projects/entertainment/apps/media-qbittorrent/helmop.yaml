@@ -8,7 +8,7 @@ metadata:
     app.kubernetes.io/part-of: media-stack
     home-lab.io/project-slug: entertainment
 spec:
-  forceSyncGeneration: 2
+  paused: false
   defaultNamespace: media
   dependsOn:
     - name: metallb-config
@@ -34,6 +34,7 @@ spec:
   helm:
     releaseName: qbittorrent
     repo: oci://oci.trueforge.org/truecharts/qbittorrent
+    # renovate: datasource=docker depName=oci.trueforge.org/truecharts/qbittorrent
     version: 25.6.0
     atomic: true
     timeoutSeconds: 600

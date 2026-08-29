@@ -1,0 +1,163 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/abhi1693/home-lab/infrastructure/netbox/workload-catalog.schema.json",
+  "title": "Home Lab Kubernetes Workload Catalog",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["apiVersion", "kind", "metadata", "spec"],
+  "properties": {
+    "apiVersion": {"const": "home-lab.io/v1alpha1"},
+    "kind": {"const": "WorkloadCatalog"},
+    "metadata": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["name"],
+      "properties": {
+        "name": {"type": "string", "pattern": "^[a-z0-9]([a-z0-9-]*[a-z0-9])?$"}
+      }
+    },
+    "spec": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "displayName",
+        "purpose",
+        "owner",
+        "project",
+        "cluster",
+        "lifecycle",
+        "criticality",
+        "dataClassification",
+        "repository",
+        "gitPath",
+        "workloads"
+      ],
+      "properties": {
+        "displayName": {"type": "string", "minLength": 1},
+        "purpose": {"type": "string", "minLength": 1},
+        "owner": {"type": "string", "minLength": 1},
+        "project": {"type": "string", "pattern": "^[a-z0-9]([a-z0-9-]*[a-z0-9])?$"},
+        "cluster": {"type": "string", "minLength": 1},
+        "lifecycle": {"enum": ["active", "deprecated", "retired"]},
+        "criticality": {"enum": ["critical", "high", "medium", "low"]},
+        "dataClassification": {"enum": ["public", "internal", "sensitive", "restricted"]},
+        "repository": {"type": "string", "format": "uri", "pattern": "^https://"},
+        "gitPath": {"$ref": "#/$defs/repositoryPath"},
+        "runbook": {"$ref": "#/$defs/repositoryPath"},
+        "dashboard": {"type": "string", "format": "uri"},
+        "knownLimitations": {
+          "type": "array",
+          "items": {"type": "string", "minLength": 1},
+          "uniqueItems": true,
+          "default": []
+        },
+        "workloads": {
+          "type": "array",
+          "minItems": 1,
+          "items": {"$ref": "#/$defs/workload"}
+        },
+        "persistentStores": {
+          "type": "array",
+          "items": {"$ref": "#/$defs/persistentStore"},
+          "default": []
+        },
+        "endpoints": {
+          "type": "array",
+          "items": {"$ref": "#/$defs/endpoint"},
+          "default": []
+        },
+        "dependencies": {
+          "type": "array",
+          "items": {"$ref": "#/$defs/dependency"},
+          "default": []
+        }
+      }
+    }
+  },
+  "$defs": {
+    "repositoryPath": {
+      "type": "string",
+      "minLength": 1,
+      "pattern": "^(?!/)(?!.*(?:^|/)\\.\\.(?:/|$)).+$"
+    },
+    "objectKey": {
+      "type": "string",
+      "minLength": 1,
+      "pattern": "^[a-z0-9][a-z0-9./_-]*$"
+    },
+    "workload": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["key", "namespace", "apiGroup", "kind", "name", "sourcePath"],
+      "properties": {
+        "key": {"$ref": "#/$defs/objectKey"},
+        "namespace": {"type": "string", "minLength": 1},
+        "apiGroup": {"type": "string", "minLength": 1},
+        "kind": {"type": "string", "minLength": 1},
+        "name": {"type": "string", "minLength": 1},
+        "desiredReplicas": {"type": "integer", "minimum": 0},
+        "sourcePath": {"$ref": "#/$defs/repositoryPath"},
+        "images": {
+          "type": "array",
+          "items": {"type": "string", "minLength": 1},
+          "uniqueItems": true,
+          "default": []
+        }
+      }
+    },
+    "persistentStore": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["key", "namespace", "type", "name", "retention", "backup"],
+      "properties": {
+        "key": {"$ref": "#/$defs/objectKey"},
+        "namespace": {"type": "string", "minLength": 1},
+        "type": {"type": "string", "minLength": 1},
+        "name": {"type": "string", "minLength": 1},
+        "storageClass": {"type": "string", "minLength": 1},
+        "capacity": {"type": "string", "minLength": 1},
+        "accessModes": {
+          "type": "array",
+          "items": {"type": "string", "minLength": 1},
+          "uniqueItems": true
+        },
+        "retention": {"enum": ["retain", "delete"]},
+        "backup": {"type": "string", "minLength": 1},
+        "dataClassification": {"enum": ["public", "internal", "sensitive", "restricted"]},
+        "sourcePath": {"$ref": "#/$defs/repositoryPath"}
+      }
+    },
+    "endpoint": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["key", "name", "exposure", "protocol", "ports"],
+      "properties": {
+        "key": {"$ref": "#/$defs/objectKey"},
+        "name": {"type": "string", "minLength": 1},
+        "url": {"type": "string", "format": "uri"},
+        "dnsName": {"type": "string", "minLength": 1},
+        "exposure": {"enum": ["cluster", "internal", "public"]},
+        "protocol": {"enum": ["http", "https", "tcp", "udp"]},
+        "ports": {
+          "type": "array",
+          "minItems": 1,
+          "items": {"type": "integer", "minimum": 1, "maximum": 65535},
+          "uniqueItems": true
+        },
+        "sourcePath": {"$ref": "#/$defs/repositoryPath"}
+      }
+    },
+    "dependency": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["key", "name", "type", "criticality", "failureImpact"],
+      "properties": {
+        "key": {"$ref": "#/$defs/objectKey"},
+        "name": {"type": "string", "minLength": 1},
+        "type": {"enum": ["database", "hardware", "network", "service", "storage"]},
+        "criticality": {"enum": ["required", "degraded", "optional"]},
+        "failureImpact": {"type": "string", "minLength": 1}
+      }
+    }
+  }
+}

@@ -1,0 +1,18 @@
+---
+apiVersion: home-lab.io/v1alpha1
+kind: WorkloadCatalog
+metadata:
+  name: rancher-backup
+spec:
+  displayName: Rancher Backup
+  purpose: Reconcile Rancher backups and object-store retention for control-plane recovery.
+  owner: home-lab
+  project: system
+  cluster: home-k3s
+  lifecycle: active
+  criticality: critical
+  dataClassification: restricted
+  repository: https://github.com/abhi1693/home-lab
+  gitPath: kubernetes/projects/system/apps/rancher-backup
+  workloads:
+    - {key: home-k3s/cattle-resources-system/apps/deployment/rancher-backup, namespace: cattle-resources-system, apiGroup: apps, kind: Deployment, name: rancher-backup, desiredReplicas: 1, sourcePath: kubernetes/projects/system/apps/rancher-backup/values.yaml}

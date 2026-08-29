@@ -16,9 +16,9 @@ spec:
     repository: https://github.com/abhi1693/home-lab.git
     branch: master
     basePath: kubernetes/projects/applications/apps
-  # Firefly is intentionally paused at zero replicas. Keep the workload entries
-  # for ownership/history, but disable scaling and feed constant zero signals
-  # until the app is restored.
+  # Replica floors and resource requests are captured from the live production
+  # Deployments. The single-replica bounds prevent availability recommendations
+  # from scaling either stateful web workload beyond its supported shape.
   workloads:
     - name: firefly-iii
       targetRef:
@@ -26,15 +26,15 @@ spec:
         kind: Deployment
         name: firefly-iii
       sourceFile: firefly-iii/deployment.yaml
-      metricProfileRef: paused-zero-replica
+      metricProfileRef: resource-only
       scaling:
-        replicas: false
-        cpu: false
-        memory: false
+        replicas: true
+        cpu: true
+        memory: true
       bounds:
         replicas:
-          min: 0
-          max: 0
+          min: 1
+          max: 1
         cpu:
           maxIncreasePercent: 25
           maxDecreasePercent: 10
@@ -66,15 +66,15 @@ spec:
         kind: Deployment
         name: firefly-iii-data-importer
       sourceFile: firefly-iii-data-importer/deployment.yaml
-      metricProfileRef: paused-zero-replica
+      metricProfileRef: resource-only
       scaling:
-        replicas: false
-        cpu: false
-        memory: false
+        replicas: true
+        cpu: true
+        memory: true
       bounds:
         replicas:
-          min: 0
-          max: 0
+          min: 1
+          max: 1
         cpu:
           maxIncreasePercent: 25
           maxDecreasePercent: 10
@@ -102,18 +102,6 @@ spec:
         container: data-importer
   reconcileInterval: 5m
   metricProfiles:
-    paused-zero-replica:
-      description: Constant zero signals for intentionally paused workloads without Pods.
-      signals:
-        cpu_usage:
-          required: true
-          query: vector(0)
-        memory_working_set:
-          required: true
-          query: vector(0)
-        available_replicas:
-          required: true
-          query: vector(0)
     resource-only:
       description: Workload-scoped Kubernetes resource metrics without a demand signal.
       signals:

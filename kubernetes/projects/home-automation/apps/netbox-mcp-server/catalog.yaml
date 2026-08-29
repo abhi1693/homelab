@@ -1,0 +1,19 @@
+---
+apiVersion: home-lab.io/v1alpha1
+kind: WorkloadCatalog
+metadata:
+  name: netbox-mcp-server
+spec:
+  displayName: NetBox MCP Server
+  purpose: Provide authenticated, permission-preserving MCP access to NetBox reads and explicitly enabled writes.
+  owner: home-lab
+  project: home-automation
+  cluster: home-k3s
+  lifecycle: active
+  criticality: high
+  dataClassification: restricted
+  repository: https://github.com/abhi1693/home-lab
+  gitPath: kubernetes/projects/home-automation/apps/netbox-mcp-server
+  runbook: kubernetes/projects/home-automation/apps/netbox-mcp-server/README.md
+  workloads:
+    - {key: home-k3s/netbox/apps/deployment/netbox-mcp-server, namespace: netbox, apiGroup: apps, kind: Deployment, name: netbox-mcp-server, desiredReplicas: 1, sourcePath: kubernetes/projects/home-automation/apps/netbox-mcp-server/deployment.yaml}

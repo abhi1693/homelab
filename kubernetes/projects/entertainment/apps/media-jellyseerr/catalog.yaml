@@ -1,0 +1,18 @@
+---
+apiVersion: home-lab.io/v1alpha1
+kind: WorkloadCatalog
+metadata:
+  name: jellyseerr
+spec:
+  displayName: Jellyseerr
+  purpose: Provide the household media request portal backed by Jellyfin.
+  owner: home-lab
+  project: entertainment
+  cluster: home-k3s
+  lifecycle: active
+  criticality: medium
+  dataClassification: sensitive
+  repository: https://github.com/abhi1693/home-lab
+  gitPath: kubernetes/projects/entertainment/apps/media-jellyseerr
+  workloads:
+    - {key: home-k3s/media/apps/statefulset/jellyseerr, namespace: media, apiGroup: apps, kind: StatefulSet, name: jellyseerr, desiredReplicas: 1, sourcePath: kubernetes/projects/entertainment/apps/media-jellyseerr/values.yaml}

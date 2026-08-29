@@ -1,0 +1,18 @@
+---
+apiVersion: home-lab.io/v1alpha1
+kind: WorkloadCatalog
+metadata:
+  name: ryokan
+spec:
+  displayName: Ryokan
+  purpose: Coordinate anime request, batch cleanup, and import workflows with receipt verification.
+  owner: home-lab
+  project: entertainment
+  cluster: home-k3s
+  lifecycle: active
+  criticality: medium
+  dataClassification: sensitive
+  repository: https://github.com/abhi1693/home-lab
+  gitPath: kubernetes/projects/entertainment/apps/media-ryokan
+  workloads:
+    - {key: home-k3s/media/apps/deployment/ryokan, namespace: media, apiGroup: apps, kind: Deployment, name: ryokan, desiredReplicas: 0, sourcePath: kubernetes/projects/entertainment/apps/media-ryokan/deployment.yaml}

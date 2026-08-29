@@ -7,7 +7,6 @@ labels:
 dependsOn:
   - name: rancher-project-entertainment
   - name: media-storage
-  - name: media-do-squid-firewall
   - name: qbittorrent
   - name: prowlarr
   - name: jellyfin

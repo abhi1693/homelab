@@ -42,6 +42,18 @@ argument_specs:
         type: dict
         required: true
         options:
+          node_taints:
+            type: list
+            elements: str
+            required: true
+            description:
+              - Taints rendered through K3s node-taint and reconciled on the existing server Node.
+          managed_node_taint_keys:
+            type: list
+            elements: str
+            required: true
+            description:
+              - Taint keys owned by this role for declarative removal and rollback.
           disable_components:
             type: list
             elements: str

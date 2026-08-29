@@ -11,6 +11,11 @@ speaker:
   frr:
     enabled: false
   priorityClassName: system-node-critical
+  tolerations:
+    - key: CriticalAddonsOnly
+      operator: Equal
+      value: "true"
+      effect: NoExecute
   resources:
     requests:
       cpu: 20m
@@ -20,6 +25,14 @@ speaker:
 
 controller:
   priorityClassName: system-cluster-critical
+  nodeSelector:
+    kubernetes.io/arch: arm64
+    node-role.kubernetes.io/control-plane: "true"
+  tolerations:
+    - key: CriticalAddonsOnly
+      operator: Equal
+      value: "true"
+      effect: NoExecute
   resources:
     requests:
       cpu: 20m

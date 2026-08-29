@@ -13,6 +13,7 @@ helm:
   releaseName: cloudflare-tunnel-ingress-controller
   chart: cloudflare-tunnel-ingress-controller
   repo: https://helm.strrl.dev
+  # renovate: datasource=helm depName=cloudflare-tunnel-ingress-controller registryUrl=https://helm.strrl.dev
   version: 0.0.24
   valuesFiles:
     - values.yaml

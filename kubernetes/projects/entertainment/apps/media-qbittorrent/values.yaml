@@ -25,13 +25,12 @@ podOptions:
   defaultAffinity: false
   nodeSelector:
     kubernetes.io/arch: arm64
-    kubernetes.io/hostname: k8s-rpi2
 resources:
   requests:
-    cpu: 220m
+    cpu: 360m
     # qBittorrent restores roughly 800 torrents at startup and needs room for
     # peer-reconnect bursts; lower limits repeatedly OOM-killed the client.
-    memory: 535Mi
+    memory: 1572Mi
   limits:
     memory: 2Gi
 service:
@@ -72,7 +71,7 @@ qbitportforward:
   enabled: false
 workload:
   main:
-    replicas: 1
+    replicas: 0
     podSpec:
       automountServiceAccountToken: false
       labels:
@@ -186,10 +185,10 @@ workload:
                 rm -f "$tmp"
               }
 
-              set_config 'BitTorrent' 'Session@@GlobalDLSpeedLimit' '8192'
-              set_config 'BitTorrent' 'Session@@GlobalUPSpeedLimit' '1024'
-              set_config 'BitTorrent' 'Session@@AlternativeGlobalDLSpeedLimit' '2048'
-              set_config 'BitTorrent' 'Session@@AlternativeGlobalUPSpeedLimit' '256'
+              set_config 'BitTorrent' 'Session@@GlobalDLSpeedLimit' '65536'
+              set_config 'BitTorrent' 'Session@@GlobalUPSpeedLimit' '12'
+              set_config 'BitTorrent' 'Session@@AlternativeGlobalDLSpeedLimit' '16384'
+              set_config 'BitTorrent' 'Session@@AlternativeGlobalUPSpeedLimit' '12'
               set_config 'BitTorrent' 'Session@@AddTorrentStopped' 'false'
               set_config 'BitTorrent' 'Session@@AddTorrentToTopOfQueue' 'false'
               set_config 'BitTorrent' 'Session@@AnnounceToAllTrackers' 'true'
@@ -209,14 +208,14 @@ workload:
               set_config 'BitTorrent' 'Session@@GlobalMaxSeedingMinutes' '0'
               set_config 'BitTorrent' 'Session@@ShareLimitAction' 'Stop'
               set_config 'BitTorrent' 'Session@@MaxActiveCheckingTorrents' '1'
-              set_config 'BitTorrent' 'Session@@MaxActiveDownloads' '1'
-              set_config 'BitTorrent' 'Session@@MaxActiveTorrents' '1'
-              set_config 'BitTorrent' 'Session@@MaxActiveUploads' '1'
+              set_config 'BitTorrent' 'Session@@MaxActiveDownloads' '7'
+              set_config 'BitTorrent' 'Session@@MaxActiveTorrents' '7'
+              set_config 'BitTorrent' 'Session@@MaxActiveUploads' '8'
               set_config 'BitTorrent' 'Session@@MaxConcurrentHTTPAnnounces' '50'
-              set_config 'BitTorrent' 'Session@@MaxConnections' '500'
-              set_config 'BitTorrent' 'Session@@MaxConnectionsPerTorrent' '100'
-              set_config 'BitTorrent' 'Session@@MaxUploads' '20'
-              set_config 'BitTorrent' 'Session@@MaxUploadsPerTorrent' '4'
+              set_config 'BitTorrent' 'Session@@MaxConnections' '1200'
+              set_config 'BitTorrent' 'Session@@MaxConnectionsPerTorrent' '200'
+              set_config 'BitTorrent' 'Session@@MaxUploads' '80'
+              set_config 'BitTorrent' 'Session@@MaxUploadsPerTorrent' '10'
               set_config 'BitTorrent' 'Session@@PeXEnabled' 'true'
               set_config 'BitTorrent' 'Session@@Port' '53181'
               set_config 'BitTorrent' 'Session@@Preallocation' 'false'
@@ -244,7 +243,7 @@ workload:
               set_config 'Preferences' 'WebUI@@CSRFProtection' 'false'
               set_config 'Preferences' 'WebUI@@HostHeaderValidation' 'false'
               set_config 'Preferences' 'WebUI@@LocalHostAuth' 'true'
-              set_config 'Preferences' 'WebUI@@Password_PBKDF2' '"@ByteArray(sn4AEeEKPGmY2eX2+GunTA==:jQOZh2pSWbFfQQlWxtAlEBhocRbz3SZxwwc0tl2VF9o25wMpsmlFRyPqpIkP7iD0Iap2TdedzKVm04b2vQOFYA==)"'
+              set_config 'Preferences' 'WebUI@@Password_PBKDF2' '"@ByteArray(bYe179caZ6XnSwS9SGxr0Q==:D0EeKKuf21ztvEazVEv+10l1b41eAqSwPthM1ouilGNPfmLP+Guq/gt9WS/7vl7G2lRk8ipeOhh+V6vfp4n/DA==)"'
               set_config 'Preferences' 'WebUI@@Port' '8080'
               set_config 'Preferences' 'WebUI@@ServerDomains' '*'
               set_config 'Preferences' 'WebUI@@UseUPnP' 'false'
@@ -317,7 +316,7 @@ persistence:
   downloads:
     enabled: true
     type: pvc
-    existingClaim: media-downloads-nfs-csi
+    existingClaim: media-downloads-unas
     mountPath: /downloads
 networkPolicy:
   ingress:

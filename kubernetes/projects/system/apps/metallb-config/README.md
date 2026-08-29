@@ -18,6 +18,7 @@ Current fixed app allocations:
 | VIP | Service | Ports |
 | --- | --- | --- |
 | `192.168.3.16` | `media/qbittorrent-torrent` | `53181/TCP`, `53181/UDP` |
+| `192.168.3.17` | `home-assistant/home-assistant-go2rtc-webrtc` | `8555/TCP`, `8555/UDP` |
 
 This bundle depends on `metallb-helmop`, so Fleet does not apply the custom
 resources before the MetalLB CRDs are installed.

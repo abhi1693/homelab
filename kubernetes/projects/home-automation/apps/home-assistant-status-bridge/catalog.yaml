@@ -1,0 +1,18 @@
+---
+apiVersion: home-lab.io/v1alpha1
+kind: WorkloadCatalog
+metadata:
+  name: home-assistant-status-bridge
+spec:
+  displayName: Home Assistant Status Bridge
+  purpose: Publish selected cluster and service status into Home Assistant entities.
+  owner: home-lab
+  project: home-automation
+  cluster: home-k3s
+  lifecycle: active
+  criticality: medium
+  dataClassification: sensitive
+  repository: https://github.com/abhi1693/home-lab
+  gitPath: kubernetes/projects/home-automation/apps/home-assistant-status-bridge
+  workloads:
+    - {key: home-k3s/home-assistant/apps/deployment/home-assistant-status-bridge, namespace: home-assistant, apiGroup: apps, kind: Deployment, name: home-assistant-status-bridge, desiredReplicas: 1, sourcePath: kubernetes/projects/home-automation/apps/home-assistant-status-bridge/deployment.yaml}

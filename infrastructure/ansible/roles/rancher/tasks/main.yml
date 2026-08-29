@@ -30,6 +30,7 @@
       - rancher.service.type in ['ClusterIP', 'NodePort', 'LoadBalancer']
       - rancher_fleet_image.repository | default('') | trim == '' or rancher_fleet_image.tag | default('') | trim != ''
       - rancher_fleet_agent_image.repository | default('') | trim == '' or rancher_fleet_agent_image.tag | default('') | trim != ''
+      - rancher_fleet_agent.replicas | int >= 2
       - not (rancher_fleet_image_pull_secret.enabled | default(false) | bool) or rancher_fleet_image_pull_secret.name | default('') | trim != ''
       - not (rancher_fleet_image_pull_secret.enabled | default(false) | bool) or rancher_fleet_image_pull_secret.server | default('') | trim != ''
       - not (rancher_fleet_image_pull_secret.enabled | default(false) | bool) or rancher_fleet_image_pull_secret.username | default('') | trim != ''
@@ -40,6 +41,7 @@
   vars:
     rancher_fleet_image: "{{ (rancher.fleet | default({})).image | default({}) }}"
     rancher_fleet_agent_image: "{{ (rancher.fleet | default({})).agent_image | default({}) }}"
+    rancher_fleet_agent: "{{ (rancher.fleet | default({})).agent | default({}) }}"
     rancher_fleet_image_pull_secret: "{{ (rancher.fleet | default({})).image_pull_secret | default({}) }}"
     rancher_fleet_imagescan: "{{ (rancher.fleet | default({})).imagescan | default({}) }}"
   no_log: true
@@ -398,6 +400,25 @@
   retries: 120
   delay: 5
 
+- name: Reconcile Rancher control-plane scheduling
+  ansible.builtin.command:
+    argv:
+      - /usr/local/bin/k3s
+      - kubectl
+      - -n
+      - "{{ rancher.namespace }}"
+      - patch
+      - deployment
+      - rancher
+      - --type=merge
+      - -p
+      - >-
+        {"spec":{"template":{"spec":{"nodeSelector":{"kubernetes.io/arch":"arm64","node-role.kubernetes.io/control-plane":"true"},"tolerations":[{"key":"CriticalAddonsOnly","operator":"Equal","value":"true","effect":"NoExecute"}]}}}}
+  environment:
+    KUBECONFIG: /etc/rancher/k3s/k3s.yaml
+  register: rancher_control_plane_scheduling
+  changed_when: "'patched' in rancher_control_plane_scheduling.stdout"
+
 - name: Wait for Rancher deployment rollout
   ansible.builtin.command:
     argv:
@@ -550,3 +571,123 @@
   when:
     - rancher_fleet_image_pull_secret_name | trim != ''
     - rancher_fleet_image_pull_secret_name not in item.stdout.split()
+
+- name: Configure local Fleet agent control-plane scheduling
+  ansible.builtin.command:
+    argv:
+      - /usr/local/bin/k3s
+      - kubectl
+      - -n
+      - fleet-local
+      - patch
+      - clusters.fleet.cattle.io
+      - local
+      - --type=merge
+      - -p
+      - "{{ rancher_local_fleet_agent_scheduling_patch | to_json }}"
+  environment:
+    KUBECONFIG: /etc/rancher/k3s/k3s.yaml
+  register: rancher_local_fleet_agent_scheduling
+  changed_when: "'patched' in rancher_local_fleet_agent_scheduling.stdout"
+  vars:
+    rancher_local_fleet_agent_scheduling_patch:
+      spec:
+        agentAffinity:
+          nodeAffinity:
+            requiredDuringSchedulingIgnoredDuringExecution:
+              nodeSelectorTerms:
+                - matchExpressions:
+                    - key: node-role.kubernetes.io/control-plane
+                      operator: In
+                      values:
+                        - "true"
+          podAntiAffinity:
+            requiredDuringSchedulingIgnoredDuringExecution:
+              - labelSelector:
+                  matchLabels:
+                    app: fleet-agent
+                topologyKey: kubernetes.io/hostname
+        agentTolerations:
+          - key: CriticalAddonsOnly
+            operator: Equal
+            value: "true"
+            effect: NoExecute
+
+- name: Configure generated CAPI controller control-plane scheduling
+  ansible.builtin.command:
+    argv:
+      - /usr/local/bin/k3s
+      - kubectl
+      - -n
+      - cattle-capi-system
+      - patch
+      - capiproviders.turtles-capi.cattle.io
+      - cluster-api
+      - --type=merge
+      - -p
+      - >-
+        {"spec":{"deployment":{"nodeSelector":{"kubernetes.io/arch":"arm64","node-role.kubernetes.io/control-plane":"true"},"tolerations":[{"key":"CriticalAddonsOnly","operator":"Equal","value":"true","effect":"NoExecute"}]}}}
+  environment:
+    KUBECONFIG: /etc/rancher/k3s/k3s.yaml
+  register: rancher_capi_scheduling
+  changed_when: "'patched' in rancher_capi_scheduling.stdout"
+
+- name: Configure Rancher Turtles control-plane scheduling
+  ansible.builtin.command:
+    argv:
+      - /usr/local/bin/k3s
+      - kubectl
+      - -n
+      - cattle-turtles-system
+      - patch
+      - deployment
+      - rancher-turtles-controller-manager
+      - --type=merge
+      - -p
+      - >-
+        {"spec":{"template":{"spec":{"nodeSelector":{"kubernetes.io/arch":"arm64","node-role.kubernetes.io/control-plane":"true"},"tolerations":[{"key":"CriticalAddonsOnly","operator":"Equal","value":"true","effect":"NoExecute"}]}}}}
+  environment:
+    KUBECONFIG: /etc/rancher/k3s/k3s.yaml
+  register: rancher_turtles_scheduling
+  changed_when: "'patched' in rancher_turtles_scheduling.stdout"
+
+- name: Configure Rancher machine-config cleanup control-plane scheduling
+  ansible.builtin.command:
+    argv:
+      - /usr/local/bin/k3s
+      - kubectl
+      - -n
+      - "{{ item }}"
+      - patch
+      - cronjob
+      - rke2-machineconfig-cleanup-cronjob
+      - --type=merge
+      - -p
+      - >-
+        {"spec":{"jobTemplate":{"spec":{"template":{"spec":{"nodeSelector":{"kubernetes.io/arch":"arm64","node-role.kubernetes.io/control-plane":"true"},"tolerations":[{"key":"CriticalAddonsOnly","operator":"Equal","value":"true","effect":"NoExecute"}]}}}}}}
+  environment:
+    KUBECONFIG: /etc/rancher/k3s/k3s.yaml
+  register: rancher_cleanup_cronjob_scheduling
+  changed_when: "'patched' in rancher_cleanup_cronjob_scheduling.stdout"
+  loop:
+    - fleet-local
+    - fleet-default
+
+- name: Configure Fleet cleanup control-plane scheduling
+  ansible.builtin.command:
+    argv:
+      - /usr/local/bin/k3s
+      - kubectl
+      - -n
+      - cattle-fleet-system
+      - patch
+      - cronjob
+      - fleet-cleanup-gitrepo-jobs
+      - --type=merge
+      - -p
+      - >-
+        {"spec":{"jobTemplate":{"spec":{"template":{"spec":{"nodeSelector":{"kubernetes.io/arch":"arm64","node-role.kubernetes.io/control-plane":"true"},"tolerations":[{"key":"CriticalAddonsOnly","operator":"Equal","value":"true","effect":"NoExecute"}]}}}}}}
+  environment:
+    KUBECONFIG: /etc/rancher/k3s/k3s.yaml
+  register: rancher_fleet_cleanup_scheduling
+  changed_when: "'patched' in rancher_fleet_cleanup_scheduling.stdout"

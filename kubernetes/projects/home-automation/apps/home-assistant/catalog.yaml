@@ -1,0 +1,83 @@
+---
+apiVersion: home-lab.io/v1alpha1
+kind: WorkloadCatalog
+metadata:
+  name: home-assistant
+spec:
+  displayName: Home Assistant
+  purpose: Run the household automation, dashboards, integrations, recorder, and administrative code-server sidecar.
+  owner: home-lab
+  project: home-automation
+  cluster: home-k3s
+  lifecycle: active
+  criticality: critical
+  dataClassification: restricted
+  repository: https://github.com/abhi1693/home-lab
+  gitPath: kubernetes/projects/home-automation/apps/home-assistant
+  dashboard: http://ha.home
+  knownLimitations:
+    - The Recreate deployment and single replica create downtime during upgrades or node maintenance.
+  workloads:
+    - key: home-k3s/home-assistant/apps/deployment/home-assistant
+      namespace: home-assistant
+      apiGroup: apps
+      kind: Deployment
+      name: home-assistant
+      desiredReplicas: 1
+      sourcePath: kubernetes/projects/home-automation/apps/home-assistant/helmchart.yaml
+      images:
+        - ghcr.io/home-assistant/home-assistant
+        - ghcr.io/coder/code-server
+  persistentStores:
+    - key: home-k3s/home-assistant/persistentvolumeclaim/home-assistant-pvc
+      namespace: home-assistant
+      type: PersistentVolumeClaim
+      name: home-assistant-pvc
+      storageClass: longhorn
+      capacity: 4Gi
+      accessModes:
+        - ReadWriteMany
+      retention: retain
+      backup: Protected through Longhorn recurring backups and the retained PostgreSQL recorder database.
+      dataClassification: restricted
+      sourcePath: kubernetes/projects/home-automation/apps/home-assistant/helmchart.yaml
+  endpoints:
+    - key: home-assistant/web
+      name: web
+      url: http://ha.home
+      dnsName: ha.home
+      exposure: internal
+      protocol: http
+      ports:
+        - 80
+      sourcePath: kubernetes/projects/home-automation/apps/home-assistant/helmchart.yaml
+    - key: home-assistant/code-server
+      name: code-server
+      url: http://code.ha.home
+      dnsName: code.ha.home
+      exposure: internal
+      protocol: http
+      ports:
+        - 80
+      sourcePath: kubernetes/projects/home-automation/apps/home-assistant/helmchart.yaml
+  dependencies:
+    - key: home-assistant/postgresql/database
+      name: postgresql
+      type: database
+      criticality: required
+      failureImpact: Recorder history and database-backed integrations fail.
+    - key: home-assistant/longhorn/storage
+      name: longhorn
+      type: storage
+      criticality: required
+      failureImpact: Home Assistant cannot mount its retained configuration volume.
+    - key: home-assistant/go2rtc/service
+      name: go2rtc
+      type: service
+      criticality: degraded
+      failureImpact: Camera WebRTC streams and dependent dashboards degrade.
+    - key: home-assistant/traefik/network
+      name: traefik
+      type: network
+      criticality: required
+      failureImpact: Household users cannot reach the main UI or code-server endpoint.

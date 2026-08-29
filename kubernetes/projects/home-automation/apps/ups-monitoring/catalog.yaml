@@ -1,0 +1,71 @@
+---
+apiVersion: home-lab.io/v1alpha1
+kind: WorkloadCatalog
+metadata:
+  name: ups-monitoring
+spec:
+  displayName: UPS Monitoring
+  purpose: Expose, visualize, and alert on the APC Back-UPS connected by USB to k8s-rpi1.
+  owner: home-lab
+  project: home-automation
+  cluster: home-k3s
+  lifecycle: active
+  criticality: high
+  dataClassification: internal
+  repository: https://github.com/abhi1693/home-lab
+  gitPath: kubernetes/projects/home-automation/apps/ups-monitoring
+  dashboard: http://ups.home
+  knownLimitations:
+    - The workload is pinned to k8s-rpi1 because the UPS USB connection is not portable between nodes.
+  workloads:
+    - key: home-k3s/ups/apps/deployment/ups-monitoring
+      namespace: ups
+      apiGroup: apps
+      kind: Deployment
+      name: ups-monitoring
+      desiredReplicas: 1
+      sourcePath: kubernetes/projects/home-automation/apps/ups-monitoring/deployment.yaml
+      images:
+        - docker.io/instantlinux/nut-upsd
+        - docker.io/brandawg93/peanut
+        - ghcr.io/druggeri/nut_exporter
+  endpoints:
+    - key: ups-monitoring/dashboard
+      name: dashboard
+      url: http://ups.home
+      dnsName: ups.home
+      exposure: internal
+      protocol: http
+      ports:
+        - 80
+      sourcePath: kubernetes/projects/home-automation/apps/ups-monitoring/ingress.yaml
+    - key: ups-monitoring/nut
+      name: nut
+      exposure: cluster
+      protocol: tcp
+      ports:
+        - 3493
+      sourcePath: kubernetes/projects/home-automation/apps/ups-monitoring/service.yaml
+    - key: ups-monitoring/metrics
+      name: metrics
+      exposure: cluster
+      protocol: http
+      ports:
+        - 9199
+      sourcePath: kubernetes/projects/home-automation/apps/ups-monitoring/service.yaml
+  dependencies:
+    - key: ups-monitoring/apc-back-ups/hardware
+      name: APC Back-UPS RS 1500G-IN serial 0B2428G26638
+      type: hardware
+      criticality: required
+      failureImpact: NUT cannot observe input power, load, battery charge, or runtime.
+    - key: ups-monitoring/k8s-rpi1/hardware
+      name: k8s-rpi1 USB bus
+      type: hardware
+      criticality: required
+      failureImpact: The only workload replica cannot access the UPS USB device.
+    - key: ups-monitoring/traefik/network
+      name: traefik
+      type: network
+      criticality: degraded
+      failureImpact: The dashboard becomes unavailable while in-cluster NUT and metrics access remains possible.

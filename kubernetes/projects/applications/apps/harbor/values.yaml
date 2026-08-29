@@ -87,7 +87,7 @@ portal:
   resources:
     requests:
       cpu: 10m
-      memory: 11Mi
+      memory: 16Mi
     limits:
       memory: 96Mi
   nodeSelector:
@@ -119,7 +119,7 @@ core:
   resources:
     requests:
       cpu: 100m
-      memory: 82Mi
+      memory: 111Mi
     limits:
       memory: 208Mi
   nodeSelector:
@@ -153,7 +153,7 @@ jobservice:
   resources:
     requests:
       cpu: 30m
-      memory: 54Mi
+      memory: 78Mi
     limits:
       memory: 112Mi
   nodeSelector:
@@ -260,7 +260,7 @@ exporter:
   resources:
     requests:
       cpu: 10m
-      memory: 27Mi
+      memory: 37Mi
     limits:
       memory: 96Mi
   nodeSelector:

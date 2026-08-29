@@ -1,0 +1,19 @@
+---
+apiVersion: home-lab.io/v1alpha1
+kind: WorkloadCatalog
+metadata:
+  name: personal-blog
+spec:
+  displayName: Personal Blog
+  purpose: Serve the public personal blog and run its scheduled newsletter processing.
+  owner: home-lab
+  project: applications
+  cluster: home-k3s
+  lifecycle: active
+  criticality: medium
+  dataClassification: public
+  repository: https://github.com/abhi1693/home-lab
+  gitPath: kubernetes/projects/applications/apps/personal-blog
+  workloads:
+    - {key: home-k3s/personal-blog/apps/deployment/personal-blog, namespace: personal-blog, apiGroup: apps, kind: Deployment, name: personal-blog, desiredReplicas: 1, sourcePath: kubernetes/projects/applications/apps/personal-blog/deployment.yaml}
+    - {key: home-k3s/personal-blog/batch/cronjob/personal-blog-newsletter, namespace: personal-blog, apiGroup: batch, kind: CronJob, name: personal-blog-newsletter, sourcePath: kubernetes/projects/applications/apps/personal-blog/cronjob.yaml}

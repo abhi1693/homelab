@@ -1,0 +1,20 @@
+---
+apiVersion: home-lab.io/v1alpha1
+kind: WorkloadCatalog
+metadata:
+  name: firefly-iii
+spec:
+  displayName: Firefly III
+  purpose: Provide household financial accounting, scheduled processing, and transaction import.
+  owner: home-lab
+  project: applications
+  cluster: home-k3s
+  lifecycle: active
+  criticality: high
+  dataClassification: restricted
+  repository: https://github.com/abhi1693/home-lab
+  gitPath: kubernetes/projects/applications/apps/firefly-iii
+  workloads:
+    - {key: home-k3s/finance/apps/deployment/firefly-iii, namespace: finance, apiGroup: apps, kind: Deployment, name: firefly-iii, desiredReplicas: 1, sourcePath: kubernetes/projects/applications/apps/firefly-iii/deployment.yaml}
+    - {key: home-k3s/finance/apps/deployment/firefly-iii-data-importer, namespace: finance, apiGroup: apps, kind: Deployment, name: firefly-iii-data-importer, desiredReplicas: 1, sourcePath: kubernetes/projects/applications/apps/firefly-iii-data-importer/deployment.yaml}
+    - {key: home-k3s/finance/batch/cronjob/firefly-iii-cron, namespace: finance, apiGroup: batch, kind: CronJob, name: firefly-iii-cron, sourcePath: kubernetes/projects/applications/apps/firefly-iii/cronjob.yaml}

@@ -38,7 +38,14 @@ spec:
             summary: UPS is on battery
             description: UPS {{ $labels.ups }} reports on-battery status.
         - alert: UpsLowBattery
-          expr: network_ups_tools_ups_status{namespace="ups", job="ups-monitoring", flag="LB"} == 1
+          expr: |
+            (
+              network_ups_tools_ups_status{namespace="ups", job="ups-monitoring", flag="LB"} == 1
+            )
+            and on (namespace, job, instance)
+            (
+              network_ups_tools_ups_status{namespace="ups", job="ups-monitoring", flag="OB"} == 1
+            )
           for: 1m
           labels:
             severity: critical
@@ -54,7 +61,14 @@ spec:
             summary: UPS battery replacement is needed
             description: UPS {{ $labels.ups }} reports replace-battery status.
         - alert: UpsBatteryChargeLow
-          expr: network_ups_tools_battery_charge{namespace="ups", job="ups-monitoring"} < 25
+          expr: |
+            (
+              network_ups_tools_battery_charge{namespace="ups", job="ups-monitoring"} < 25
+            )
+            and on (namespace, job, instance)
+            (
+              network_ups_tools_ups_status{namespace="ups", job="ups-monitoring", flag="OB"} == 1
+            )
           for: 5m
           labels:
             severity: warning
@@ -62,7 +76,14 @@ spec:
             summary: UPS battery charge is low
             description: UPS {{ $labels.ups }} battery charge is {{ printf "%.0f" $value }}%.
         - alert: UpsRuntimeLow
-          expr: network_ups_tools_battery_runtime{namespace="ups", job="ups-monitoring"} < 600
+          expr: |
+            (
+              network_ups_tools_battery_runtime{namespace="ups", job="ups-monitoring"} < 600
+            )
+            and on (namespace, job, instance)
+            (
+              network_ups_tools_ups_status{namespace="ups", job="ups-monitoring", flag="OB"} == 1
+            )
           for: 5m
           labels:
             severity: warning

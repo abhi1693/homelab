@@ -1,8 +1,10 @@
 {% set rancher_fleet = rancher.fleet | default({}) %}
 {% set rancher_fleet_image = rancher_fleet.image | default({}) %}
 {% set rancher_fleet_agent_image = rancher_fleet.agent_image | default({}) %}
+{% set rancher_fleet_agent = rancher_fleet.agent | default({}) %}
 {% set rancher_fleet_imagescan = rancher_fleet.imagescan | default({}) %}
 {% set rancher_fleet_resources = rancher_fleet.resources | default({}) %}
+{% set rancher_startup_probe = rancher.startup_probe | default({}) %}
 apiVersion: helm.cattle.io/v1
 kind: HelmChart
 metadata:
@@ -21,6 +23,14 @@ spec:
     antiAffinity: {{ rancher.anti_affinity }}
     topologyKey: {{ rancher.topology_key }}
     priorityClassName: {{ rancher.priority_class_name }}
+    # The Rancher chart exposes extra tolerations but no conjunctive
+    # control-plane selector. The role reconciles that selector on the rendered
+    # Deployment after each chart update.
+    extraTolerations:
+      - key: CriticalAddonsOnly
+        operator: Equal
+        value: "true"
+        effect: NoExecute
     resources:
       requests:
         cpu: {{ rancher.resources.requests.cpu }}
@@ -28,6 +38,10 @@ spec:
       limits:
         cpu: {{ rancher.resources.limits.cpu }}
         memory: {{ rancher.resources.limits.memory }}
+    startupProbe:
+      timeoutSeconds: {{ rancher_startup_probe.timeout_seconds | default(5) }}
+      periodSeconds: {{ rancher_startup_probe.period_seconds | default(10) }}
+      failureThreshold: {{ rancher_startup_probe.failure_threshold | default(36) }}
     bootstrapPassword: {{ rancher.bootstrap_password | quote }}
     tls: ingress
     ingress:
@@ -41,6 +55,16 @@ spec:
     service:
       type: {{ rancher.service.type }}
     fleet: |-
+      nodeSelector:
+        kubernetes.io/arch: arm64
+        node-role.kubernetes.io/control-plane: "true"
+      tolerations:
+        - key: CriticalAddonsOnly
+          operator: Equal
+          value: "true"
+          effect: NoExecute
+      agent:
+        replicas: {{ rancher_fleet_agent.replicas }}
 {# Null values remove sticky Rancher Fleet overrides so chart defaults apply. #}
 {% if rancher_fleet_image.repository | default('') | trim != '' %}
       image:
@@ -105,3 +129,12 @@ spec:
           limits:
             cpu: {{ rancher_fleet_resources.helmops.limits.cpu }}
             memory: {{ rancher_fleet_resources.helmops.limits.memory }}
+    webhook: |-
+      nodeSelector:
+        kubernetes.io/arch: arm64
+        node-role.kubernetes.io/control-plane: "true"
+      tolerations:
+        - key: CriticalAddonsOnly
+          operator: Equal
+          value: "true"
+          effect: NoExecute

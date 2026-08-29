@@ -9,7 +9,7 @@ metadata:
     app.kubernetes.io/part-of: firefly-iii
     home-lab.io/project-slug: applications
 spec:
-  replicas: 0
+  replicas: 1
   revisionHistoryLimit: 3
   strategy:
     type: Recreate
@@ -38,6 +38,7 @@ spec:
           type: RuntimeDefault
       containers:
         - name: firefly-iii
+          # renovate: datasource=docker depName=docker.io/fireflyiii/core
           image: registry.home/docker.io/fireflyiii/core:version-6.6.3
           imagePullPolicy: IfNotPresent
           envFrom:
@@ -66,7 +67,7 @@ spec:
           resources:
             requests:
               cpu: 30m
-              memory: 103Mi
+              memory: 166Mi
             limits:
               memory: 256Mi
           startupProbe:

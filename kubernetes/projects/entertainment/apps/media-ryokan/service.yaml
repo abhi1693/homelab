@@ -16,3 +16,7 @@ spec:
       port: 8978
       targetPort: http
       protocol: TCP
+    - name: reconcile
+      port: 8979
+      targetPort: reconcile
+      protocol: TCP

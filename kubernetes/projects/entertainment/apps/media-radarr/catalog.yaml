@@ -1,0 +1,18 @@
+---
+apiVersion: home-lab.io/v1alpha1
+kind: WorkloadCatalog
+metadata:
+  name: radarr
+spec:
+  displayName: Radarr
+  purpose: Manage movie acquisition, import, metadata, and library organization.
+  owner: home-lab
+  project: entertainment
+  cluster: home-k3s
+  lifecycle: active
+  criticality: high
+  dataClassification: sensitive
+  repository: https://github.com/abhi1693/home-lab
+  gitPath: kubernetes/projects/entertainment/apps/media-radarr
+  workloads:
+    - {key: home-k3s/media/apps/deployment/radarr, namespace: media, apiGroup: apps, kind: Deployment, name: radarr, desiredReplicas: 0, sourcePath: kubernetes/projects/entertainment/apps/media-radarr/values.yaml}

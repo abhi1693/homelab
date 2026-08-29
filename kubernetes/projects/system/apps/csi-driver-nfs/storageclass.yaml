@@ -9,8 +9,8 @@ metadata:
     home-lab.io/project-slug: system
 provisioner: nfs.csi.k8s.io
 parameters:
-  server: 192.168.3.115
-  share: /nfs/k3s-shared-storage
+  server: 192.168.1.128
+  share: /var/nfs/shared/k3s_shared_storage
   subDir: ${pvc.metadata.namespace}/${pvc.metadata.name}
   mountPermissions: "0777"
   onDelete: retain
@@ -20,4 +20,5 @@ mountOptions:
   - vers=3
   - nolock
   - proto=tcp
+  - mountproto=tcp
 volumeBindingMode: Immediate

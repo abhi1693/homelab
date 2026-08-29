@@ -1,0 +1,18 @@
+---
+apiVersion: home-lab.io/v1alpha1
+kind: WorkloadCatalog
+metadata:
+  name: longhorn-fstrim-labeler
+spec:
+  displayName: Longhorn Filesystem Trim Labeler
+  purpose: Label eligible Longhorn volumes and run scheduled filesystem trim maintenance.
+  owner: home-lab
+  project: system
+  cluster: home-k3s
+  lifecycle: active
+  criticality: medium
+  dataClassification: internal
+  repository: https://github.com/abhi1693/home-lab
+  gitPath: kubernetes/projects/system/apps/longhorn-fstrim-labeler
+  workloads:
+    - {key: home-k3s/longhorn-system/batch/cronjob/longhorn-fstrim-labeler, namespace: longhorn-system, apiGroup: batch, kind: CronJob, name: longhorn-fstrim-labeler, sourcePath: kubernetes/projects/system/apps/longhorn-fstrim-labeler/cronjob.yaml}

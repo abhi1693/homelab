@@ -35,7 +35,7 @@ layer and the project app bundles.
 | `home-lab-database` | PostgreSQL, Valkey, operators, and database network policy. |
 | `home-lab-applications` | Public and personal application workloads. |
 | `home-lab-entertainment` | Media stack and entertainment automation. |
-| `home-lab-home-automation` | Home Assistant, NetBox, rack automation, UPS monitoring, and Cloudflare tunnel controller. |
+| `home-lab-home-automation` | Home Assistant, NetBox and its MCP server, rack automation, UPS monitoring, and Cloudflare tunnel controller. |
 
 ## Image Updates
 

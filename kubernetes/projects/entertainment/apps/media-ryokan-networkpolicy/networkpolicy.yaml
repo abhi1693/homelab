@@ -29,6 +29,14 @@ spec:
       ports:
         - protocol: TCP
           port: 8978
+    - from:
+        - podSelector:
+            matchLabels:
+              app.kubernetes.io/instance: qbittorrent-smart-queues
+              app.kubernetes.io/name: qbittorrent-smart-queues
+      ports:
+        - protocol: TCP
+          port: 8979
   egress:
     - to:
         - namespaceSelector:

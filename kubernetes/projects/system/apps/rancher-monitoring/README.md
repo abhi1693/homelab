@@ -1,5 +1,11 @@
 # Rancher Monitoring
 
+Prometheus, Alertmanager, Grafana, the monitoring operator, adapter,
+kube-state-metrics, and the K3s PushProx proxy select control-plane nodes and
+tolerate `CriticalAddonsOnly=true:NoExecute`. Thanos Query prefers worker nodes,
+and its two replicas have required pod anti-affinity. Node exporter and PushProx
+clients remain node-local across servers and workers.
+
 The Linux-only cluster disables the chart's `windowsExporter` dependency so it
 does not render an unschedulable Windows DaemonSet. Grafana's `init-chown-data`
 container is explicitly bounded at `5m`/`16Mi` requests and `100m`/`64Mi`
@@ -14,10 +20,37 @@ It owns two HelmOps:
 - `rancher-monitoring-stack`, which installs Rancher's monitoring stack.
 
 The stack is pinned to chart version `109.0.3+up80.9.1-rancher.14` and starts as
-cluster-infrastructure monitoring for Rancher and K3s. Prometheus is configured
-for one replica with a retained `20Gi` NFS PVC, `14d` retention, `16GiB` retention
-size, a 4Gi memory request, and a 5Gi memory limit. The global Prometheus scrape
-interval is `60s`.
+cluster-infrastructure monitoring for Rancher and K3s. Prometheus runs two
+replicas with hard pod anti-affinity and one retained `64Gi` Longhorn PVC per
+replica. Each replica has `30d` retention, a `52GiB` retention-size
+cap, a 4Gi memory request, and a 5Gi memory limit. The size cap keeps Prometheus
+near 81 percent of the declared claim capacity so WAL and compaction activity
+retain filesystem headroom. The global Prometheus scrape interval is `60s`.
+Each Thanos sidecar requests `256Mi` and is limited to `1Gi`; the original
+`256Mi` limit was raised after replica 0 exhausted it while querying the migrated
+history.
+Two Thanos Query replicas discover a sidecar on every Prometheus replica through
+the chart's headless discovery Service. Query deduplicates the
+`prometheus_replica` external label, fails a request when a source is unavailable
+instead of silently returning partial data, and has no cloud or object-storage
+dependency. Prometheus therefore keeps normal local TSDB compaction.
+
+The staged migration first proved both scrapers, sidecars, and Query replicas.
+Prometheus was then scaled to zero, and a one-shot Job copied the retained
+replica 0 NFS claim into its Longhorn claim. The read-only source and destination
+directory, file-content, and symlink digests matched at
+`ef834f03e5f61f3da54ea503938d306b02c6aeac89d55206b149ce5679a50b65`.
+Replica 1's Longhorn claim remains empty so the new scraper starts with an
+independent history. A namespace-scoped cutover Job replaced the immutable
+StatefulSet storage owner while the Prometheus resource was paused. The old NFS
+claims remain retained for rollback. Grafana, Prometheus Adapter, automation
+controllers, and `prometheus.home` query Thanos Query. Grafana explicitly
+allows partial responses for interactive dashboards; automation retains Query's
+fail-closed default. The OpenTelemetry Collector writes every metrics batch to
+ordinal-specific Services for both Prometheus replicas.
+`thanos-query-health` alerts when either Query replica is unavailable or a
+Query pod resolves fewer than both Prometheus sidecars for five minutes.
+
 The Prometheus OTLP metrics receiver is enabled for application OpenTelemetry
 metrics and promotes common service resource attributes. Grafana also provisions
 a `Tempo` datasource for the lightweight Tempo app in this project.
@@ -29,6 +62,20 @@ database/shared-session work that is not useful for the initial scope.
 Grafana's root `init-chown-data` container is disabled on NFS; the migration
 copy runs as Grafana UID/GID `472`, and the NAS export rejects root-squashed
 ownership changes.
+Grafana's `/api/health` readiness probe allows five seconds for a response so
+brief storage or node latency does not cause the default one-second timeout. If
+readiness timeouts continue, investigate latency and events for the
+`rancher-monitoring-grafana-nfs` claim before increasing the timeout again.
+Grafana's liveness check starts after ten minutes so slow NFS-backed database
+migrations and plugin initialization can finish; required pod anti-affinity
+also keeps it off the node running the Loki single-binary pod. Prometheus stays
+readiness-sensitive but requires five minutes of failed liveness checks before
+restart, avoiding repeated WAL replay during a bounded storage stall. These
+probe budgets preserve failure detection and are not a substitute for resolving
+prolonged storage latency.
+Because Grafana has one replica, database HA coordination is disabled. SQLite
+queries and transactions each retry lock contention up to ten times so a
+temporary NFS delay cannot make an otherwise healthy Grafana process exit.
 The monitoring storage migration provisioned retained NFS claims for Prometheus,
 both Alertmanager replicas, and Grafana before stopping their writers. One-shot
 copy Jobs mounted every Longhorn source read-only, ran as the corresponding
@@ -54,13 +101,15 @@ resources without changing the base monitoring install.
 
 `cloudflare-tunnel-dashboard` keeps the connector traffic, capacity, edge, and
 origin-health views. The Cloudflare Tunnel app's companion Fleet bundle adds a
-controller metrics `Service` and `ServiceMonitor` on port `8080`, restricted to
+controller metrics `Service` and `ServiceMonitor`; the stable Service port
+`8080` maps to the controller's metrics listener on `9090` and is restricted to
 Rancher Monitoring by NetworkPolicy. `cloudflare-tunnel-health` alerts when
 fewer than two connector targets are healthy, a connector has fewer than four
 HA edge connections, the connector Deployment loses readiness, connector
 configuration versions disagree, origin proxy connections fail, the tunnel's
-5xx rate stays above 5% with meaningful traffic, the controller has no leader,
-or controller reconciliation reports errors.
+5xx rate stays above 5% with meaningful traffic, fewer than two controller
+metrics targets are healthy, available controller metrics report no leader, or
+controller reconciliation reports errors.
 
 K3s control-plane metric collection is deliberately split between the chart's
 dedicated API server target and its K3s server target. The chart-generated K3s
@@ -101,6 +150,10 @@ chart-wide `grafana.sidecar.resources` path because the chart applies that
 single value to its sidecars. Node exporter requests `5m` CPU on each node and
 remains CPU-burstable.
 
+`kube-state-metrics` requests `192Mi` and is capped at `384Mi`. The previous
+`160Mi` limit was below its startup working set at the cluster's current object
+count and caused immediate `OOMKilled` restarts after observability resumed.
+
 `traefik-podmonitor` scrapes the bundled K3s Traefik pods in `kube-system` on
 their existing internal Prometheus metrics port, `9100`. The metrics port is not
 added to the public Traefik LoadBalancer service. `traefik-dashboard` provisions
@@ -133,8 +186,9 @@ metrics.
 `cattle-dashboards`. It uses Rancher's existing node-exporter scrape for ARM64
 Raspberry Pi nodes, including `node_hwmon_temp_celsius` for board/NVMe
 temperature, so it does not require InfluxDB or Telegraf. Current CPU and NVMe
-temperatures are shown as compact bar gauges, with the historical trend kept
-separate for correlation. NVMe temperature panels use the kernel hwmon
+temperatures are shown as compact bar gauges ordered hottest to coolest, with
+the historical trend kept separate for correlation. NVMe temperature panels
+use the kernel hwmon
 `Composite` sensor so they line up with `smartctl_exporter`'s SMART current
 temperature; hotter per-sensor readings remain available in raw hwmon metrics
 for deeper troubleshooting. The dashboard also shows Raspberry Pi active cooler
@@ -147,13 +201,26 @@ soft temperature limit events.
 
 `raspberry-pi-node-health` adds Prometheus alerts for node-exporter availability,
 high CPU temperature, root filesystem pressure, memory pressure, and sustained
-iowait on the Raspberry Pi nodes. It also alerts when Raspberry Pi throttling
+iowait while load exceeds one runnable or waiting task per core on the Raspberry
+Pi nodes. The load gate distinguishes an I/O queue from normal synchronous
+Longhorn writes on an otherwise idle node. It also alerts when Raspberry Pi throttling
 metrics cannot be collected, when firmware throttling is active, or when a
 throttling condition has occurred since the last reboot.
 
 `smartctl-exporter` scrapes the host-level `prometheus-smartctl-exporter`
 service on each Raspberry Pi node for NVMe S.M.A.R.T. health. The host service is
 installed by the Ansible `smartctl_exporter` role because the current upstream
-container image is not published for arm64. `raspberry-pi-nvme-smart-dashboard`
-adds the Grafana view for SMART status, NVMe wear, available spare, temperature,
-media errors, error-log growth, and lifetime IO.
+container image is not published for arm64. Its `ScrapeConfig` discovers
+Kubernetes nodes named `k8s-rpi*`, rewrites each target to the node's InternalIP
+on port `9633`, and supplies the node label used by the dashboard variables. A
+newly joined Raspberry Pi therefore appears automatically after its host
+exporter is installed. `raspberry-pi-nvme-smart-dashboard` adds the Grafana view
+for SMART status, NVMe wear, available spare, temperature, media errors,
+error-log growth, and lifetime IO.
+
+Operational response procedures:
+
+- [`docs/runbooks/alertmanager-firing-alert-triage.md`](../../../../../docs/runbooks/alertmanager-firing-alert-triage.md)
+- [`docs/runbooks/kubernetes-cpu-overcommit.md`](../../../../../docs/runbooks/kubernetes-cpu-overcommit.md)
+- [`docs/runbooks/node-saturation-and-zombie-processes.md`](../../../../../docs/runbooks/node-saturation-and-zombie-processes.md)
+- [`docs/runbooks/storage/raspberry-pi-high-iowait.md`](../../../../../docs/runbooks/storage/raspberry-pi-high-iowait.md)

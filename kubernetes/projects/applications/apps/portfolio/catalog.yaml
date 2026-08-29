@@ -1,0 +1,18 @@
+---
+apiVersion: home-lab.io/v1alpha1
+kind: WorkloadCatalog
+metadata:
+  name: portfolio
+spec:
+  displayName: Portfolio
+  purpose: Serve the public portfolio application.
+  owner: home-lab
+  project: applications
+  cluster: home-k3s
+  lifecycle: active
+  criticality: medium
+  dataClassification: public
+  repository: https://github.com/abhi1693/home-lab
+  gitPath: kubernetes/projects/applications/apps/portfolio
+  workloads:
+    - {key: home-k3s/portfolio/apps/deployment/portfolio, namespace: portfolio, apiGroup: apps, kind: Deployment, name: portfolio, desiredReplicas: 1, sourcePath: kubernetes/projects/applications/apps/portfolio/deployment.yaml}

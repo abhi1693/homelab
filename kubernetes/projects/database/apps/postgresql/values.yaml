@@ -15,13 +15,17 @@ cluster:
   annotations:
     home-lab.io/firefly-role-reconcile: "20260614T085757Z"
     home-lab.io/harbor-postgresql-secret: external
-    home-lab.io/postgresql-pvc-resize: "20260630T071000Z"
+    home-lab.io/postgresql-pvc-resize: "20260814T000000Z"
     home-lab.io/zitadel-role-reconcile: "20260706T004400Z"
   primaryUpdateMethod: switchover
   primaryUpdateStrategy: unsupervised
+  # Bound voluntary shutdown and eviction replacement to five minutes. CNPG's
+  # default 180-second smart shutdown leaves two minutes for fast shutdown and
+  # WAL/archive completion before the kubelet's termination deadline.
+  stopDelay: 300
   storage:
     storageClass: longhorn
-    size: 4Gi
+    size: 8Gi
   walStorage:
     enabled: true
     storageClass: longhorn
@@ -190,7 +194,7 @@ cluster:
     - name: jellyfin
       ensure: present
       login: true
-      connectionLimit: 15
+      connectionLimit: 32
       superuser: false
       createdb: false
       createrole: false
@@ -285,6 +289,18 @@ cluster:
       bypassrls: false
       passwordSecret:
         name: music-assistant-postgresql
+    - name: home_assistant
+      ensure: present
+      login: true
+      connectionLimit: 12
+      superuser: false
+      createdb: false
+      createrole: false
+      inherit: true
+      replication: false
+      bypassrls: false
+      passwordSecret:
+        name: home-assistant-postgresql
 backups:
   enabled: true
   endpointURL: https://492e25f5f18ef59e38763f58a78362f7.r2.cloudflarestorage.com
@@ -347,18 +363,21 @@ databases:
   - name: music_assistant
     owner: music_assistant
     databaseReclaimPolicy: retain
+  - name: home_assistant
+    owner: home_assistant
+    databaseReclaimPolicy: retain
 poolers:
   - name: jellyfin-rw
     type: rw
     poolMode: session
-    instances: 1
+    instances: 2
     monitoring:
       enabled: true
       podMonitor:
         enabled: true
     parameters:
       max_client_conn: "100"
-      default_pool_size: "14"
+      default_pool_size: "15"
     template:
       metadata:
         labels:
@@ -489,53 +508,6 @@ poolers:
                 memory: 56Mi
               limits:
                 memory: 192Mi
-  - name: netbox-rw
-    type: rw
-    poolMode: session
-    instances: 0
-    monitoring:
-      enabled: false
-      podMonitor:
-        enabled: false
-    parameters:
-      max_client_conn: "50"
-      default_pool_size: "3"
-    template:
-      metadata:
-        labels:
-          app.kubernetes.io/part-of: postgresql
-          home-lab.io/client: netbox
-      spec:
-        nodeSelector:
-          kubernetes.io/arch: arm64
-        topologySpreadConstraints:
-          - maxSkew: 1
-            topologyKey: kubernetes.io/hostname
-            whenUnsatisfiable: DoNotSchedule
-            labelSelector:
-              matchLabels:
-                cnpg.io/poolerName: postgresql-pooler-netbox-rw
-            matchLabelKeys:
-              - pod-template-hash
-        affinity:
-          podAntiAffinity:
-            requiredDuringSchedulingIgnoredDuringExecution:
-              - labelSelector:
-                  matchLabels:
-                    cnpg.io/poolerName: postgresql-pooler-netbox-rw
-                matchLabelKeys:
-                  - pod-template-hash
-                topologyKey: kubernetes.io/hostname
-        containers:
-          - name: pgbouncer
-            # renovate: datasource=docker depName=ghcr.io/cloudnative-pg/pgbouncer
-            image: registry.home/ghcr.io/cloudnative-pg/pgbouncer:1.25.2
-            resources:
-              requests:
-                cpu: 10m
-                memory: 56Mi
-              limits:
-                memory: 192Mi
   - name: wardn-hub-rw
     type: rw
     poolMode: session
@@ -633,7 +605,7 @@ poolers:
   - name: firefly-iii-rw
     type: rw
     poolMode: session
-    instances: 0
+    instances: 1
     monitoring:
       enabled: true
       podMonitor:
@@ -711,6 +683,53 @@ poolers:
               - labelSelector:
                   matchLabels:
                     cnpg.io/poolerName: postgresql-pooler-zitadel-rw
+                matchLabelKeys:
+                  - pod-template-hash
+                topologyKey: kubernetes.io/hostname
+        containers:
+          - name: pgbouncer
+            # renovate: datasource=docker depName=ghcr.io/cloudnative-pg/pgbouncer
+            image: registry.home/ghcr.io/cloudnative-pg/pgbouncer:1.25.2
+            resources:
+              requests:
+                cpu: 10m
+                memory: 56Mi
+              limits:
+                memory: 192Mi
+  - name: home-assistant-rw
+    type: rw
+    poolMode: session
+    instances: 2
+    monitoring:
+      enabled: true
+      podMonitor:
+        enabled: true
+    parameters:
+      max_client_conn: "30"
+      default_pool_size: "5"
+    template:
+      metadata:
+        labels:
+          app.kubernetes.io/part-of: postgresql
+          home-lab.io/client: home-assistant
+      spec:
+        nodeSelector:
+          kubernetes.io/arch: arm64
+        topologySpreadConstraints:
+          - maxSkew: 1
+            topologyKey: kubernetes.io/hostname
+            whenUnsatisfiable: DoNotSchedule
+            labelSelector:
+              matchLabels:
+                cnpg.io/poolerName: postgresql-pooler-home-assistant-rw
+            matchLabelKeys:
+              - pod-template-hash
+        affinity:
+          podAntiAffinity:
+            requiredDuringSchedulingIgnoredDuringExecution:
+              - labelSelector:
+                  matchLabels:
+                    cnpg.io/poolerName: postgresql-pooler-home-assistant-rw
                 matchLabelKeys:
                   - pod-template-hash
                 topologyKey: kubernetes.io/hostname

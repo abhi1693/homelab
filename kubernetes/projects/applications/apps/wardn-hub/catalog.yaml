@@ -1,0 +1,23 @@
+---
+apiVersion: home-lab.io/v1alpha1
+kind: WorkloadCatalog
+metadata:
+  name: wardn-hub
+spec:
+  displayName: Wardn Hub
+  purpose: Run the public skill and MCP registry, review workflows, workers, scoring, and Codex app service.
+  owner: home-lab
+  project: applications
+  cluster: home-k3s
+  lifecycle: active
+  criticality: high
+  dataClassification: restricted
+  repository: https://github.com/abhi1693/home-lab
+  gitPath: kubernetes/projects/applications/apps/wardn-hub
+  workloads:
+    - {key: home-k3s/wardn/apps/deployment/wardn-hub-api, namespace: wardn, apiGroup: apps, kind: Deployment, name: wardn-hub-api, desiredReplicas: 1, sourcePath: kubernetes/projects/applications/apps/wardn-hub/deployment-api.yaml}
+    - {key: home-k3s/wardn/apps/deployment/wardn-hub-frontend, namespace: wardn, apiGroup: apps, kind: Deployment, name: wardn-hub-frontend, desiredReplicas: 1, sourcePath: kubernetes/projects/applications/apps/wardn-hub/deployment-frontend.yaml}
+    - {key: home-k3s/wardn/apps/deployment/wardn-hub-worker, namespace: wardn, apiGroup: apps, kind: Deployment, name: wardn-hub-worker, desiredReplicas: 1, sourcePath: kubernetes/projects/applications/apps/wardn-hub/deployment-worker.yaml}
+    - {key: home-k3s/wardn/apps/deployment/wardn-hub-scoring, namespace: wardn, apiGroup: apps, kind: Deployment, name: wardn-hub-scoring, desiredReplicas: 1, sourcePath: kubernetes/projects/applications/apps/wardn-hub/deployment-scoring.yaml}
+    - {key: home-k3s/wardn/apps/deployment/wardn-hub-codex-app-server, namespace: wardn, apiGroup: apps, kind: Deployment, name: wardn-hub-codex-app-server, desiredReplicas: 1, sourcePath: kubernetes/projects/applications/apps/wardn-hub/deployment-codex-app-server.yaml}
+    - {key: home-k3s/wardn/batch/cronjob/wardn-hub-next-build-cache-cleanup, namespace: wardn, apiGroup: batch, kind: CronJob, name: wardn-hub-next-build-cache-cleanup, sourcePath: kubernetes/projects/applications/apps/wardn-hub/next-build-cleanup-cronjob.yaml}

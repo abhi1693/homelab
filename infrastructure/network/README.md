@@ -8,6 +8,7 @@ Kubernetes API.
 | Path | Purpose |
 | --- | --- |
 | `unifi/` | UniFi VLAN, inter-zone player access, and Layer 2 service VIP assumptions. |
+| `../../docs/architecture/unifi-enterprise-network-roadmap.md` | Dated live baseline and phased enterprise-style UniFi segmentation, switching, Wi-Fi, Protect, storage, and security roadmap. |
 
 ## Why This Exists
 
@@ -37,3 +38,8 @@ configuration:
 The network layer is therefore coupled to MetalLB, Traefik, ExternalDNS, and
 the app LoadBalancer pool. When one changes, review the VLAN, DNS, and firewall
 assumptions.
+
+The [UniFi enterprise network roadmap](../../docs/architecture/unifi-enterprise-network-roadmap.md)
+records the broader target architecture and migration gates. It is a proposal,
+not authorization to change the live controller; this directory continues to
+document the currently required network-side behavior.

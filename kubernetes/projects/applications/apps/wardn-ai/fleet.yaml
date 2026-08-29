@@ -29,4 +29,4 @@ diff:
 helm:
   takeOwnership: true
   timeoutSeconds: 900
-forceSyncGeneration: 1
+forceSyncGeneration: 7

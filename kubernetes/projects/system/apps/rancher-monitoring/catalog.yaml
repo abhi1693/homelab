@@ -1,0 +1,27 @@
+---
+apiVersion: home-lab.io/v1alpha1
+kind: WorkloadCatalog
+metadata:
+  name: rancher-monitoring
+spec:
+  displayName: Rancher Monitoring
+  purpose: Provide Prometheus, Alertmanager, Grafana, Thanos Query, exporters, dashboards, and metrics APIs.
+  owner: home-lab
+  project: system
+  cluster: home-k3s
+  lifecycle: active
+  criticality: critical
+  dataClassification: restricted
+  repository: https://github.com/abhi1693/home-lab
+  gitPath: kubernetes/projects/system/apps/rancher-monitoring
+  workloads:
+    - {key: home-k3s/cattle-monitoring-system/apps/statefulset/prometheus-rancher-monitoring-prometheus, namespace: cattle-monitoring-system, apiGroup: apps, kind: StatefulSet, name: prometheus-rancher-monitoring-prometheus, desiredReplicas: 2, sourcePath: kubernetes/projects/system/apps/rancher-monitoring/values.yaml}
+    - {key: home-k3s/cattle-monitoring-system/apps/statefulset/alertmanager-rancher-monitoring-alertmanager, namespace: cattle-monitoring-system, apiGroup: apps, kind: StatefulSet, name: alertmanager-rancher-monitoring-alertmanager, desiredReplicas: 2, sourcePath: kubernetes/projects/system/apps/rancher-monitoring/values.yaml}
+    - {key: home-k3s/cattle-monitoring-system/apps/deployment/rancher-monitoring-grafana, namespace: cattle-monitoring-system, apiGroup: apps, kind: Deployment, name: rancher-monitoring-grafana, desiredReplicas: 1, sourcePath: kubernetes/projects/system/apps/rancher-monitoring/values.yaml}
+    - {key: home-k3s/cattle-monitoring-system/apps/deployment/rancher-monitoring-kube-state-metrics, namespace: cattle-monitoring-system, apiGroup: apps, kind: Deployment, name: rancher-monitoring-kube-state-metrics, desiredReplicas: 1, sourcePath: kubernetes/projects/system/apps/rancher-monitoring/values.yaml}
+    - {key: home-k3s/cattle-monitoring-system/apps/deployment/rancher-monitoring-operator, namespace: cattle-monitoring-system, apiGroup: apps, kind: Deployment, name: rancher-monitoring-operator, desiredReplicas: 1, sourcePath: kubernetes/projects/system/apps/rancher-monitoring/values.yaml}
+    - {key: home-k3s/cattle-monitoring-system/apps/deployment/rancher-monitoring-prometheus-adapter, namespace: cattle-monitoring-system, apiGroup: apps, kind: Deployment, name: rancher-monitoring-prometheus-adapter, desiredReplicas: 1, sourcePath: kubernetes/projects/system/apps/rancher-monitoring/values.yaml}
+    - {key: home-k3s/cattle-monitoring-system/apps/deployment/thanos-query, namespace: cattle-monitoring-system, apiGroup: apps, kind: Deployment, name: thanos-query, desiredReplicas: 2, sourcePath: kubernetes/projects/system/apps/rancher-monitoring/thanos-query.yaml}
+    - {key: home-k3s/cattle-monitoring-system/apps/deployment/pushprox-k3s-server-proxy, namespace: cattle-monitoring-system, apiGroup: apps, kind: Deployment, name: pushprox-k3s-server-proxy, desiredReplicas: 1, sourcePath: kubernetes/projects/system/apps/rancher-monitoring/values.yaml}
+    - {key: home-k3s/cattle-monitoring-system/apps/daemonset/pushprox-k3s-server-client, namespace: cattle-monitoring-system, apiGroup: apps, kind: DaemonSet, name: pushprox-k3s-server-client, sourcePath: kubernetes/projects/system/apps/rancher-monitoring/values.yaml}
+    - {key: home-k3s/cattle-monitoring-system/apps/daemonset/rancher-monitoring-prometheus-node-exporter, namespace: cattle-monitoring-system, apiGroup: apps, kind: DaemonSet, name: rancher-monitoring-prometheus-node-exporter, sourcePath: kubernetes/projects/system/apps/rancher-monitoring/values.yaml}

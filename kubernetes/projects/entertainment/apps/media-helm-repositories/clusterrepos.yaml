@@ -9,7 +9,7 @@ metadata:
     home-lab.io/project-slug: entertainment
 spec:
   enabled: true
-  forceUpdate: "2026-07-23T18:03:08Z"
+  forceUpdate: "2026-08-26T07:32:00Z"
   url: oci://ghcr.io/seerr-team/seerr/seerr-chart
 ---
 apiVersion: catalog.cattle.io/v1
@@ -22,6 +22,7 @@ metadata:
     home-lab.io/project-slug: entertainment
 spec:
   enabled: true
+  forceUpdate: "2026-08-26T07:27:00Z"
   url: oci://oci.trueforge.org/truecharts/flaresolverr
 ---
 apiVersion: catalog.cattle.io/v1
@@ -34,6 +35,7 @@ metadata:
     home-lab.io/project-slug: entertainment
 spec:
   enabled: true
+  forceUpdate: "2026-08-26T07:27:00Z"
   url: oci://oci.trueforge.org/truecharts/jellyfin
 ---
 apiVersion: catalog.cattle.io/v1
@@ -46,6 +48,7 @@ metadata:
     home-lab.io/project-slug: entertainment
 spec:
   enabled: true
+  forceUpdate: "2026-08-26T07:32:00Z"
   url: oci://oci.trueforge.org/truecharts/prowlarr
 ---
 apiVersion: catalog.cattle.io/v1
@@ -58,6 +61,7 @@ metadata:
     home-lab.io/project-slug: entertainment
 spec:
   enabled: true
+  forceUpdate: "2026-08-26T07:27:00Z"
   url: oci://oci.trueforge.org/truecharts/qbittorrent
 ---
 apiVersion: catalog.cattle.io/v1
@@ -70,6 +74,7 @@ metadata:
     home-lab.io/project-slug: entertainment
 spec:
   enabled: true
+  forceUpdate: "2026-08-26T07:27:00Z"
   url: oci://oci.trueforge.org/truecharts/radarr
 ---
 apiVersion: catalog.cattle.io/v1
@@ -82,4 +87,5 @@ metadata:
     home-lab.io/project-slug: entertainment
 spec:
   enabled: true
+  forceUpdate: "2026-08-26T07:32:00Z"
   url: oci://oci.trueforge.org/truecharts/sonarr

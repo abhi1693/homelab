@@ -1,0 +1,18 @@
+---
+apiVersion: home-lab.io/v1alpha1
+kind: WorkloadCatalog
+metadata:
+  name: home-assistant-mobile-webhook
+spec:
+  displayName: Home Assistant Mobile Webhook
+  purpose: Receive authenticated mobile sensor updates and bridge them into Home Assistant.
+  owner: home-lab
+  project: home-automation
+  cluster: home-k3s
+  lifecycle: active
+  criticality: high
+  dataClassification: restricted
+  repository: https://github.com/abhi1693/home-lab
+  gitPath: kubernetes/projects/home-automation/apps/home-assistant-mobile-webhook
+  workloads:
+    - {key: home-k3s/home-assistant/apps/deployment/home-assistant-mobile-webhook, namespace: home-assistant, apiGroup: apps, kind: Deployment, name: home-assistant-mobile-webhook, desiredReplicas: 1, sourcePath: kubernetes/projects/home-automation/apps/home-assistant-mobile-webhook/deployment.yaml}

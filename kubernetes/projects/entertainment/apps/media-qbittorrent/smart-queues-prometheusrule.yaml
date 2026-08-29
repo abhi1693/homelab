@@ -44,7 +44,8 @@ spec:
             description: UniFi is routing through its failover-only WAN, so Smart Queues has stopped all torrents.
         - alert: QbittorrentSmartQueuesLowEffectiveCap
           expr: |
-            max(qbt_guard_effective_cap_bytes_per_sec{namespace="media", job="qbittorrent-smart-queues", type="download"}) < 262144
+            max(qbt_guard_effective_cap_bytes_per_sec{namespace="media", job="qbittorrent-smart-queues", type="download"}) > 0
+            and max(qbt_guard_effective_cap_bytes_per_sec{namespace="media", job="qbittorrent-smart-queues", type="download"}) < 262144
             and max(qbt_guard_candidate_count{namespace="media", job="qbittorrent-smart-queues", type="eligible"}) > 0
           for: 30m
           labels:

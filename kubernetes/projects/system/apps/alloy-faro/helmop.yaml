@@ -35,6 +35,7 @@ spec:
     releaseName: alloy-faro
     repo: https://grafana.github.io/helm-charts
     chart: alloy
+    # renovate: datasource=helm depName=alloy registryUrl=https://grafana.github.io/helm-charts
     version: 1.10.0
     timeoutSeconds: 600
     takeOwnership: true

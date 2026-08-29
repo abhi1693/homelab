@@ -2,7 +2,7 @@
 apiVersion: batch/v1
 kind: Job
 metadata:
-  name: longhorn-fstrim-labeler-20260719
+  name: longhorn-fstrim-labeler-20260821
   namespace: longhorn-system
   labels:
     app.kubernetes.io/name: longhorn-fstrim-labeler
@@ -25,6 +25,12 @@ spec:
       automountServiceAccountToken: true
       nodeSelector:
         kubernetes.io/arch: arm64
+        node-role.kubernetes.io/control-plane: "true"
+      tolerations:
+        - key: CriticalAddonsOnly
+          operator: Equal
+          value: "true"
+          effect: NoExecute
       containers:
         - name: label-longhorn-fstrim-pvcs
           image: rancher/kuberlr-kubectl:v7.0.1

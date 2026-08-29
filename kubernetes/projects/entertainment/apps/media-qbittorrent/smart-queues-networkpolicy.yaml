@@ -69,13 +69,11 @@ spec:
               kubernetes.io/metadata.name: cattle-monitoring-system
           podSelector:
             matchLabels:
-              app.kubernetes.io/name: prometheus
-              prometheus: rancher-monitoring-prometheus
+              app.kubernetes.io/name: thanos-query
+              app.kubernetes.io/component: query
       ports:
         - protocol: TCP
           port: 9090
-        - protocol: TCP
-          port: 8081
     - to:
         - namespaceSelector:
             matchLabels:
@@ -133,6 +131,15 @@ spec:
         - protocol: TCP
           port: 8096
     - to:
+        - ipBlock:
+            cidr: 10.43.0.0/16
+        - podSelector:
+            matchLabels:
+              app.kubernetes.io/name: ryokan
+      ports:
+        - protocol: TCP
+          port: 8979
+    - to:
         - namespaceSelector:
             matchLabels:
               kubernetes.io/metadata.name: rack-ops
@@ -189,4 +196,12 @@ spec:
       toPorts:
         - ports:
             - port: "8096"
+              protocol: TCP
+    - toServices:
+        - k8sService:
+            serviceName: ryokan
+            namespace: media
+      toPorts:
+        - ports:
+            - port: "8979"
               protocol: TCP

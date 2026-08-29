@@ -2,6 +2,21 @@
 apiVersion: policy/v1
 kind: PodDisruptionBudget
 metadata:
+  name: postgresql-pooler-home-assistant-rw
+  namespace: postgresql
+  labels:
+    app.kubernetes.io/name: postgresql-pooler
+    app.kubernetes.io/part-of: postgresql
+    home-lab.io/client: home-assistant
+spec:
+  minAvailable: 1
+  selector:
+    matchLabels:
+      cnpg.io/poolerName: postgresql-pooler-home-assistant-rw
+---
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
   name: postgresql-pooler-shipyardhq-rw
   namespace: postgresql
   labels:

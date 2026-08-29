@@ -29,6 +29,15 @@ spec:
         app.kubernetes.io/part-of: cluster-ops
         home-lab.io/project-slug: home-automation
     spec:
+      nodeSelector:
+        kubernetes.io/arch: arm64
+      affinity:
+        nodeAffinity:
+          requiredDuringSchedulingIgnoredDuringExecution:
+            nodeSelectorTerms:
+              - matchExpressions:
+                  - key: node-role.kubernetes.io/control-plane
+                    operator: DoesNotExist
       serviceAccountName: k8s-recommendation-engine
       automountServiceAccountToken: true
       imagePullSecrets:
@@ -149,7 +158,7 @@ spec:
                 fieldRef:
                   fieldPath: metadata.namespace
             - name: PROMETHEUS_URL
-              value: http://rancher-monitoring-prometheus.cattle-monitoring-system.svc.cluster.local:9090
+              value: http://thanos-query.cattle-monitoring-system.svc.cluster.local:9090
             - name: HISTORY_WINDOW
               value: 6h
             - name: HISTORY_STEP

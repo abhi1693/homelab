@@ -14,7 +14,7 @@ spec:
   accessModes:
     - ReadWriteMany
   storageClassName: nfs-shared-retain
-  volumeName: pvc-c967857e-16b4-40ac-a9d9-af69db0326c7
+  volumeName: pvc-3af55f73-15df-41d5-a299-1ee4bca54bb2
   resources:
     requests:
       storage: 4Gi

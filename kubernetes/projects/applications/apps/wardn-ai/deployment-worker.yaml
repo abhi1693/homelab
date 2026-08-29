@@ -19,7 +19,7 @@ spec:
   template:
     metadata:
       annotations:
-        home-lab.io/config-revision: "wardn-ai-0-0-37"
+        home-lab.io/config-revision: "wardn-ai-0f714fa"
       labels:
         app.kubernetes.io/name: wardn-ai-worker
         app.kubernetes.io/component: worker
@@ -37,8 +37,8 @@ spec:
         kubernetes.io/arch: arm64
       containers:
         - name: worker
-          # renovate: datasource=git-refs depName=github.com/abhi1693/wardn-ai currentValue=master
-          image: registry.home/ghcr.io/abhi1693/wardn-ai-worker:0.0.37
+          # renovate: datasource=git-refs depName=https://github.com/abhi1693/wardn-ai currentValue=master
+          image: registry.home/ghcr.io/abhi1693/wardn-ai-worker:12b8f664b80a28656b7fa86ac191e29c3f734ae7
           imagePullPolicy: IfNotPresent
           envFrom:
             - configMapRef:

@@ -21,7 +21,7 @@ podOptions:
 resources:
   requests:
     cpu: 40m
-    memory: 261Mi
+    memory: 289Mi
   limits:
     cpu: 200m
     memory: 496Mi
@@ -32,7 +32,7 @@ service:
         port: 8191
 workload:
   main:
-    replicas: 1
+    replicas: 0
     podSpec:
       automountServiceAccountToken: false
       labels:

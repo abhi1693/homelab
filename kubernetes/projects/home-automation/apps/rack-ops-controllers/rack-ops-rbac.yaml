@@ -26,7 +26,6 @@ rules:
     resourceNames:
       - flaresolverr-helmop
       - jellyfin
-      - media-do-squid-firewall
       - media-ryokan
       - media-shoko
       - personal-blog
@@ -93,15 +92,6 @@ rules:
       - ryokan
       - shoko
       - sonarr
-    verbs:
-      - get
-      - patch
-  - apiGroups:
-      - batch
-    resources:
-      - cronjobs
-    resourceNames:
-      - do-squid-firewall
     verbs:
       - get
       - patch

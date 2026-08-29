@@ -20,8 +20,8 @@ podOptions:
     kubernetes.io/arch: arm64
 resources:
   requests:
-    cpu: 330m
-    memory: 511Mi
+    cpu: 670m
+    memory: 542Mi
   limits:
     memory: 864Mi
 ingress:
@@ -36,7 +36,7 @@ ingress:
     tls: []
 workload:
   main:
-    replicas: 1
+    replicas: 0
     podSpec:
       automountServiceAccountToken: false
       labels:
@@ -58,12 +58,12 @@ persistence:
   media:
     enabled: true
     type: pvc
-    existingClaim: media-library-nfs-csi
+    existingClaim: media-library-unas
     mountPath: /data
   downloads:
     enabled: true
     type: pvc
-    existingClaim: media-downloads-nfs-csi
+    existingClaim: media-downloads-unas
     mountPath: /downloads
 metrics:
   main:
@@ -99,6 +99,9 @@ networkPolicy:
               matchLabels:
                 app.kubernetes.io/instance: qbittorrent-smart-queues
                 app.kubernetes.io/name: qbittorrent-smart-queues
+          - podSelector:
+              matchLabels:
+                app.kubernetes.io/name: episeerr
         ports:
           - protocol: TCP
             port: 8989
@@ -142,6 +145,13 @@ networkPolicy:
         ports:
           - protocol: TCP
             port: 8096
+      - to:
+          - podSelector:
+              matchLabels:
+                app.kubernetes.io/name: episeerr
+        ports:
+          - protocol: TCP
+            port: 5002
       - to:
           - ipBlock:
               cidr: 0.0.0.0/0

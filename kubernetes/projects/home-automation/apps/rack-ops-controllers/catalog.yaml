@@ -1,0 +1,27 @@
+---
+apiVersion: home-lab.io/v1alpha1
+kind: WorkloadCatalog
+metadata:
+  name: rack-ops
+spec:
+  displayName: Rack Ops
+  purpose: Run rack and node automation, guarded power actions, shutdown endpoints, thermal policy, and controller state.
+  owner: home-lab
+  project: home-automation
+  cluster: home-k3s
+  lifecycle: active
+  criticality: critical
+  dataClassification: restricted
+  repository: https://github.com/abhi1693/home-lab
+  gitPath: kubernetes/projects/home-automation/apps/rack-ops-controllers
+  workloads:
+    - {key: home-k3s/rack-ops/apps/deployment/rack-ops, namespace: rack-ops, apiGroup: apps, kind: Deployment, name: rack-ops, desiredReplicas: 1, sourcePath: kubernetes/projects/home-automation/apps/rack-ops-controllers/rack-ops-controller.yaml}
+    - {key: home-k3s/rack-ops/apps/daemonset/rpi-thermal-governor, namespace: rack-ops, apiGroup: apps, kind: DaemonSet, name: rpi-thermal-governor, sourcePath: kubernetes/projects/home-automation/apps/rack-ops-controllers/smart-queues-rpi-thermal-governor.yaml}
+    - {key: home-k3s/rack-ops/apps/daemonset/rpi-shutdown-k8s-rpi1, namespace: rack-ops, apiGroup: apps, kind: DaemonSet, name: rpi-shutdown-k8s-rpi1, sourcePath: kubernetes/projects/home-automation/apps/rack-ops-controllers/smart-queues-rpi-shutdown.yaml}
+    - {key: home-k3s/rack-ops/apps/daemonset/rpi-shutdown-k8s-rpi2, namespace: rack-ops, apiGroup: apps, kind: DaemonSet, name: rpi-shutdown-k8s-rpi2, sourcePath: kubernetes/projects/home-automation/apps/rack-ops-controllers/smart-queues-rpi-shutdown.yaml}
+    - {key: home-k3s/rack-ops/apps/daemonset/rpi-shutdown-k8s-rpi3, namespace: rack-ops, apiGroup: apps, kind: DaemonSet, name: rpi-shutdown-k8s-rpi3, sourcePath: kubernetes/projects/home-automation/apps/rack-ops-controllers/smart-queues-rpi-shutdown.yaml}
+    - {key: home-k3s/rack-ops/apps/daemonset/rpi-shutdown-k8s-rpi4, namespace: rack-ops, apiGroup: apps, kind: DaemonSet, name: rpi-shutdown-k8s-rpi4, sourcePath: kubernetes/projects/home-automation/apps/rack-ops-controllers/smart-queues-rpi-shutdown.yaml}
+    - {key: home-k3s/rack-ops/apps/daemonset/rpi-shutdown-k8s-rpi5, namespace: rack-ops, apiGroup: apps, kind: DaemonSet, name: rpi-shutdown-k8s-rpi5, sourcePath: kubernetes/projects/home-automation/apps/rack-ops-controllers/smart-queues-rpi-shutdown.yaml}
+    - {key: home-k3s/rack-ops/apps/daemonset/rpi-shutdown-k8s-rpi6, namespace: rack-ops, apiGroup: apps, kind: DaemonSet, name: rpi-shutdown-k8s-rpi6, sourcePath: kubernetes/projects/home-automation/apps/rack-ops-controllers/smart-queues-rpi-shutdown.yaml}
+    - {key: home-k3s/rack-ops/apps/daemonset/rpi-shutdown-k8s-rpi7, namespace: rack-ops, apiGroup: apps, kind: DaemonSet, name: rpi-shutdown-k8s-rpi7, sourcePath: kubernetes/projects/home-automation/apps/rack-ops-controllers/smart-queues-rpi-shutdown.yaml}
+    - {key: home-k3s/rack-ops/apps/daemonset/rpi-shutdown-k8s-rpi8, namespace: rack-ops, apiGroup: apps, kind: DaemonSet, name: rpi-shutdown-k8s-rpi8, sourcePath: kubernetes/projects/home-automation/apps/rack-ops-controllers/smart-queues-rpi-shutdown.yaml}

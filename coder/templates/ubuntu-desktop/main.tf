@@ -1,13 +1,16 @@
 terraform {
   required_providers {
     coder = {
-      source = "coder/coder"
+      source  = "coder/coder"
+      version = "2.16.0"
     }
     kubernetes = {
-      source = "hashicorp/kubernetes"
+      source  = "hashicorp/kubernetes"
+      version = "3.1.0"
     }
     random = {
-      source = "hashicorp/random"
+      source  = "hashicorp/random"
+      version = "3.8.1"
     }
   }
 }
@@ -147,7 +150,8 @@ provider "kubernetes" {
 locals {
   template_name       = "ubuntu-desktop"
   workspace_namespace = "coder-workspaces"
-  workspace_image     = "ghcr.io/abhi1693/home-lab:ubuntu-desktop-13052026"
+  # renovate: datasource=docker depName=ghcr.io/abhi1693/home-lab versioning=regex:^ubuntu-desktop-(?<patch>\d{2})(?<minor>\d{2})(?<major>\d{4})$
+  workspace_image = "ghcr.io/abhi1693/home-lab:ubuntu-desktop-13052026"
   workspace_required_packages = [
     "adwaita-icon-theme",
     "build-essential",

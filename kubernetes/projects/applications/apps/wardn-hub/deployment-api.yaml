@@ -60,7 +60,7 @@ spec:
       initContainers:
         - name: migrate-db
           # renovate: datasource=github-releases depName=abhi1693/wardn-hub
-          image: registry.home/ghcr.io/abhi1693/wardn-hub-backend:0.2.179
+          image: registry.home/ghcr.io/abhi1693/wardn-hub-backend:0.2.181
           imagePullPolicy: IfNotPresent
           command:
             - alembic
@@ -109,7 +109,7 @@ spec:
       containers:
         - name: api
           # renovate: datasource=github-releases depName=abhi1693/wardn-hub
-          image: registry.home/ghcr.io/abhi1693/wardn-hub-backend:0.2.179
+          image: registry.home/ghcr.io/abhi1693/wardn-hub-backend:0.2.181
           imagePullPolicy: IfNotPresent
           envFrom:
             - configMapRef:
@@ -156,7 +156,7 @@ spec:
           resources:
             requests:
               cpu: 100m
-              memory: 175Mi
+              memory: 179Mi
             limits:
               cpu: "1"
               memory: 384Mi

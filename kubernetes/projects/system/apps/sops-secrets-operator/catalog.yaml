@@ -1,0 +1,18 @@
+---
+apiVersion: home-lab.io/v1alpha1
+kind: WorkloadCatalog
+metadata:
+  name: sops-secrets-operator
+spec:
+  displayName: SOPS Secrets Operator
+  purpose: Decrypt SOPS-encrypted Git objects into namespace-scoped Kubernetes Secrets.
+  owner: home-lab
+  project: system
+  cluster: home-k3s
+  lifecycle: active
+  criticality: critical
+  dataClassification: restricted
+  repository: https://github.com/abhi1693/home-lab
+  gitPath: kubernetes/projects/system/apps/sops-secrets-operator
+  workloads:
+    - {key: home-k3s/sops/apps/deployment/sops-secrets-operator, namespace: sops, apiGroup: apps, kind: Deployment, name: sops-secrets-operator, desiredReplicas: 1, sourcePath: kubernetes/projects/system/apps/sops-secrets-operator/values.yaml}

@@ -1,0 +1,19 @@
+---
+apiVersion: home-lab.io/v1alpha1
+kind: WorkloadCatalog
+metadata:
+  name: csi-driver-nfs
+spec:
+  displayName: CSI Driver NFS
+  purpose: Provision and mount shared NFS-backed PersistentVolumes for cluster applications.
+  owner: home-lab
+  project: system
+  cluster: home-k3s
+  lifecycle: active
+  criticality: critical
+  dataClassification: internal
+  repository: https://github.com/abhi1693/home-lab
+  gitPath: kubernetes/projects/system/apps/csi-driver-nfs
+  workloads:
+    - {key: home-k3s/kube-system/apps/deployment/csi-nfs-controller, namespace: kube-system, apiGroup: apps, kind: Deployment, name: csi-nfs-controller, desiredReplicas: 1, sourcePath: kubernetes/projects/system/apps/csi-driver-nfs/values.yaml}
+    - {key: home-k3s/kube-system/apps/daemonset/csi-nfs-node, namespace: kube-system, apiGroup: apps, kind: DaemonSet, name: csi-nfs-node, sourcePath: kubernetes/projects/system/apps/csi-driver-nfs/values.yaml}

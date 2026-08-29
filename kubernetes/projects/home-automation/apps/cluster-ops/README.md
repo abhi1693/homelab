@@ -6,6 +6,10 @@ cluster itself.
 Its custom Deployment retains two ReplicaSet revisions; Git and Fleet history
 remain the primary rollback path.
 
+The controller requires an ARM64 worker node and explicitly rejects nodes with
+the control-plane role label. Its Kubernetes API and Prometheus access do not
+require it to run on a server node.
+
 ## K8s Recommendation Engine
 
 The `k8s-recommendation-engine-controller-manager` Deployment in
@@ -20,7 +24,7 @@ for every profile:
   `qbittorrent-smart-queues-profile.yaml`, and `rack-ops-profile.yaml`
 - Helm-values production profiles: `cnpg-system-profile.yaml`,
   `harbor-profile.yaml`, `media-helm-profile.yaml`, `openbao-profile.yaml`,
-  `valkey-profile.yaml`, and `zitadel-profile.yaml`;
+  and `zitadel-profile.yaml`;
   their chart-specific replica and resource keys are declared with
   `helmValues.paths`
 - Production profiles generally run with replica, CPU-request, and
@@ -50,17 +54,14 @@ for every profile:
 - Wardn Hub profile: `wardn-hub-profile.yaml`; all five live production
   Deployments, including the consolidated application worker, run with scaling
   enabled
-- Finance profile: `finance-profile.yaml` keeps the Firefly III and data
-  importer workload entries while they are paused at zero replicas, but all
-  scaling dimensions are disabled with zero replica bounds and constant zero
-  metric signals. Restore normal metrics and scaling only after restoring the
-  Firefly workloads.
+- Finance profile: `finance-profile.yaml` manages the Firefly III and data
+  importer workloads with normal resource metrics and single-replica bounds.
 - shared state manifest: `controller-state-pvc.yaml`
 - compatibility state identifiers: the bound PVC remains
   `k8s-recommendation-engine-shipyard-state` and the SQLite file remains
   `shipyard.db` until a separate offline migration can rename them without
   resetting accumulated recommendation history
-- Prometheus: `rancher-monitoring-prometheus.cattle-monitoring-system.svc`
+- Prometheus-compatible query API: `thanos-query.cattle-monitoring-system.svc`
 - Git worktree: cloned by the init container into `/git/home-lab`
 - Git clone init resources: `25m`/`64Mi` requests with `250m`/`192Mi`
   limits, preventing proposal setup from running as BestEffort
@@ -95,16 +96,8 @@ version. Four media charts now declare their previously implicit
 `workload.main.replicas: 1` so the replica source remains an explicit,
 patchable scalar without changing runtime behavior.
 
-The NetBox recommendation profile is omitted while the web and worker
-Deployments are paused at zero replicas. Restore and revalidate the profile
-only after restoring the NetBox workloads; otherwise it could propose a
-scale-up and a suspended profile would keep Fleet reporting the bundle as
-progressing.
-
-Valkey uses the multi-container selector support in `vars.container` to manage
-only the `valkey` data container request paths under `replica.resources`.
-Sentinel and metrics sidecar requests, plus all memory limits, remain manually
-managed in `values.yaml`.
+NetBox is intentionally omitted from recommendation management because its
+singleton web and worker shape is operator-managed.
 
 The current exclusions are intentional:
 

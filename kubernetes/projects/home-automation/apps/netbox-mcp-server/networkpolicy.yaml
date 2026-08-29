@@ -1,0 +1,76 @@
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: netbox-mcp-server-network-boundary
+  namespace: netbox
+  labels:
+    app.kubernetes.io/name: netbox-mcp-server
+    app.kubernetes.io/part-of: netbox
+    home-lab.io/project-slug: home-automation
+spec:
+  podSelector:
+    matchLabels:
+      app.kubernetes.io/name: netbox-mcp-server
+  policyTypes:
+    - Ingress
+    - Egress
+  ingress:
+    - from:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: kube-system
+          podSelector:
+            matchLabels:
+              app.kubernetes.io/name: traefik
+      ports:
+        - protocol: TCP
+          port: 8000
+  egress:
+    - to:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: kube-system
+          podSelector:
+            matchLabels:
+              k8s-app: kube-dns
+      ports:
+        - protocol: UDP
+          port: 53
+        - protocol: TCP
+          port: 53
+    - to:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: kube-system
+          podSelector:
+            matchLabels:
+              app.kubernetes.io/name: traefik
+      ports:
+        - protocol: TCP
+          port: 8443
+---
+apiVersion: cilium.io/v2
+kind: CiliumNetworkPolicy
+metadata:
+  name: netbox-mcp-server-traefik-access
+  namespace: netbox
+  labels:
+    app.kubernetes.io/name: netbox-mcp-server
+    app.kubernetes.io/part-of: netbox
+    home-lab.io/project-slug: home-automation
+spec:
+  endpointSelector:
+    matchLabels:
+      app.kubernetes.io/name: netbox-mcp-server
+  egress:
+    - toServices:
+        - k8sService:
+            serviceName: traefik
+            namespace: kube-system
+      toPorts:
+        - ports:
+            - port: "443"
+              protocol: TCP
+            - port: "8443"
+              protocol: TCP

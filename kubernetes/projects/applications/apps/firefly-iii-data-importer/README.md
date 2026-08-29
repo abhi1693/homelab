@@ -5,10 +5,8 @@ Firefly III Data Importer runs as an internal Applications project app in the
 
 ## Status
 
-The importer is paused by default. The Deployment stays present with
-`replicas: 0`; the service, ingress, SOPS Secret, network policies, and config
-PVC remain declared. Re-enable it with Firefly III by restoring the Deployment
-to `1` replica.
+The importer runs with one replica alongside Firefly III. Its service, ingress,
+SOPS Secret, network policies, and config PVC remain declaratively managed.
 
 ## Access
 

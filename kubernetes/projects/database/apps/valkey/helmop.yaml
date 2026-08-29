@@ -31,6 +31,7 @@ spec:
   helm:
     releaseName: valkey
     repo: oci://registry-1.docker.io/bitnamicharts/valkey
+    # renovate: datasource=docker depName=registry-1.docker.io/bitnamicharts/valkey
     version: 6.1.11
     timeoutSeconds: 600
     valuesFrom:

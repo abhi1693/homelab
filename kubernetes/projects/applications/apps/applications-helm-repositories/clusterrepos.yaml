@@ -35,4 +35,5 @@ metadata:
     home-lab.io/project-slug: applications
 spec:
   enabled: true
+  forceUpdate: "2026-08-26T07:27:00Z"
   url: oci://ghcr.io/zitadel/zitadel-charts/zitadel

@@ -1,0 +1,66 @@
+---
+minimum_pre_commit_version: "4.6.2"
+
+repos:
+  - repo: local
+    hooks:
+      - id: validate-pre-commit-config
+        name: Validate pre-commit configuration
+        entry: pre-commit validate-config
+        language: system
+        pass_filenames: false
+        files: ^\.pre-commit-config\.yaml$
+
+      - id: validate-ansible
+        name: Validate Ansible
+        entry: scripts/run-pre-commit-validation.sh ansible
+        language: system
+        pass_filenames: false
+        files: ^(?:\.ansible-lint|\.github/requirements/ansible\.txt|infrastructure/ansible/)
+
+      - id: validate-yaml
+        name: Validate YAML
+        entry: scripts/run-pre-commit-validation.sh yaml
+        language: system
+        files: \.ya?ml$
+
+      - id: validate-kubernetes-resource-bounds
+        name: Validate Kubernetes resource bounds
+        entry: scripts/run-pre-commit-validation.sh kubernetes-resource-bounds
+        language: system
+        files: ^kubernetes/.*\.ya?ml$
+
+      - id: validate-renovate-policy
+        name: Validate Renovate policy
+        entry: scripts/run-pre-commit-validation.sh renovate-policy
+        language: system
+        pass_filenames: false
+        files: ^(?:kubernetes/projects/.*\.ya?ml|scripts/check-renovate-policy\.py)$
+
+      - id: validate-kubernetes
+        name: Validate Kubernetes manifests
+        entry: scripts/run-pre-commit-validation.sh kubernetes
+        language: system
+        files: ^kubernetes/.*\.ya?ml$
+        exclude: (?:^|/)(?:fleet|values|crd-values|kustomizeconfig)\.yaml$|/examples/|/chart/(?:Chart|values)\.yaml$|/chart/templates/
+
+      - id: validate-terraform
+        name: Validate Terraform
+        entry: scripts/run-pre-commit-validation.sh terraform
+        language: system
+        pass_filenames: false
+        files: ^coder/templates/.*\.tf$
+
+      - id: validate-shell
+        name: Validate shell scripts
+        entry: scripts/run-pre-commit-validation.sh shell
+        language: system
+        files: \.sh$
+        verbose: true
+
+      - id: validate-dockerfiles
+        name: Validate Dockerfiles
+        entry: scripts/run-pre-commit-validation.sh dockerfiles
+        language: system
+        files: (?:^|/)(?:Dockerfile|[^/]+\.Dockerfile)$
+        verbose: true

@@ -11,6 +11,8 @@ ignore: |
   kubernetes/projects/database/apps/cnpg-operator/chart/templates/
 
 rules:
+  braces:
+    max-spaces-inside: 1
   comments:
     min-spaces-from-content: 1
   document-start: disable

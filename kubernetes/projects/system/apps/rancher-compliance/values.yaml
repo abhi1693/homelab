@@ -14,9 +14,20 @@ resources:
     memory: 128Mi
 nodeSelector:
   kubernetes.io/arch: arm64
+  node-role.kubernetes.io/control-plane: "true"
+tolerations:
+  - key: CriticalAddonsOnly
+    operator: Equal
+    value: "true"
+    effect: NoExecute
 securityScanJob:
-  overrideTolerations: false
-  tolerations: []
+  # Scanner jobs may inspect every node, including tainted control-plane nodes.
+  overrideTolerations: true
+  tolerations:
+    - key: CriticalAddonsOnly
+      operator: Equal
+      value: "true"
+      effect: NoExecute
 alerts:
   enabled: false
   severity: warning

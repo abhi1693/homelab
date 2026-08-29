@@ -5,6 +5,27 @@
     fail_msg: Expected k3s.registration_vip to be set for K3s server bootstrap and join operations.
     success_msg: "K3s registration VIP is set to {{ k3s.registration_vip }}"
 
+- name: Assert K3s server taints are managed and use key=value:effect format
+  ansible.builtin.assert:
+    that:
+      - item.count(':') == 1
+      - item.count('=') == 1
+      - item.split('=', 1)[0] | trim != ''
+      - item.split('=', 1)[0] in k3s_server.managed_node_taint_keys
+      - item.rsplit(':', 1)[1] in ['NoSchedule', 'PreferNoSchedule', 'NoExecute']
+    fail_msg: "Expected a managed K3s node taint in key=value:effect format: {{ item }}"
+    success_msg: "K3s server taint {{ item }} is valid"
+  loop: "{{ k3s_server.node_taints }}"
+
+- name: Assert managed K3s server taint keys are unique and non-empty
+  ansible.builtin.assert:
+    that:
+      - k3s_server.managed_node_taint_keys | length > 0
+      - k3s_server.managed_node_taint_keys | unique | length == k3s_server.managed_node_taint_keys | length
+      - k3s_server.managed_node_taint_keys | select('equalto', '') | list | length == 0
+    fail_msg: Expected unique, non-empty managed K3s server taint keys.
+    success_msg: "Managed K3s server taint keys are valid"
+
 - name: Assert K3s extra args use key=value format
   ansible.builtin.assert:
     that:
@@ -230,3 +251,69 @@
     enabled: true
     state: started
     daemon_reload: true
+
+- name: Apply pending K3s restart before reconciling Node taints
+  ansible.builtin.meta: flush_handlers
+
+- name: Wait for K3s API after server configuration changes
+  ansible.builtin.wait_for:
+    host: 127.0.0.1
+    port: 6443
+    timeout: 300
+
+- name: Read the current K3s server Node
+  ansible.builtin.command:
+    argv:
+      - /usr/local/bin/k3s
+      - kubectl
+      - get
+      - node
+      - "{{ node_identity.hostname }}"
+      - -o
+      - json
+  register: k3s_server_node_raw
+  changed_when: false
+
+- name: Record current and desired managed K3s server taint keys
+  ansible.builtin.set_fact:
+    k3s_server_current_taint_keys: >-
+      {{
+        ((k3s_server_node_raw.stdout | from_json).spec.taints | default([]))
+        | map(attribute='key')
+        | list
+      }}
+    k3s_server_desired_taint_keys: >-
+      {{
+        k3s_server.node_taints
+        | map('regex_replace', '=.*$', '')
+        | list
+      }}
+
+- name: Reconcile desired K3s server Node taints
+  ansible.builtin.command:
+    argv:
+      - /usr/local/bin/k3s
+      - kubectl
+      - taint
+      - node
+      - "{{ node_identity.hostname }}"
+      - "{{ item }}"
+      - --overwrite
+  loop: "{{ k3s_server.node_taints }}"
+  register: k3s_server_taint_apply
+  changed_when: "'not tainted' not in k3s_server_taint_apply.stdout"
+
+- name: Remove managed K3s server Node taints absent from desired state
+  ansible.builtin.command:
+    argv:
+      - /usr/local/bin/k3s
+      - kubectl
+      - taint
+      - node
+      - "{{ node_identity.hostname }}"
+      - "{{ item }}-"
+  loop: "{{ k3s_server.managed_node_taint_keys }}"
+  when:
+    - item in k3s_server_current_taint_keys
+    - item not in k3s_server_desired_taint_keys
+  changed_when: true

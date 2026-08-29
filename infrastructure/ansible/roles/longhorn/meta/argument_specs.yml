@@ -16,6 +16,18 @@ argument_specs:
         type: dict
         required: true
         options:
+          node_taints:
+            type: list
+            elements: str
+            required: true
+            description:
+              - Taints rendered through K3s node-taint and reconciled on existing server Nodes.
+          managed_node_taint_keys:
+            type: list
+            elements: str
+            required: true
+            description:
+              - Taint keys owned by the K3s server role for declarative removal and rollback.
           disable_components:
             type: list
             elements: str
@@ -95,6 +107,11 @@ argument_specs:
             required: true
             description:
               - Host path Longhorn should use for its default disk.
+          taint_toleration:
+            type: str
+            required: true
+            description:
+              - Toleration applied to Longhorn user-managed and system-managed components.
           default_class_replica_count:
             type: int
             required: true
@@ -105,12 +122,6 @@ argument_specs:
             required: true
             description:
               - Default replica count for volumes created through the Longhorn UI.
-          single_replica_workload_namespaces:
-            type: list
-            elements: str
-            required: true
-            description:
-              - Kubernetes namespaces whose replicated workloads use one Longhorn replica per volume.
           default_data_locality:
             type: str
             required: true

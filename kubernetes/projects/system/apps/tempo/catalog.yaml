@@ -1,0 +1,18 @@
+---
+apiVersion: home-lab.io/v1alpha1
+kind: WorkloadCatalog
+metadata:
+  name: tempo
+spec:
+  displayName: Tempo
+  purpose: Store and query distributed traces received through OpenTelemetry.
+  owner: home-lab
+  project: system
+  cluster: home-k3s
+  lifecycle: active
+  criticality: high
+  dataClassification: sensitive
+  repository: https://github.com/abhi1693/home-lab
+  gitPath: kubernetes/projects/system/apps/tempo
+  workloads:
+    - {key: home-k3s/cattle-monitoring-system/apps/deployment/tempo, namespace: cattle-monitoring-system, apiGroup: apps, kind: Deployment, name: tempo, desiredReplicas: 1, sourcePath: kubernetes/projects/system/apps/tempo/deployment.yaml}

@@ -33,6 +33,7 @@ spec:
   helm:
     releaseName: flaresolverr
     repo: oci://oci.trueforge.org/truecharts/flaresolverr
+    # renovate: datasource=docker depName=oci.trueforge.org/truecharts/flaresolverr
     version: 17.6.0
     atomic: true
     timeoutSeconds: 600

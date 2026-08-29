@@ -46,6 +46,16 @@ argument_specs:
             required: true
             description:
               - Network interface that should advertise the control-plane VIP.
+          kubernetes_service_host:
+            type: str
+            required: true
+            description:
+              - Node-local Kubernetes API host kube-vip should use while advertising the VIP.
+          kubernetes_service_port:
+            type: int
+            required: true
+            description:
+              - Concrete Kubernetes API port kube-vip should use while advertising the VIP.
           priority_class_name:
             type: str
             required: true

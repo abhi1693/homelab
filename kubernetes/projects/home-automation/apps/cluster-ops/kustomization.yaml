@@ -23,7 +23,6 @@ resources:
   - qbittorrent-smart-queues-profile.yaml
   - rack-ops-profile.yaml
   - shipyard-profile.yaml
-  - valkey-profile.yaml
   - wardn-ai-profile.yaml
   - wardn-hub-profile.yaml
   - zitadel-profile.yaml

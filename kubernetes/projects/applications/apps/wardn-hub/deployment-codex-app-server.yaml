@@ -50,7 +50,7 @@ spec:
       containers:
         - name: codex-app-server
           # renovate: datasource=docker depName=ghcr.io/abhi1693/wardn-hub-codex-app-server
-          image: registry.home/ghcr.io/abhi1693/wardn-hub-codex-app-server:0.2.179
+          image: registry.home/ghcr.io/abhi1693/wardn-hub-codex-app-server:0.2.181
           imagePullPolicy: IfNotPresent
           command:
             - /usr/local/bin/codex-app-server-wrapper
@@ -116,8 +116,8 @@ spec:
               protocol: TCP
           resources:
             requests:
-              cpu: 180m
-              memory: 1Gi
+              cpu: 220m
+              memory: 3403Mi
             limits:
               cpu: "1"
               memory: 4Gi

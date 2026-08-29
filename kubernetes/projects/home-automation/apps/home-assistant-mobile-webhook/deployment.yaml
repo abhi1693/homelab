@@ -1,0 +1,79 @@
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: home-assistant-mobile-webhook
+  namespace: home-assistant
+  labels:
+    app.kubernetes.io/name: home-assistant-mobile-webhook
+    app.kubernetes.io/part-of: home-automation
+spec:
+  replicas: 1
+  strategy:
+    type: RollingUpdate
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: home-assistant-mobile-webhook
+  template:
+    metadata:
+      annotations:
+        home-assistant.abhimanyu-saharan.com/webhook-config-revision: "2"
+      labels:
+        app.kubernetes.io/name: home-assistant-mobile-webhook
+        app.kubernetes.io/part-of: home-automation
+    spec:
+      automountServiceAccountToken: false
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 65532
+        runAsGroup: 65532
+        seccompProfile:
+          type: RuntimeDefault
+      containers:
+        - name: gateway
+          # renovate: datasource=docker depName=ghcr.io/abhi1693/ha-sensors-gateway
+          image: registry.home/ghcr.io/abhi1693/ha-sensors-gateway:0.2.0@sha256:22702400d8f3ccac21951814aa9fa0f5eb46585e524345263380cde11d7fd42f
+          imagePullPolicy: IfNotPresent
+          env:
+            - name: UPSTREAM_URL
+              value: http://home-assistant.home-assistant.svc.cluster.local:8080
+            - name: WEBHOOK_CONFIG
+              value: /run/secrets/webhooks.json
+            - name: RATE_LIMIT_PER_MINUTE
+              value: "180"
+          ports:
+            - name: http
+              containerPort: 8080
+          startupProbe:
+            httpGet: { path: /healthz, port: http }
+            tcpSocket: null
+            periodSeconds: 3
+            failureThreshold: 30
+          readinessProbe:
+            httpGet: { path: /healthz, port: http }
+            tcpSocket: null
+            periodSeconds: 10
+            timeoutSeconds: 2
+            failureThreshold: 3
+          livenessProbe:
+            httpGet: { path: /healthz, port: http }
+            tcpSocket: null
+            periodSeconds: 30
+            timeoutSeconds: 2
+            failureThreshold: 3
+          resources:
+            requests: { cpu: 5m, memory: 24Mi }
+            limits: { memory: 64Mi }
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop: [ALL]
+            readOnlyRootFilesystem: true
+          volumeMounts:
+            - name: webhooks
+              mountPath: /run/secrets
+              readOnly: true
+      volumes:
+        - name: webhooks
+          secret:
+            secretName: home-assistant-mobile-webhook

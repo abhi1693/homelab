@@ -9,6 +9,14 @@ global:
     systemProjectId: p-zl69x
     url: https://rancher.home
   systemDefaultRegistry: ""
+nodeSelector:
+  kubernetes.io/arch: arm64
+  node-role.kubernetes.io/control-plane: "true"
+tolerations:
+  - key: CriticalAddonsOnly
+    operator: Equal
+    value: "true"
+    effect: NoExecute
 s3:
   enabled: true
   bucketName: home-lab-rancher-backups

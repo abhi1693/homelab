@@ -9,7 +9,7 @@ metadata:
     home-lab.io/project-slug: entertainment
 spec:
   revisionHistoryLimit: 2
-  replicas: 1
+  replicas: 0
   strategy:
     type: Recreate
   selector:
@@ -17,6 +17,8 @@ spec:
       app.kubernetes.io/name: ryokan
   template:
     metadata:
+      annotations:
+        home-lab.io/qbittorrent-credential-revision: "2026-08-11T00:30:00Z"
       labels:
         app.kubernetes.io/name: ryokan
         app.kubernetes.io/part-of: media-stack
@@ -41,16 +43,97 @@ spec:
           - 568
         seccompProfile:
           type: RuntimeDefault
+      initContainers:
+        - name: sync-qbittorrent-credentials
+          # renovate: datasource=docker depName=docker.io/library/python
+          image: registry.home/docker.io/library/python:3.12-alpine
+          imagePullPolicy: IfNotPresent
+          command:
+            - python3
+            - -c
+            - |
+              import os
+              import sqlite3
+              import time
+              from pathlib import Path
+
+              db_path = Path("/data/ryokan.db")
+              username = os.environ["QBT_USER"]
+              password = os.environ["QBT_PASSWORD"]
+
+              if not db_path.exists():
+                  print("Ryokan database does not exist yet; skipping qBittorrent credential sync")
+                  raise SystemExit(0)
+
+              connection = sqlite3.connect(db_path, timeout=30)
+              try:
+                  connection.execute("PRAGMA busy_timeout = 30000")
+                  connection.execute("BEGIN IMMEDIATE")
+                  config_updates = connection.execute(
+                      """
+                      UPDATE config
+                      SET qbit_user = ?, qbit_pass = ?, post_processing_mode = 'copy'
+                      WHERE id = 1
+                      """,
+                      (username, password),
+                  ).rowcount
+                  client_updates = connection.execute(
+                      """
+                      UPDATE download_clients
+                      SET username = ?, password = ?, updated_at = ?
+                      WHERE kind = 'qbittorrent'
+                      """,
+                      (username, password, int(time.time())),
+                  ).rowcount
+                  connection.commit()
+              except Exception:
+                  connection.rollback()
+                  raise
+              finally:
+                  connection.close()
+
+              print(
+                  "Synced qBittorrent credentials and enforced source-retaining copy mode "
+                  "in Ryokan database: "
+                  f"config_rows={config_updates} download_client_rows={client_updates}"
+              )
+          env:
+            - name: QBT_USER
+              valueFrom:
+                secretKeyRef:
+                  name: media-qbittorrent-cleanup
+                  key: QBT_USER
+            - name: QBT_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: media-qbittorrent-cleanup
+                  key: QBT_PASSWORD
+          resources:
+            requests:
+              cpu: 5m
+              memory: 32Mi
+            limits:
+              memory: 96Mi
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop:
+                - ALL
+            readOnlyRootFilesystem: true
+            runAsGroup: 568
+            runAsNonRoot: true
+            runAsUser: 568
+          volumeMounts:
+            - name: data
+              mountPath: /data
       containers:
         - name: ryokan
-          # renovate: datasource=docker depName=ghcr.io/johnthreekay/ryokan
-          image: registry.home/ghcr.io/johnthreekay/ryokan:1.8.0
+          # renovate: datasource=docker depName=ghcr.io/abhi1693/ryokan
+          image: registry.home/ghcr.io/abhi1693/ryokan:1.8.8
           imagePullPolicy: IfNotPresent
           envFrom:
             - configMapRef:
                 name: ryokan
-            - secretRef:
-                name: ryokan-proxy
           ports:
             - name: http
               containerPort: 8978
@@ -95,15 +178,78 @@ spec:
               subPath: anime
             - name: tmp
               mountPath: /tmp
+        - name: import-reconciler
+          # renovate: datasource=docker depName=ghcr.io/abhi1693/qbittorrent-smart-queues
+          image: registry.home/ghcr.io/abhi1693/qbittorrent-smart-queues:0.2.11
+          imagePullPolicy: IfNotPresent
+          command:
+            - python
+            - -m
+            - qbittorrent_smart_queues.ryokan_reconciler
+          env:
+            - name: RYOKAN_RECONCILER_API_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: media-jellyfin-arr-api-keys
+                  key: SONARR_ANIME_API_KEY
+            - name: RYOKAN_RECONCILER_DB_PATH
+              value: /data/ryokan.db
+            - name: RYOKAN_RECONCILER_MEDIA_ROOT
+              value: /media/anime
+          ports:
+            - name: reconcile
+              containerPort: 8979
+              protocol: TCP
+          startupProbe:
+            httpGet:
+              path: /healthz
+              port: reconcile
+            periodSeconds: 5
+            timeoutSeconds: 3
+            failureThreshold: 60
+          readinessProbe:
+            httpGet:
+              path: /healthz
+              port: reconcile
+            periodSeconds: 10
+            timeoutSeconds: 3
+            failureThreshold: 6
+          livenessProbe:
+            httpGet:
+              path: /healthz
+              port: reconcile
+            periodSeconds: 30
+            timeoutSeconds: 5
+            failureThreshold: 4
+          resources:
+            requests:
+              cpu: 10m
+              memory: 32Mi
+            limits:
+              memory: 96Mi
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop:
+                - ALL
+            readOnlyRootFilesystem: true
+            runAsNonRoot: true
+          volumeMounts:
+            - name: data
+              mountPath: /data
+            - name: anime-library
+              mountPath: /media/anime
+              subPath: anime
+              readOnly: true
       volumes:
         - name: data
           persistentVolumeClaim:
             claimName: ryokan-data
         - name: downloads
           persistentVolumeClaim:
-            claimName: media-downloads-nfs-csi
+            claimName: media-downloads-unas
         - name: anime-library
           persistentVolumeClaim:
-            claimName: media-library-nfs-csi
+            claimName: media-library-unas
         - name: tmp
           emptyDir: {}

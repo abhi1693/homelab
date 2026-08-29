@@ -22,6 +22,7 @@ image path.
 
 | Path | Purpose |
 | --- | --- |
+| `episeerr/` | Episeerr ARM64 runtime with patched Python dependencies. |
 | `jellyfin/` | Jellyfin image customization, plugin metadata, and PostgreSQL-oriented patch work. |
 | `netbox/` | NetBox image customization and pinned plugin requirements. |
 

@@ -21,19 +21,20 @@ Current choices:
 - policy: `sync`
 - DNS ownership registry: TXT records with owner ID `home-lab`
 
-This app expects a Secret named `external-dns-unifi` in the
-`kube-public` namespace:
+This app reads the `api-key` field from the `external-dns-unifi-sops` Secret in
+the `kube-public` namespace. Rancher Fleet deploys that Secret from the
+SOPS-encrypted
+`../external-dns-unifi-secrets/secrets.sops.yaml` manifest referenced by this
+app's `fleet.yaml`. Do not reuse this credential to collect or import UniFi
+Network client data into NetBox; the manual NetBox workflow is
+infrastructure-only.
 
 The UniFi webhook image is pulled through the public `ghcr.io` Harbor proxy
 cache project, so it does not need an image pull Secret.
 
-```bash
-kubectl -n kube-public create secret generic external-dns-unifi \
-  --from-literal=api-key='<unifi-api-key>'
-```
-
-Do not commit the UniFi API key to Git. The Fleet bundle can be pushed after the
-Secret exists.
+Rotate the key only by updating the encrypted `api-key` field with SOPS. Never
+commit or print the plaintext key, and do not create a competing Secret by hand
+because the SopsSecret controller enforces ownership of the generated Secret.
 
 ExternalDNS reads hosts from `Ingress.spec.rules[].host`. With the current
 Traefik ingress, `ha.home` is reconciled to the ingress load balancer

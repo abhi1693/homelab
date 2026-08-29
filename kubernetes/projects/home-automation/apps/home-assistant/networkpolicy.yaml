@@ -17,6 +17,13 @@ spec:
     - Egress
   ingress:
     - from:
+        - podSelector:
+            matchLabels:
+              app.kubernetes.io/name: home-assistant-mobile-webhook
+      ports:
+        - protocol: TCP
+          port: 8123
+    - from:
         - namespaceSelector:
             matchLabels:
               kubernetes.io/metadata.name: kube-system
@@ -69,8 +76,87 @@ spec:
         - protocol: TCP
           port: 3493
     - to:
+        - podSelector:
+            matchLabels:
+              app.kubernetes.io/name: home-assistant-status-bridge
+      ports:
+        - protocol: TCP
+          port: 8080
+    - to:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: media
+          podSelector:
+            matchLabels:
+              app.kubernetes.io/instance: jellyseerr
+              app.kubernetes.io/name: seerr-chart
+      ports:
+        - protocol: TCP
+          port: 5055
+    - to:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: postgresql
+          podSelector:
+            matchLabels:
+              cnpg.io/poolerName: postgresql-pooler-home-assistant-rw
+      ports:
+        - protocol: TCP
+          port: 5432
+    - to:
         - ipBlock:
             cidr: 0.0.0.0/0
             except:
               - 10.42.0.0/16
               - 10.43.0.0/16
+---
+apiVersion: cilium.io/v2
+kind: CiliumNetworkPolicy
+metadata:
+  name: home-assistant-media-services-egress
+  namespace: home-assistant
+  labels:
+    app.kubernetes.io/name: home-assistant
+    app.kubernetes.io/part-of: home-automation
+    home-lab.io/project-slug: home-automation
+spec:
+  endpointSelector:
+    matchLabels:
+      app.kubernetes.io/instance: home-assistant
+      app.kubernetes.io/name: home-assistant
+  egress:
+    # Home Assistant uses the browser-resolvable HTTPS ingress for Music
+    # Assistant authorization. Match the Traefik Service and require the exact
+    # TLS SNI so this rule cannot reach another ingress host.
+    - toServices:
+        - k8sService:
+            serviceName: traefik
+            namespace: kube-system
+      toPorts:
+        - ports:
+            # Cilium may enforce before or after Service target-port rewriting.
+            - port: "443"
+              protocol: TCP
+            - port: "8443"
+              protocol: TCP
+          serverNames:
+            - music.media.home
+    - toServices:
+        - k8sService:
+            serviceName: jellyfin
+            namespace: media
+      toPorts:
+        - ports:
+            - port: "8096"
+              protocol: TCP
+    - toServices:
+        - k8sService:
+            serviceName: jellyseerr
+            namespace: media
+      toPorts:
+        - ports:
+            # Cilium may enforce before or after Service target-port rewriting.
+            - port: "10241"
+              protocol: TCP
+            - port: "5055"
+              protocol: TCP

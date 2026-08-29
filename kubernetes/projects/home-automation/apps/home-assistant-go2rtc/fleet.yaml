@@ -1,0 +1,11 @@
+---
+name: home-assistant-go2rtc
+defaultNamespace: home-assistant
+labels:
+  app.kubernetes.io/name: home-assistant-go2rtc
+  app.kubernetes.io/part-of: home-automation
+  home-lab.io/project-slug: home-automation
+dependsOn:
+  - name: metallb-config
+helm:
+  takeOwnership: true

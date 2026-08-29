@@ -2,8 +2,12 @@
 
 Shoko is the anime-only metadata and library manager for this stack.
 
-The deployment runs as a single replica with persistent configuration and
-library mounts.
+## Operational state
+
+Shoko is intentionally stopped with zero replicas while the qBittorrent anime
+download and import pipeline is disabled. Its persistent configuration and
+library storage are retained. Restore it to one replica with Ryokan and the
+other download automation workloads.
 
 It retains two ReplicaSet revisions; Git and Fleet history remain the primary
 rollback path.
@@ -19,7 +23,7 @@ The server runs at `http://anime.media.home` and listens in-cluster at
 ## Storage
 
 - Config and Shoko database: `shoko-config` mounted at `/home/shoko/.shoko`
-- Anime library: `media-library-nfs-csi` subPath `anime` mounted read-only at
+- Anime library: `media-library-unas` subPath `anime` mounted read-only at
   `/media/anime`
 - Legacy compatibility mount: `/mnt/anime`
 

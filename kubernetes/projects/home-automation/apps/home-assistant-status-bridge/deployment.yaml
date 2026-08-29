@@ -1,0 +1,96 @@
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: home-assistant-status-bridge
+  namespace: home-assistant
+  labels:
+    app.kubernetes.io/name: home-assistant-status-bridge
+    app.kubernetes.io/part-of: home-automation
+spec:
+  replicas: 1
+  strategy:
+    type: RollingUpdate
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: home-assistant-status-bridge
+  template:
+    metadata:
+      annotations:
+        home-lab.abhi1693.com/config-revision: "2026-08-26-prometheus-single-query"
+      labels:
+        app.kubernetes.io/name: home-assistant-status-bridge
+        app.kubernetes.io/part-of: home-automation
+    spec:
+      automountServiceAccountToken: false
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 65532
+        runAsGroup: 65532
+        seccompProfile:
+          type: RuntimeDefault
+      containers:
+        - name: bridge
+          # renovate: datasource=docker depName=docker.io/library/python
+          image: registry.home/docker.io/python:3.14.1-alpine3.23
+          imagePullPolicy: IfNotPresent
+          command: [python3, /app/bridge.py]
+          env:
+            - name: PROMETHEUS_URL
+              value: http://thanos-query.cattle-monitoring-system.svc.cluster.local:9090
+            - name: PROMETHEUS_QUERY_TIMEOUT_SECONDS
+              value: "30"
+          ports:
+            - name: http
+              containerPort: 8080
+          startupProbe:
+            httpGet: { path: /healthz, port: http }
+            periodSeconds: 5
+            failureThreshold: 30
+          readinessProbe:
+            httpGet: { path: /status, port: http }
+            periodSeconds: 60
+            timeoutSeconds: 90
+            failureThreshold: 2
+          livenessProbe:
+            httpGet: { path: /healthz, port: http }
+            periodSeconds: 60
+            timeoutSeconds: 3
+            failureThreshold: 3
+          resources:
+            requests: { cpu: 5m, memory: 24Mi }
+            limits: { memory: 64Mi }
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop: [ALL]
+            readOnlyRootFilesystem: true
+          volumeMounts:
+            - name: source
+              mountPath: /app
+              readOnly: true
+            - name: tmp
+              mountPath: /tmp
+      volumes:
+        - name: source
+          configMap:
+            name: home-assistant-status-bridge
+            defaultMode: 0444
+        - name: tmp
+          emptyDir: {}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: home-assistant-status-bridge
+  namespace: home-assistant
+  labels:
+    app.kubernetes.io/name: home-assistant-status-bridge
+    app.kubernetes.io/part-of: home-automation
+spec:
+  selector:
+    app.kubernetes.io/name: home-assistant-status-bridge
+  ports:
+    - name: http
+      port: 8080
+      targetPort: http

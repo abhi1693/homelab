@@ -112,7 +112,7 @@ optimization.
 
 ## Availability
 
-The public web Deployment runs three replicas and imgproxy runs four, both with
+The public web Deployment runs three replicas and imgproxy runs two, both with
 `maxUnavailable: 0` and the `shipyardhq-critical` PriorityClass. That priority
 stays below system, Rancher, and Longhorn priorities but above normal
 application pods.
@@ -183,7 +183,7 @@ The Deployment uses imgproxy's built-in `GET /health` endpoint for startup,
 readiness, and liveness probes on the main `http` port. imgproxy returns `200 OK`
 from this endpoint after the server has successfully started.
 
-Each of the four imgproxy replicas requests `10m` CPU and retains a `200m`
+Each of the two imgproxy replicas requests `10m` CPU and retains a `200m`
 limit for transform bursts.
 
 The external-image ingestion CronJob retains one failed Job for diagnosis and

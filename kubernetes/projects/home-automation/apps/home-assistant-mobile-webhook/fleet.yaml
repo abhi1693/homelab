@@ -1,0 +1,13 @@
+---
+name: home-assistant-mobile-webhook
+labels:
+  app.kubernetes.io/name: home-assistant-mobile-webhook
+  app.kubernetes.io/part-of: home-automation
+  home-lab.io/project-slug: home-automation
+dependsOn:
+  - name: rancher-project-home-automation
+  - name: home-assistant
+  - name: cloudflare-tunnel-ingress-controller
+  - name: cloudflare-tunnel-ingress-controller-networkpolicy
+helm:
+  takeOwnership: true

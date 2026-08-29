@@ -7,6 +7,17 @@ on less-loaded nodes.
 
 The policy is tuned for steady rebalancing on the home Raspberry Pi cluster:
 
+- Runs a control-plane profile before the general workload profile. It uses
+  live CPU and memory across the cluster, but can evict only explicitly listed
+  infrastructure namespaces whose pods already require control-plane nodes.
+- Allows single-replica control-plane infrastructure to move when overloaded,
+  while preserving PDB enforcement, system-critical priority protection,
+  `nodeFit`, and the mandatory prefer-no-eviction annotation. This makes
+  singleton Prometheus, Grafana, Loki, and similar NFS-backed services
+  rebalancable without making singleton user applications evictable.
+- Protects any control-plane pod backed by the `longhorn` storage class. NFS
+  monitoring volumes remain movable because they are network-attached and do
+  not require a Longhorn RWO detach/attach cycle.
 - Uses Kubernetes Metrics Server CPU and memory utilization for
   `LowNodeUtilization`, so descheduling follows actual load instead of being
   blocked by many small pods on otherwise cooler nodes.
@@ -31,17 +42,16 @@ The policy is tuned for steady rebalancing on the home Raspberry Pi cluster:
 - Excludes ZITADEL from descheduler balancing. The login pods recover after
   replacement, but repeated voluntary evictions create unnecessary probe noise
   for the identity provider.
-- Allows PostgreSQL cluster and pooler pods to move only through
-  `LowNodeUtilization`; CNPG and pooler PDBs remain the hard gate, including
-  the primary PDB with zero voluntary disruptions allowed.
-- Protects the single-replica Rack Ops controller; node-pinned shutdown and
-  thermal DaemonSets remain protected by descheduler's DaemonSet and node-fit
-  checks.
+- Excludes PostgreSQL cluster and pooler pods from automated balancing. The
+  default scheduler can place CNPG replicas back on the same node, so eviction
+  would create repeated database churn without improving placement.
+- Rack Ops and Cluster Ops controllers are worker-only and therefore excluded
+  from the control-plane allowlist; node-pinned shutdown and thermal DaemonSets
+  remain protected by descheduler's DaemonSet and node-fit checks.
 - Allows replicated Longhorn/NAS PVC-backed application pods to move when they
   fit elsewhere, while protecting singleton PVC workloads and explicitly
   excluding Valkey.
 - Leaves PDB enforcement to the Kubernetes eviction API.
-- Excludes cluster/system namespaces from utilization and topology-spread
-  rebalancing. Valkey and ZITADEL are excluded from balancing, and PostgreSQL is
-  movable only through utilization balancing while remaining excluded from
-  duplicate/topology-spread rebalancing.
+- Keeps cluster/system namespaces excluded from the general workload profile;
+  the separate control-plane profile handles only its explicit infrastructure
+  allowlist. PostgreSQL, Valkey, and ZITADEL stay excluded.

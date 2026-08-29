@@ -61,7 +61,7 @@ spec:
       containers:
         - name: imgproxy
           # renovate: datasource=github-releases depName=imgproxy/imgproxy
-          image: registry.home/ghcr.io/imgproxy/imgproxy:v4.0.12
+          image: registry.home/ghcr.io/imgproxy/imgproxy:v4.0.14
           imagePullPolicy: IfNotPresent
           envFrom:
             - configMapRef:
@@ -78,7 +78,7 @@ spec:
           resources:
             requests:
               cpu: 10m
-              memory: 158Mi
+              memory: 192Mi
             limits:
               cpu: 200m
               memory: 192Mi

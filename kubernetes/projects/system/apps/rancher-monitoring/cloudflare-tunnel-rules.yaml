@@ -148,19 +148,33 @@ spec:
                 service="cloudflare-tunnel-ingress-controller-metrics"
               }
             ) < 1
+          for: 5m
+          labels:
+            severity: critical
+          annotations:
+            summary: Cloudflare Tunnel ingress controller has no leader
+            description: Controller metrics are available, but no replica has reported itself as leader for more than 5 minutes, so Ingress and tunnel configuration reconciliation is stopped.
+        - alert: CloudflareTunnelControllerMetricsUnavailable
+          expr: |-
+            sum(
+              up{
+                namespace="cloudflare",
+                service="cloudflare-tunnel-ingress-controller-metrics"
+              }
+            ) < 2
             or
             absent(
-              leader_election_master_status{
+              up{
                 namespace="cloudflare",
                 service="cloudflare-tunnel-ingress-controller-metrics"
               }
             )
           for: 5m
           labels:
-            severity: critical
+            severity: warning
           annotations:
-            summary: Cloudflare Tunnel ingress controller has no leader
-            description: No controller replica has reported itself as leader for more than 5 minutes, so Ingress and tunnel configuration reconciliation is stopped.
+            summary: Fewer than two Cloudflare Tunnel controller metric targets are healthy
+            description: Rancher Monitoring has observed fewer than two healthy controller metric targets for more than 5 minutes, so controller telemetry and leadership alerting are degraded.
         - alert: CloudflareTunnelControllerReconciliationFailures
           expr: |-
             sum by (controller) (

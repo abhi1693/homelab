@@ -1,0 +1,155 @@
+---
+apiVersion: home-lab.io/v1alpha1
+kind: NetBoxCustomObjectSchema
+metadata:
+  name: kubernetes-workload-catalog
+spec:
+  plugin:
+    name: netbox_custom_objects
+    version: 0.6.1
+  objectTypes:
+    - name: application
+      verboseName: Application
+      slug: application
+      version: 1.0.0
+      groupName: Kubernetes
+      description: Curated human-facing service catalog entry owned by a Git workload catalog.
+      fields:
+        - {name: name, type: text, required: true, unique: true, primary: true}
+        - {name: display_name, type: text, required: true, context: true}
+        - {name: purpose, type: longtext, required: true}
+        - {name: service_owner, type: text, required: true, context: true}
+        - {name: project, type: text, required: true}
+        - name: cluster
+          type: object
+          required: true
+          relatedName: catalog_applications
+          onDeleteBehavior: protect
+          objectTypes:
+            - {appLabel: virtualization, model: cluster}
+        - {name: lifecycle, type: text, required: true, validationRegex: "^(active|deprecated|retired)$"}
+        - {name: criticality, type: text, required: true, validationRegex: "^(critical|high|medium|low)$"}
+        - {name: data_classification, type: text, required: true, validationRegex: "^(public|internal|sensitive|restricted)$"}
+        - {name: repository, type: url, required: true}
+        - {name: git_path, type: text, required: true, unique: true}
+        - {name: runbook, type: text}
+        - {name: dashboard, type: url}
+        - {name: known_limitations, type: json, default: []}
+        - {name: last_observed_at, type: datetime}
+    - name: kubernetes_workload
+      verboseName: Kubernetes Workload
+      slug: kubernetes-workload
+      version: 1.0.0
+      groupName: Kubernetes
+      description: Durable Kubernetes controller declared by an Application catalog.
+      fields:
+        - {name: key, type: text, required: true, unique: true, primary: true}
+        - name: application
+          type: object
+          required: true
+          relatedName: kubernetes_workloads
+          onDeleteBehavior: protect
+          objectTypes:
+            - {appLabel: custom-objects, model: application}
+        - name: cluster
+          type: object
+          required: true
+          relatedName: catalog_workloads
+          onDeleteBehavior: protect
+          objectTypes:
+            - {appLabel: virtualization, model: cluster}
+        - {name: namespace, type: text, required: true, context: true}
+        - {name: api_group, type: text, required: true}
+        - {name: kind, type: text, required: true, context: true}
+        - {name: name, type: text, required: true, context: true}
+        - {name: desired_replicas, type: integer, validationMinimum: 0}
+        - {name: source_path, type: text, required: true}
+        - {name: container_images, type: json, default: []}
+        - {name: last_observed_at, type: datetime}
+    - name: persistent_store
+      verboseName: Persistent Store
+      slug: persistent-store
+      version: 1.0.0
+      groupName: Kubernetes
+      description: Durable data store declared by an Application catalog.
+      fields:
+        - {name: key, type: text, required: true, unique: true, primary: true}
+        - name: application
+          type: object
+          required: true
+          relatedName: persistent_stores
+          onDeleteBehavior: protect
+          objectTypes:
+            - {appLabel: custom-objects, model: application}
+        - name: cluster
+          type: object
+          required: true
+          relatedName: catalog_persistent_stores
+          onDeleteBehavior: protect
+          objectTypes:
+            - {appLabel: virtualization, model: cluster}
+        - {name: namespace, type: text, required: true, context: true}
+        - {name: type, type: text, required: true, context: true}
+        - {name: name, type: text, required: true, context: true}
+        - {name: storage_class, type: text}
+        - {name: capacity, type: text}
+        - {name: access_modes, type: json, default: []}
+        - {name: retention, type: text, required: true, validationRegex: "^(retain|delete)$"}
+        - {name: backup, type: longtext, required: true}
+        - {name: data_classification, type: text, validationRegex: "^(public|internal|sensitive|restricted)$"}
+        - {name: source_path, type: text}
+        - {name: last_observed_at, type: datetime}
+    - name: endpoint
+      verboseName: Endpoint
+      slug: endpoint
+      version: 1.0.0
+      groupName: Kubernetes
+      description: Stable user-facing or service endpoint declared by an Application catalog.
+      fields:
+        - {name: key, type: text, required: true, unique: true, primary: true}
+        - name: application
+          type: object
+          required: true
+          relatedName: catalog_endpoints
+          onDeleteBehavior: protect
+          objectTypes:
+            - {appLabel: custom-objects, model: application}
+        - {name: name, type: text, required: true, context: true}
+        - {name: endpoint_url, type: url}
+        - {name: dns_name, type: text, context: true}
+        - {name: exposure, type: text, required: true, validationRegex: "^(cluster|internal|public)$"}
+        - {name: protocol, type: text, required: true, validationRegex: "^(http|https|tcp|udp)$"}
+        - {name: ports, type: json, required: true}
+        - {name: source_path, type: text}
+        - name: ip_addresses
+          type: multiobject
+          relatedName: catalog_endpoints
+          objectTypes:
+            - {appLabel: ipam, model: ipaddress}
+        - {name: last_observed_at, type: datetime}
+    - name: dependency
+      verboseName: Dependency
+      slug: dependency
+      version: 1.0.0
+      groupName: Kubernetes
+      description: Directed dependency from one cataloged Application to another service or physical capability.
+      fields:
+        - {name: key, type: text, required: true, unique: true, primary: true}
+        - name: source_application
+          type: object
+          required: true
+          relatedName: outbound_dependencies
+          onDeleteBehavior: protect
+          objectTypes:
+            - {appLabel: custom-objects, model: application}
+        - {name: target_name, type: text, required: true, context: true}
+        - name: target_application
+          type: object
+          relatedName: inbound_dependencies
+          onDeleteBehavior: set_null
+          objectTypes:
+            - {appLabel: custom-objects, model: application}
+        - {name: type, type: text, required: true, validationRegex: "^(database|hardware|network|service|storage)$"}
+        - {name: criticality, type: text, required: true, validationRegex: "^(required|degraded|optional)$"}
+        - {name: failure_impact, type: longtext, required: true}
+        - {name: last_observed_at, type: datetime}

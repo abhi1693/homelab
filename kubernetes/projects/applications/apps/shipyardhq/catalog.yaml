@@ -1,0 +1,22 @@
+---
+apiVersion: home-lab.io/v1alpha1
+kind: WorkloadCatalog
+metadata:
+  name: shipyardhq
+spec:
+  displayName: ShipyardHQ
+  purpose: Run the public commerce and content application, background worker, image proxy, and scheduled build maintenance.
+  owner: home-lab
+  project: applications
+  cluster: home-k3s
+  lifecycle: active
+  criticality: high
+  dataClassification: restricted
+  repository: https://github.com/abhi1693/home-lab
+  gitPath: kubernetes/projects/applications/apps/shipyardhq
+  workloads:
+    - {key: home-k3s/shipyardhq/apps/deployment/shipyardhq, namespace: shipyardhq, apiGroup: apps, kind: Deployment, name: shipyardhq, desiredReplicas: 3, sourcePath: kubernetes/projects/applications/apps/shipyardhq/deployment.yaml}
+    - {key: home-k3s/shipyardhq/apps/deployment/shipyardhq-worker, namespace: shipyardhq, apiGroup: apps, kind: Deployment, name: shipyardhq-worker, desiredReplicas: 2, sourcePath: kubernetes/projects/applications/apps/shipyardhq/deployment.yaml}
+    - {key: home-k3s/shipyardhq/apps/deployment/shipyardhq-imgproxy, namespace: shipyardhq, apiGroup: apps, kind: Deployment, name: shipyardhq-imgproxy, desiredReplicas: 4, sourcePath: kubernetes/projects/applications/apps/shipyardhq/imgproxy-deployment.yaml}
+    - {key: home-k3s/shipyardhq/batch/cronjob/shipyardhq-images-ingest-external, namespace: shipyardhq, apiGroup: batch, kind: CronJob, name: shipyardhq-images-ingest-external, sourcePath: kubernetes/projects/applications/apps/shipyardhq/cronjob.yaml}
+    - {key: home-k3s/shipyardhq/batch/cronjob/shipyardhq-next-build-cache-cleanup, namespace: shipyardhq, apiGroup: batch, kind: CronJob, name: shipyardhq-next-build-cache-cleanup, sourcePath: kubernetes/projects/applications/apps/shipyardhq/next-build-cleanup-cronjob.yaml}

@@ -9,7 +9,7 @@ metadata:
     app.kubernetes.io/part-of: media-stack
     home-lab.io/project-slug: entertainment
 spec:
-  replicas: 1
+  replicas: 0
   revisionHistoryLimit: 2
   strategy:
     type: Recreate
@@ -27,10 +27,21 @@ spec:
         app.kubernetes.io/part-of: rack-ops
         home-lab.io/project-slug: home-automation
       annotations:
+        home-lab.io/media-api-keys-revision: "2026-08-10"
+        home-lab.io/qbittorrent-credentials-revision: "2026-08-11"
         home-lab.io/rpi-cooling-power-webhooks-revision: "2026-06-02"
     spec:
       serviceAccountName: qbittorrent-smart-queues
       automountServiceAccountToken: true
+      affinity:
+        nodeAffinity:
+          requiredDuringSchedulingIgnoredDuringExecution:
+            nodeSelectorTerms:
+              - matchExpressions:
+                  - key: kubernetes.io/hostname
+                    operator: NotIn
+                    values:
+                      - k8s-rpi5
       imagePullSecrets:
         - name: harbor-registry
       restartPolicy: Always
@@ -54,7 +65,7 @@ spec:
       containers:
         - name: qbittorrent-smart-queues
           # renovate: datasource=docker depName=ghcr.io/abhi1693/qbittorrent-smart-queues
-          image: registry.home/ghcr.io/abhi1693/qbittorrent-smart-queues:0.1.75
+          image: registry.home/ghcr.io/abhi1693/qbittorrent-smart-queues:0.2.11
           imagePullPolicy: IfNotPresent
           ports:
             - name: metrics
@@ -93,39 +104,41 @@ spec:
               value: "30"
             - name: QBT_GUARD_ERROR_POLL_SECONDS
               value: "60"
-            - name: UDM_URL
+            - name: QBT_USAGE_PROVIDER
+              value: unifi
+            - name: UNIFI_URL
               value: https://192.168.3.1
-            - name: UDM_SITE
+            - name: UNIFI_SITE
               value: default
-            - name: UDM_API_BASE_PATH
+            - name: UNIFI_API_BASE_PATH
               value: /proxy/network
-            - name: UDM_VERIFY_TLS
+            - name: UNIFI_VERIFY_TLS
               value: "false"
-            - name: UDM_BILLING_CYCLE_DAY
+            - name: QBT_BILLING_CYCLE_DAY
               value: "17"
-            - name: UDM_MONTHLY_DOWNLOAD_QUOTA_BYTES
-              value: "2500000000000"
-            - name: UDM_MONTHLY_DOWNLOAD_GUARDRAIL_BYTES
-              value: "2500000000000"
-            - name: UDM_MONTHLY_CAP_FRACTION
+            - name: QBT_MONTHLY_QUOTA_BYTES
+              value: "3000000000000"
+            - name: QBT_MONTHLY_GUARDRAIL_BYTES
+              value: "1000000000000000"
+            - name: QBT_MONTHLY_CAP_FRACTION
               value: "1.0"
-            - name: UDM_STATS_INTERVAL
+            - name: UNIFI_STATS_INTERVAL
               value: split-daily-hourly
-            - name: UDM_HISTORY_STATS_INTERVAL
+            - name: UNIFI_HISTORY_STATS_INTERVAL
               value: daily
-            - name: UDM_CURRENT_STATS_INTERVAL
+            - name: UNIFI_CURRENT_STATS_INTERVAL
               value: hourly
-            - name: UDM_DOWNLOAD_ATTRS
+            - name: UNIFI_USAGE_ATTRS
               value: |-
                 wan-rx_bytes
                 wan2-rx_bytes
-            - name: UDM_INCLUDE_UPLOAD
+            - name: QBT_USAGE_INCLUDE_UPLOAD
               value: "true"
-            - name: UDM_FAIL_CLOSED
+            - name: QBT_USAGE_FAIL_CLOSED
               value: "true"
-            - name: UDM_BACKUP_INTERNET_STOP_ENABLED
+            - name: QBT_BACKUP_INTERNET_STOP_ENABLED
               value: "true"
-            - name: UDM_BACKUP_INTERNET_FAIL_CLOSED
+            - name: QBT_BACKUP_INTERNET_FAIL_CLOSED
               value: "true"
             - name: QBT_URLS
               value: |-
@@ -138,6 +151,34 @@ spec:
               value: "2"
             - name: QBT_DELETE_FILES
               value: "true"
+            - name: QBT_AVAILABILITY_ADMISSION_ENABLED
+              value: "true"
+            - name: QBT_AVAILABILITY_MIN_COMPLETE
+              value: "1.0"
+            - name: QBT_AVAILABILITY_PROBE_DOWNLOAD_LIMIT_BYTES_PER_SEC
+              value: "1048576"
+            - name: QBT_AVAILABILITY_PROBE_SAMPLES
+              value: "6"
+            - name: QBT_AVAILABILITY_REQUIRED_BELOW_MINIMUM_SAMPLES
+              value: "5"
+            - name: QBT_AVAILABILITY_PROBE_INTERVAL_SECONDS
+              value: "10"
+            - name: QBT_AVAILABILITY_PROBE_MAX_ATTEMPTS_PER_RUN
+              value: "2"
+            - name: QBT_AVAILABILITY_IDLE_MAX_ATTEMPTS_PER_RUN
+              value: "10"
+            - name: QBT_AVAILABILITY_IDLE_MAX_RUN_SECONDS
+              value: "900"
+            - name: QBT_AVAILABILITY_PROBE_TRACKER_DEAD_RETRY_SECONDS
+              value: "1800"
+            - name: QBT_AVAILABILITY_LEGACY_MIN_PROGRESS
+              value: "0.95"
+            - name: QBT_AVAILABILITY_LEGACY_MIN_NO_PROGRESS_SAMPLES
+              value: "2"
+            - name: QBT_AVAILABILITY_VERIFIED_RECHECK_SECONDS
+              value: "21600"
+            - name: QBT_AVAILABILITY_ARR_TIMEOUT
+              value: "10"
             - name: QBT_STALE_TORRENT_MAINTENANCE_ENABLED
               value: "true"
             - name: QBT_STALE_TORRENT_DAYS
@@ -152,10 +193,40 @@ spec:
               value: "true"
             - name: QBT_STALE_TORRENT_FAIL_PERMANENT_IMPORT_FAILURES
               value: "true"
+            - name: QBT_ARR_IMPORT_REJECTION_CLEANUP_ENABLED
+              value: "true"
+            - name: QBT_ARR_IMPORT_REJECTION_FILTER_ENABLED
+              value: "true"
+            - name: QBT_ARR_IMPORT_REJECTION_VERIFY_EXISTING_FILE
+              value: "true"
+            - name: QBT_ARR_IMPORT_REJECTION_BLOCKLIST
+              value: "false"
+            - name: QBT_ARR_IMPORT_REJECTION_ARR_TIMEOUT
+              value: "10"
+            - name: QBT_RYOKAN_IMPORTED_ANIME_CLEANUP_ENABLED
+              value: "true"
+            - name: QBT_RYOKAN_IMPORTED_ANIME_CATEGORIES
+              value: |-
+                anime
+                priority-anime
+            - name: QBT_RYOKAN_IMPORTED_ANIME_DOWNLOAD_ROOT
+              value: /downloads
+            - name: QBT_RYOKAN_IMPORTED_ANIME_MIN_COMPLETED_SECONDS
+              value: "1800"
+            - name: QBT_RYOKAN_IMPORTED_ANIME_DELETE_FILES
+              value: "true"
+            - name: QBT_RYOKAN_IMPORT_RECONCILER_URL
+              value: http://ryokan.media.svc.cluster.local:8979
+            - name: QBT_RYOKAN_IMPORT_RECONCILER_TIMEOUT
+              value: "10"
             - name: QBT_DOWNLOAD_STORAGE_GUARD_ENABLED
               value: "true"
             - name: QBT_DOWNLOAD_STORAGE_PATH
               value: /downloads
+            - name: QBT_DOWNLOAD_STORAGE_CAPACITY_BYTES
+              value: "4000000000000"
+            - name: QBT_DOWNLOAD_STORAGE_USAGE_CACHE_SECONDS
+              value: "60"
             - name: QBT_DOWNLOAD_STORAGE_MIN_FREE_BYTES
               value: "32212254720"
             - name: QBT_DOWNLOAD_STORAGE_MIN_FREE_FRACTION
@@ -167,7 +238,7 @@ spec:
             - name: QBT_DOWNLOAD_STORAGE_PRESSURE_BLOCKED_FRACTION
               value: "0.50"
             - name: QBT_DOWNLOAD_STORAGE_RECOVERY_MAX_ACTIVE
-              value: "5"
+              value: "2"
             - name: QBT_DOWNLOAD_STORAGE_RECOVERY_STALL_SAMPLES
               value: "2"
             - name: QBT_DOWNLOAD_STORAGE_RECOVERY_MAX_PARKED_STALLED
@@ -180,18 +251,42 @@ spec:
               value: "5"
             - name: QBT_SINGLE_DOWNLOAD_MAX_TOTAL_ACTIVE_DOWNLOADS
               value: "5"
+            - name: QBT_SINGLE_DOWNLOAD_ADAPTIVE_WORKERS_ENABLED
+              value: "true"
+            - name: QBT_SINGLE_DOWNLOAD_MIN_ACTIVE_DOWNLOADS
+              value: "1"
+            - name: QBT_SINGLE_DOWNLOAD_PROBE_SLOTS
+              value: "2"
+            - name: QBT_SINGLE_DOWNLOAD_TARGET_UTILIZATION_FRACTION
+              value: "0.80"
+            - name: QBT_SINGLE_DOWNLOAD_RELATIVE_SPEED_ENABLED
+              value: "true"
+            - name: QBT_SINGLE_DOWNLOAD_RELATIVE_SPEED_FRACTION
+              value: "0.25"
+            - name: QBT_SINGLE_DOWNLOAD_RELATIVE_SPEED_TOLERANCE_FRACTION
+              value: "0.10"
+            - name: QBT_SINGLE_DOWNLOAD_RELATIVE_SPEED_MIN_ACCEPTABLE_BYTES_PER_SEC
+              value: "1048576"
+            - name: QBT_SINGLE_DOWNLOAD_RELATIVE_SPEED_MIN_PEERS
+              value: "1"
+            - name: QBT_SINGLE_DOWNLOAD_RELATIVE_SPEED_MIN_REFERENCE_BYTES_PER_SEC
+              value: "1048576"
+            - name: QBT_SINGLE_DOWNLOAD_RELATIVE_SPEED_MIN_TRIAL_SECONDS
+              value: "300"
+            - name: QBT_SINGLE_DOWNLOAD_RELATIVE_SPEED_DEFER_SECONDS
+              value: "1800"
             - name: QBT_SINGLE_DOWNLOAD_PARK_STALLED_ENABLED
               value: "true"
             - name: QBT_SINGLE_DOWNLOAD_PARK_STALLED_SAMPLES
               value: "2"
             - name: QBT_SINGLE_DOWNLOAD_MAX_PARKED_STALLED
-              value: "5"
+              value: "2"
             - name: QBT_DOWNLOAD_STORAGE_FAIL_CLOSED
               value: "true"
             - name: QBT_FULL_GUARD_THERMAL_CHECK_ENABLED
               value: "false"
             - name: PROMETHEUS_URL
-              value: http://rancher-monitoring-prometheus.cattle-monitoring-system.svc.cluster.local:9090
+              value: http://thanos-query.cattle-monitoring-system.svc.cluster.local:9090
             - name: QBT_NVME_THERMAL_QUERY
               value: >-
                 max by (nodename) ( node_hwmon_temp_celsius{job="node-exporter", chip=~"nvme_.*"} * on(instance, chip, sensor) group_left(label) max by (instance, chip, sensor, label) (node_hwmon_sensor_label{job="node-exporter", chip=~"nvme_.*", label="Composite"}) * on(instance) group_left(nodename) max by (instance, nodename) (node_uname_info{job="node-exporter", machine="aarch64", nodename=~"k8s-rpi[123]"}) )
@@ -219,7 +314,7 @@ spec:
             - name: QBT_RPI_COOLING_QBT_SELECTOR
               value: app.kubernetes.io/instance=qbittorrent,app.kubernetes.io/name=qbittorrent
             - name: QBT_RPI_COOLING_QBT_VOLUME_CLAIMS
-              value: media-downloads-nfs-csi
+              value: media-downloads-unas
             - name: QBT_RPI_COOLING_CPU_THROTTLE_CELSIUS
               value: "76"
             - name: QBT_RPI_COOLING_NVME_THROTTLE_CELSIUS
@@ -237,12 +332,11 @@ spec:
             - name: QBT_RPI_COOLING_THROTTLE_DOWNLOAD_LIMIT_BYTES_PER_SEC
               value: "2097152"
             - name: QBT_RPI_COOLING_THROTTLE_UPLOAD_LIMIT_BYTES_PER_SEC
-              value: "131072"
+              value: "65536"
             - name: QBT_RPI_COOLING_BATCH_SUSPEND_ENABLED
               value: "true"
             - name: QBT_RPI_COOLING_BATCH_SUSPEND_TARGETS
               value: |-
-                media/do-squid-firewall
                 personal-blog/personal-blog-newsletter
             - name: QBT_RPI_COOLING_SHUTDOWN_ENABLED
               value: "false"
@@ -258,6 +352,14 @@ spec:
               value: "true"
             - name: QBT_RPI_COOLING_REQUIRE_ALL_TEMPERATURES
               value: "true"
+            - name: QBT_RPI_COOLING_K8S_TIMEOUT
+              value: "5"
+            - name: QBT_RPI_COOLING_K8S_RETRIES
+              value: "2"
+            - name: QBT_RPI_COOLING_K8S_RETRY_DELAY_SECONDS
+              value: "0.5"
+            - name: QBT_RPI_COOLING_TEMPERATURE_SAMPLE_GRACE_SECONDS
+              value: "180"
             - name: QBT_RPI_COOLING_SHUTDOWN_TIMEOUT_SECONDS
               value: "300"
             - name: QBT_RPI_COOLING_COOLDOWN_SECONDS
@@ -277,7 +379,7 @@ spec:
             - name: QBT_QUOTA_BURST_ENABLED
               value: "true"
             - name: QBT_ISP_USABLE_BURST_DOWNLOAD_LIMIT_BYTES_PER_SEC
-              value: "10485760"
+              value: "104857600"
             - name: QBT_QUOTA_BURST_MIN_MONTHLY_REMAINING_FRACTION
               value: "0.10"
             - name: QBT_QUOTA_BURST_MIN_DAILY_REMAINING_FRACTION
@@ -301,9 +403,7 @@ spec:
                 priority-movies
                 priority-anime
             - name: QBT_SINGLE_DOWNLOAD_TV_ORDER_CATEGORIES
-              value: |-
-                tv
-                priority-tv
+              value: ""
             - name: QBT_SINGLE_DOWNLOAD_MOVIE_ORDER_CATEGORIES
               value: |-
                 movies
@@ -316,6 +416,8 @@ spec:
               value: "10"
             - name: QBT_TV_QUEUE_PAGE_SIZE
               value: "1000"
+            - name: QBT_ARR_QUEUE_MAX_PAGES
+              value: "100"
             - name: QBT_TV_WATCH_JELLYFIN_ENABLED
               value: "true"
             - name: QBT_TV_WATCH_JELLYFIN_URLS
@@ -336,28 +438,32 @@ spec:
               value: "true"
             - name: QBT_SINGLE_DOWNLOAD_TV_FILE_PRIORITY_LOOKAHEAD_EPISODES
               value: "2"
+            - name: QBT_SINGLE_DOWNLOAD_SECONDARY_MEDIA_EXCLUDE_CATEGORIES
+              value: |-
+                anime
+                priority-anime
             - name: QBT_SINGLE_DOWNLOAD_MIN_PROGRESS
               value: "0.0"
             - name: QBT_SINGLE_DOWNLOAD_MAX_REMAINING_BYTES
               value: "0"
             - name: QBT_ISP_USABLE_DOWNLOAD_LIMIT_BYTES_PER_SEC
-              value: "10485760"
+              value: "104857600"
             - name: QBT_UNCAPPED_DOWNLOAD_WINDOW_ENABLED
               value: "true"
             - name: QBT_UNCAPPED_DOWNLOAD_WINDOW_TIMEZONE
               value: Asia/Kolkata
             - name: QBT_UNCAPPED_DOWNLOAD_WINDOW_START_LOCAL
-              value: "22:00"
+              value: "00:00"
             - name: QBT_UNCAPPED_DOWNLOAD_WINDOW_END_LOCAL
-              value: "05:00"
+              value: "00:00"
             - name: QBT_UNCAPPED_DOWNLOAD_WINDOW_MAX_ACTIVE_DOWNLOADS
               value: "5"
             - name: QBT_SINGLE_DOWNLOAD_UPLOAD_LIMIT_BYTES_PER_SEC
-              value: "625"
+              value: "524288"
             - name: QBT_SINGLE_DOWNLOAD_STALL_CHECK_SECONDS
-              value: "300"
+              value: "60"
             - name: QBT_SINGLE_DOWNLOAD_MIN_PROGRESS_BYTES
-              value: "19660800" # 65536 B/s for the 300s stall-check window
+              value: "3932160" # 65536 B/s for the 60s stall-check window
             - name: QBT_SINGLE_DOWNLOAD_ADAPTIVE_PROGRESS_ENABLED
               value: "true"
             - name: QBT_SINGLE_DOWNLOAD_PROGRESS_CAP_FRACTION
@@ -385,7 +491,7 @@ spec:
             - name: QBT_SINGLE_DOWNLOAD_METADATA_BOOTSTRAP_DOWNLOAD_LIMIT_BYTES_PER_SEC
               value: "65536"
             - name: QBT_SINGLE_DOWNLOAD_METADATA_BOOTSTRAP_UPLOAD_LIMIT_BYTES_PER_SEC
-              value: "16384"
+              value: "131072"
             - name: QBT_SINGLE_DOWNLOAD_STALL_COOLDOWN_SECONDS
               value: "3600"
             - name: QBT_SINGLE_DOWNLOAD_STALL_COOLDOWN_NO_PROGRESS_SECONDS
@@ -393,7 +499,7 @@ spec:
             - name: QBT_SINGLE_DOWNLOAD_STALL_COOLDOWN_METADATA_SECONDS
               value: "1800"
             - name: QBT_SINGLE_DOWNLOAD_STALL_COOLDOWN_TRACKER_DEAD_SECONDS
-              value: "21600"
+              value: "1800"
             - name: QBT_SINGLE_DOWNLOAD_STALL_COOLDOWN_IMPORT_FAILED_SECONDS
               value: "86400"
             - name: QBT_SINGLE_DOWNLOAD_STALL_COOLDOWN_MANUAL_HOLD_SECONDS
@@ -431,7 +537,7 @@ spec:
             - name: QBT_STATUS_HTTP_PORT
               value: "8081"
             - name: QBT_FALLBACK_AGGREGATE_DOWNLOAD_LIMIT_BYTES_PER_SEC
-              value: "8388608"
+              value: "104857600"
             - name: QBT_STOP_DOWNLOAD_LIMIT_BYTES_PER_SEC
               value: "1"
             - name: QBT_STOP_UPLOAD_LIMIT_BYTES_PER_SEC
@@ -452,7 +558,7 @@ spec:
           resources:
             requests:
               cpu: 70m
-              memory: 68Mi
+              memory: 72Mi
             limits:
               memory: 144Mi
           securityContext:
@@ -470,7 +576,7 @@ spec:
       volumes:
         - name: media-downloads
           persistentVolumeClaim:
-            claimName: media-downloads-nfs-csi
+            claimName: media-downloads-unas
             readOnly: true
         - name: smart-queues-state
           persistentVolumeClaim:

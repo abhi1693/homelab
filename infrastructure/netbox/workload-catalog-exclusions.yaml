@@ -1,0 +1,143 @@
+---
+apiVersion: home-lab.io/v1alpha1
+kind: WorkloadCatalogExclusions
+metadata:
+  name: project-app-coverage
+spec:
+  exclusions:
+    - path: kubernetes/projects/applications/apps/applications-helm-repositories
+      disposition: support
+      application: fleet
+      reason: ClusterRepository definitions have no independent runtime service.
+    - path: kubernetes/projects/applications/apps/firefly-iii-data-importer
+      disposition: component
+      application: firefly-iii
+      reason: The importer Deployment is recorded as part of the Firefly III application.
+    - path: kubernetes/projects/applications/apps/firefly-iii-storage
+      disposition: component
+      application: firefly-iii
+      reason: Shared Firefly PVC declarations are recorded as Firefly persistent stores.
+    - path: kubernetes/projects/database/apps/cnpg-operator-registry-secrets
+      disposition: component
+      application: cnpg-operator
+      reason: Registry credentials support the operator and are not a service.
+    - path: kubernetes/projects/database/apps/database-helm-repositories
+      disposition: support
+      application: fleet
+      reason: ClusterRepository definitions have no independent runtime service.
+    - path: kubernetes/projects/database/apps/postgresql-networkpolicy
+      disposition: component
+      application: postgresql
+      reason: Network boundaries are part of the PostgreSQL application.
+    - path: kubernetes/projects/database/apps/postgresql-pooler-pdb
+      disposition: component
+      application: postgresql
+      reason: Pooler disruption budgets are part of the PostgreSQL application.
+    - path: kubernetes/projects/database/apps/postgresql-zitadel-secrets
+      disposition: component
+      application: postgresql
+      reason: Database credentials are secret configuration, not a service.
+    - path: kubernetes/projects/database/apps/valkey-networkpolicy
+      disposition: component
+      application: valkey
+      reason: Network boundaries are part of the Valkey application.
+    - path: kubernetes/projects/entertainment/apps/media-episeerr-networkpolicy
+      disposition: component
+      application: episeerr
+      reason: Network boundaries are part of the Episeerr application.
+    - path: kubernetes/projects/entertainment/apps/media-helm-repositories
+      disposition: support
+      application: fleet
+      reason: ClusterRepository definitions have no independent runtime service.
+    - path: kubernetes/projects/entertainment/apps/media-jellyseerr-networkpolicy
+      disposition: component
+      application: jellyseerr
+      reason: Network boundaries are part of the Jellyseerr application.
+    - path: kubernetes/projects/entertainment/apps/media-library-migration
+      disposition: retired
+      application: media-storage
+      reason: Completed one-time migration directory has no active desired state.
+    - path: kubernetes/projects/entertainment/apps/media-library-migration-stop
+      disposition: retired
+      application: media-storage
+      reason: Completed migration stop marker has no active desired state.
+    - path: kubernetes/projects/entertainment/apps/media-ryokan-networkpolicy
+      disposition: component
+      application: ryokan
+      reason: Network boundaries are part of the Ryokan application.
+    - path: kubernetes/projects/entertainment/apps/media-storage
+      disposition: support
+      application: media-stack
+      reason: Shared PV, PVC, namespace, and credential declarations are referenced by media applications.
+    - path: kubernetes/projects/entertainment/apps/media-torrents-migration
+      disposition: retired
+      application: qbittorrent
+      reason: Completed one-time migration directory has no active desired state.
+    - path: kubernetes/projects/home-automation/apps/cloudflare-tunnel-ingress-controller-networkpolicy
+      disposition: component
+      application: cloudflare-tunnel-ingress-controller
+      reason: Network and availability policies are part of the controller application.
+    - path: kubernetes/projects/home-automation/apps/cloudflare-tunnel-ingress-controller-secrets
+      disposition: component
+      application: cloudflare-tunnel-ingress-controller
+      reason: Namespace and secret configuration support the controller application.
+    - path: kubernetes/projects/home-automation/apps/cluster-ops-crds
+      disposition: component
+      application: cluster-ops
+      reason: ApplicationProfile CRDs are owned by the Cluster Ops controller.
+    - path: kubernetes/projects/home-automation/apps/home-automation-helm-repositories
+      disposition: support
+      application: fleet
+      reason: ClusterRepository definitions have no independent runtime service.
+    - path: kubernetes/projects/home-automation/apps/netbox-secrets
+      disposition: component
+      application: netbox
+      reason: Namespace, database, and registry secrets support NetBox.
+    - path: kubernetes/projects/system/apps/cert-manager-local-ca
+      disposition: component
+      application: cert-manager
+      reason: Local issuer and CA resources are configuration for the bootstrap-managed cert-manager service.
+    - path: kubernetes/projects/system/apps/cert-manager-secrets
+      disposition: component
+      application: cert-manager
+      reason: CA secret configuration supports the bootstrap-managed cert-manager service.
+    - path: kubernetes/projects/system/apps/external-dns-unifi-networkpolicy
+      disposition: component
+      application: external-dns-unifi
+      reason: Network boundaries are part of ExternalDNS for UniFi.
+    - path: kubernetes/projects/system/apps/external-dns-unifi-secrets
+      disposition: component
+      application: external-dns-unifi
+      reason: Controller credentials are secret configuration, not a service.
+    - path: kubernetes/projects/system/apps/longhorn-recurring-jobs
+      disposition: component
+      application: longhorn
+      reason: RecurringJob resources configure the bootstrap-managed Longhorn platform.
+    - path: kubernetes/projects/system/apps/metallb-config
+      disposition: component
+      application: metallb
+      reason: Address pools and advertisements are part of the MetalLB application.
+    - path: kubernetes/projects/system/apps/nfs-shared-storage-migration
+      disposition: retired
+      application: csi-driver-nfs
+      reason: Completed one-time migration directory has no active desired state.
+    - path: kubernetes/projects/system/apps/nfs-shared-storage-rebind-access
+      disposition: retired
+      application: csi-driver-nfs
+      reason: Completed recovery directory has no active desired state.
+    - path: kubernetes/projects/system/apps/rancher-backup-secrets
+      disposition: component
+      application: rancher-backup
+      reason: Object-store credentials support Rancher Backup.
+    - path: kubernetes/projects/system/apps/rancher-compliance-scans
+      disposition: component
+      application: rancher-compliance
+      reason: ClusterScan schedules are part of Rancher Compliance.
+    - path: kubernetes/projects/system/apps/rancher-generated-resource-defaults
+      disposition: support
+      application: rancher
+      reason: Namespace LimitRanges provide shared defaults and have no controller workload.
+    - path: kubernetes/projects/system/apps/system-helm-repositories
+      disposition: support
+      application: fleet
+      reason: ClusterRepository definitions have no independent runtime service.

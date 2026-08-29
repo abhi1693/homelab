@@ -5,17 +5,20 @@ title: Renovate
 # Renovate
 
 This bundle runs the official Renovate image as an hourly single-run CronJob in
-the `renovate` namespace. It scans Kubernetes source files for explicit
-Renovate comments, checks the upstream image registry for newer tags, and
-commits allowed updates back to `master`.
+the `renovate` namespace. It scans explicitly selected GitOps, Coder, image
+build, GitHub Actions, Python requirements, and Ansible collection files for
+updates. Existing allowlisted application-image families can still merge within
+their guarded version ranges; newly covered charts, build dependencies,
+providers, modules, actions, and tools open review-only PRs.
 
 The CronJob retains at most one failed Job and expires terminal Jobs after two
 hours. Persistent hourly failures continue to produce a current failed Job,
 while a recovered run no longer leaves `KubeJobFailed` alert noise for a day.
 
-Docker updates are disabled by default and re-enabled only for image names
-listed in `packageRules`. Each package rule also defines the versioning scheme,
-allowed version range, and branch automerge behavior for that image family.
+Docker updates are disabled by default and re-enabled only for native
+Dockerfile dependencies or image and OCI-chart names listed in `packageRules`.
+Each existing automated image rule also defines the versioning scheme, allowed
+version range, and branch automerge behavior for that image family.
 Wardn AI image pins are the exception: they use the `git-refs` datasource with
 `currentValue=master` so Renovate can update full commit-SHA image tags that
 Docker tag versioning ignores.
@@ -64,6 +67,41 @@ GHCR lookups. Harbor credentials allow Renovate to inspect private
 `registry.home` repositories when a package rule intentionally points at the
 local registry.
 
+## Coverage and Safety Boundary
+
+Renovate covers these non-foundational dependency types:
+
+- explicitly annotated Kubernetes workload images and Fleet or HelmOp charts;
+- Coder Dockerfiles, Terraform providers, modules, lock files, and published
+  workspace image tags;
+- GitHub Actions and release-pinned CI tools;
+- Python CI requirements, NetBox image plugin requirements, and Ansible Galaxy
+  collections; and
+- Dockerfiles under `kubernetes/images/`.
+
+Cluster-foundational dependencies are intentionally manual because their
+upgrade requires coordinated bootstrap, compatibility, and recovery testing.
+The exclusion includes K3s, kube-vip, Cilium and its CLI, CoreDNS, Metrics
+Server, cert-manager, Rancher, Longhorn, MetalLB, CSI NFS, the embedded CNPG
+operator chart, SOPS Secrets Operator, and Rancher system charts. Renovate must
+not scan the Ansible `group_vars` that own the main platform pins.
+
+`scripts/check-renovate-policy.py` enforces the ignored paths, rejects critical
+package names and metadata, and requires literal non-critical GitOps images,
+tags, and chart versions to carry Renovate metadata. Run it after changing
+Renovate configuration or platform pins:
+
+```sh
+python scripts/check-renovate-policy.py
+```
+
+Some version sets remain manual even though they are not cluster-foundational.
+The Jellyfin plugin bundle couples release URLs, checksums, ABI metadata, and
+the generated metadata file. PyCharm and Portable Desktop pins likewise couple
+versions, download URLs, and checksums. Native Renovate managers cannot safely
+update those sets atomically, so they stay outside Renovate until a verified
+generator is available.
+
 ## Adding Images
 
 To add another automated image update:
@@ -77,10 +115,14 @@ To add another automated image update:
 5. Publish tags from the source repository in the version format selected by
    the package rule.
 
+Do not add Renovate metadata to a critical path or dependency. If a dependency
+needs multiple coupled file or checksum changes, add a deterministic generator
+and validation before enrolling it.
+
 For full commit-SHA image tags, use the `git-refs` form instead of the Docker
 datasource:
 
 ```yaml
-# renovate: datasource=git-refs depName=github.com/abhi1693/wardn-ai currentValue=master
+# renovate: datasource=git-refs depName=https://github.com/abhi1693/wardn-ai currentValue=master
 image: registry.home/ghcr.io/abhi1693/wardn-ai-backend:<40-character-sha>
 ```

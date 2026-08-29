@@ -34,10 +34,12 @@ The container requires:
 
 Optional:
 
+- `POSTGRES_MAX_POOL_SIZE`
 - `POSTGRES_SSLMODE`
 - `POSTGRES_TRUSTSERVERCERTIFICATE`
 - `JELLYFIN_CONFIG_SOURCE_DIRS`
 - `JELLYFIN_DATA_SOURCE_DIRS`
+- `JELLYFIN_PLUGIN_CONFIG_SOURCE_DIRS`
 - `JELLYFIN_ENHANCED_AUTO_SKIP_OUTRO`
 - `JELLYFIN_SHARED_DATA_DIR`
 - `JELLYFIN_SHARED_DATA_PATHS`
@@ -45,11 +47,18 @@ Optional:
 - `JELLYFIN_SERVER_ID`
 
 The image stores baked plugins under `/opt/jellyfin/plugins/<PluginName>`.
+The final runtime layer applies available Debian security updates when the
+image is built.
 At startup, it syncs those baked plugins into
 `$JELLYFIN_PLUGIN_DIR`, defaulting to `/data/plugins`, creates or updates
 `$JELLYFIN_DATABASE_CONFIG`, defaulting to `/config/database.xml`, and then
 starts Jellyfin. Every replica therefore starts from the same image-defined
 plugin set.
+
+Set `POSTGRES_MAX_POOL_SIZE` to a positive integer to append Npgsql's
+`Maximum Pool Size` setting to the generated PostgreSQL connection string.
+This bounds the container's physical client connections when an external
+session-mode pooler such as PgBouncer is also in use.
 
 The patched `Jellyfin.Server.Implementations.dll` makes `DeviceManager`
 read device sessions and access-token lookups from PostgreSQL instead of only
@@ -68,9 +77,11 @@ Secrets into either of these default source directories:
 - `/opt/jellyfin/plugin-config`
 - `/opt/jellyfin/plugin-secrets`
 
-The entrypoint overlays those files into `/data/plugins/configurations` before
-starting Jellyfin. Override `JELLYFIN_PLUGIN_CONFIG_SOURCE_DIRS` with a
-colon-separated directory list if the chart uses different mount paths.
+The entrypoint dereferences Kubernetes projected-volume symlinks and overlays
+those files into `/data/plugins/configurations` in source-directory order before
+starting Jellyfin. Later directories replace files with the same name. Override
+`JELLYFIN_PLUGIN_CONFIG_SOURCE_DIRS` with a colon-separated directory list if
+the chart uses different mount paths.
 
 Set `JELLYFIN_ENHANCED_AUTO_SKIP_OUTRO=false` to force Jellyfin Enhanced's
 `AutoSkipOutro` setting off after plugin configuration overlays are copied. The
@@ -127,6 +138,7 @@ The baked plugin set currently includes:
 - Shoko `6.0.5.11`
 - TMDb Box Sets `13.0.0.0`
 - Trakt `29.0.0.0`
+- Webhook `21.0.0.0`
 
 ## Risk
 

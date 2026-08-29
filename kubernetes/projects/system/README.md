@@ -25,12 +25,12 @@ operator lifecycle.
 | `csi-driver-nfs` | Installs the upstream NFS CSI driver and the retained shared-NAS StorageClass. | Gives existing NAS shares CSI lifecycle and creates isolated directories for explicitly opted-in file workloads without replacing Longhorn block storage. |
 | `rancher-monitoring` | Prometheus, Grafana, Alertmanager, dashboards, and rules. | Primary metrics, dashboards, and alerting plane. |
 | `rancher-generated-resource-defaults` | Adds narrow resource defaults for Rancher/Fleet-generated containers. | Bounds upstream workloads that expose no chart resource values without changing explicit sizing. |
-| `alloy-logs` | Log collection pipeline. | Sends cluster/app logs toward Loki. |
+| `alloy-logs` | Disruption-protected singleton log collection pipeline. | Sends cluster/app logs toward Loki without duplicate stream ingestion. |
 | `loki` | Log backend. | Stores and queries logs. |
 | `tempo` | Trace backend. | Stores OpenTelemetry traces and exposes trace query APIs. |
 | `pyroscope` | Profiling backend. | Supports continuous profiling experiments. |
-| `opentelemetry-collector` | OTLP receiver and forwarding layer. | Gives apps one local metrics/traces endpoint. |
-| `alloy-faro` | Frontend telemetry support. | Supports browser/app telemetry collection. |
+| `opentelemetry-collector` | Two OTLP gateways and two affinity-routed processing replicas. | Keeps metrics and trace ingestion available without splitting stateful conversion or sampling decisions. |
+| `alloy-faro` | Two anti-affined frontend telemetry receivers. | Keeps browser/app telemetry collection available through voluntary disruption. |
 | `external-dns-unifi` | Reconciles internal DNS records from Ingress hosts. | Keeps `*.home` DNS aligned with Traefik ingress. |
 | `external-dns-unifi-networkpolicy` | Network boundary for ExternalDNS. | Limits provider and Kubernetes access paths. |
 | `sops-secrets-operator` | Converts SOPS encrypted resources into native Secrets. | Lets Fleet apply encrypted secret manifests safely. |
@@ -39,10 +39,9 @@ operator lifecycle.
 | `rancher-backup-secrets` | Backup credential bundle. | Provides object-store credentials through SOPS. |
 | `rancher-compliance` | Rancher Compliance CRDs and operator. | Provides CIS scan capability. |
 | `rancher-compliance-scans` | One-time and scheduled scan definitions. | Keeps compliance scan cadence in Git. |
-| `descheduler` | Periodic workload rebalancing. | Moves safe workloads away from overloaded nodes. |
+| `descheduler` | Periodic workload rebalancing. | Uses separate guarded profiles for control-plane infrastructure and worker workloads. |
 | `longhorn-recurring-jobs` | Recurring Longhorn jobs such as filesystem trim. | Handles storage maintenance policy. |
 | `longhorn-fstrim-labeler` | Labels Longhorn PVCs for recurring filesystem trim. | Ensures Helm and StatefulSet-created volumes participate in fstrim. |
-| `longhorn-volume-overrides` | One-time Longhorn volume policy corrections. | Applies narrow build-cache and replicated-database volume fixes without changing global Longhorn defaults. |
 
 ## Observability Coupling
 

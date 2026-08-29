@@ -41,15 +41,18 @@ The chart exposes connector metrics through the controller-managed
 `cloudflared` pods on port `44483`. `cloudflaredServiceMonitor.create` is enabled
 so Rancher Monitoring scrapes those metrics through the chart-owned Prometheus
 Operator `ServiceMonitor`. The controller exposes controller-runtime metrics on
-port `8080`; the companion raw Fleet bundle adds its metrics `Service` and
-`ServiceMonitor`. The companion NetworkPolicies allow only the Rancher
-Monitoring Prometheus pods to reach either metrics port.
+port `9090`; the companion raw Fleet bundle maps its stable metrics `Service`
+port `8080` to that target and adds a `ServiceMonitor`. The companion
+NetworkPolicies allow only the Rancher Monitoring Prometheus pods to reach
+either workload's metrics port.
 
 The Rancher Monitoring bundle keeps the existing cloudflared Grafana dashboard
 and adds alerts for lost connector scrape redundancy, fewer than four edge
 connections per connector, readiness failures, connector configuration-version
-drift, origin proxy errors, a sustained high 5xx rate, a missing controller
-leader, and controller reconciliation failures.
+drift, origin proxy errors, a sustained high 5xx rate, insufficient controller
+metrics targets, a missing controller leader, and controller reconciliation
+failures. Metrics availability and leadership are separate signals so a scrape
+outage cannot be misreported as a controller leadership failure.
 
 Connector transport is pinned to HTTP/2 over TCP port `7844`. Both protocols
 pass the `cloudflared` startup precheck, but the home network's QUIC path has

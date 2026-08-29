@@ -31,11 +31,18 @@ spec:
       automountServiceAccountToken: false
       nodeSelector:
         kubernetes.io/arch: arm64
+        node-role.kubernetes.io/control-plane: "true"
+      tolerations:
+        - key: CriticalAddonsOnly
+          operator: Equal
+          value: "true"
+          effect: NoExecute
       securityContext:
         fsGroup: 10001
         fsGroupChangePolicy: OnRootMismatch
       containers:
         - name: tempo
+          # renovate: datasource=docker depName=docker.io/grafana/tempo
           image: docker.io/grafana/tempo:2.9.1
           imagePullPolicy: IfNotPresent
           args:

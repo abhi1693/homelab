@@ -47,13 +47,11 @@ spec:
               kubernetes.io/metadata.name: cattle-monitoring-system
           podSelector:
             matchLabels:
-              app.kubernetes.io/name: prometheus
-              prometheus: rancher-monitoring-prometheus
+              app.kubernetes.io/name: thanos-query
+              app.kubernetes.io/component: query
       ports:
         - protocol: TCP
           port: 9090
-        - protocol: TCP
-          port: 8081
     - to:
         - namespaceSelector:
             matchLabels:

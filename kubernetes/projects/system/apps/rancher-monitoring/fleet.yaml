@@ -18,6 +18,18 @@ diff:
         - /spec/volumeName
     - apiVersion: v1
       kind: PersistentVolumeClaim
+      name: prometheus-data-longhorn-prometheus-rancher-monitoring-prometheus-0
+      namespace: cattle-monitoring-system
+      jsonPointers:
+        - /spec/volumeName
+    - apiVersion: v1
+      kind: PersistentVolumeClaim
+      name: prometheus-data-longhorn-prometheus-rancher-monitoring-prometheus-1
+      namespace: cattle-monitoring-system
+      jsonPointers:
+        - /spec/volumeName
+    - apiVersion: v1
+      kind: PersistentVolumeClaim
       name: am-data-nfs-alertmanager-rancher-monitoring-alertmanager-0
       namespace: cattle-monitoring-system
       jsonPointers:

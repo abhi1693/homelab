@@ -3,6 +3,13 @@
 This bundle installs Prowlarr through a Fleet `HelmOp` for media indexer
 management.
 
+## Operational state
+
+Prowlarr is intentionally stopped with zero replicas while the qBittorrent
+download stack is disabled. Its retained config PVC is unchanged. Restore it
+to one replica together with qBittorrent and the other download automation
+workloads.
+
 ## Runtime Shape
 
 - Namespace: `media`

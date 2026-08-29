@@ -29,11 +29,18 @@ spec:
       automountServiceAccountToken: false
       nodeSelector:
         kubernetes.io/arch: arm64
+        node-role.kubernetes.io/control-plane: "true"
+      tolerations:
+        - key: CriticalAddonsOnly
+          operator: Equal
+          value: "true"
+          effect: NoExecute
       securityContext:
         fsGroup: 10001
         fsGroupChangePolicy: OnRootMismatch
       containers:
         - name: pyroscope
+          # renovate: datasource=docker depName=docker.io/grafana/pyroscope
           image: docker.io/grafana/pyroscope:2.1.0
           imagePullPolicy: IfNotPresent
           args:

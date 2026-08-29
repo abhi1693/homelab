@@ -1,0 +1,21 @@
+---
+apiVersion: home-lab.io/v1alpha1
+kind: WorkloadCatalog
+metadata:
+  name: cert-manager
+spec:
+  displayName: cert-manager
+  purpose: Issue, renew, inject, and validate TLS certificates for cluster services.
+  owner: home-lab
+  project: system
+  cluster: home-k3s
+  lifecycle: active
+  criticality: critical
+  dataClassification: restricted
+  repository: https://github.com/abhi1693/home-lab
+  gitPath: infrastructure/ansible/roles/cert_manager
+  runbook: docs/runbooks/k3s-netbox-drift-reconciliation.md
+  workloads:
+    - {key: home-k3s/cert-manager/apps/deployment/cert-manager, namespace: cert-manager, apiGroup: apps, kind: Deployment, name: cert-manager, desiredReplicas: 2, sourcePath: infrastructure/ansible/roles/cert_manager/templates/cert-manager-helmchart.yaml.j2}
+    - {key: home-k3s/cert-manager/apps/deployment/cert-manager-cainjector, namespace: cert-manager, apiGroup: apps, kind: Deployment, name: cert-manager-cainjector, desiredReplicas: 2, sourcePath: infrastructure/ansible/roles/cert_manager/templates/cert-manager-helmchart.yaml.j2}
+    - {key: home-k3s/cert-manager/apps/deployment/cert-manager-webhook, namespace: cert-manager, apiGroup: apps, kind: Deployment, name: cert-manager-webhook, desiredReplicas: 2, sourcePath: infrastructure/ansible/roles/cert_manager/templates/cert-manager-helmchart.yaml.j2}

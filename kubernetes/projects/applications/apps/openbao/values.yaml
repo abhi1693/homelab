@@ -13,13 +13,12 @@ server:
   resources:
     requests:
       cpu: 70m
-      memory: 62Mi
+      memory: 148Mi
     limits:
       memory: 256Mi
   updateStrategyType: RollingUpdate
   nodeSelector:
     kubernetes.io/arch: arm64
-    kubernetes.io/hostname: k8s-rpi3
   ingress:
     enabled: true
     ingressClassName: traefik

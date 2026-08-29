@@ -73,6 +73,19 @@ argument_specs:
                   memory:
                     type: str
                     required: true
+          startup_probe:
+            type: dict
+            required: false
+            options:
+              timeout_seconds:
+                type: int
+                required: false
+              period_seconds:
+                type: int
+                required: false
+              failure_threshold:
+                type: int
+                required: false
           ingress:
             type: dict
             required: true
@@ -97,6 +110,15 @@ argument_specs:
             type: dict
             required: false
             options:
+              agent:
+                type: dict
+                required: true
+                options:
+                  replicas:
+                    type: int
+                    required: true
+                    description:
+                      - Local Fleet agent replica count for control-plane maintenance availability.
               image:
                 type: dict
                 required: false

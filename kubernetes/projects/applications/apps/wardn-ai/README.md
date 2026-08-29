@@ -4,6 +4,19 @@ Wardn AI runs its API and frontend in the `wardn` namespace. Runtime records
 remain in the shared PostgreSQL service; file-oriented MCP installations and
 supporting data are mounted at `/app/data` from the `wardn-ai-data-nfs` PVC.
 
+Wardn AI runs two API replicas and one replica each of the frontend, worker, and
+WhatsApp bridge. The `wardn-ai-rw` PostgreSQL pooler runs one instance.
+Services, ingresses, runtime records, Secrets, and both PVCs remain intact.
+All five Wardn workload images are pinned to the same full source commit SHA so
+Fleet cannot mix application revisions during a rollout.
+
+Managed MCP runtime Deployments remain scaled to zero while idle and are
+started on demand by the API. Each runtime returns to zero after the normal
+600-second idle timeout.
+
+The Fleet force-sync generation is bumped when the app's desired state changes
+because automatic drift correction remains disabled for this bundle.
+
 The custom API and frontend Deployments retain two ReplicaSet revisions; Git
 and Fleet history remain the primary rollback path.
 

@@ -33,6 +33,12 @@ with the cert-manager-managed Home Lab Local CA certificate and permanently
 redirects browser HTTP requests to HTTPS so WebRTC and credential-bearing
 provider flows run in a secure browser context.
 
+Home Assistant connects through `https://music.media.home` rather than the
+in-cluster Service because its setup flow opens the configured server URL in
+the user's browser. Home Assistant extends its system trust bundle with this
+same local CA and has Cilium egress restricted to the exact TLS SNI; HTTP and
+the direct `8095` endpoint are not permitted from that workload.
+
 The persisted webserver base URL is declaratively pinned to
 `https://music.media.home`. Music Assistant still binds unencrypted HTTP on
 `8095` inside the LAN, but generated browser callbacks use the TLS-terminating
@@ -163,7 +169,7 @@ supported by Music Assistant upstream.
   It still runs as UID/GID `568`, drops Linux capabilities, uses a read-only
   root filesystem, and does not mount a service-account token.
 - The `prepare-provider-runtime` init container creates `/data/provider-venv`
-  and preinstalls `yt-dlp[default]==2026.7.4`,
+  and preinstalls `yt-dlp[default]==2026.8.19`,
   `ytmusicapi==1.12.1`, and `asyncpg==0.31.0`. The main container directs later `uv` installs to that
   retained virtual environment and adds its site-packages directory to
   `PYTHONPATH`. Package artifacts therefore survive pod replacement without
@@ -174,7 +180,7 @@ supported by Music Assistant upstream.
   dependencies.
 - The custom provider source is pinned to
   `abhi1693/music-assistant-yt-music` commit
-  `fcd8f6aae01d66fe5e8671f2ea50f1d58eb3ab77`. The init container downloads
+  `60fd4e404f2d9c6591e7f8420c4ed8685aa5b42c`. The init container downloads
   that immutable revision when the retained copy is absent or fails its
   expected SHA-256 values, verifies every source file, and stores the source
   unchanged. Production dependency versions remain pinned in the retained
@@ -183,6 +189,9 @@ supported by Music Assistant upstream.
   encrypted provider configuration, PostgreSQL account snapshots, and cached
   audio under the media-library NFS path `music/YouTube Music` therefore
   survive restart.
+- `yt-dlp` 2026.8.19 removes the broken `android_vr` default player client.
+  That client could resolve signed Googlevideo URLs but every FFmpeg or yt-dlp
+  media request then received HTTP 403, making uncached tracks unplayable.
 - The module/domain rename is an atomic startup migration. Before Music
   Assistant starts, the init container moves the retained PostgreSQL catalog,
   library mappings and metadata, provider settings, archived listen-history

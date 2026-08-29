@@ -129,7 +129,7 @@ login:
   resources:
     requests:
       cpu: 20m
-      memory: 128Mi
+      memory: 165Mi
     limits:
       memory: 256Mi
   nodeSelector:
@@ -144,7 +144,7 @@ login:
 resources:
   requests:
     cpu: 30m
-    memory: 126Mi
+    memory: 254Mi
   limits:
     memory: 768Mi
 nodeSelector:

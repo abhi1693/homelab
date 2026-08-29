@@ -59,6 +59,14 @@ k3sServer:
       limits:
         memory: 48Mi
   proxy:
+    nodeSelector:
+      kubernetes.io/arch: arm64
+      node-role.kubernetes.io/control-plane: "true"
+    tolerations:
+      - key: CriticalAddonsOnly
+        operator: Equal
+        value: "true"
+        effect: NoExecute
     resources:
       requests:
         cpu: 5m
@@ -70,6 +78,17 @@ windowsMonitoring:
 windowsExporter:
   enabled: false
 prometheus-adapter:
+  prometheus:
+    url: http://thanos-query.cattle-monitoring-system.svc
+    port: 9090
+  nodeSelector:
+    kubernetes.io/arch: arm64
+    node-role.kubernetes.io/control-plane: "true"
+  tolerations:
+    - key: CriticalAddonsOnly
+      operator: Equal
+      value: "true"
+      effect: NoExecute
   logLevel: 1
   metricsRelistInterval: 10m
   resources:
@@ -94,6 +113,14 @@ prometheus-adapter:
         metricsQuery: 'sum(<<.Series>>{<<.LabelMatchers>>}) by (<<.GroupBy>>)'
     external: []
 prometheusOperator:
+  nodeSelector:
+    kubernetes.io/arch: arm64
+    node-role.kubernetes.io/control-plane: "true"
+  tolerations:
+    - key: CriticalAddonsOnly
+      operator: Equal
+      value: "true"
+      effect: NoExecute
   resources:
     requests:
       cpu: 10m
@@ -107,7 +134,23 @@ prometheusOperator:
         memory: 32Mi
       limits:
         memory: 128Mi
+  admissionWebhooks:
+    patch:
+      nodeSelector:
+        kubernetes.io/arch: arm64
+        node-role.kubernetes.io/control-plane: "true"
+      tolerations:
+        - key: CriticalAddonsOnly
+          operator: Equal
+          value: "true"
+          effect: NoExecute
 prometheus:
+  # Expose every Prometheus sidecar through a headless discovery Service so
+  # both Thanos Query replicas can discover every HA source independently.
+  thanosService:
+    enabled: true
+  thanosServiceMonitor:
+    enabled: true
   additionalServiceMonitors:
     - name: rancher-monitoring-k3s-server-filtered
       jobLabel: component
@@ -155,19 +198,39 @@ prometheus:
     enabled: true
     minAvailable: 1
   prometheusSpec:
+    nodeSelector:
+      kubernetes.io/arch: arm64
+      node-role.kubernetes.io/control-plane: "true"
+    tolerations:
+      - key: CriticalAddonsOnly
+        operator: Equal
+        value: "true"
+        effect: NoExecute
     externalUrl: http://prometheus.home
     routePrefix: /
     paused: false
-    replicas: 1
+    # Each scraper owns an independent retained Longhorn claim. Replica 0
+    # contains the verified historical copy; replica 1 began with an empty TSDB.
+    replicas: 2
     shards: 1
-    retention: 14d
-    retentionSize: 16GiB
+    retention: 30d
+    retentionSize: 52GiB
     scrapeInterval: 60s
     enableOTLPReceiver: true
     podAntiAffinity: hard
+    # Object storage is intentionally absent. The sidecar only exposes the
+    # Prometheus StoreAPI, so Prometheus retains normal local compaction.
+    thanos:
+      image: docker.io/rancher/appco-thanos:0.40.1-8.1
+      resources:
+        requests:
+          cpu: 25m
+          memory: 256Mi
+        limits:
+          memory: 1Gi
     persistentVolumeClaimRetentionPolicy:
       whenDeleted: Retain
-      # Retain the Longhorn claim while the zero-replica NFS migration runs.
+      # Retain both the source and destination claims across staged scaling.
       whenScaled: Retain
     ruleSelector: {}
     ruleNamespaceSelector: {}
@@ -210,6 +273,31 @@ prometheus:
       limits:
         memory: 5Gi
     containers: |-
+      # Prometheus remains unready while its HTTP handler is blocked, but the
+      # liveness budget avoids turning a transient NFS stall into another WAL
+      # replay. A genuine hang is still restarted after five minutes.
+      - name: prometheus
+        livenessProbe:
+          httpGet:
+            path: /-/healthy
+            port: http-web
+          failureThreshold: 20
+          periodSeconds: 15
+          timeoutSeconds: 10
+        readinessProbe:
+          httpGet:
+            path: /-/ready
+            port: http-web
+          failureThreshold: 3
+          periodSeconds: 10
+          timeoutSeconds: 10
+        startupProbe:
+          httpGet:
+            path: /-/ready
+            port: http-web
+          failureThreshold: 60
+          periodSeconds: 15
+          timeoutSeconds: 10
       - name: prometheus-proxy
         args:
           - nginx
@@ -244,19 +332,27 @@ prometheus:
     storageSpec:
       volumeClaimTemplate:
         metadata:
-          name: prometheus-data-nfs
+          name: prometheus-data-longhorn
         spec:
-          storageClassName: nfs-shared-retain
+          storageClassName: longhorn
           accessModes:
             - ReadWriteOnce
           resources:
             requests:
-              storage: 20Gi
+              storage: 64Gi
 alertmanager:
   podDisruptionBudget:
     enabled: true
     minAvailable: 1
   alertmanagerSpec:
+    nodeSelector:
+      kubernetes.io/arch: arm64
+      node-role.kubernetes.io/control-plane: "true"
+    tolerations:
+      - key: CriticalAddonsOnly
+        operator: Equal
+        value: "true"
+        effect: NoExecute
     externalUrl: http://alertmanager.home
     routePrefix: /
     alertmanagerConfigMatcherStrategy:
@@ -286,12 +382,44 @@ alertmanager:
             requests:
               storage: 2Gi
 grafana:
+  # Grafana can spend several minutes replaying migrations and loading plugins
+  # when the retained NFS database is slow. Keep readiness strict, but do not
+  # let liveness terminate that bounded startup work.
+  livenessProbe:
+    initialDelaySeconds: 600
+    timeoutSeconds: 30
+    failureThreshold: 10
+  readinessProbe:
+    timeoutSeconds: 5
+  nodeSelector:
+    kubernetes.io/arch: arm64
+    node-role.kubernetes.io/control-plane: "true"
+  tolerations:
+    - key: CriticalAddonsOnly
+      operator: Equal
+      value: "true"
+      effect: NoExecute
+  affinity:
+    podAntiAffinity:
+      requiredDuringSchedulingIgnoredDuringExecution:
+        - labelSelector:
+            matchLabels:
+              app.kubernetes.io/name: loki
+              app.kubernetes.io/instance: loki
+              app.kubernetes.io/component: single-binary
+          topologyKey: kubernetes.io/hostname
   replicas: 1
   deploymentStrategy:
     type: Recreate
   grafana.ini:
     auth.basic:
       enabled: true
+    database:
+      # This is a single Grafana replica. Avoid HA coordination writes and
+      # tolerate transient SQLite lock contention on the retained NFS file.
+      high_availability: false
+      query_retries: 10
+      transaction_retries: 10
   env:
     HOME_LAB_DATASOURCE_REVISION: "2026-06-30-loki"
   envFromSecret: rancher-monitoring-grafana-llm
@@ -372,6 +500,11 @@ grafana:
         cpu: 100m
         memory: 64Mi
   sidecar:
+    datasources:
+      url: http://thanos-query.cattle-monitoring-system.svc.cluster.local:9090
+      # Dashboards remain useful during a transient StoreAPI error. Automation
+      # clients retain Query's fail-closed default.
+      customQueryParameters: partial_response=true
     resources:
       requests:
         cpu: 10m
@@ -422,6 +555,14 @@ prometheus-node-exporter:
     limits:
       memory: 192Mi
 kube-state-metrics:
+  nodeSelector:
+    kubernetes.io/arch: arm64
+    node-role.kubernetes.io/control-plane: "true"
+  tolerations:
+    - key: CriticalAddonsOnly
+      operator: Equal
+      value: "true"
+      effect: NoExecute
   metricLabelsAllowlist:
     - namespaces=[home-lab.io/project-slug,field.cattle.io/projectId,app.kubernetes.io/part-of]
   volumeMounts:
@@ -436,6 +577,6 @@ kube-state-metrics:
   resources:
     requests:
       cpu: 10m
-      memory: 80Mi
+      memory: 192Mi
     limits:
-      memory: 160Mi
+      memory: 384Mi

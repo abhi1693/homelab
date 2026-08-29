@@ -1,0 +1,155 @@
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: home-assistant-go2rtc
+  namespace: home-assistant
+  labels:
+    app.kubernetes.io/name: home-assistant-go2rtc
+    app.kubernetes.io/part-of: home-automation
+    home-lab.io/project-slug: home-automation
+spec:
+  replicas: 1
+  revisionHistoryLimit: 2
+  strategy:
+    type: Recreate
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: home-assistant-go2rtc
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: home-assistant-go2rtc
+        app.kubernetes.io/part-of: home-automation
+        home-lab.io/project-slug: home-automation
+    spec:
+      automountServiceAccountToken: false
+      terminationGracePeriodSeconds: 30
+      nodeSelector:
+        kubernetes.io/arch: arm64
+      imagePullSecrets:
+        - name: harbor-registry
+      securityContext:
+        fsGroup: 65532
+        fsGroupChangePolicy: OnRootMismatch
+        runAsNonRoot: true
+        runAsUser: 65532
+        runAsGroup: 65532
+        seccompProfile:
+          type: RuntimeDefault
+      initContainers:
+        - name: render-config
+          # renovate: datasource=docker depName=docker.io/library/busybox
+          image: registry.home/docker.io/library/busybox:1.38
+          imagePullPolicy: IfNotPresent
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop:
+                - ALL
+            readOnlyRootFilesystem: true
+          env:
+            - name: GO2RTC_USERNAME
+              valueFrom:
+                secretKeyRef:
+                  name: home-assistant-go2rtc
+                  key: username
+            - name: GO2RTC_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: home-assistant-go2rtc
+                  key: password
+          command:
+            - /bin/sh
+            - -ec
+          args:
+            - |
+              umask 077
+              {
+                printf '%s\n' 'app:'
+                printf '%s\n' '  modules: [api, ffmpeg, http, mjpeg, rtsp, srtp, webrtc, ws]'
+                printf '%s\n' 'api:'
+                printf '%s\n' '  listen: ":1984"'
+                printf '%s\n' '  allow_paths: ["/", "/api", "/api/frame.jpeg", "/api/preload", "/api/schemes", "/api/streams", "/api/webrtc", "/api/ws"]'
+                printf '%s\n' '  local_auth: true'
+                printf '  username: "%s"\n' "$GO2RTC_USERNAME"
+                printf '  password: "%s"\n' "$GO2RTC_PASSWORD"
+                printf '%s\n' 'rtsp:'
+                printf '%s\n' '  listen: "127.0.0.1:8554"'
+                printf '%s\n' 'webrtc:'
+                printf '%s\n' '  listen: ":8555"'
+                printf '%s\n' '  candidates: ["192.168.3.17:8555"]'
+                printf '%s\n' '  ice_servers: []'
+                printf '%s\n' '  filters:'
+                printf '%s\n' '    networks: [tcp4, udp4]'
+                printf '%s\n' '    udp_ports: [8555, 8555]'
+              } > /config/go2rtc.yaml
+          resources:
+            requests:
+              cpu: 5m
+              memory: 8Mi
+            limits:
+              cpu: 50m
+              memory: 32Mi
+          volumeMounts:
+            - name: config
+              mountPath: /config
+      containers:
+        - name: go2rtc
+          # renovate: datasource=docker depName=ghcr.io/alexxit/go2rtc
+          image: registry.home/ghcr.io/alexxit/go2rtc:1.9.14@sha256:675c318b23c06fd862a61d262240c9a63436b4050d177ffc68a32710d9e05bae
+          imagePullPolicy: IfNotPresent
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop:
+                - ALL
+            readOnlyRootFilesystem: true
+          ports:
+            - name: api
+              containerPort: 1984
+              protocol: TCP
+            - name: webrtc-tcp
+              containerPort: 8555
+              protocol: TCP
+            - name: webrtc-udp
+              containerPort: 8555
+              protocol: UDP
+          startupProbe:
+            tcpSocket:
+              port: api
+            failureThreshold: 30
+            periodSeconds: 2
+            timeoutSeconds: 1
+          readinessProbe:
+            tcpSocket:
+              port: api
+            failureThreshold: 3
+            periodSeconds: 5
+            timeoutSeconds: 1
+          livenessProbe:
+            tcpSocket:
+              port: api
+            failureThreshold: 3
+            periodSeconds: 10
+            timeoutSeconds: 1
+          resources:
+            requests:
+              cpu: 25m
+              memory: 96Mi
+            limits:
+              memory: 384Mi
+          volumeMounts:
+            - name: config
+              mountPath: /config
+            - name: tmp
+              mountPath: /tmp
+      volumes:
+        - name: config
+          emptyDir:
+            medium: Memory
+            sizeLimit: 64Ki
+        - name: tmp
+          emptyDir:
+            medium: Memory
+            sizeLimit: 128Mi

@@ -1,0 +1,9 @@
+---
+name: media-episeerr-networkpolicy
+defaultNamespace: media
+labels:
+  app.kubernetes.io/part-of: media-stack
+  home-lab.io/project-slug: entertainment
+dependsOn:
+  - name: rancher-project-entertainment
+  - name: media-episeerr

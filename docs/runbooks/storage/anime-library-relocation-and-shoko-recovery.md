@@ -64,7 +64,7 @@ this runbook.
 ### 1. Confirm storage and mounts
 
 ```bash
-kubectl -n media get pvc media-library-nfs-csi \
+kubectl -n media get pvc media-library-unas \
   -o custom-columns='NAME:.metadata.name,STATUS:.status.phase,VOLUME:.spec.volumeName'
 
 kubectl -n media get deployment radarr sonarr ryokan shoko \
@@ -73,7 +73,7 @@ kubectl -n media get deployment radarr sonarr ryokan shoko \
 
 Expected state:
 
-- `media-library-nfs-csi` is `Bound`;
+- `media-library-unas` is `Bound`;
 - Radarr, Sonarr, Ryokan, and Shoko each have one Ready replica.
 
 If the PVC is not Bound or a workload cannot mount it, stop. This is a storage

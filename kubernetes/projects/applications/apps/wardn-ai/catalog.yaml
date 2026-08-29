@@ -1,0 +1,21 @@
+---
+apiVersion: home-lab.io/v1alpha1
+kind: WorkloadCatalog
+metadata:
+  name: wardn-ai
+spec:
+  displayName: Wardn AI
+  purpose: Run the agent platform API, frontend, workers, WhatsApp bridge, and on-demand MCP runtime control plane.
+  owner: home-lab
+  project: applications
+  cluster: home-k3s
+  lifecycle: active
+  criticality: high
+  dataClassification: restricted
+  repository: https://github.com/abhi1693/home-lab
+  gitPath: kubernetes/projects/applications/apps/wardn-ai
+  workloads:
+    - {key: home-k3s/wardn/apps/deployment/wardn-ai-api, namespace: wardn, apiGroup: apps, kind: Deployment, name: wardn-ai-api, desiredReplicas: 2, sourcePath: kubernetes/projects/applications/apps/wardn-ai/deployment-api.yaml}
+    - {key: home-k3s/wardn/apps/deployment/wardn-ai-frontend, namespace: wardn, apiGroup: apps, kind: Deployment, name: wardn-ai-frontend, desiredReplicas: 1, sourcePath: kubernetes/projects/applications/apps/wardn-ai/deployment-frontend.yaml}
+    - {key: home-k3s/wardn/apps/deployment/wardn-ai-worker, namespace: wardn, apiGroup: apps, kind: Deployment, name: wardn-ai-worker, desiredReplicas: 1, sourcePath: kubernetes/projects/applications/apps/wardn-ai/deployment-worker.yaml}
+    - {key: home-k3s/wardn/apps/deployment/wardn-ai-whatsapp-bridge, namespace: wardn, apiGroup: apps, kind: Deployment, name: wardn-ai-whatsapp-bridge, desiredReplicas: 1, sourcePath: kubernetes/projects/applications/apps/wardn-ai/deployment-whatsapp-bridge.yaml}
