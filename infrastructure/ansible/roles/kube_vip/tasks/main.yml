@@ -6,25 +6,33 @@
     fail_msg: kube_vip must be applied from the initial K3s server where k3s_node.cluster_init=true.
     success_msg: "Installing kube-vip from the bootstrap K3s server"
 
-- name: Assert kube-vip VIP and interface are set
+- name: Assert kube-vip VIP, interface, and node-local API endpoint are set
   ansible.builtin.assert:
     that:
       - k3s.registration_vip | trim != ''
       - kube_vip.interface | trim != ''
       - kube_vip.priority_class_name | trim != ''
-    fail_msg: Expected both k3s.registration_vip and kube_vip.interface to be set.
-    success_msg: "kube-vip will advertise {{ k3s.registration_vip }} on {{ kube_vip.interface }}"
+      - kube_vip.kubernetes_service_host == '127.0.0.1'
+      - kube_vip.kubernetes_service_port | int == 6443
+    fail_msg: >-
+      Expected kube-vip to advertise the configured VIP while using the
+      node-local K3s API at 127.0.0.1:6443 for leader election.
+    success_msg: >-
+      kube-vip will advertise {{ k3s.registration_vip }} on
+      {{ kube_vip.interface }} and use its node-local K3s API
 
 - name: Wait for local K3s API before deploying kube-vip
   ansible.builtin.wait_for:
     host: 127.0.0.1
     port: 6443
     timeout: 120
+  check_mode: false
 
 - name: Assert local K3s API is ready before deploying kube-vip
   ansible.builtin.command: /usr/local/bin/k3s kubectl get --raw=/readyz
   register: kube_vip_local_readyz
   changed_when: false
+  check_mode: false
 
 - name: Confirm local K3s API returned readyz ok
   ansible.builtin.assert:

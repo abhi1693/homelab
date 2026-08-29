@@ -45,6 +45,14 @@ spec:
 {% endif %}
         externalTrafficPolicy: {{ traefik.service.external_traffic_policy }}
     priorityClassName: {{ traefik.priority_class_name }}
+    nodeSelector:
+      kubernetes.io/arch: arm64
+      node-role.kubernetes.io/control-plane: "true"
+    tolerations:
+      - key: CriticalAddonsOnly
+        operator: Equal
+        value: "true"
+        effect: NoExecute
     affinity:
       podAntiAffinity:
         requiredDuringSchedulingIgnoredDuringExecution:

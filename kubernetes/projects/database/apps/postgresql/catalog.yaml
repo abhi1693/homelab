@@ -1,0 +1,86 @@
+---
+apiVersion: home-lab.io/v1alpha1
+kind: WorkloadCatalog
+metadata:
+  name: postgresql
+spec:
+  displayName: PostgreSQL
+  purpose: Provide the shared CloudNativePG database platform, application databases, connection poolers, backups, and monitoring.
+  owner: home-lab
+  project: database
+  cluster: home-k3s
+  lifecycle: active
+  criticality: critical
+  dataClassification: restricted
+  repository: https://github.com/abhi1693/home-lab
+  gitPath: kubernetes/projects/database/apps/postgresql
+  knownLimitations:
+    - Three instances share one physical K3s cluster and one Longhorn failure domain.
+  workloads:
+    - key: home-k3s/postgresql/postgresql.cnpg.io/cluster/postgresql
+      namespace: postgresql
+      apiGroup: postgresql.cnpg.io
+      kind: Cluster
+      name: postgresql
+      desiredReplicas: 3
+      sourcePath: kubernetes/projects/database/apps/postgresql/values.yaml
+      images:
+        - ghcr.io/cloudnative-pg/postgresql
+    - {key: home-k3s/postgresql/postgresql.cnpg.io/pooler/postgresql-pooler-firefly-iii-rw, namespace: postgresql, apiGroup: postgresql.cnpg.io, kind: Pooler, name: postgresql-pooler-firefly-iii-rw, desiredReplicas: 1, sourcePath: kubernetes/projects/database/apps/postgresql/values.yaml}
+    - {key: home-k3s/postgresql/postgresql.cnpg.io/pooler/postgresql-pooler-harbor-rw, namespace: postgresql, apiGroup: postgresql.cnpg.io, kind: Pooler, name: postgresql-pooler-harbor-rw, desiredReplicas: 2, sourcePath: kubernetes/projects/database/apps/postgresql/values.yaml}
+    - {key: home-k3s/postgresql/postgresql.cnpg.io/pooler/postgresql-pooler-home-assistant-rw, namespace: postgresql, apiGroup: postgresql.cnpg.io, kind: Pooler, name: postgresql-pooler-home-assistant-rw, desiredReplicas: 2, sourcePath: kubernetes/projects/database/apps/postgresql/values.yaml}
+    - {key: home-k3s/postgresql/postgresql.cnpg.io/pooler/postgresql-pooler-jellyfin-rw, namespace: postgresql, apiGroup: postgresql.cnpg.io, kind: Pooler, name: postgresql-pooler-jellyfin-rw, desiredReplicas: 2, sourcePath: kubernetes/projects/database/apps/postgresql/values.yaml}
+    - {key: home-k3s/postgresql/postgresql.cnpg.io/pooler/postgresql-pooler-shipyardhq-rw, namespace: postgresql, apiGroup: postgresql.cnpg.io, kind: Pooler, name: postgresql-pooler-shipyardhq-rw, desiredReplicas: 2, sourcePath: kubernetes/projects/database/apps/postgresql/values.yaml}
+    - {key: home-k3s/postgresql/postgresql.cnpg.io/pooler/postgresql-pooler-wardn-ai-rw, namespace: postgresql, apiGroup: postgresql.cnpg.io, kind: Pooler, name: postgresql-pooler-wardn-ai-rw, desiredReplicas: 1, sourcePath: kubernetes/projects/database/apps/postgresql/values.yaml}
+    - {key: home-k3s/postgresql/postgresql.cnpg.io/pooler/postgresql-pooler-wardn-hub-rw, namespace: postgresql, apiGroup: postgresql.cnpg.io, kind: Pooler, name: postgresql-pooler-wardn-hub-rw, desiredReplicas: 2, sourcePath: kubernetes/projects/database/apps/postgresql/values.yaml}
+    - {key: home-k3s/postgresql/postgresql.cnpg.io/pooler/postgresql-pooler-zitadel-rw, namespace: postgresql, apiGroup: postgresql.cnpg.io, kind: Pooler, name: postgresql-pooler-zitadel-rw, desiredReplicas: 2, sourcePath: kubernetes/projects/database/apps/postgresql/values.yaml}
+  persistentStores:
+    - key: home-k3s/postgresql/cloudnativepgvolume/postgresql-data
+      namespace: postgresql
+      type: CloudNativePGVolume
+      name: postgresql-data
+      storageClass: longhorn
+      capacity: 8Gi per instance
+      accessModes:
+        - ReadWriteOnce
+      retention: retain
+      backup: Daily object-store backup with 30-day retention plus WAL archiving.
+      dataClassification: restricted
+      sourcePath: kubernetes/projects/database/apps/postgresql/values.yaml
+    - key: home-k3s/postgresql/cloudnativepgvolume/postgresql-wal
+      namespace: postgresql
+      type: CloudNativePGVolume
+      name: postgresql-wal
+      storageClass: longhorn
+      capacity: 4Gi per instance
+      accessModes:
+        - ReadWriteOnce
+      retention: retain
+      backup: Continuous WAL archiving to the configured object store.
+      dataClassification: restricted
+      sourcePath: kubernetes/projects/database/apps/postgresql/values.yaml
+  endpoints:
+    - key: postgresql/read-write
+      name: read-write
+      dnsName: postgresql-rw.postgresql.svc.cluster.local
+      exposure: cluster
+      protocol: tcp
+      ports:
+        - 5432
+      sourcePath: kubernetes/projects/database/apps/postgresql/values.yaml
+  dependencies:
+    - key: postgresql/longhorn/storage
+      name: longhorn
+      type: storage
+      criticality: required
+      failureImpact: Database instances cannot mount data and WAL volumes.
+    - key: postgresql/r2/storage
+      name: Cloudflare R2 backup bucket
+      type: storage
+      criticality: degraded
+      failureImpact: Point-in-time recovery coverage stops advancing while primary database service continues.
+    - key: postgresql/cnpg-operator/service
+      name: cloudnative-pg operator
+      type: service
+      criticality: required
+      failureImpact: Automated reconciliation, failover, backup, and lifecycle operations stop.

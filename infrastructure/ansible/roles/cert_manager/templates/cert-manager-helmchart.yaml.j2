@@ -18,6 +18,14 @@ spec:
     global:
       priorityClassName: {{ cert_manager.priority_class_name }}
     replicaCount: {{ cert_manager.controller_replicas }}
+    nodeSelector:
+      kubernetes.io/arch: arm64
+      node-role.kubernetes.io/control-plane: "true"
+    tolerations:
+      - key: CriticalAddonsOnly
+        operator: Equal
+        value: "true"
+        effect: NoExecute
     resources:
       requests:
         cpu: {{ cert_manager.resources.controller.requests.cpu }}
@@ -51,6 +59,14 @@ spec:
             app.kubernetes.io/component: controller
     webhook:
       replicaCount: {{ cert_manager.webhook_replicas }}
+      nodeSelector:
+        kubernetes.io/arch: arm64
+        node-role.kubernetes.io/control-plane: "true"
+      tolerations:
+        - key: CriticalAddonsOnly
+          operator: Equal
+          value: "true"
+          effect: NoExecute
       resources:
         requests:
           cpu: {{ cert_manager.resources.webhook.requests.cpu }}
@@ -84,6 +100,14 @@ spec:
               app.kubernetes.io/component: webhook
     cainjector:
       replicaCount: {{ cert_manager.cainjector_replicas }}
+      nodeSelector:
+        kubernetes.io/arch: arm64
+        node-role.kubernetes.io/control-plane: "true"
+      tolerations:
+        - key: CriticalAddonsOnly
+          operator: Equal
+          value: "true"
+          effect: NoExecute
       resources:
         requests:
           cpu: {{ cert_manager.resources.cainjector.requests.cpu }}
@@ -116,6 +140,14 @@ spec:
               app.kubernetes.io/instance: cert-manager
               app.kubernetes.io/component: cainjector
     startupapicheck:
+      nodeSelector:
+        kubernetes.io/arch: arm64
+        node-role.kubernetes.io/control-plane: "true"
+      tolerations:
+        - key: CriticalAddonsOnly
+          operator: Equal
+          value: "true"
+          effect: NoExecute
       resources:
         requests:
           cpu: {{ cert_manager.resources.startupapicheck.requests.cpu }}

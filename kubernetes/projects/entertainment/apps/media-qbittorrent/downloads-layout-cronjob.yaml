@@ -10,14 +10,16 @@ metadata:
     app.kubernetes.io/part-of: media-stack
     home-lab.io/project-slug: entertainment
 spec:
-  schedule: "*/5 * * * *"
+  suspend: true
+  schedule: "*/15 * * * *"
   concurrencyPolicy: Forbid
   successfulJobsHistoryLimit: 1
   failedJobsHistoryLimit: 3
   jobTemplate:
     spec:
       backoffLimit: 1
-      activeDeadlineSeconds: 120
+      activeDeadlineSeconds: 600
+      ttlSecondsAfterFinished: 3600
       template:
         metadata:
           labels:
@@ -32,6 +34,7 @@ spec:
             kubernetes.io/arch: arm64
           securityContext:
             fsGroup: 65532
+            fsGroupChangePolicy: OnRootMismatch
             runAsGroup: 65532
             runAsNonRoot: true
             runAsUser: 65532
@@ -39,6 +42,7 @@ spec:
               type: RuntimeDefault
           containers:
             - name: ensure-layout
+              # renovate: datasource=docker depName=docker.io/curlimages/curl
               image: registry.home/docker.io/curlimages/curl:8.21.0
               imagePullPolicy: IfNotPresent
               securityContext:
@@ -78,4 +82,4 @@ spec:
           volumes:
             - name: downloads
               persistentVolumeClaim:
-                claimName: media-downloads-nfs-csi
+                claimName: media-downloads-unas

@@ -9,6 +9,7 @@ metadata:
     app.kubernetes.io/part-of: cluster-ops
     home-lab.io/project-slug: home-automation
 spec:
+  suspend: false
   namespace: shipyardhq
   git:
     provider: github

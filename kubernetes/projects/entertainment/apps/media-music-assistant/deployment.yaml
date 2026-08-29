@@ -112,7 +112,7 @@ spec:
               fi
 
               if ! "$runtime/bin/python" -c \
-                'from importlib.metadata import version; import asyncpg, yt_dlp, ytmusicapi; assert version("asyncpg") == "0.31.0"; assert version("yt-dlp") == "2026.7.4"; assert version("ytmusicapi") == "1.12.1"' \
+                'from importlib.metadata import version; import asyncpg, yt_dlp, ytmusicapi; assert version("asyncpg") == "0.31.0"; assert version("yt-dlp") == "2026.8.19"; assert version("ytmusicapi") == "1.12.1"' \
                 2>/dev/null
               then
                 VIRTUAL_ENV="$runtime" /app/venv/bin/uv pip install \
@@ -120,7 +120,7 @@ spec:
                   --no-cache \
                   --find-links https://wheels.home-assistant.io/musllinux/ \
                   "asyncpg==0.31.0" \
-                  "yt-dlp[default]==2026.7.4" \
+                  "yt-dlp[default]==2026.8.19" \
                   "ytmusicapi==1.12.1"
               fi
 
@@ -132,10 +132,10 @@ spec:
               import urllib.request
               from pathlib import Path
 
-              revision = "fcd8f6aae01d66fe5e8671f2ea50f1d58eb3ab77"
+              revision = "60fd4e404f2d9c6591e7f8420c4ed8685aa5b42c"
               expected_hashes = {
                   "__init__.py": (
-                      "7c234bc3879191d43c8d3396ed6d2f13905f592bb5ebd93890ec7630d0d88646"
+                      "d3d2f2caf8811d4c3e51e5498ca435806237408343377f9c56b519b4709907a2"
                   ),
                   "catalog.py": (
                       "2b9982e1faae6668841d8da7a7122eecb9ac702493d5aff208d8e63e47a84929"
@@ -1612,7 +1612,7 @@ spec:
             claimName: music-assistant-data
         - name: music
           persistentVolumeClaim:
-            claimName: media-library-nfs-csi
+            claimName: media-library-unas
         - name: tmp
           emptyDir:
             sizeLimit: 1Gi

@@ -1,0 +1,14 @@
+---
+name: netbox-mcp-server
+defaultNamespace: netbox
+labels:
+  app.kubernetes.io/name: netbox-mcp-server
+  app.kubernetes.io/part-of: netbox
+  home-lab.io/project-slug: home-automation
+dependsOn:
+  - name: rancher-project-home-automation
+  - name: cert-manager-local-ca
+  - name: netbox-secrets
+  - name: netbox
+helm:
+  takeOwnership: true

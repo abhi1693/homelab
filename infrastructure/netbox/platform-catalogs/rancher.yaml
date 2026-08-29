@@ -1,0 +1,22 @@
+---
+apiVersion: home-lab.io/v1alpha1
+kind: WorkloadCatalog
+metadata:
+  name: rancher
+spec:
+  displayName: Rancher
+  purpose: Provide cluster management, admission webhooks, Cluster API integration, and Rancher Turtles reconciliation.
+  owner: home-lab
+  project: system
+  cluster: home-k3s
+  lifecycle: active
+  criticality: critical
+  dataClassification: restricted
+  repository: https://github.com/abhi1693/home-lab
+  gitPath: infrastructure/ansible/roles/rancher
+  runbook: docs/runbooks/k3s-netbox-drift-reconciliation.md
+  workloads:
+    - {key: home-k3s/cattle-system/apps/deployment/rancher, namespace: cattle-system, apiGroup: apps, kind: Deployment, name: rancher, desiredReplicas: 3, sourcePath: infrastructure/ansible/roles/rancher/templates/rancher-helmchart.yaml.j2}
+    - {key: home-k3s/cattle-system/apps/deployment/rancher-webhook, namespace: cattle-system, apiGroup: apps, kind: Deployment, name: rancher-webhook, desiredReplicas: 2, sourcePath: infrastructure/ansible/roles/rancher/templates/rancher-helmchart.yaml.j2}
+    - {key: home-k3s/cattle-capi-system/apps/deployment/capi-controller-manager, namespace: cattle-capi-system, apiGroup: apps, kind: Deployment, name: capi-controller-manager, desiredReplicas: 1, sourcePath: infrastructure/ansible/roles/rancher/templates/rancher-helmchart.yaml.j2}
+    - {key: home-k3s/cattle-turtles-system/apps/deployment/rancher-turtles-controller-manager, namespace: cattle-turtles-system, apiGroup: apps, kind: Deployment, name: rancher-turtles-controller-manager, desiredReplicas: 1, sourcePath: infrastructure/ansible/roles/rancher/templates/rancher-helmchart.yaml.j2}

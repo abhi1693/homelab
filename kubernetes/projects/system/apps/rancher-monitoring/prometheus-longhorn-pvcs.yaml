@@ -1,0 +1,42 @@
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: prometheus-data-longhorn-prometheus-rancher-monitoring-prometheus-0
+  namespace: cattle-monitoring-system
+  annotations:
+    helm.sh/resource-policy: keep
+  labels:
+    app.kubernetes.io/name: prometheus
+    app.kubernetes.io/component: storage-migration
+    app.kubernetes.io/part-of: rancher-monitoring
+    home-lab.io/project-slug: system
+spec:
+  accessModes:
+    - ReadWriteOnce
+  storageClassName: longhorn
+  volumeName: pvc-67b5bbfb-db5c-4b4f-a6c8-5c21c4776a22
+  resources:
+    requests:
+      storage: 64Gi
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: prometheus-data-longhorn-prometheus-rancher-monitoring-prometheus-1
+  namespace: cattle-monitoring-system
+  annotations:
+    helm.sh/resource-policy: keep
+  labels:
+    app.kubernetes.io/name: prometheus
+    app.kubernetes.io/component: storage-migration
+    app.kubernetes.io/part-of: rancher-monitoring
+    home-lab.io/project-slug: system
+spec:
+  accessModes:
+    - ReadWriteOnce
+  storageClassName: longhorn
+  volumeName: pvc-62afc944-be6f-45fc-aa89-c95209df1b82
+  resources:
+    requests:
+      storage: 64Gi

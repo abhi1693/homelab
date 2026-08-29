@@ -8,20 +8,11 @@
       - longhorn.chart_version | trim != ''
       - longhorn.crd_chart_version | trim != ''
       - longhorn.default_data_path | trim != ''
+      - longhorn.taint_toleration.count('=') == 1
+      - longhorn.taint_toleration.count(':') == 1
+      - longhorn.taint_toleration.rsplit(':', 1)[1] in ['NoSchedule', 'NoExecute']
       - longhorn.default_class_replica_count | int == 3
       - longhorn.default_replica_count | int == 3
-      - longhorn.single_replica_workload_namespaces | length > 0
-      - >-
-        longhorn.single_replica_workload_namespaces
-        | map('trim')
-        | reject('equalto', '')
-        | list
-        | length == longhorn.single_replica_workload_namespaces | length
-      - >-
-        longhorn.single_replica_workload_namespaces
-        | unique
-        | list
-        | length == longhorn.single_replica_workload_namespaces | length
       - longhorn.default_data_locality in ['disabled', 'best-effort']
       - longhorn.storage_overprovisioning_percentage | int > 0
       - longhorn.storage_minimal_available_percentage | int >= 0
@@ -39,7 +30,7 @@
       - longhorn.rwx_volume_fast_failover | bool
       - longhorn.replica_file_sync_http_client_timeout | int >= 120
       - longhorn.concurrent_replica_rebuild_per_node_limit | int >= 1
-      - longhorn.concurrent_replica_rebuild_per_node_limit | int <= 2
+      - longhorn.concurrent_replica_rebuild_per_node_limit | int <= 5
       - longhorn.guaranteed_instance_manager_cpu | int > 0
       - not longhorn.v2_data_engine | bool
       - longhorn.kubelet_root_dir | trim != ''
@@ -222,6 +213,109 @@
     - deployment/longhorn-ui
   when: k3s_node.cluster_init | bool
 
+- name: Wait for Longhorn CSI controller deployments to exist
+  ansible.builtin.command:
+    argv:
+      - /usr/local/bin/k3s
+      - kubectl
+      - -n
+      - "{{ longhorn.namespace }}"
+      - get
+      - "deployment/{{ item }}"
+  environment:
+    KUBECONFIG: /etc/rancher/k3s/k3s.yaml
+  register: longhorn_csi_controller_check
+  changed_when: false
+  until: longhorn_csi_controller_check.rc == 0
+  retries: 90
+  delay: 5
+  loop:
+    - csi-attacher
+    - csi-provisioner
+    - csi-resizer
+    - csi-snapshotter
+  when: k3s_node.cluster_init | bool
+
+- name: Reconcile Longhorn CSI controller control-plane scheduling
+  ansible.builtin.command:
+    argv:
+      - /usr/local/bin/k3s
+      - kubectl
+      - -n
+      - "{{ longhorn.namespace }}"
+      - patch
+      - deployment
+      - "{{ item }}"
+      - --type=merge
+      - -p
+      - >-
+        {"spec":{"template":{"spec":{"nodeSelector":{"kubernetes.io/arch":"arm64","node-role.kubernetes.io/control-plane":"true"},"tolerations":[{"key":"CriticalAddonsOnly","operator":"Equal","value":"true","effect":"NoExecute"}]}}}}
+  environment:
+    KUBECONFIG: /etc/rancher/k3s/k3s.yaml
+  register: longhorn_csi_controller_scheduling
+  changed_when: "'patched' in longhorn_csi_controller_scheduling.stdout"
+  loop:
+    - csi-attacher
+    - csi-provisioner
+    - csi-resizer
+    - csi-snapshotter
+  when: k3s_node.cluster_init | bool
+
+- name: Read Longhorn node-local DaemonSets
+  ansible.builtin.command:
+    argv:
+      - /usr/local/bin/k3s
+      - kubectl
+      - -n
+      - "{{ longhorn.namespace }}"
+      - get
+      - daemonset
+      - -o
+      - 'jsonpath={range .items[*]}{.metadata.name}{"\n"}{end}'
+  environment:
+    KUBECONFIG: /etc/rancher/k3s/k3s.yaml
+  register: longhorn_node_daemonsets
+  changed_when: false
+  when: k3s_node.cluster_init | bool
+
+- name: Reconcile Longhorn node-local DaemonSet tolerations
+  ansible.builtin.command:
+    argv:
+      - /usr/local/bin/k3s
+      - kubectl
+      - -n
+      - "{{ longhorn.namespace }}"
+      - patch
+      - daemonset
+      - "{{ item }}"
+      - --type=merge
+      - -p
+      - >-
+        {"spec":{"template":{"spec":{"tolerations":[{"key":"CriticalAddonsOnly","operator":"Equal","value":"true","effect":"NoExecute"}]}}}}
+  environment:
+    KUBECONFIG: /etc/rancher/k3s/k3s.yaml
+  register: longhorn_node_daemonset_scheduling
+  changed_when: "'patched (no change)' not in longhorn_node_daemonset_scheduling.stdout"
+  loop: "{{ longhorn_node_daemonsets.stdout_lines }}"
+  when: k3s_node.cluster_init | bool
+
+- name: Wait for Longhorn node-local DaemonSet rollouts
+  ansible.builtin.command:
+    argv:
+      - /usr/local/bin/k3s
+      - kubectl
+      - -n
+      - "{{ longhorn.namespace }}"
+      - rollout
+      - status
+      - "daemonset/{{ item }}"
+      - --timeout=600s
+  environment:
+    KUBECONFIG: /etc/rancher/k3s/k3s.yaml
+  changed_when: false
+  loop: "{{ longhorn_node_daemonsets.stdout_lines }}"
+  when: k3s_node.cluster_init | bool
+
 - name: Wait for Longhorn manager DaemonSet rollout
   ansible.builtin.command:
     argv:
@@ -255,6 +349,10 @@
   loop:
     - longhorn-driver-deployer
     - longhorn-ui
+    - csi-attacher
+    - csi-provisioner
+    - csi-resizer
+    - csi-snapshotter
   when: k3s_node.cluster_init | bool
 
 - name: Wait for Longhorn storage class to exist
@@ -309,7 +407,7 @@
   changed_when: false
   when: k3s_node.cluster_init | bool
 
-- name: Reconcile existing Longhorn default volume replica counts
+- name: Reconcile all existing Longhorn volume replica counts
   ansible.builtin.command:
     argv:
       - /usr/local/bin/k3s
@@ -327,41 +425,7 @@
   loop: >-
     {{
       (longhorn_existing_volumes.stdout | from_json)['items']
-      | rejectattr(
-          'status.kubernetesStatus.namespace',
-          'in',
-          longhorn.single_replica_workload_namespaces
-        )
       | rejectattr('spec.numberOfReplicas', 'equalto', longhorn.default_replica_count | int)
-      | map(attribute='metadata.name')
-      | list
-    }}
-  when: k3s_node.cluster_init | bool
-
-- name: Reconcile replicated workload Longhorn volume replica counts
-  ansible.builtin.command:
-    argv:
-      - /usr/local/bin/k3s
-      - kubectl
-      - -n
-      - "{{ longhorn.namespace }}"
-      - patch
-      - volumes.longhorn.io
-      - "{{ item }}"
-      - --type=merge
-      - -p
-      - '{"spec":{"numberOfReplicas":1}}'
-  environment:
-    KUBECONFIG: /etc/rancher/k3s/k3s.yaml
-  loop: >-
-    {{
-      (longhorn_existing_volumes.stdout | from_json)['items']
-      | selectattr(
-          'status.kubernetesStatus.namespace',
-          'in',
-          longhorn.single_replica_workload_namespaces
-        )
-      | rejectattr('spec.numberOfReplicas', 'equalto', 1)
       | map(attribute='metadata.name')
       | list
     }}

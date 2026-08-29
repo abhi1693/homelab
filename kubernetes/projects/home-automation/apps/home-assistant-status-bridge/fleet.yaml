@@ -1,0 +1,11 @@
+---
+name: home-assistant-status-bridge
+labels:
+  app.kubernetes.io/name: home-assistant-status-bridge
+  app.kubernetes.io/part-of: home-automation
+  home-lab.io/project-slug: home-automation
+dependsOn:
+  - name: rancher-project-home-automation
+  - name: rancher-monitoring-helmop
+helm:
+  takeOwnership: true

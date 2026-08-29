@@ -15,12 +15,15 @@ commonConfiguration: |-
   appendonly yes
   save ""
   databases 32
+  repl-diskless-load swapdb
 sentinel:
   enabled: true
   image:
     digest: sha256:7cd176fb3e0aeecd3febce68ca962f527c8a7da886d1294b91d787a8e79afc22
   primarySet: valkey
   quorum: 2
+  service:
+    createPrimary: true
   persistentVolumeClaimRetentionPolicy:
     enabled: true
     whenScaled: Retain
@@ -72,11 +75,31 @@ primary:
       memory: 176Mi
 replica:
   replicaCount: 3
+  updateStrategy:
+    type: OnDelete
+  automountServiceAccountToken: true
+  podAnnotations:
+    home-lab.io/primary-service-generation: "2"
   nodeSelector:
     kubernetes.io/arch: arm64
   podLabels:
     home-lab.io/topology-group: valkey-data
-  podAntiAffinityPreset: hard
+  affinity:
+    nodeAffinity:
+      requiredDuringSchedulingIgnoredDuringExecution:
+        nodeSelectorTerms:
+          - matchExpressions:
+              - key: kubernetes.io/hostname
+                operator: NotIn
+                values:
+                  - k8s-rpi1
+    podAntiAffinity:
+      requiredDuringSchedulingIgnoredDuringExecution:
+        - labelSelector:
+            matchLabels:
+              app.kubernetes.io/instance: valkey
+              app.kubernetes.io/name: valkey
+          topologyKey: kubernetes.io/hostname
   topologySpreadConstraints:
     - maxSkew: 1
       topologyKey: kubernetes.io/hostname
@@ -98,9 +121,9 @@ replica:
   resources:
     requests:
       cpu: 50m
-      memory: 187Mi
+      memory: 374Mi
     limits:
-      memory: 384Mi
+      memory: 768Mi
 metrics:
   enabled: true
   image:
@@ -129,3 +152,25 @@ metrics:
         metricRelabelings:
           - targetLabel: app
             replacement: sentinel
+rbac:
+  create: true
+  rules:
+    - apiGroups:
+        - ""
+      resources:
+        - pods
+      resourceNames:
+        - valkey-node-0
+        - valkey-node-1
+        - valkey-node-2
+      verbs:
+        - get
+kubectl:
+  image:
+    digest: sha256:08ec645390af5837b422e5d74db7f9b29f072d425baa3cc89c153d0fa87217ab
+  resources:
+    requests:
+      cpu: 10m
+      memory: 48Mi
+    limits:
+      memory: 128Mi

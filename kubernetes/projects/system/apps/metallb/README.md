@@ -1,5 +1,9 @@
 # MetalLB
 
+The controller is control-plane-only and tolerates the critical-addons taint.
+The speaker remains a node-local DaemonSet and tolerates the same taint so
+Layer 2 advertisement continues on every applicable node.
+
 MetalLB owns LAN-facing Kubernetes `LoadBalancer` addresses. The chart is
 installed by a Fleet `HelmOp`; the separate `metallb-config` bundle owns
 address pools and Layer 2 advertisements only after the MetalLB CRDs and

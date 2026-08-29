@@ -1,0 +1,23 @@
+---
+name: media-episeerr
+defaultNamespace: media
+labels:
+  app.kubernetes.io/part-of: media-stack
+  home-lab.io/project-slug: entertainment
+dependsOn:
+  - name: rancher-project-entertainment
+  - name: media-storage
+  - name: jellyfin-helmop
+  - name: jellyseerr-helmop
+  - name: media-jellyseerr-networkpolicy
+  - name: sonarr-helmop
+diff:
+  comparePatches:
+    - apiVersion: v1
+      kind: PersistentVolumeClaim
+      name: episeerr-data
+      namespace: media
+      jsonPointers:
+        - /spec/volumeName
+helm:
+  takeOwnership: true

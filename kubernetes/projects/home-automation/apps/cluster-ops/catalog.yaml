@@ -1,0 +1,18 @@
+---
+apiVersion: home-lab.io/v1alpha1
+kind: WorkloadCatalog
+metadata:
+  name: cluster-ops
+spec:
+  displayName: Cluster Ops Recommendation Engine
+  purpose: Analyze selected workloads and propose review-only Kubernetes resource recommendations.
+  owner: home-lab
+  project: home-automation
+  cluster: home-k3s
+  lifecycle: active
+  criticality: medium
+  dataClassification: sensitive
+  repository: https://github.com/abhi1693/home-lab
+  gitPath: kubernetes/projects/home-automation/apps/cluster-ops
+  workloads:
+    - {key: home-k3s/cluster-ops/apps/deployment/k8s-recommendation-engine-controller-manager, namespace: cluster-ops, apiGroup: apps, kind: Deployment, name: k8s-recommendation-engine-controller-manager, desiredReplicas: 1, sourcePath: kubernetes/projects/home-automation/apps/cluster-ops/controller-manager.yaml}

@@ -7,5 +7,7 @@ labels:
 dependsOn:
   - name: rancher-project-home-automation
   - name: home-automation-helm-repositories
+  - name: postgresql
+  - name: postgresql-networkpolicy
 helm:
   takeOwnership: true

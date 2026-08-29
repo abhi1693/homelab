@@ -33,6 +33,7 @@ spec:
     releaseName: loki
     repo: https://grafana.github.io/helm-charts
     chart: loki
+    # renovate: datasource=helm depName=loki registryUrl=https://grafana.github.io/helm-charts
     version: 7.0.0
     timeoutSeconds: 900
     takeOwnership: true

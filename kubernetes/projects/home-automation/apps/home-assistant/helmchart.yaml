@@ -12,7 +12,7 @@ spec:
   version: 0.3.67
   timeout: 10m0s
   valuesContent: |-
-    replicaCount: 0
+    replicaCount: 1
     deploymentStrategy: Recreate
     controller:
       type: Deployment
@@ -20,12 +20,38 @@ spec:
       repository: registry.home/ghcr.io/home-assistant/home-assistant
       pullPolicy: IfNotPresent
       # renovate: datasource=github-releases depName=home-assistant/core
-      tag: "2026.8.1"
+      tag: "2026.8.3"
     env:
       - name: TZ
         value: Asia/Kolkata
-      - name: HOME_ASSISTANT_PACKAGES_REVISION
-        value: "2026-06-02-rpi-cooling-webhooks"
+      - name: REQUESTS_CA_BUNDLE
+        value: /etc/ssl/certs/ca-certificates.crt
+      - name: HOME_ASSISTANT_SOURCE_REVISION
+        value: "44589ba9200c1c7bc87c8cb444bd19001194fcef"
+      - name: GO2RTC_USERNAME
+        valueFrom:
+          secretKeyRef:
+            name: home-assistant-go2rtc
+            key: username
+      - name: GO2RTC_PASSWORD
+        valueFrom:
+          secretKeyRef:
+            name: home-assistant-go2rtc
+            key: password
+      - name: GO2RTC_CREDENTIAL_REVISION
+        value: "2026-08-20-2"
+      - name: HOME_ASSISTANT_RECORDER_DB_URL
+        valueFrom:
+          secretKeyRef:
+            name: home-assistant-postgresql
+            key: database-url
+      - name: SEERR_API_KEY
+        valueFrom:
+          secretKeyRef:
+            name: home-assistant-seerr-api
+            key: api-key
+      - name: SEERR_API_KEY_REVISION
+        value: "2026-08-13-1"
     podSecurityContext:
       fsGroup: 1000
       fsGroupChangePolicy: OnRootMismatch
@@ -49,9 +75,58 @@ spec:
               pathType: Prefix
       tls: []
     initContainers:
-      - name: install-hacs
+      - name: wait-for-go2rtc
         # renovate: datasource=github-releases depName=home-assistant/core
-        image: registry.home/ghcr.io/home-assistant/home-assistant:2026.8.1
+        image: registry.home/ghcr.io/home-assistant/home-assistant:2026.8.3
+        imagePullPolicy: IfNotPresent
+        env:
+          - name: GO2RTC_USERNAME
+            valueFrom:
+              secretKeyRef:
+                name: home-assistant-go2rtc
+                key: username
+          - name: GO2RTC_PASSWORD
+            valueFrom:
+              secretKeyRef:
+                name: home-assistant-go2rtc
+                key: password
+        command:
+          - /bin/sh
+          - -c
+        args:
+          - |-
+            exec python3 - <<'PY'
+            import base64
+            import os
+            import time
+            import urllib.request
+
+            endpoint = "http://home-assistant-go2rtc.home-assistant.svc.cluster.local:1984/api"
+            credentials = f"{os.environ['GO2RTC_USERNAME']}:{os.environ['GO2RTC_PASSWORD']}"
+            authorization = "Basic " + base64.b64encode(credentials.encode()).decode()
+            request = urllib.request.Request(endpoint, headers={"Authorization": authorization})
+
+            for attempt in range(150):
+                try:
+                    with urllib.request.urlopen(request, timeout=2) as response:
+                        if response.status == 200:
+                            print("go2rtc API ready")
+                            raise SystemExit(0)
+                except Exception:
+                    if attempt == 149:
+                        raise
+                    time.sleep(2)
+            PY
+        resources:
+          requests:
+            cpu: 5m
+            memory: 24Mi
+          limits:
+            cpu: 50m
+            memory: 64Mi
+      - name: archive-sqlite-recorder
+        # renovate: datasource=github-releases depName=home-assistant/core
+        image: registry.home/ghcr.io/home-assistant/home-assistant:2026.8.3
         imagePullPolicy: IfNotPresent
         securityContext:
           runAsUser: 0
@@ -60,18 +135,93 @@ spec:
           - -c
         args:
           - |-
-            set -e
+            set -eu
 
-            if [ -f /config/custom_components/hacs/manifest.json ]; then
-              echo "HACS already installed"
-              exit 0
+            marker="/config/.recorder-postgresql-cutover-20260814"
+            backup_dir="/config/backups/recorder-sqlite-pre-postgresql-20260814"
+            if [ -f /config/home-assistant_v2.db ] && [ ! -f "${marker}" ]; then
+              mkdir -p "${backup_dir}"
+              for source in /config/home-assistant_v2.db /config/home-assistant_v2.db-wal /config/home-assistant_v2.db-shm; do
+                if [ -f "${source}" ]; then
+                  cp -p "${source}" "${backup_dir}/"
+                fi
+              done
+              sha256sum "${backup_dir}"/* > "${backup_dir}/SHA256SUMS"
+              chmod -R go-rwx "${backup_dir}"
+              touch "${marker}"
             fi
+        resources:
+          requests:
+            cpu: 5m
+            memory: 32Mi
+          limits:
+            cpu: 50m
+            memory: 384Mi
+        volumeMounts:
+          - name: home-assistant-pvc
+            mountPath: /config
+      - name: build-home-lab-ca-bundle
+        # renovate: datasource=github-releases depName=home-assistant/core
+        image: registry.home/ghcr.io/home-assistant/home-assistant:2026.8.3
+        imagePullPolicy: IfNotPresent
+        securityContext:
+          runAsUser: 0
+        command:
+          - /bin/sh
+          - -c
+        args:
+          - |-
+            set -eu
 
-            echo "Installing HACS 2.0.5"
-            mkdir -p /config/custom_components/hacs
-            wget -O /tmp/hacs.zip https://github.com/hacs/integration/releases/download/2.0.5/hacs.zip
-            unzip -o /tmp/hacs.zip -d /config/custom_components/hacs >/dev/null
-            rm -f /tmp/hacs.zip
+            cp /etc/ssl/certs/ca-certificates.crt /trust/ca-certificates.crt
+            cat /local-ca/ca.crt >> /trust/ca-certificates.crt
+            chmod 0644 /trust/ca-certificates.crt
+        resources:
+          requests:
+            cpu: 5m
+            memory: 16Mi
+          limits:
+            cpu: 50m
+            memory: 32Mi
+        volumeMounts:
+          - name: home-assistant-music-media-home-tls
+            mountPath: /local-ca
+            readOnly: true
+          - name: home-assistant-ca-bundle
+            mountPath: /trust
+      - name: install-home-assistant-source
+        # renovate: datasource=github-releases depName=home-assistant/core
+        image: registry.home/ghcr.io/home-assistant/home-assistant:2026.8.1
+        imagePullPolicy: IfNotPresent
+        securityContext:
+          runAsUser: 0
+        env:
+          - name: KRISHNA_WORK_COORDINATES
+            valueFrom:
+              secretKeyRef:
+                name: home-assistant-private-locations
+                key: krishna-work-coordinates
+          - name: MANISHA_WORK_COORDINATES
+            valueFrom:
+              secretKeyRef:
+                name: home-assistant-private-locations
+                key: manisha-work-coordinates
+        command:
+          - /bin/sh
+          - -c
+        args:
+          - |-
+            set -eu
+            revision="44589ba9200c1c7bc87c8cb444bd19001194fcef"
+            expected_sha256="bfe2143bf027dc46bf38915c3ab91ba6dff4d98c79e3cb93f0090505c8b38687"
+            archive="/tmp/home-assistant-source.tar.gz"
+            source_root="/tmp/home-assistant-source"
+
+            wget -qO "${archive}" "https://codeload.github.com/abhi1693/home-assistant/tar.gz/${revision}"
+            echo "${expected_sha256}  ${archive}" | sha256sum -c -
+            mkdir -p "${source_root}"
+            tar -xzf "${archive}" --strip-components=1 -C "${source_root}"
+            python3 "${source_root}/bootstrap.py" --source "${source_root}" --config /config
         resources:
           requests:
             cpu: 10m
@@ -83,66 +233,25 @@ spec:
           - name: home-assistant-pvc
             mountPath: /config
     configuration:
-      enabled: true
-      forceInit: false
-      trusted_proxies:
-        - 10.42.0.0/16
-      templateConfig: |-
-        # Loads default set of integrations. Do not remove.
-        default_config:
-
-        http:
-          use_x_forwarded_for: true
-          trusted_proxies:
-            - 10.42.0.0/16
-
-        homeassistant:
-          packages: !include_dir_named packages
-
-        # Load frontend themes from the themes folder
-        frontend:
-          themes: !include_dir_merge_named themes
-
-        automation: !include automations.yaml
-        script: !include scripts.yaml
-        scene: !include scenes.yaml
-      initScript: |-
-        #!/bin/sh
-        set -e
-
-        if [ ! -f /config/configuration.yaml ]; then
-          echo "Configuration file not found, creating a new one"
-          cp /config-templates/configuration.yaml /config/configuration.yaml
-        fi
-
-        yq -i '.homeassistant.packages = "packages" | .homeassistant.packages tag = "!include_dir_named"' /config/configuration.yaml
-
-        if [ ! -f /config/automations.yaml ]; then
-          echo "Automations file not found, creating a new one"
-          printf '[]\n' > /config/automations.yaml
-        fi
-
-        if [ ! -f /config/scripts.yaml ]; then
-          echo "Scripts file not found, creating a new one"
-          touch /config/scripts.yaml
-        fi
-
-        if [ ! -f /config/scenes.yaml ]; then
-          echo "Scenes file not found, creating a new one"
-          touch /config/scenes.yaml
-        fi
+      enabled: false
     additionalVolumes:
-      - name: home-assistant-packages
-        configMap:
-          name: home-assistant-packages
+      - name: home-assistant-music-media-home-tls
+        secret:
+          secretName: home-assistant-music-media-home-tls
+          items:
+            - key: ca.crt
+              path: ca.crt
+      - name: home-assistant-ca-bundle
+        emptyDir: {}
     additionalMounts:
-      - name: home-assistant-packages
-        mountPath: /config/packages
+      - name: home-assistant-ca-bundle
+        mountPath: /etc/ssl/certs/ca-certificates.crt
+        subPath: ca-certificates.crt
         readOnly: true
     persistence:
       enabled: true
       accessMode: ReadWriteMany
-      size: 2Gi
+      size: 4Gi
       storageClass: longhorn
       annotations:
         helm.sh/resource-policy: keep

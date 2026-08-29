@@ -47,6 +47,11 @@ The remaining alert pressure is therefore expected to come from active volume
 data, host filesystem usage, or node-local runtime cache, not from known
 cleanable Longhorn orphan CRs.
 
+On August 16, 2026, `k8s-rpi3` again crossed the warning threshold while every
+Longhorn volume was healthy. A targeted, confirmed `server-3` image-cache prune
+freed about `57 GiB` of root-disk space and raised Longhorn schedulable headroom
+from about `13.5%` to `19.4%`. No disk reservation or replica count was reduced.
+
 ## Impact
 
 - Longhorn may stop scheduling new replicas on affected node disks.
@@ -209,8 +214,9 @@ kubectl -n longhorn-system get volumes.longhorn.io <volume-name> \
 If the owning workload does not need local replica affinity, prefer a
 volume-level `dataLocality=disabled` override rather than reducing disk
 reservation, increasing over-provisioning, or changing the global Longhorn
-default. In this repo, current build-cache overrides are managed by
-`kubernetes/projects/system/apps/longhorn-volume-overrides/`.
+default. Keep any volume-specific correction finite, identity-checked, and
+Fleet-managed rather than taking broad ownership of Longhorn's dynamic volume
+resources.
 
 For active Longhorn data growth:
 

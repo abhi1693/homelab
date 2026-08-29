@@ -9,7 +9,6 @@ metadata:
     home-lab.io/project-slug: entertainment
 spec:
   paused: false
-  forceSyncGeneration: 17
   defaultNamespace: media
   dependsOn:
     - name: rancher-project-entertainment
@@ -35,6 +34,7 @@ spec:
   helm:
     releaseName: jellyfin
     repo: oci://oci.trueforge.org/truecharts/jellyfin
+    # renovate: datasource=docker depName=oci.trueforge.org/truecharts/jellyfin
     version: 23.5.0
     timeoutSeconds: 1800
     takeOwnership: true

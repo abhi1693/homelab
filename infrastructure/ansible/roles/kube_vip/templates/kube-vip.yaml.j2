@@ -70,6 +70,10 @@ spec:
               value: "1"
             - name: address
               value: "{{ k3s.registration_vip }}"
+            - name: KUBERNETES_SERVICE_HOST
+              value: "{{ kube_vip.kubernetes_service_host }}"
+            - name: KUBERNETES_SERVICE_PORT
+              value: "{{ kube_vip.kubernetes_service_port | default(6443) }}"
           securityContext:
             capabilities:
               add:

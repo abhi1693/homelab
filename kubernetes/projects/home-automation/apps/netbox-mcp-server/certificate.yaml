@@ -1,0 +1,28 @@
+---
+apiVersion: cert-manager.io/v1
+kind: Certificate
+metadata:
+  name: netbox-mcp-server-home
+  namespace: netbox
+  labels:
+    app.kubernetes.io/name: netbox-mcp-server
+    app.kubernetes.io/part-of: netbox
+    home-lab.io/project-slug: home-automation
+spec:
+  secretName: netbox-mcp-server-home-tls
+  commonName: mcp.netbox.home
+  dnsNames:
+    - mcp.netbox.home
+  duration: 2160h
+  renewBefore: 360h
+  privateKey:
+    algorithm: ECDSA
+    size: 256
+  usages:
+    - digital signature
+    - key encipherment
+    - server auth
+  issuerRef:
+    name: home-local-ca
+    kind: ClusterIssuer
+    group: cert-manager.io

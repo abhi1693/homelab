@@ -1,0 +1,23 @@
+---
+apiVersion: home-lab.io/v1alpha1
+kind: WorkloadCatalog
+metadata:
+  name: harbor
+spec:
+  displayName: Harbor
+  purpose: Provide the private container registry, proxy caches, vulnerability scanning, and registry operations for the cluster.
+  owner: home-lab
+  project: applications
+  cluster: home-k3s
+  lifecycle: active
+  criticality: critical
+  dataClassification: sensitive
+  repository: https://github.com/abhi1693/home-lab
+  gitPath: kubernetes/projects/applications/apps/harbor
+  workloads:
+    - {key: home-k3s/harbor/apps/deployment/harbor-core, namespace: harbor, apiGroup: apps, kind: Deployment, name: harbor-core, desiredReplicas: 2, sourcePath: kubernetes/projects/applications/apps/harbor/values.yaml}
+    - {key: home-k3s/harbor/apps/deployment/harbor-exporter, namespace: harbor, apiGroup: apps, kind: Deployment, name: harbor-exporter, desiredReplicas: 1, sourcePath: kubernetes/projects/applications/apps/harbor/values.yaml}
+    - {key: home-k3s/harbor/apps/deployment/harbor-jobservice, namespace: harbor, apiGroup: apps, kind: Deployment, name: harbor-jobservice, desiredReplicas: 2, sourcePath: kubernetes/projects/applications/apps/harbor/values.yaml}
+    - {key: home-k3s/harbor/apps/deployment/harbor-portal, namespace: harbor, apiGroup: apps, kind: Deployment, name: harbor-portal, desiredReplicas: 2, sourcePath: kubernetes/projects/applications/apps/harbor/values.yaml}
+    - {key: home-k3s/harbor/apps/deployment/harbor-registry, namespace: harbor, apiGroup: apps, kind: Deployment, name: harbor-registry, desiredReplicas: 2, sourcePath: kubernetes/projects/applications/apps/harbor/values.yaml}
+    - {key: home-k3s/harbor/apps/statefulset/harbor-trivy, namespace: harbor, apiGroup: apps, kind: StatefulSet, name: harbor-trivy, desiredReplicas: 1, sourcePath: kubernetes/projects/applications/apps/harbor/values.yaml}

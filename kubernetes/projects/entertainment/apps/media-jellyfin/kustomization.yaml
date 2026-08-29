@@ -15,5 +15,6 @@ configurations:
 resources:
   - secrets.sops.yaml
   - apiserver-egress-cnp.yaml
+  - episeerr-webhook-config.yaml
   - helmop.yaml
   - shared-pvc.yaml

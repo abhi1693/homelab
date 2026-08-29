@@ -21,8 +21,8 @@ spec:
     - from:
         - podSelector:
             matchLabels:
-              app.kubernetes.io/name: opentelemetry-collector
-              app.kubernetes.io/component: telemetry-pipeline
+              app.kubernetes.io/name: opentelemetry-processor
+              app.kubernetes.io/component: telemetry-processor
         - podSelector:
             matchLabels:
               app.kubernetes.io/name: alloy

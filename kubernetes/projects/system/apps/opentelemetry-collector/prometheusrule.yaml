@@ -1,0 +1,81 @@
+---
+apiVersion: monitoring.coreos.com/v1
+kind: PrometheusRule
+metadata:
+  name: opentelemetry-collector-health
+  namespace: cattle-monitoring-system
+  labels:
+    app.kubernetes.io/name: opentelemetry-collector
+    app.kubernetes.io/component: telemetry-pipeline
+    app.kubernetes.io/part-of: rancher-monitoring
+    home-lab.io/project-slug: system
+spec:
+  groups:
+    - name: opentelemetry-collector.availability
+      rules:
+        - alert: OpenTelemetryGatewayReplicasUnavailable
+          expr: kube_deployment_status_replicas_available{namespace="cattle-monitoring-system",deployment="opentelemetry-collector"} < 2
+          for: 5m
+          labels:
+            severity: warning
+          annotations:
+            summary: OpenTelemetry gateway redundancy is reduced
+            description: Only {{ printf "%.0f" $value }} of two OpenTelemetry gateway replicas are available.
+        - alert: OpenTelemetryProcessorReplicasUnavailable
+          expr: kube_statefulset_status_replicas_ready{namespace="cattle-monitoring-system",statefulset="opentelemetry-processor"} < 2
+          for: 5m
+          labels:
+            severity: warning
+          annotations:
+            summary: OpenTelemetry processing redundancy is reduced
+            description: Only {{ printf "%.0f" $value }} of two OpenTelemetry processing replicas are ready.
+        - alert: OpenTelemetryLoadBalancingBackendsDegraded
+          expr: otelcol_loadbalancer_num_backends{job="opentelemetry-collector"} < 2
+          for: 5m
+          labels:
+            severity: warning
+          annotations:
+            summary: OpenTelemetry gateway has fewer than two processing backends
+            description: The gateway on {{ $labels.pod }} sees only {{ printf "%.0f" $value }} processing backends.
+    - name: opentelemetry-collector.delivery
+      rules:
+        - alert: OpenTelemetryPrometheusExportFailures
+          expr: increase(otelcol_exporter_send_failed_metric_points{exporter=~"otlp_http/prometheus-[01]"}[10m]) > 0
+          for: 5m
+          labels:
+            severity: warning
+          annotations:
+            summary: OpenTelemetry metrics are failing to reach Prometheus
+            description: A processing replica failed to deliver {{ printf "%.0f" $value }} metric points through {{ $labels.exporter }} in the last 10 minutes.
+        - alert: OpenTelemetryPrometheusQueueSaturated
+          expr: otelcol_exporter_queue_size{exporter=~"otlp_http/prometheus-[01]"} / otelcol_exporter_queue_capacity{exporter=~"otlp_http/prometheus-[01]"} > 0.8
+          for: 5m
+          labels:
+            severity: warning
+          annotations:
+            summary: OpenTelemetry Prometheus export queue is saturated
+            description: The {{ $labels.exporter }} queue has remained more than 80 percent full for five minutes.
+        - alert: OpenTelemetryGatewayExportFailures
+          expr: increase(otelcol_exporter_send_failed_spans{exporter="load_balancing/traces"}[10m]) > 0 or increase(otelcol_exporter_send_failed_metric_points{exporter="load_balancing/metrics"}[10m]) > 0
+          for: 5m
+          labels:
+            severity: warning
+          annotations:
+            summary: OpenTelemetry gateway cannot deliver telemetry to the processing tier
+            description: The {{ $labels.exporter }} exporter on {{ $labels.pod }} failed to deliver telemetry during the last 10 minutes.
+        - alert: OpenTelemetryGatewayQueueSaturated
+          expr: otelcol_exporter_queue_size{exporter=~"load_balancing/(metrics|traces)"} / otelcol_exporter_queue_capacity{exporter=~"load_balancing/(metrics|traces)"} > 0.8
+          for: 5m
+          labels:
+            severity: warning
+          annotations:
+            summary: OpenTelemetry gateway queue is saturated
+            description: The {{ $labels.exporter }} queue on {{ $labels.pod }} has remained more than 80 percent full for five minutes.
+        - alert: OpenTelemetryTempoExportFailures
+          expr: increase(otelcol_exporter_send_failed_spans{exporter="otlp_grpc/tempo"}[10m]) > 0
+          for: 5m
+          labels:
+            severity: warning
+          annotations:
+            summary: OpenTelemetry traces are failing to reach Tempo
+            description: A processing replica failed to deliver {{ printf "%.0f" $value }} spans to Tempo in the last 10 minutes.

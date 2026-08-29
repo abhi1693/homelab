@@ -1,0 +1,19 @@
+---
+apiVersion: home-lab.io/v1alpha1
+kind: WorkloadCatalog
+metadata:
+  name: metallb
+spec:
+  displayName: MetalLB
+  purpose: Allocate and advertise stable LAN addresses for approved LoadBalancer Services.
+  owner: home-lab
+  project: system
+  cluster: home-k3s
+  lifecycle: active
+  criticality: critical
+  dataClassification: internal
+  repository: https://github.com/abhi1693/home-lab
+  gitPath: kubernetes/projects/system/apps/metallb
+  workloads:
+    - {key: home-k3s/metallb-system/apps/deployment/metallb-controller, namespace: metallb-system, apiGroup: apps, kind: Deployment, name: metallb-controller, desiredReplicas: 1, sourcePath: kubernetes/projects/system/apps/metallb/values.yaml}
+    - {key: home-k3s/metallb-system/apps/daemonset/metallb-speaker, namespace: metallb-system, apiGroup: apps, kind: DaemonSet, name: metallb-speaker, sourcePath: kubernetes/projects/system/apps/metallb/values.yaml}

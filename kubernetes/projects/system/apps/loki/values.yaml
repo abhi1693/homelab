@@ -27,7 +27,7 @@ loki:
     reject_old_samples_max_age: 168h
 
 singleBinary:
-  replicas: 0
+  replicas: 1
   persistence:
     enabled: true
     storageClass: nfs-shared-retain
@@ -42,6 +42,12 @@ singleBinary:
       memory: 1Gi
   nodeSelector:
     kubernetes.io/arch: arm64
+    node-role.kubernetes.io/control-plane: "true"
+  tolerations:
+    - key: CriticalAddonsOnly
+      operator: Equal
+      value: "true"
+      effect: NoExecute
 
 read:
   replicas: 0
@@ -52,6 +58,14 @@ backend:
 
 gateway:
   enabled: true
+  nodeSelector:
+    kubernetes.io/arch: arm64
+    node-role.kubernetes.io/control-plane: "true"
+  tolerations:
+    - key: CriticalAddonsOnly
+      operator: Equal
+      value: "true"
+      effect: NoExecute
   verboseLogging: false
   resources:
     requests:

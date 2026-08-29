@@ -23,16 +23,16 @@ failure even when the metrics endpoint and Prometheus target remain up.
 ## Storage redundancy
 
 The three PostgreSQL instances are hard-spread across nodes and synchronously
-replicate database state. Each instance has separate 4Gi data and WAL PVCs.
-Those six Longhorn volumes use one storage replica through the scoped
-`longhorn-volume-overrides` Fleet bundle, reducing scheduled block capacity
-from 72Gi to 24Gi while the cluster still maintains three database copies.
+replicate database state. Each instance has a separate 8Gi data PVC and 4Gi WAL
+PVC.
+Those six Longhorn volumes each use three storage replicas, for 108Gi of
+nominal scheduled block capacity beneath the three application-level database
+copies. This intentionally accepts compounded storage and write amplification
+so every individual PVC can tolerate replica loss at the block layer.
 
-A one-replica Longhorn volume cannot survive loss of its backing disk by
-itself; availability comes from CloudNativePG failover to another instance.
 Continuous WAL archiving and daily object-store backups remain the independent
-recovery path. New or replacement PVCs must be added to the scoped Longhorn
-override before they are treated as single-replica volumes.
+recovery path. New or replacement PVCs inherit the same three-replica policy
+from the Longhorn StorageClass.
 
 ## PgBouncer connection budgets
 
@@ -48,15 +48,21 @@ declared app-side maximum connection demand.
 
 | Role | Pooler | App-side budget | Backend capacity | Role limit |
 | --- | --- | ---: | ---: | ---: |
-| `jellyfin` | `jellyfin-rw` | implicit | 14 | 15 |
+| `jellyfin` | `jellyfin-rw` | 14 | 30 | 32 |
 | `shipyardhq` | `shipyardhq-rw` | 16 | 28 | 32 |
 | `harbor` | `harbor-rw` | chart-managed | 24 | 36 |
-| `netbox` | `netbox-rw` | disabled | 0 | 10 |
+| `netbox` | direct | implicit | n/a | 10 |
 | `wardn_hub` | `wardn-hub-rw` | implicit | 12 | 12 |
 | `wardn_ai` | `wardn-ai-rw` | implicit | 6 | 12 |
-| `firefly` | `firefly-iii-rw` | disabled | 0 | 10 |
+| `firefly` | `firefly-iii-rw` | implicit | 4 | 10 |
 | `zitadel` | `zitadel-rw` | 16 | 32 | 32 |
 | `music_assistant` | direct | 2 | 2 | 4 |
+| `home_assistant` | `home-assistant-rw` | implicit | 10 | 12 |
+
+Jellyfin caps its Npgsql pool at 14 connections. Each session-mode PgBouncer
+replica has 15 backend slots, so either replica can absorb the application's
+entire connection budget even if Service hashing is uneven. The two replicas'
+30-slot theoretical backend capacity remains below the role limit of 32.
 
 `shipyardhq` has database-side headroom above the normal runtime budget:
 `3 web pods * PG_POOL_MAX 4 + 1 worker pod * PG_POOL_MAX 4 = 16`.
@@ -84,18 +90,18 @@ the same node and primary failover to another trusted K3s node.
 The requests use the latest available seven-day p95/p99 review with burst
 headroom. `wardn-hub-rw` requests 50m CPU per replica, `jellyfin-rw` requests
 15m, and the other active poolers request 10m. Every active pooler requests 56Mi
-memory and retains its 192Mi memory limit. With the NetBox and Firefly poolers
-paused, the scheduler reserves 185m CPU and 560Mi memory across 10 active
-replicas.
+memory and retains its 192Mi memory limit. The scheduler reserves 230m CPU and
+784Mi memory across 14 active replicas. NetBox connects directly and does not
+add a pooler.
 Wardn Hub's two replicas used 16m at p95 and 39m at p99 in aggregate, with a
 123m maximum. Their combined 100m request therefore preserves p99 headroom
 while CPU remains unlimited for short bursts. Revisit the requests if sustained
 CPU usage or pool queueing rises. The `pgbouncer-dashboard` exposes both
 signals.
 
-Only poolers with at least two replicas have a `minAvailable: 1` PDB. Paused
-and single-replica poolers intentionally have no PDB because one would either
-remain permanently unhealthy or block all voluntary disruption.
+Only poolers with at least two replicas have a `minAvailable: 1` PDB.
+Single-replica poolers intentionally have no PDB because one would either remain
+permanently unhealthy or block all voluntary disruption.
 
 Poolers rely on CloudNativePG's generated TCP readiness probe against the
 local PgBouncer port 5432 and intentionally have no backend-coupled liveness
@@ -114,11 +120,11 @@ limit is unchanged.
 ## PostgreSQL runtime tuning
 
 The connection and memory settings are sized for the shared 1Gi PostgreSQL pod
-and the 12 active PgBouncer replicas:
+and the 14 active PgBouncer replicas:
 
 | Parameter | Value | Rationale |
 | --- | ---: | --- |
-| `max_connections` | 160 | The 14-day maximum was 104 and p99 was 90. The modeled pooler, control, replication, monitoring, and direct-client ceiling is about 132. |
+| `max_connections` | 160 | The 14-day maximum was 104 and p99 was 90. The modeled pooler, control, replication, monitoring, and direct-client ceiling remains about 132. |
 | `shared_buffers` | 256MiB | Retains the 25% memory allocation; per-database cache-hit ratios remain between 98.7% and 99.99%. |
 | `effective_cache_size` | 768MiB | Gives the planner a realistic 75% cache hint for the 1Gi cgroup; it does not allocate memory. |
 | `work_mem` | 4MiB | Avoids multiplying a larger allocation across concurrent sort and hash operations. Expensive maintenance queries must use statement-local overrides. |
@@ -164,11 +170,15 @@ recreates one of the tables, then remeasure `n_live_tup`, `n_dead_tup`,
 
 Changing `max_connections` or `wal_buffers` requires a PostgreSQL restart. A
 decrease to a hot-standby-sensitive parameter makes CloudNativePG restart the
-primary in place before its replicas. Chart 0.7.0 does not expose the Cluster's
-`smartShutdownTimeout`, so session-mode pooler backends can hold the default
-smart shutdown open for its full 180 seconds before CNPG escalates to a fast
-shutdown. Schedule those parameter changes as a write-maintenance event; the
-reload-only parameters above do not have that interruption.
+primary in place before its replicas. Cluster chart 0.8.1 exposes `stopDelay`,
+which is set to 300 seconds instead of CNPG's conservative 1800-second default.
+The operator's default 180-second `smartShutdownTimeout` leaves two minutes for
+fast shutdown and WAL/archive completion before the kubelet's termination
+deadline. This bounds voluntary eviction replacement while preserving a clean
+shutdown window; `failoverDelay` remains zero and `switchoverDelay` retains the
+operator's one-hour data-safety default. Schedule restart-requiring parameter
+changes as a write-maintenance event; reload-only parameters do not have that
+interruption.
 
 ## Grafana dashboards
 

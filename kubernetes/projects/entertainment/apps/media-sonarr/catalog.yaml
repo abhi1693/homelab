@@ -1,0 +1,18 @@
+---
+apiVersion: home-lab.io/v1alpha1
+kind: WorkloadCatalog
+metadata:
+  name: sonarr
+spec:
+  displayName: Sonarr
+  purpose: Manage television acquisition, import, metadata, and library organization.
+  owner: home-lab
+  project: entertainment
+  cluster: home-k3s
+  lifecycle: active
+  criticality: high
+  dataClassification: sensitive
+  repository: https://github.com/abhi1693/home-lab
+  gitPath: kubernetes/projects/entertainment/apps/media-sonarr
+  workloads:
+    - {key: home-k3s/media/apps/deployment/sonarr, namespace: media, apiGroup: apps, kind: Deployment, name: sonarr, desiredReplicas: 0, sourcePath: kubernetes/projects/entertainment/apps/media-sonarr/values.yaml}

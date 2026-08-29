@@ -9,7 +9,7 @@ metadata:
     app.kubernetes.io/part-of: firefly-iii
     home-lab.io/project-slug: applications
 spec:
-  suspend: true
+  suspend: false
   schedule: "0 3 * * *"
   concurrencyPolicy: Forbid
   successfulJobsHistoryLimit: 3
@@ -17,6 +17,7 @@ spec:
   jobTemplate:
     spec:
       backoffLimit: 2
+      ttlSecondsAfterFinished: 3600
       template:
         metadata:
           labels:

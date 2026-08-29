@@ -27,6 +27,7 @@ spec:
       snapshotterReplicaCount: {{ longhorn.csi_controller_replicas }}
     defaultSettings:
       defaultDataPath: {{ longhorn.default_data_path }}
+      taintToleration: {{ longhorn.taint_toleration | quote }}
       defaultDataLocality: {{ longhorn.default_data_locality }}
       defaultReplicaCount: {{ longhorn.default_replica_count }}
       replicaSoftAntiAffinity: {{ longhorn.replica_soft_anti_affinity | lower }}
@@ -47,9 +48,32 @@ spec:
       systemManagedCSIComponentsResourceLimits: {{ longhorn.resources.system_managed_csi_components | to_json | to_json }}
       v2DataEngine: {{ longhorn.v2_data_engine | lower }}
     longhornManager:
+      tolerations:
+        - key: {{ longhorn.taint_toleration.split('=', 1)[0] | quote }}
+          operator: Equal
+          value: "{{ longhorn.taint_toleration.split('=', 1)[1].rsplit(':', 1)[0] }}"
+          effect: {{ longhorn.taint_toleration.rsplit(':', 1)[1] }}
       resources:
         requests:
           cpu: {{ longhorn.resources.manager.requests.cpu }}
           memory: {{ longhorn.resources.manager.requests.memory }}
         limits:
           memory: {{ longhorn.resources.manager.limits.memory }}
+    longhornDriver:
+      nodeSelector:
+        kubernetes.io/arch: arm64
+        node-role.kubernetes.io/control-plane: "true"
+      tolerations:
+        - key: {{ longhorn.taint_toleration.split('=', 1)[0] | quote }}
+          operator: Equal
+          value: "{{ longhorn.taint_toleration.split('=', 1)[1].rsplit(':', 1)[0] }}"
+          effect: {{ longhorn.taint_toleration.rsplit(':', 1)[1] }}
+    longhornUI:
+      nodeSelector:
+        kubernetes.io/arch: arm64
+        node-role.kubernetes.io/control-plane: "true"
+      tolerations:
+        - key: {{ longhorn.taint_toleration.split('=', 1)[0] | quote }}
+          operator: Equal
+          value: "{{ longhorn.taint_toleration.split('=', 1)[1].rsplit(':', 1)[0] }}"
+          effect: {{ longhorn.taint_toleration.rsplit(':', 1)[1] }}

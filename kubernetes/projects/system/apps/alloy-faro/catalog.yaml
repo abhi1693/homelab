@@ -1,0 +1,18 @@
+---
+apiVersion: home-lab.io/v1alpha1
+kind: WorkloadCatalog
+metadata:
+  name: alloy-faro
+spec:
+  displayName: Alloy Faro
+  purpose: Receive and forward browser telemetry from Grafana Faro instrumented applications.
+  owner: home-lab
+  project: system
+  cluster: home-k3s
+  lifecycle: active
+  criticality: high
+  dataClassification: sensitive
+  repository: https://github.com/abhi1693/home-lab
+  gitPath: kubernetes/projects/system/apps/alloy-faro
+  workloads:
+    - {key: home-k3s/cattle-monitoring-system/apps/deployment/alloy-faro, namespace: cattle-monitoring-system, apiGroup: apps, kind: Deployment, name: alloy-faro, desiredReplicas: 1, sourcePath: kubernetes/projects/system/apps/alloy-faro/values.yaml}

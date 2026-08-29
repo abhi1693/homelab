@@ -1,0 +1,26 @@
+---
+apiVersion: home-lab.io/v1alpha1
+kind: WorkloadCatalog
+metadata:
+  name: longhorn
+spec:
+  displayName: Longhorn
+  purpose: Provide replicated block storage, CSI attachment and provisioning, snapshots, and volume management.
+  owner: home-lab
+  project: system
+  cluster: home-k3s
+  lifecycle: active
+  criticality: critical
+  dataClassification: restricted
+  repository: https://github.com/abhi1693/home-lab
+  gitPath: infrastructure/ansible/roles/longhorn
+  runbook: docs/runbooks/k3s-netbox-drift-reconciliation.md
+  workloads:
+    - {key: home-k3s/longhorn-system/apps/deployment/csi-attacher, namespace: longhorn-system, apiGroup: apps, kind: Deployment, name: csi-attacher, desiredReplicas: 2, sourcePath: infrastructure/ansible/roles/longhorn/templates/longhorn-helmchart.yaml.j2}
+    - {key: home-k3s/longhorn-system/apps/deployment/csi-provisioner, namespace: longhorn-system, apiGroup: apps, kind: Deployment, name: csi-provisioner, desiredReplicas: 2, sourcePath: infrastructure/ansible/roles/longhorn/templates/longhorn-helmchart.yaml.j2}
+    - {key: home-k3s/longhorn-system/apps/deployment/csi-resizer, namespace: longhorn-system, apiGroup: apps, kind: Deployment, name: csi-resizer, desiredReplicas: 2, sourcePath: infrastructure/ansible/roles/longhorn/templates/longhorn-helmchart.yaml.j2}
+    - {key: home-k3s/longhorn-system/apps/deployment/csi-snapshotter, namespace: longhorn-system, apiGroup: apps, kind: Deployment, name: csi-snapshotter, desiredReplicas: 2, sourcePath: infrastructure/ansible/roles/longhorn/templates/longhorn-helmchart.yaml.j2}
+    - {key: home-k3s/longhorn-system/apps/deployment/longhorn-driver-deployer, namespace: longhorn-system, apiGroup: apps, kind: Deployment, name: longhorn-driver-deployer, desiredReplicas: 1, sourcePath: infrastructure/ansible/roles/longhorn/templates/longhorn-helmchart.yaml.j2}
+    - {key: home-k3s/longhorn-system/apps/deployment/longhorn-ui, namespace: longhorn-system, apiGroup: apps, kind: Deployment, name: longhorn-ui, desiredReplicas: 2, sourcePath: infrastructure/ansible/roles/longhorn/templates/longhorn-helmchart.yaml.j2}
+    - {key: home-k3s/longhorn-system/apps/daemonset/longhorn-csi-plugin, namespace: longhorn-system, apiGroup: apps, kind: DaemonSet, name: longhorn-csi-plugin, sourcePath: infrastructure/ansible/roles/longhorn/templates/longhorn-helmchart.yaml.j2}
+    - {key: home-k3s/longhorn-system/apps/daemonset/longhorn-manager, namespace: longhorn-system, apiGroup: apps, kind: DaemonSet, name: longhorn-manager, sourcePath: infrastructure/ansible/roles/longhorn/templates/longhorn-helmchart.yaml.j2}

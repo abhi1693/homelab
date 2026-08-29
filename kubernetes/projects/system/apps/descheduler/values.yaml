@@ -19,6 +19,14 @@ resources:
   limits:
     memory: 128Mi
 priorityClassName: system-cluster-critical
+nodeSelector:
+  kubernetes.io/arch: arm64
+  node-role.kubernetes.io/control-plane: "true"
+tolerations:
+  - key: CriticalAddonsOnly
+    operator: Equal
+    value: "true"
+    effect: NoExecute
 podAnnotations:
   home-lab.io/apiserver-egress-policy: cilium
 cmdOptions:
@@ -31,6 +39,60 @@ deschedulerPolicy:
   metricsProviders:
     - source: KubernetesMetrics
   profiles:
+    - name: balanced-control-plane-utilization
+      pluginConfig:
+        - name: DefaultEvictor
+          args:
+            nodeFit: true
+            minPodAge: 10m
+            noEvictionPolicy: Mandatory
+            priorityThreshold:
+              value: 900000000
+            namespaceLabelSelector:
+              matchExpressions:
+                - key: kubernetes.io/metadata.name
+                  operator: In
+                  values:
+                    - cattle-capi-system
+                    - cattle-monitoring-system
+                    - cattle-resources-system
+                    - cattle-system
+                    - cattle-turtles-system
+                    - cert-manager
+                    - cloudflare
+                    - cnpg-system
+                    - compliance-operator-system
+                    - kube-public
+                    - kube-system
+                    - metallb-system
+                    - sops
+                    - ups
+            podProtections:
+              defaultDisabled:
+                - PodsWithLocalStorage
+              extraEnabled:
+                - PodsWithPVC
+              config:
+                PodsWithPVC:
+                  protectedStorageClasses:
+                    - name: longhorn
+        - name: LowNodeUtilization
+          args:
+            useDeviationThresholds: true
+            thresholds:
+              cpu: 3
+              memory: 8
+            targetThresholds:
+              cpu: 5
+              memory: 8
+            evictionLimits:
+              node: 2
+            metricsUtilization:
+              source: KubernetesMetrics
+      plugins:
+        balance:
+          enabled:
+            - LowNodeUtilization
     - name: balanced-node-utilization
       pluginConfig:
         - name: DefaultEvictor
@@ -114,6 +176,7 @@ deschedulerPolicy:
                 - kube-public
                 - kube-system
                 - longhorn-system
+                - postgresql
                 - valkey
                 - zitadel
       plugins:

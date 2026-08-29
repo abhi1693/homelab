@@ -1,0 +1,19 @@
+---
+apiVersion: home-lab.io/v1alpha1
+kind: WorkloadCatalog
+metadata:
+  name: loki
+spec:
+  displayName: Loki
+  purpose: Store and query centralized Kubernetes application logs.
+  owner: home-lab
+  project: system
+  cluster: home-k3s
+  lifecycle: active
+  criticality: high
+  dataClassification: sensitive
+  repository: https://github.com/abhi1693/home-lab
+  gitPath: kubernetes/projects/system/apps/loki
+  workloads:
+    - {key: home-k3s/cattle-monitoring-system/apps/statefulset/loki, namespace: cattle-monitoring-system, apiGroup: apps, kind: StatefulSet, name: loki, desiredReplicas: 1, sourcePath: kubernetes/projects/system/apps/loki/values.yaml}
+    - {key: home-k3s/cattle-monitoring-system/apps/deployment/loki-gateway, namespace: cattle-monitoring-system, apiGroup: apps, kind: Deployment, name: loki-gateway, desiredReplicas: 1, sourcePath: kubernetes/projects/system/apps/loki/values.yaml}

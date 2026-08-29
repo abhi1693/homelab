@@ -61,13 +61,13 @@ spec:
             summary: Raspberry Pi memory pressure is high
             description: Memory usage on {{ $labels.nodename }} is {{ printf "%.1f" $value }}%.
         - alert: RaspberryPiHighIOWait
-          expr: (100 * avg by (instance) (rate(node_cpu_seconds_total{job="node-exporter", mode="iowait"}[5m])) * on(instance) group_left(nodename) max by (instance, nodename) (node_uname_info{job="node-exporter", machine="aarch64"})) > 20
+          expr: (((100 * avg by (instance) (rate(node_cpu_seconds_total{job="node-exporter", mode="iowait"}[5m]))) > 20) and on(instance) ((node_load1{job="node-exporter"} / count without(cpu, mode) (node_cpu_seconds_total{job="node-exporter", mode="idle"})) > 1)) * on(instance) group_left(nodename) max by (instance, nodename) (node_uname_info{job="node-exporter", machine="aarch64"})
           for: 15m
           labels:
             severity: warning
           annotations:
             summary: Raspberry Pi CPU iowait is high
-            description: CPU iowait on {{ $labels.nodename }} is {{ printf "%.1f" $value }}% for more than 15 minutes.
+            description: CPU iowait on {{ $labels.nodename }} is {{ printf "%.1f" $value }}% while load exceeds one runnable or waiting task per core for more than 15 minutes.
         - alert: RaspberryPiThrottlingMetricsUnavailable
           expr: (raspberry_pi_vcgencmd_get_throttled_success{job="node-exporter"} * on(instance) group_left(nodename) max by (instance, nodename) (node_uname_info{job="node-exporter", machine="aarch64"})) == 0
           for: 5m

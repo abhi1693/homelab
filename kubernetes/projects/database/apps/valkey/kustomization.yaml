@@ -13,6 +13,7 @@ configurations:
   - kustomizeconfig.yaml
 resources:
   - namespace.yaml
+  - pvc-expansion.yaml
   - grafana-dashboard.yaml
   - registry-secrets.sops.yaml
   - helmop.yaml

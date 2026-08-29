@@ -41,7 +41,8 @@ spec:
     releaseName: postgresql
     repo: https://cloudnative-pg.github.io/charts
     chart: cluster
-    version: 0.7.0
+    # renovate: datasource=helm depName=cluster registryUrl=https://cloudnative-pg.github.io/charts
+    version: 0.8.1
     timeoutSeconds: 600
     valuesFrom:
       - configMapKeyRef:

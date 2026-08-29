@@ -32,7 +32,7 @@ nodeSelector:
 resources:
   requests:
     cpu: 50m
-    memory: 324Mi
+    memory: 368Mi
   limits:
     memory: 432Mi
 probes:

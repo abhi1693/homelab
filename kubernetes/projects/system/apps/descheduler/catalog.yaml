@@ -1,0 +1,18 @@
+---
+apiVersion: home-lab.io/v1alpha1
+kind: WorkloadCatalog
+metadata:
+  name: descheduler
+spec:
+  displayName: Descheduler
+  purpose: Periodically rebalance eligible workloads using guarded control-plane and worker policies.
+  owner: home-lab
+  project: system
+  cluster: home-k3s
+  lifecycle: active
+  criticality: medium
+  dataClassification: internal
+  repository: https://github.com/abhi1693/home-lab
+  gitPath: kubernetes/projects/system/apps/descheduler
+  workloads:
+    - {key: home-k3s/kube-system/batch/cronjob/descheduler, namespace: kube-system, apiGroup: batch, kind: CronJob, name: descheduler, sourcePath: kubernetes/projects/system/apps/descheduler/values.yaml}

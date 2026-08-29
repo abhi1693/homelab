@@ -12,13 +12,17 @@ This bundle runs the public frontend telemetry collector for browser RUM data.
 - Faro receiver port: `12347`
 - Metrics port: `12345`
 - Secret: `alloy-faro` supplies the Faro API key
-- Requests: 15m CPU and 160Mi memory across Alloy and its config reloader
+- Replicas: 2, with required hostname anti-affinity across control-plane nodes
+- Disruption budget: `minAvailable: 1`
+- Requests: 30m CPU and 320Mi memory across both Alloy pods and config reloaders
 
 The receiver accepts browser telemetry from the public app hostnames listed in
 `values.yaml`. It writes logs to Loki and traces to Tempo.
 
-The requests retain headroom over the 14-day pod p95 of approximately 5.2m CPU
-and 106Mi memory.
+Each pod's requests retain headroom over the 14-day pod p95 of approximately
+5.2m CPU and 106Mi memory. The replicas are stateless receivers. Required
+hostname anti-affinity and the PodDisruptionBudget keep one receiver available
+during voluntary disruption, including descheduler balancing.
 
 ## Sourcemaps
 
@@ -39,3 +43,5 @@ specific frontend services used for sourcemaps.
   they send Faro telemetry.
 - Keep the API key in SOPS, not plaintext.
 - Review sourcemap paths whenever a frontend framework or asset prefix changes.
+- Keep at least two eligible control-plane nodes while the two-replica
+  anti-affinity rule is enabled.

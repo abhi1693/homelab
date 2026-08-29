@@ -1,0 +1,80 @@
+---
+apiVersion: home-lab.io/v1alpha1
+kind: WorkloadCatalog
+metadata:
+  name: jellyfin
+spec:
+  displayName: Jellyfin
+  purpose: Serve the completed media library, metadata, playback state, and household streaming clients.
+  owner: home-lab
+  project: entertainment
+  cluster: home-k3s
+  lifecycle: active
+  criticality: high
+  dataClassification: sensitive
+  repository: https://github.com/abhi1693/home-lab
+  gitPath: kubernetes/projects/entertainment/apps/media-jellyfin
+  dashboard: http://watch.media.home
+  knownLimitations:
+    - A single Recreate replica makes maintenance and upgrades visible to viewers.
+  workloads:
+    - key: home-k3s/media/apps/deployment/jellyfin
+      namespace: media
+      apiGroup: apps
+      kind: Deployment
+      name: jellyfin
+      desiredReplicas: 1
+      sourcePath: kubernetes/projects/entertainment/apps/media-jellyfin/values.yaml
+      images:
+        - ghcr.io/abhi1693/home-lab-jellyfin
+  persistentStores:
+    - key: home-k3s/media/persistentvolumeclaim/jellyfin-shared-data-nfs
+      namespace: media
+      type: PersistentVolumeClaim
+      name: jellyfin-shared-data-nfs
+      storageClass: nfs-shared-retain
+      capacity: 20Gi
+      accessModes:
+        - ReadWriteMany
+      retention: retain
+      backup: Covered by retained shared-NFS storage operations.
+      dataClassification: sensitive
+      sourcePath: kubernetes/projects/entertainment/apps/media-jellyfin/shared-pvc.yaml
+  endpoints:
+    - key: jellyfin/web
+      name: web
+      url: http://watch.media.home
+      dnsName: watch.media.home
+      exposure: internal
+      protocol: http
+      ports:
+        - 80
+      sourcePath: kubernetes/projects/entertainment/apps/media-jellyfin/values.yaml
+    - key: jellyfin/autodiscovery
+      name: autodiscovery
+      exposure: internal
+      protocol: udp
+      ports:
+        - 7359
+      sourcePath: kubernetes/projects/entertainment/apps/media-jellyfin/values.yaml
+  dependencies:
+    - key: jellyfin/postgresql/database
+      name: postgresql
+      type: database
+      criticality: required
+      failureImpact: Jellyfin cannot persist application state through its PostgreSQL backend.
+    - key: jellyfin/media-library/storage
+      name: media-library-unas
+      type: storage
+      criticality: required
+      failureImpact: Completed media is unavailable for scanning and playback.
+    - key: jellyfin/nfs-shared/storage
+      name: nfs-shared-retain
+      type: storage
+      criticality: required
+      failureImpact: Shared metadata, collections, subtitles, playlists, and trickplay data are unavailable.
+    - key: jellyfin/traefik/network
+      name: traefik
+      type: network
+      criticality: required
+      failureImpact: Streaming clients cannot reach the internal web endpoint.

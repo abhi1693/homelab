@@ -33,6 +33,7 @@ spec:
   helm:
     releaseName: radarr
     repo: oci://oci.trueforge.org/truecharts/radarr
+    # renovate: datasource=docker depName=oci.trueforge.org/truecharts/radarr
     version: 27.6.0
     atomic: true
     timeoutSeconds: 600

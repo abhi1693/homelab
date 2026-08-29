@@ -1,0 +1,18 @@
+---
+apiVersion: home-lab.io/v1alpha1
+kind: WorkloadCatalog
+metadata:
+  name: episeerr
+spec:
+  displayName: Episeerr
+  purpose: Coordinate complete-season acquisition and Jellyfin-driven next-season prefetching.
+  owner: home-lab
+  project: entertainment
+  cluster: home-k3s
+  lifecycle: active
+  criticality: medium
+  dataClassification: sensitive
+  repository: https://github.com/abhi1693/home-lab
+  gitPath: kubernetes/projects/entertainment/apps/media-episeerr
+  workloads:
+    - {key: home-k3s/media/apps/deployment/episeerr, namespace: media, apiGroup: apps, kind: Deployment, name: episeerr, desiredReplicas: 1, sourcePath: kubernetes/projects/entertainment/apps/media-episeerr/deployment.yaml}

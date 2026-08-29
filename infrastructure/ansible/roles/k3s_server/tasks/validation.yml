@@ -122,6 +122,16 @@
       }}
   loop: "{{ k3s_server.extra_args }}"
 
+- name: Record expected K3s server taints
+  ansible.builtin.set_fact:
+    k3s_expected_node_taint_lines: >-
+      {{
+        k3s_server.node_taints
+        | map('regex_replace', '^', '  - "')
+        | map('regex_replace', '$', '"')
+        | list
+      }}
+
 - name: Record expected K3s kube-apiserver args
   ansible.builtin.set_fact:
     k3s_expected_kube_apiserver_args: >-
@@ -165,6 +175,15 @@
     fail_msg: "Expected {{ item }} in /etc/rancher/k3s/config.yaml"
     success_msg: "K3s config contains {{ item }}"
   loop: "{{ k3s_expected_extra_arg_lines }}"
+
+- name: Assert configured K3s server taints render in config
+  ansible.builtin.assert:
+    that:
+      - "'node-taint:' in k3s_config_text"
+      - item in k3s_config_text
+    fail_msg: "Expected K3s node taint {{ item }} in /etc/rancher/k3s/config.yaml"
+    success_msg: "K3s config contains node taint {{ item }}"
+  loop: "{{ k3s_expected_node_taint_lines }}"
 
 - name: Assert configured K3s kube-apiserver args render in config
   ansible.builtin.assert:
@@ -268,6 +287,51 @@
     host: 127.0.0.1
     port: 6443
     timeout: 60
+
+- name: Read the live K3s server Node
+  ansible.builtin.command:
+    argv:
+      - /usr/local/bin/k3s
+      - kubectl
+      - get
+      - node
+      - "{{ node_identity.hostname }}"
+      - -o
+      - json
+  register: k3s_server_live_node_raw
+  changed_when: false
+
+- name: Record live K3s server Node taints
+  ansible.builtin.set_fact:
+    k3s_server_live_taints: >-
+      {{ (k3s_server_live_node_raw.stdout | from_json).spec.taints | default([]) }}
+
+- name: Assert desired K3s server Node taints are live
+  ansible.builtin.assert:
+    that:
+      - >-
+        k3s_server_live_taints
+        | selectattr('key', 'equalto', item.split('=', 1)[0])
+        | selectattr('value', 'equalto', item.split('=', 1)[1].rsplit(':', 1)[0])
+        | selectattr('effect', 'equalto', item.rsplit(':', 1)[1])
+        | list
+        | length == 1
+    fail_msg: "Expected live Node {{ node_identity.hostname }} to have taint {{ item }}"
+    success_msg: "Live Node {{ node_identity.hostname }} has taint {{ item }}"
+  loop: "{{ k3s_server.node_taints }}"
+
+- name: Assert no undesired managed K3s server Node taints remain
+  ansible.builtin.assert:
+    that:
+      - >-
+        k3s_server_live_taints
+        | selectattr('key', 'equalto', item)
+        | list
+        | length == 0
+    fail_msg: "Expected managed Node taint {{ item }} to be absent from {{ node_identity.hostname }}"
+    success_msg: "Undesired managed Node taint {{ item }} is absent"
+  loop: "{{ k3s_server.managed_node_taint_keys }}"
+  when: item not in (k3s_server.node_taints | map('regex_replace', '=.*$', '') | list)
 
 - name: Re-check K3s service activity after API wait
   ansible.builtin.command: systemctl is-active k3s

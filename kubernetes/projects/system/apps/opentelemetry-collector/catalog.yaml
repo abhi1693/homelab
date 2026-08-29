@@ -1,0 +1,19 @@
+---
+apiVersion: home-lab.io/v1alpha1
+kind: WorkloadCatalog
+metadata:
+  name: opentelemetry-collector
+spec:
+  displayName: OpenTelemetry Collector
+  purpose: Receive, route, process, and export OTLP metrics and traces to cluster observability backends.
+  owner: home-lab
+  project: system
+  cluster: home-k3s
+  lifecycle: active
+  criticality: high
+  dataClassification: sensitive
+  repository: https://github.com/abhi1693/home-lab
+  gitPath: kubernetes/projects/system/apps/opentelemetry-collector
+  workloads:
+    - {key: home-k3s/cattle-monitoring-system/apps/deployment/opentelemetry-collector, namespace: cattle-monitoring-system, apiGroup: apps, kind: Deployment, name: opentelemetry-collector, desiredReplicas: 2, sourcePath: kubernetes/projects/system/apps/opentelemetry-collector/deployment.yaml}
+    - {key: home-k3s/cattle-monitoring-system/apps/statefulset/opentelemetry-processor, namespace: cattle-monitoring-system, apiGroup: apps, kind: StatefulSet, name: opentelemetry-processor, desiredReplicas: 2, sourcePath: kubernetes/projects/system/apps/opentelemetry-collector/processor-statefulset.yaml}

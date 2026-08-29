@@ -189,6 +189,118 @@
   changed_when: false
   when: k3s_node.cluster_init | bool
 
+- name: Read Longhorn system-managed taint toleration setting
+  ansible.builtin.command:
+    argv:
+      - /usr/local/bin/k3s
+      - kubectl
+      - -n
+      - "{{ longhorn.namespace }}"
+      - get
+      - setting
+      - taint-toleration
+      - -o
+      - jsonpath={.value}
+  environment:
+    KUBECONFIG: /etc/rancher/k3s/k3s.yaml
+  register: longhorn_taint_toleration_setting
+  changed_when: false
+  when: k3s_node.cluster_init | bool
+
+- name: Read Longhorn user-managed component tolerations
+  ansible.builtin.command:
+    argv:
+      - /usr/local/bin/k3s
+      - kubectl
+      - -n
+      - "{{ longhorn.namespace }}"
+      - get
+      - "{{ item }}"
+      - -o
+      - 'jsonpath={range .spec.template.spec.tolerations[*]}{.key}={.value}:{.effect}{"\n"}{end}'
+  environment:
+    KUBECONFIG: /etc/rancher/k3s/k3s.yaml
+  loop:
+    - daemonset/longhorn-manager
+    - deployment/longhorn-driver-deployer
+    - deployment/longhorn-ui
+    - deployment/csi-attacher
+    - deployment/csi-provisioner
+    - deployment/csi-resizer
+    - deployment/csi-snapshotter
+  register: longhorn_user_component_tolerations
+  changed_when: false
+  when: k3s_node.cluster_init | bool
+
+- name: Read Longhorn node-local DaemonSet tolerations
+  ansible.builtin.command:
+    argv:
+      - /usr/local/bin/k3s
+      - kubectl
+      - -n
+      - "{{ longhorn.namespace }}"
+      - get
+      - daemonset
+      - -o
+      - 'jsonpath={range .items[*]}{.metadata.name}{"="}{range .spec.template.spec.tolerations[*]}{.key}{"="}{.value}{":"}{.effect}{";"}{end}{"\n"}{end}'
+  environment:
+    KUBECONFIG: /etc/rancher/k3s/k3s.yaml
+  register: longhorn_node_daemonset_tolerations
+  changed_when: false
+  when: k3s_node.cluster_init | bool
+
+- name: Assert Longhorn critical-addons toleration is applied
+  ansible.builtin.assert:
+    that:
+      - longhorn_taint_toleration_setting.stdout | trim == longhorn.taint_toleration
+      - item.stdout_lines | select('equalto', longhorn.taint_toleration) | list | length == 1
+    fail_msg: Expected Longhorn components to tolerate {{ longhorn.taint_toleration }}.
+    success_msg: "Longhorn components tolerate {{ longhorn.taint_toleration }}"
+  loop: "{{ longhorn_user_component_tolerations.results }}"
+  when: k3s_node.cluster_init | bool
+
+- name: Assert Longhorn node-local DaemonSets tolerate critical-addons taint
+  ansible.builtin.assert:
+    that:
+      - item.split('=', 1)[1].split(';') | select('equalto', longhorn.taint_toleration) | list | length == 1
+    fail_msg: "Expected Longhorn DaemonSet {{ item.split('=', 1)[0] }} to tolerate {{ longhorn.taint_toleration }}."
+    success_msg: "Longhorn DaemonSet {{ item.split('=', 1)[0] }} tolerates {{ longhorn.taint_toleration }}"
+  loop: "{{ longhorn_node_daemonset_tolerations.stdout_lines }}"
+  when: k3s_node.cluster_init | bool
+
+- name: Read Longhorn control-plane component selectors
+  ansible.builtin.command:
+    argv:
+      - /usr/local/bin/k3s
+      - kubectl
+      - -n
+      - "{{ longhorn.namespace }}"
+      - get
+      - "deployment/{{ item }}"
+      - -o
+      - jsonpath={.spec.template.spec.nodeSelector.node-role\.kubernetes\.io/control-plane}
+  environment:
+    KUBECONFIG: /etc/rancher/k3s/k3s.yaml
+  register: longhorn_control_plane_selectors
+  changed_when: false
+  loop:
+    - longhorn-driver-deployer
+    - longhorn-ui
+    - csi-attacher
+    - csi-provisioner
+    - csi-resizer
+    - csi-snapshotter
+  when: k3s_node.cluster_init | bool
+
+- name: Assert Longhorn control components select control-plane nodes
+  ansible.builtin.assert:
+    that:
+      - item.stdout | trim == 'true'
+    fail_msg: "Expected Longhorn deployment {{ item.item }} to select control-plane nodes."
+    success_msg: "Longhorn deployment {{ item.item }} selects control-plane nodes"
+  loop: "{{ longhorn_control_plane_selectors.results }}"
+  when: k3s_node.cluster_init | bool
+
 - name: Read Longhorn storage class default annotation
   ansible.builtin.command:
     argv:
@@ -317,50 +429,20 @@
   changed_when: false
   when: k3s_node.cluster_init | bool
 
-- name: Assert default Longhorn volumes use the configured replica count
+- name: Assert all Longhorn volumes use the configured replica count
   ansible.builtin.assert:
     that:
       - >-
         (
           (longhorn_volume_replica_counts.stdout | from_json)['items']
-          | rejectattr(
-              'status.kubernetesStatus.namespace',
-              'in',
-              longhorn.single_replica_workload_namespaces
-            )
           | rejectattr('spec.numberOfReplicas', 'equalto', longhorn.default_replica_count | int)
           | list
           | length
         ) == 0
     fail_msg: >-
-      Expected Longhorn volumes outside replicated workload namespaces to use
-      {{ longhorn.default_replica_count }} replicas
+      Expected all Longhorn volumes to use {{ longhorn.default_replica_count }} replicas
     success_msg: >-
-      Longhorn volumes outside replicated workload namespaces use
-      {{ longhorn.default_replica_count }} replicas
-  when: k3s_node.cluster_init | bool
-
-- name: Assert replicated workload Longhorn volumes use one replica
-  ansible.builtin.assert:
-    that:
-      - >-
-        (
-          (longhorn_volume_replica_counts.stdout | from_json)['items']
-          | selectattr(
-              'status.kubernetesStatus.namespace',
-              'in',
-              longhorn.single_replica_workload_namespaces
-            )
-          | rejectattr('spec.numberOfReplicas', 'equalto', 1)
-          | list
-          | length
-        ) == 0
-    fail_msg: >-
-      Expected Longhorn volumes in {{ longhorn.single_replica_workload_namespaces | join(', ') }}
-      to use one replica
-    success_msg: >-
-      Longhorn volumes in {{ longhorn.single_replica_workload_namespaces | join(', ') }}
-      use one replica
+      All Longhorn volumes use {{ longhorn.default_replica_count }} replicas
   when: k3s_node.cluster_init | bool
 
 - name: Read Longhorn engine replica timeout setting

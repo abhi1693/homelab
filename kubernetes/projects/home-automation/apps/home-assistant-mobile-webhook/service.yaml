@@ -1,0 +1,16 @@
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: home-assistant-mobile-webhook
+  namespace: home-assistant
+  labels:
+    app.kubernetes.io/name: home-assistant-mobile-webhook
+    app.kubernetes.io/part-of: home-automation
+spec:
+  selector:
+    app.kubernetes.io/name: home-assistant-mobile-webhook
+  ports:
+    - name: http
+      port: 8080
+      targetPort: http

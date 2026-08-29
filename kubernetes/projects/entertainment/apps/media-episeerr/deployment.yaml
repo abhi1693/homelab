@@ -1,0 +1,227 @@
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: episeerr
+  namespace: media
+  labels:
+    app.kubernetes.io/name: episeerr
+    app.kubernetes.io/part-of: media-stack
+    home-lab.io/project-slug: entertainment
+spec:
+  replicas: 1
+  revisionHistoryLimit: 2
+  strategy:
+    type: Recreate
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: episeerr
+  template:
+    metadata:
+      annotations:
+        home-lab.io/config-revision: "2026-08-17.5"
+      labels:
+        app.kubernetes.io/name: episeerr
+        app.kubernetes.io/part-of: media-stack
+        home-lab.io/topology-group: heavy-media
+    spec:
+      automountServiceAccountToken: false
+      nodeSelector:
+        kubernetes.io/arch: arm64
+      securityContext:
+        fsGroup: 1000
+        fsGroupChangePolicy: OnRootMismatch
+        seccompProfile:
+          type: RuntimeDefault
+      initContainers:
+        - name: seed-config
+          # renovate: datasource=docker depName=ghcr.io/abhi1693/home-lab-episeerr
+          image: registry.home/ghcr.io/abhi1693/home-lab-episeerr:3.8.9-5
+          imagePullPolicy: IfNotPresent
+          command:
+            - python
+            - /bootstrap/seed-config.py
+          resources:
+            requests:
+              cpu: 5m
+              memory: 32Mi
+            limits:
+              memory: 96Mi
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop:
+                - ALL
+            readOnlyRootFilesystem: true
+            runAsGroup: 1000
+            runAsNonRoot: true
+            runAsUser: 1000
+          volumeMounts:
+            - name: config
+              mountPath: /app/config
+            - name: bootstrap
+              mountPath: /bootstrap
+              readOnly: true
+            - name: seed
+              mountPath: /seed
+              readOnly: true
+            - name: tmp
+              mountPath: /tmp
+      containers:
+        - name: episeerr
+          # renovate: datasource=docker depName=ghcr.io/abhi1693/home-lab-episeerr
+          image: registry.home/ghcr.io/abhi1693/home-lab-episeerr:3.8.9-5
+          imagePullPolicy: IfNotPresent
+          command:
+            - python
+            - /bootstrap/start.py
+          env:
+            - name: TZ
+              value: Asia/Kolkata
+            - name: SONARR_URL
+              value: http://sonarr.media.svc.cluster.local:8989
+            - name: SONARR_API_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: media-jellyfin-arr-api-keys
+                  key: SONARR_API_KEY
+            - name: JELLYFIN_URL
+              value: http://jellyfin.media.svc.cluster.local:8096
+            - name: JELLYFIN_API_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: media-jellyfin-arr-api-keys
+                  key: JELLYFIN_API_KEY
+            - name: JELLYFIN_USER_ID
+              value: asaharan
+            - name: JELLYFIN_ALLOWED_PATH_PREFIXES
+              value: /media/tv
+            # Compatibility sampling fallback only. The patched runtime gates
+            # next-season searches on aggregate season progress below.
+            - name: JELLYFIN_TRIGGER_PERCENTAGE
+              value: "50"
+            - name: SEASON_PREFETCH_PERCENTAGE
+              value: "25"
+            - name: JELLYFIN_POLL_INTERVAL
+              value: "60"
+            - name: JELLYSEERR_URL
+              value: http://jellyseerr.media.svc.cluster.local:10241
+            - name: JELLYSEERR_API_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: media-episeerr
+                  key: JELLYSEERR_API_KEY
+            - name: EPISEERR_WEBHOOK_URL
+              value: http://episeerr.media.svc.cluster.local:5002/sonarr-webhook
+            - name: JELLYSEERR_WEBHOOK_URL
+              value: http://episeerr.media.svc.cluster.local:5002/api/integration/seerr/webhook
+            - name: REQUIRE_AUTH
+              value: "true"
+            - name: AUTH_BYPASS_LOCALHOST
+              value: "false"
+            - name: AUTH_USERNAME
+              value: asaharan
+            - name: AUTH_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: media-episeerr
+                  key: AUTH_PASSWORD
+            - name: SECRET_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: media-episeerr
+                  key: SECRET_KEY
+            - name: CONFIG_PATH
+              value: /app/config/config.json
+            - name: SETTINGS_DB_PATH
+              value: /app/config/settings.db
+            - name: CLEANUP_DRY_RUN
+              value: "true"
+          ports:
+            - name: http
+              containerPort: 5002
+              protocol: TCP
+          resources:
+            requests:
+              cpu: 25m
+              memory: 160Mi
+            limits:
+              memory: 384Mi
+          startupProbe:
+            httpGet:
+              path: /login
+              port: http
+            periodSeconds: 5
+            timeoutSeconds: 3
+            failureThreshold: 60
+          readinessProbe:
+            httpGet:
+              path: /login
+              port: http
+            periodSeconds: 10
+            timeoutSeconds: 3
+            failureThreshold: 6
+          livenessProbe:
+            httpGet:
+              path: /login
+              port: http
+            periodSeconds: 30
+            timeoutSeconds: 5
+            failureThreshold: 4
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop:
+                - ALL
+            readOnlyRootFilesystem: true
+            runAsGroup: 1000
+            runAsNonRoot: true
+            runAsUser: 1000
+          volumeMounts:
+            - name: config
+              mountPath: /app/config
+            - name: data
+              mountPath: /app/data
+            - name: logs
+              mountPath: /app/logs
+            - name: temp
+              mountPath: /app/temp
+            - name: tmp
+              mountPath: /tmp
+            - name: bootstrap
+              mountPath: /bootstrap
+              readOnly: true
+      volumes:
+        - name: config
+          persistentVolumeClaim:
+            claimName: episeerr-data
+        - name: data
+          emptyDir:
+            sizeLimit: 256Mi
+        - name: logs
+          emptyDir:
+            sizeLimit: 256Mi
+        - name: temp
+          emptyDir:
+            sizeLimit: 256Mi
+        - name: tmp
+          emptyDir:
+            sizeLimit: 128Mi
+        - name: bootstrap
+          configMap:
+            name: episeerr
+            items:
+              - key: seed-config.py
+                path: seed-config.py
+              - key: start.py
+                path: start.py
+              - key: bootstrap.py
+                path: bootstrap.py
+        - name: seed
+          configMap:
+            name: episeerr
+            items:
+              - key: config.json
+                path: config.json
+              - key: global_settings.json
+                path: global_settings.json

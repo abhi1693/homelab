@@ -20,10 +20,14 @@ spec:
     - kubernetes/projects/home-automation/apps/cluster-ops-crds
     - kubernetes/projects/home-automation/apps/cluster-ops
     - kubernetes/projects/home-automation/apps/home-assistant
+    - kubernetes/projects/home-automation/apps/home-assistant-go2rtc
+    - kubernetes/projects/home-automation/apps/home-assistant-mobile-webhook
+    - kubernetes/projects/home-automation/apps/home-assistant-status-bridge
     - kubernetes/projects/home-automation/apps/home-automation-helm-repositories
     - kubernetes/projects/home-automation/apps/rack-ops-controllers
     - kubernetes/projects/home-automation/apps/netbox-secrets
     - kubernetes/projects/home-automation/apps/netbox
+    - kubernetes/projects/home-automation/apps/netbox-mcp-server
     - kubernetes/projects/home-automation/apps/ups-monitoring
   correctDrift:
     enabled: true

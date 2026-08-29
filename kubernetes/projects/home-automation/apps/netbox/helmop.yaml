@@ -41,7 +41,8 @@ spec:
   helm:
     releaseName: netbox
     repo: oci://ghcr.io/netbox-community/netbox-chart/netbox
-    version: 8.3.22
+    # renovate: datasource=docker depName=ghcr.io/netbox-community/netbox-chart/netbox
+    version: 8.3.63
     timeoutSeconds: 600
     valuesFrom:
       - configMapKeyRef:

@@ -14,20 +14,20 @@ spec:
   metricsPath: /metrics
   scrapeInterval: 60s
   scrapeTimeout: 15s
-  staticConfigs:
-    - targets:
-        - 192.168.3.243:9633
-      labels:
-        node: k8s-rpi1
-    - targets:
-        - 192.168.3.191:9633
-      labels:
-        node: k8s-rpi2
-    - targets:
-        - 192.168.3.108:9633
-      labels:
-        node: k8s-rpi3
-    - targets:
-        - 192.168.3.135:9633
-      labels:
-        node: k8s-rpi4
+  kubernetesSDConfigs:
+    - role: Node
+  relabelings:
+    - action: keep
+      sourceLabels:
+        - __meta_kubernetes_node_name
+      regex: k8s-rpi.*
+    - action: replace
+      sourceLabels:
+        - __meta_kubernetes_node_address_InternalIP
+      regex: (.+)
+      replacement: $1:9633
+      targetLabel: __address__
+    - action: replace
+      sourceLabels:
+        - __meta_kubernetes_node_name
+      targetLabel: node

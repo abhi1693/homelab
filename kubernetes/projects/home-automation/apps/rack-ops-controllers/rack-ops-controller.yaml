@@ -18,6 +18,8 @@ spec:
       app.kubernetes.io/part-of: rack-ops
   template:
     metadata:
+      annotations:
+        home-lab.io/policy-revision: "2026-08-28-thanos-query"
       labels:
         app.kubernetes.io/name: rack-ops
         app.kubernetes.io/part-of: rack-ops
@@ -25,6 +27,15 @@ spec:
     spec:
       serviceAccountName: rack-ops
       automountServiceAccountToken: true
+      nodeSelector:
+        kubernetes.io/arch: arm64
+      affinity:
+        nodeAffinity:
+          requiredDuringSchedulingIgnoredDuringExecution:
+            nodeSelectorTerms:
+              - matchExpressions:
+                  - key: node-role.kubernetes.io/control-plane
+                    operator: DoesNotExist
       imagePullSecrets:
         - name: harbor-registry
       restartPolicy: Always
@@ -102,7 +113,7 @@ spec:
           resources:
             requests:
               cpu: 10m
-              memory: 81Mi
+              memory: 113Mi
             limits:
               memory: 160Mi
           securityContext:

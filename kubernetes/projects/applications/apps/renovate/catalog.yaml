@@ -1,0 +1,19 @@
+---
+apiVersion: home-lab.io/v1alpha1
+kind: WorkloadCatalog
+metadata:
+  name: renovate
+spec:
+  displayName: Renovate
+  purpose: Scan approved dependency sources and open guarded dependency-update pull requests.
+  owner: home-lab
+  project: applications
+  cluster: home-k3s
+  lifecycle: active
+  criticality: medium
+  dataClassification: sensitive
+  repository: https://github.com/abhi1693/home-lab
+  gitPath: kubernetes/projects/applications/apps/renovate
+  runbook: kubernetes/projects/applications/apps/renovate/README.md
+  workloads:
+    - {key: home-k3s/renovate/batch/cronjob/renovate, namespace: renovate, apiGroup: batch, kind: CronJob, name: renovate, sourcePath: kubernetes/projects/applications/apps/renovate/cronjob.yaml}

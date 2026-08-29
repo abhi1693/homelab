@@ -62,7 +62,7 @@ spec:
       initContainers:
         - name: wait-for-api-rollout
           # renovate: datasource=github-releases depName=abhi1693/wardn-hub
-          image: registry.home/ghcr.io/abhi1693/wardn-hub-backend:0.2.179
+          image: registry.home/ghcr.io/abhi1693/wardn-hub-backend:0.2.181
           imagePullPolicy: IfNotPresent
           command:
             - python
@@ -96,7 +96,7 @@ spec:
       containers:
         - name: worker
           # renovate: datasource=github-releases depName=abhi1693/wardn-hub
-          image: registry.home/ghcr.io/abhi1693/wardn-hub-backend:0.2.179
+          image: registry.home/ghcr.io/abhi1693/wardn-hub-backend:0.2.181
           imagePullPolicy: IfNotPresent
           command:
             - python
@@ -169,8 +169,8 @@ spec:
             failureThreshold: 4
           resources:
             requests:
-              cpu: 370m
-              memory: 1200Mi
+              cpu: 620m
+              memory: 1028Mi
             limits:
               memory: 1536Mi
           securityContext:

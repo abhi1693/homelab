@@ -1,0 +1,19 @@
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: episeerr
+  namespace: media
+  labels:
+    app.kubernetes.io/name: episeerr
+    app.kubernetes.io/part-of: media-stack
+spec:
+  type: ClusterIP
+  trafficDistribution: PreferSameNode
+  selector:
+    app.kubernetes.io/name: episeerr
+  ports:
+    - name: http
+      port: 5002
+      targetPort: http
+      protocol: TCP

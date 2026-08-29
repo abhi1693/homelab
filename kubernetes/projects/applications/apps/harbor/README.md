@@ -50,8 +50,9 @@ token service URLs stay local-only.
 
 The registry claim is provisioned from `nfs-shared-retain`, which gives Harbor
 the isolated NAS directory `harbor/harbor-registry-nfs` below
-`192.168.3.115:/nfs/k3s-shared-storage`. The former Longhorn registry claim was
-removed after the NFS copy and live registry API were verified.
+`192.168.1.128:/var/nfs/shared/k3s_shared_storage` on the UNAS Pro 4. The
+former Longhorn registry claim was removed after the NFS copy and live registry
+API were verified.
 
 The Trivy claim uses the same retained NFS class at
 `harbor/harbor-trivy-cache-nfs`. Its contents are disposable vulnerability and

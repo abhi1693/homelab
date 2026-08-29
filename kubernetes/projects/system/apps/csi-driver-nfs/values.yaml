@@ -9,7 +9,7 @@ image:
 kubeletDir: /var/lib/kubelet
 
 feature:
-  enableFSGroupPolicy: true
+  enableFSGroupPolicy: false
   enableInlineVolume: false
   propagateHostMountOptions: false
 
@@ -19,6 +19,14 @@ controller:
   enableSnapshotter: false
   logLevel: 2
   priorityClassName: system-cluster-critical
+  nodeSelector:
+    kubernetes.io/arch: arm64
+    node-role.kubernetes.io/control-plane: "true"
+  tolerations:
+    - key: CriticalAddonsOnly
+      operator: Equal
+      value: "true"
+      effect: NoExecute
   resources:
     csiProvisioner:
       requests:
@@ -57,6 +65,11 @@ node:
   priorityClassName: system-cluster-critical
   nodeSelector:
     kubernetes.io/arch: arm64
+  tolerations:
+    - key: CriticalAddonsOnly
+      operator: Equal
+      value: "true"
+      effect: NoExecute
   resources:
     livenessProbe:
       requests:

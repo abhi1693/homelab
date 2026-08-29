@@ -36,6 +36,8 @@
     kube_vip_expected_address_line: 'value: "{{ k3s.registration_vip }}"'
     kube_vip_expected_image_line: "image: ghcr.io/kube-vip/kube-vip:{{ kube_vip.version }}"
     kube_vip_expected_priority_class_line: "priorityClassName: {{ kube_vip.priority_class_name }}"
+    kube_vip_expected_kubernetes_service_host_line: 'value: "{{ kube_vip.kubernetes_service_host }}"'
+    kube_vip_expected_kubernetes_service_port_line: 'value: "{{ kube_vip.kubernetes_service_port }}"'
 
 - name: Assert kube-vip manifest renders the expected VIP and image version
   ansible.builtin.assert:
@@ -43,8 +45,10 @@
       - kube_vip_expected_address_line in kube_vip_manifest_text
       - kube_vip_expected_image_line in kube_vip_manifest_text
       - kube_vip_expected_priority_class_line in kube_vip_manifest_text
-    fail_msg: Expected kube-vip manifest to contain the configured VIP, image version, and priority class.
-    success_msg: "kube-vip manifest contains the configured VIP, image version, and priority class"
+      - kube_vip_expected_kubernetes_service_host_line in kube_vip_manifest_text
+      - kube_vip_expected_kubernetes_service_port_line in kube_vip_manifest_text
+    fail_msg: Expected kube-vip manifest to contain the configured VIP, API endpoint, image version, and priority class.
+    success_msg: "kube-vip manifest contains the configured VIP, API endpoint, image version, and priority class"
 
 - name: Read kube-vip priority class
   ansible.builtin.command:
@@ -67,6 +71,31 @@
       - kube_vip_priority_class.stdout | trim == kube_vip.priority_class_name
     fail_msg: "Expected kube-vip to use priority class {{ kube_vip.priority_class_name }}"
     success_msg: "kube-vip uses priority class {{ kube_vip.priority_class_name }}"
+
+- name: Read live kube-vip Kubernetes API host
+  ansible.builtin.command:
+    argv:
+      - /usr/local/bin/k3s
+      - kubectl
+      - -n
+      - kube-system
+      - get
+      - daemonset
+      - kube-vip-ds
+      - -o
+      - 'jsonpath={.spec.template.spec.containers[?(@.name=="kube-vip")].env[?(@.name=="KUBERNETES_SERVICE_HOST")].value}'
+  register: kube_vip_live_kubernetes_service_host
+  changed_when: false
+
+- name: Assert live kube-vip replicas use their node-local API
+  ansible.builtin.assert:
+    that:
+      - kube_vip.kubernetes_service_host == '127.0.0.1'
+      - kube_vip_live_kubernetes_service_host.stdout | trim == kube_vip.kubernetes_service_host
+    fail_msg: >-
+      Expected the live kube-vip DaemonSet to use the node-local K3s API at
+      127.0.0.1 instead of a physical control-plane address or the VIP.
+    success_msg: "Live kube-vip replicas use their node-local K3s API"
 
 - name: Wait for kube-vip DaemonSet rollout
   ansible.builtin.command:

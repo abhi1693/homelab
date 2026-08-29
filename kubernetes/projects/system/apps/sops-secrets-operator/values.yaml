@@ -1,5 +1,13 @@
 ---
 namespaced: false
+nodeSelector:
+  kubernetes.io/arch: arm64
+  node-role.kubernetes.io/control-plane: "true"
+tolerations:
+  - key: CriticalAddonsOnly
+    operator: Equal
+    value: "true"
+    effect: NoExecute
 secretsAsFiles:
   - name: sops-age-key-file
     mountPath: /etc/sops-age-key-file

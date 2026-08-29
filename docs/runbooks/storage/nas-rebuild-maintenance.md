@@ -6,14 +6,14 @@ title: NAS Rebuild Maintenance
 
 ## Meaning
 
-Use this maintenance state before rebuilding `nas.home`. It prevents
-Kubernetes workloads from reading or writing the NAS media library export
-through the `media/media-library-nfs-csi` PVC.
+Use this maintenance state before rebuilding the active UNAS completed-media
+Shared Drive. It prevents Kubernetes workloads from reading or writing the
+library through the `media/media-library-unas` PVC.
 
 ## Impact
 
 Jellyfin, Sonarr, Radarr, Ryokan, and Shoko remain at zero replicas.
-Download-only services that use the NAS-backed `media-downloads-nfs-csi` PVC can
+Download-only services that use the UNAS-backed `media-downloads-unas` PVC can
 remain running, but completed-library imports and playback are unavailable.
 
 ## Diagnosis
@@ -25,7 +25,7 @@ kubectl get pods -A -o json | jq -r '
   .items[]
   | select(.status.phase == "Running")
   | select(any(.spec.volumes[]?;
-      .persistentVolumeClaim.claimName == "media-library-nfs-csi"))
+      .persistentVolumeClaim.claimName == "media-library-unas"))
   | [.metadata.namespace, .metadata.name, .spec.nodeName]
   | @tsv
 '
@@ -62,8 +62,9 @@ from `Diagnosis` after Fleet has completed a reconciliation interval.
 
 ## Recovery
 
-After the rebuilt NAS is online and `192.168.3.115:/nfs/media_new` is mounted
-and verified, restore the media workloads:
+After the rebuilt Shared Drive is online and
+`192.168.1.128:/var/nfs/shared/media` is mounted and verified, restore the
+media workloads:
 
 - remove `paused: true` from the five affected `fleet.yaml` files and the three
   `HelmOp` specs;
@@ -79,4 +80,4 @@ drift correction will overwrite it.
 
 - `kubernetes/projects/entertainment/README.md`
 - `kubernetes/projects/entertainment/apps/media-storage/README.md`
-- `kubernetes/projects/entertainment/apps/media-storage/nas-library-pv.yaml`
+- `kubernetes/projects/entertainment/apps/media-storage/library-unas-pv.yaml`

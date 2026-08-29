@@ -1,0 +1,18 @@
+---
+apiVersion: home-lab.io/v1alpha1
+kind: WorkloadCatalog
+metadata:
+  name: alloy-logs
+spec:
+  displayName: Alloy Logs
+  purpose: Collect Kubernetes application logs and forward them to Loki.
+  owner: home-lab
+  project: system
+  cluster: home-k3s
+  lifecycle: active
+  criticality: high
+  dataClassification: sensitive
+  repository: https://github.com/abhi1693/home-lab
+  gitPath: kubernetes/projects/system/apps/alloy-logs
+  workloads:
+    - {key: home-k3s/cattle-monitoring-system/apps/deployment/alloy-logs, namespace: cattle-monitoring-system, apiGroup: apps, kind: Deployment, name: alloy-logs, desiredReplicas: 1, sourcePath: kubernetes/projects/system/apps/alloy-logs/values.yaml}

@@ -4,7 +4,7 @@ chartContext:
 image:
   repository: registry.home/ghcr.io/abhi1693/home-lab-jellyfin
   # renovate: datasource=docker depName=ghcr.io/abhi1693/home-lab-jellyfin
-  tag: 10.11.8-pgsql.10.11.8-1-1c9ae30
+  tag: 10.11.8-pgsql.10.11.8-1-webhook-v21-overlay2
   pullPolicy: IfNotPresent
 imagePullSecret:
   harbor-registry:
@@ -20,6 +20,11 @@ workload:
     strategy: Recreate
     podSpec:
       automountServiceAccountToken: false
+      securityContext:
+        fsGroup: 0
+        fsGroupChangePolicy: OnRootMismatch
+        supplementalGroups:
+          - 1000
       annotations:
         home-lab.io/config-seed-revision: "20260724"
       labels:
@@ -68,16 +73,22 @@ workload:
             - -ec
             - |
               patched_entrypoint=/tmp/jellyfin-entrypoint.sh
-              sed \
+              sed_args=(
                 -e '/plugin_name="$(basename "${image_plugin_dir}")"/a\
                   case "${plugin_name}" in\
                     "Intro Skipper_"*|"InPlayer Episode Preview_"*|"Playback Reporting_"*)\
                       continue\
                       ;;\
                   esac
-              ' \
-                -e 's|find "${data_root}/root" -type f -name options.xml -print0|find -L "${data_root}/root" -type f -name options.xml -print0|' \
-                /entrypoint.sh > "${patched_entrypoint}"
+                ' \
+                -e 's|find "${data_root}/root" -type f -name options.xml -print0|find -L "${data_root}/root" -type f -name options.xml -print0|'
+              )
+              if ! grep -q 'POSTGRES_MAX_POOL_SIZE' /entrypoint.sh; then
+                sed_args+=(
+                  -e 's|connection_string="Password=${POSTGRES_PASSWORD};User ID=${POSTGRES_USER};Host=${POSTGRES_HOST};Port=${POSTGRES_PORT};Database=${POSTGRES_DB}"|connection_string="Password=${POSTGRES_PASSWORD};User ID=${POSTGRES_USER};Host=${POSTGRES_HOST};Port=${POSTGRES_PORT};Database=${POSTGRES_DB};Maximum Pool Size=${POSTGRES_MAX_POOL_SIZE}"|'
+                )
+              fi
+              sed "${sed_args[@]}" /entrypoint.sh > "${patched_entrypoint}"
               chmod +x "${patched_entrypoint}"
 
               exec "${patched_entrypoint}"
@@ -100,9 +111,10 @@ workload:
                 name: media-jellyfin-postgresql
                 key: password
                 expandObjectName: false
+            POSTGRES_MAX_POOL_SIZE: "14"
             POSTGRES_SSLMODE: Disable
             JELLYFIN_CONFIG_SOURCE_DIRS: /opt/jellyfin/config-secrets
-            JELLYFIN_PLUGIN_CONFIG_SOURCE_DIRS: /opt/jellyfin/plugin-config:/opt/jellyfin/plugin-secrets:/opt/jellyfin/plugin-overrides
+            JELLYFIN_PLUGIN_CONFIG_SOURCE_DIRS: /opt/jellyfin/plugin-config:/opt/jellyfin/plugin-episeerr:/opt/jellyfin/plugin-secrets:/opt/jellyfin/plugin-overrides
             JELLYFIN_ENHANCED_AUTO_SKIP_OUTRO: "false"
             JELLYFIN_SHARED_DATA_DIR: /shared-data
             JELLYFIN_SHARED_DATA_PATHS: metadata:data/collections:data/subtitles:data/livetv:data/playlists:data/imdb-ratings-cache:data/trickplay:root:Shokofin
@@ -154,8 +166,8 @@ podOptions:
     kubernetes.io/arch: arm64
 resources:
   requests:
-    cpu: 1700m
-    memory: 837Mi
+    cpu: 570m
+    memory: 822Mi
   limits:
     cpu: 2500m
     memory: 4Gi
@@ -234,6 +246,13 @@ persistence:
           mountPath: /opt/jellyfin/plugin-overrides
         jellyfin-enhanced-config:
           mountPath: /opt/jellyfin/plugin-overrides
+  plugin-config-episeerr:
+    enabled: true
+    type: configmap
+    objectName: media-jellyfin-episeerr-webhook
+    expandObjectName: false
+    mountPath: /opt/jellyfin/plugin-episeerr
+    readOnly: true
   shared-data:
     enabled: true
     type: pvc
@@ -242,7 +261,7 @@ persistence:
   media:
     enabled: true
     type: pvc
-    existingClaim: media-library-nfs-csi
+    existingClaim: media-library-unas
     mountPath: /media
   transcode:
     enabled: false
@@ -287,6 +306,16 @@ networkPolicy:
               matchLabels:
                 app.kubernetes.io/instance: qbittorrent-smart-queues
                 app.kubernetes.io/name: qbittorrent-smart-queues
+          - podSelector:
+              matchLabels:
+                app.kubernetes.io/name: episeerr
+          - namespaceSelector:
+              matchLabels:
+                kubernetes.io/metadata.name: home-assistant
+            podSelector:
+              matchLabels:
+                app.kubernetes.io/instance: home-assistant
+                app.kubernetes.io/name: home-assistant
         ports:
           - protocol: TCP
             port: 8096
@@ -355,6 +384,13 @@ networkPolicy:
         ports:
           - protocol: TCP
             port: 8989
+      - to:
+          - podSelector:
+              matchLabels:
+                app.kubernetes.io/name: episeerr
+        ports:
+          - protocol: TCP
+            port: 5002
       - to:
           - ipBlock:
               cidr: 0.0.0.0/0

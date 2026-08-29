@@ -14,7 +14,8 @@ spec:
   clientSecretName: home-lab-apps-github
   pollingInterval: 1h0m0s
   paths:
-    - kubernetes/projects/entertainment/apps/media-do-squid-firewall
+    - kubernetes/projects/entertainment/apps/media-episeerr
+    - kubernetes/projects/entertainment/apps/media-episeerr-networkpolicy
     - kubernetes/projects/entertainment/apps/media-flaresolverr
     - kubernetes/projects/entertainment/apps/media-helm-repositories
     - kubernetes/projects/entertainment/apps/media-jellyfin

@@ -33,8 +33,8 @@ spec:
           type: RuntimeDefault
       containers:
         - name: whatsapp-bridge
-          # renovate: datasource=git-refs depName=github.com/abhi1693/wardn-ai currentValue=master
-          image: registry.home/ghcr.io/abhi1693/wardn-ai-whatsapp-bridge:0.0.37
+          # renovate: datasource=git-refs depName=https://github.com/abhi1693/wardn-ai currentValue=master
+          image: registry.home/ghcr.io/abhi1693/wardn-ai-whatsapp-bridge:12b8f664b80a28656b7fa86ac191e29c3f734ae7
           imagePullPolicy: IfNotPresent
           env:
             - name: DATA_DIR

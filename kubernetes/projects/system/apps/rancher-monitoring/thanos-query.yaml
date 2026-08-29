@@ -1,0 +1,268 @@
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: thanos-query
+  namespace: cattle-monitoring-system
+  labels:
+    app.kubernetes.io/name: thanos-query
+    app.kubernetes.io/component: query
+    app.kubernetes.io/part-of: rancher-monitoring
+    home-lab.io/project-slug: system
+automountServiceAccountToken: false
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: thanos-query
+  namespace: cattle-monitoring-system
+  labels:
+    app.kubernetes.io/name: thanos-query
+    app.kubernetes.io/component: query
+    app.kubernetes.io/part-of: rancher-monitoring
+    home-lab.io/project-slug: system
+spec:
+  replicas: 2
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxUnavailable: 0
+      maxSurge: 1
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: thanos-query
+      app.kubernetes.io/component: query
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: thanos-query
+        app.kubernetes.io/component: query
+        app.kubernetes.io/part-of: rancher-monitoring
+        home-lab.io/project-slug: system
+    spec:
+      serviceAccountName: thanos-query
+      automountServiceAccountToken: false
+      terminationGracePeriodSeconds: 120
+      nodeSelector:
+        kubernetes.io/arch: arm64
+      tolerations:
+        - key: CriticalAddonsOnly
+          operator: Equal
+          value: "true"
+          effect: NoExecute
+      affinity:
+        nodeAffinity:
+          preferredDuringSchedulingIgnoredDuringExecution:
+            - weight: 100
+              preference:
+                matchExpressions:
+                  - key: node-role.kubernetes.io/control-plane
+                    operator: DoesNotExist
+        podAntiAffinity:
+          requiredDuringSchedulingIgnoredDuringExecution:
+            - labelSelector:
+                matchLabels:
+                  app.kubernetes.io/name: thanos-query
+                  app.kubernetes.io/component: query
+              topologyKey: kubernetes.io/hostname
+          preferredDuringSchedulingIgnoredDuringExecution:
+            - weight: 100
+              podAffinityTerm:
+                labelSelector:
+                  matchLabels:
+                    app.kubernetes.io/name: prometheus
+                    prometheus: rancher-monitoring-prometheus
+                topologyKey: kubernetes.io/hostname
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 65532
+        runAsGroup: 65532
+        fsGroup: 65532
+        seccompProfile:
+          type: RuntimeDefault
+      containers:
+        - name: thanos-query
+          image: docker.io/rancher/appco-thanos:0.40.1-8.1
+          imagePullPolicy: IfNotPresent
+          args:
+            - query
+            - --log.level=info
+            - --grpc-address=0.0.0.0:10901
+            - --http-address=0.0.0.0:9090
+            - --query.replica-label=prometheus_replica
+            - --no-query.partial-response
+            - --query.timeout=2m
+            - --store.response-timeout=1m
+            - --endpoint=dnssrv+_grpc._tcp.rancher-monitoring-thanos-discovery.cattle-monitoring-system.svc.cluster.local
+            - --enable-auto-gomemlimit
+          ports:
+            - name: grpc
+              containerPort: 10901
+              protocol: TCP
+            - name: http
+              containerPort: 9090
+              protocol: TCP
+          livenessProbe:
+            httpGet:
+              path: /-/healthy
+              port: http
+            failureThreshold: 4
+            periodSeconds: 30
+            timeoutSeconds: 5
+          readinessProbe:
+            httpGet:
+              path: /-/ready
+              port: http
+            failureThreshold: 6
+            periodSeconds: 10
+            timeoutSeconds: 5
+          resources:
+            requests:
+              cpu: 100m
+              memory: 512Mi
+            limits:
+              memory: 2Gi
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities:
+              drop:
+                - ALL
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: thanos-query
+  namespace: cattle-monitoring-system
+  labels:
+    app.kubernetes.io/name: thanos-query
+    app.kubernetes.io/component: query
+    app.kubernetes.io/part-of: rancher-monitoring
+    home-lab.io/project-slug: system
+spec:
+  selector:
+    app.kubernetes.io/name: thanos-query
+    app.kubernetes.io/component: query
+  ports:
+    - name: http
+      port: 9090
+      targetPort: http
+      protocol: TCP
+    - name: grpc
+      port: 10901
+      targetPort: grpc
+      protocol: TCP
+---
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: thanos-query
+  namespace: cattle-monitoring-system
+  labels:
+    app.kubernetes.io/name: thanos-query
+    app.kubernetes.io/component: query
+    app.kubernetes.io/part-of: rancher-monitoring
+    home-lab.io/project-slug: system
+spec:
+  minAvailable: 1
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: thanos-query
+      app.kubernetes.io/component: query
+---
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+  name: thanos-query
+  namespace: cattle-monitoring-system
+  labels:
+    app.kubernetes.io/name: thanos-query
+    app.kubernetes.io/component: query
+    app.kubernetes.io/part-of: rancher-monitoring
+    home-lab.io/project-slug: system
+spec:
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: thanos-query
+      app.kubernetes.io/component: query
+  endpoints:
+    - port: http
+      interval: 60s
+      path: /metrics
+---
+apiVersion: monitoring.coreos.com/v1
+kind: PrometheusRule
+metadata:
+  name: thanos-query-health
+  namespace: cattle-monitoring-system
+  labels:
+    app.kubernetes.io/name: thanos-query
+    app.kubernetes.io/component: query
+    app.kubernetes.io/part-of: rancher-monitoring
+    home-lab.io/project-slug: system
+spec:
+  groups:
+    - name: thanos-query.availability
+      rules:
+        - alert: ThanosQueryReplicaUnavailable
+          expr: kube_deployment_status_replicas_available{namespace="cattle-monitoring-system", deployment="thanos-query"} < 2
+          for: 5m
+          labels:
+            severity: warning
+          annotations:
+            summary: A Thanos Query replica is unavailable
+            description: Thanos Query has fewer than two available replicas for five minutes.
+        - alert: ThanosQueryStoreAPIConnectionsDegraded
+          expr: min by (pod) (thanos_query_endpoints_dns_provider_results{addr="dnssrv+_grpc._tcp.rancher-monitoring-thanos-discovery.cattle-monitoring-system.svc.cluster.local"}) < 2
+          for: 5m
+          labels:
+            severity: warning
+          annotations:
+            summary: A Thanos Query replica sees fewer than two Prometheus sidecars
+            description: Thanos Query pod {{ $labels.pod }} has resolved fewer than two StoreAPI endpoints for five minutes.
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: thanos-query-boundary
+  namespace: cattle-monitoring-system
+  labels:
+    app.kubernetes.io/name: thanos-query
+    app.kubernetes.io/component: query
+    app.kubernetes.io/part-of: rancher-monitoring
+    home-lab.io/project-slug: system
+spec:
+  podSelector:
+    matchLabels:
+      app.kubernetes.io/name: thanos-query
+      app.kubernetes.io/component: query
+  policyTypes:
+    - Ingress
+    - Egress
+  ingress:
+    - from:
+        - namespaceSelector: {}
+      ports:
+        - protocol: TCP
+          port: 9090
+  egress:
+    - to:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: kube-system
+          podSelector:
+            matchLabels:
+              k8s-app: kube-dns
+      ports:
+        - protocol: UDP
+          port: 53
+        - protocol: TCP
+          port: 53
+    - to:
+        - podSelector:
+            matchLabels:
+              app.kubernetes.io/name: prometheus
+              prometheus: rancher-monitoring-prometheus
+      ports:
+        - protocol: TCP
+          port: 10901

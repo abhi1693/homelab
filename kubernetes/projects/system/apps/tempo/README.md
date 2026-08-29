@@ -23,6 +23,7 @@ Grafana queries Tempo through the `Tempo` datasource provisioned by the Rancher
 Monitoring chart values.
 
 The MCP endpoint uses Tempo's HTTP API and can expose trace data to connected AI
-clients. The `tempo-boundary` NetworkPolicy permits port `3200` ingress from
+clients. The `tempo-boundary` NetworkPolicy permits OTLP ingestion from the
+OpenTelemetry processing tier and Alloy Faro, and port `3200` ingress from
 Traefik for `tempo.home`, plus Grafana and Prometheus inside
 `cattle-monitoring-system`.

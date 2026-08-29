@@ -12,10 +12,16 @@ cloudnative-pg:
     maxConcurrentReconciles: 10
   nodeSelector:
     kubernetes.io/arch: arm64
+    node-role.kubernetes.io/control-plane: "true"
+  tolerations:
+    - key: CriticalAddonsOnly
+      operator: Equal
+      value: "true"
+      effect: NoExecute
   resources:
     requests:
-      cpu: 20m
-      memory: 154Mi
+      cpu: 40m
+      memory: 187Mi
     limits:
       memory: 208Mi
   podAnnotations:

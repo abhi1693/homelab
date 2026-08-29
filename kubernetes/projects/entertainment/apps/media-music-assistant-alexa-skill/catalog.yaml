@@ -1,0 +1,18 @@
+---
+apiVersion: home-lab.io/v1alpha1
+kind: WorkloadCatalog
+metadata:
+  name: music-assistant-alexa-skill
+spec:
+  displayName: Music Assistant Alexa Skill
+  purpose: Bridge Alexa skill callbacks and Echo playback into Music Assistant queues and streams.
+  owner: home-lab
+  project: entertainment
+  cluster: home-k3s
+  lifecycle: active
+  criticality: medium
+  dataClassification: restricted
+  repository: https://github.com/abhi1693/home-lab
+  gitPath: kubernetes/projects/entertainment/apps/media-music-assistant-alexa-skill
+  workloads:
+    - {key: home-k3s/media/apps/deployment/music-assistant-alexa-skill, namespace: media, apiGroup: apps, kind: Deployment, name: music-assistant-alexa-skill, desiredReplicas: 1, sourcePath: kubernetes/projects/entertainment/apps/media-music-assistant-alexa-skill/deployment.yaml}

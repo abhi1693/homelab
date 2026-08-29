@@ -1,0 +1,18 @@
+---
+apiVersion: home-lab.io/v1alpha1
+kind: WorkloadCatalog
+metadata:
+  name: profilarr
+spec:
+  displayName: Profilarr
+  purpose: Manage shared quality profiles, custom formats, and quality definitions for Radarr and Sonarr.
+  owner: home-lab
+  project: entertainment
+  cluster: home-k3s
+  lifecycle: active
+  criticality: medium
+  dataClassification: sensitive
+  repository: https://github.com/abhi1693/home-lab
+  gitPath: kubernetes/projects/entertainment/apps/media-profilarr
+  workloads:
+    - {key: home-k3s/media/apps/deployment/profilarr, namespace: media, apiGroup: apps, kind: Deployment, name: profilarr, desiredReplicas: 1, sourcePath: kubernetes/projects/entertainment/apps/media-profilarr/deployment.yaml}

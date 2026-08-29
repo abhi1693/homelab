@@ -1,0 +1,23 @@
+---
+apiVersion: home-lab.io/v1alpha1
+kind: WorkloadCatalog
+metadata:
+  name: fleet
+spec:
+  displayName: Rancher Fleet
+  purpose: Reconcile Git repositories, Helm operations, and local-cluster agents into declared Kubernetes state.
+  owner: home-lab
+  project: system
+  cluster: home-k3s
+  lifecycle: active
+  criticality: critical
+  dataClassification: restricted
+  repository: https://github.com/abhi1693/home-lab
+  gitPath: infrastructure/ansible/inventories/home/group_vars/k3s_servers.yml
+  runbook: docs/runbooks/k3s-netbox-drift-reconciliation.md
+  workloads:
+    - {key: home-k3s/cattle-fleet-local-system/apps/deployment/fleet-agent, namespace: cattle-fleet-local-system, apiGroup: apps, kind: Deployment, name: fleet-agent, desiredReplicas: 2, sourcePath: infrastructure/ansible/roles/rancher/templates/rancher-helmchart.yaml.j2}
+    - {key: home-k3s/cattle-fleet-system/apps/deployment/fleet-controller, namespace: cattle-fleet-system, apiGroup: apps, kind: Deployment, name: fleet-controller, desiredReplicas: 1, sourcePath: infrastructure/ansible/roles/rancher/templates/rancher-helmchart.yaml.j2}
+    - {key: home-k3s/cattle-fleet-system/apps/deployment/gitjob, namespace: cattle-fleet-system, apiGroup: apps, kind: Deployment, name: gitjob, desiredReplicas: 1, sourcePath: infrastructure/ansible/roles/rancher/templates/rancher-helmchart.yaml.j2}
+    - {key: home-k3s/cattle-fleet-system/apps/deployment/helmops, namespace: cattle-fleet-system, apiGroup: apps, kind: Deployment, name: helmops, desiredReplicas: 1, sourcePath: infrastructure/ansible/roles/rancher/templates/rancher-helmchart.yaml.j2}
+    - {key: home-k3s/cattle-fleet-system/batch/cronjob/fleet-cleanup-gitrepo-jobs, namespace: cattle-fleet-system, apiGroup: batch, kind: CronJob, name: fleet-cleanup-gitrepo-jobs, sourcePath: infrastructure/ansible/roles/rancher/templates/rancher-helmchart.yaml.j2}

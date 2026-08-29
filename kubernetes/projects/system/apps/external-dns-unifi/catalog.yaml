@@ -1,0 +1,18 @@
+---
+apiVersion: home-lab.io/v1alpha1
+kind: WorkloadCatalog
+metadata:
+  name: external-dns-unifi
+spec:
+  displayName: ExternalDNS for UniFi
+  purpose: Publish approved internal Kubernetes DNS records into UniFi Network.
+  owner: home-lab
+  project: system
+  cluster: home-k3s
+  lifecycle: active
+  criticality: critical
+  dataClassification: restricted
+  repository: https://github.com/abhi1693/home-lab
+  gitPath: kubernetes/projects/system/apps/external-dns-unifi
+  workloads:
+    - {key: home-k3s/kube-public/apps/deployment/external-dns-unifi, namespace: kube-public, apiGroup: apps, kind: Deployment, name: external-dns-unifi, desiredReplicas: 1, sourcePath: kubernetes/projects/system/apps/external-dns-unifi/values.yaml}

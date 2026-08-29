@@ -27,6 +27,16 @@ spec:
             matchLabels:
               app.kubernetes.io/instance: jellyfin
               app.kubernetes.io/name: jellyfin
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: home-assistant
+          podSelector:
+            matchLabels:
+              app.kubernetes.io/instance: home-assistant
+              app.kubernetes.io/name: home-assistant
+        - podSelector:
+            matchLabels:
+              app.kubernetes.io/name: episeerr
       ports:
         - protocol: TCP
           port: 5055
@@ -74,6 +84,13 @@ spec:
       ports:
         - protocol: TCP
           port: 8978
+    - to:
+        - podSelector:
+            matchLabels:
+              app.kubernetes.io/name: episeerr
+      ports:
+        - protocol: TCP
+          port: 5002
     - to:
         - ipBlock:
             cidr: 0.0.0.0/0

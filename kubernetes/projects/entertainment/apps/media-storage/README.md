@@ -4,6 +4,14 @@ This stack runs a Rancher/Fleet-managed media automation pipeline using
 TrueCharts OCI Helm charts, the official Seerr OCI Helm chart, and raw
 Kubernetes manifests for custom services.
 
+## Operational state
+
+The download and import pipeline is intentionally stopped: qBittorrent, Smart
+Queues, Sonarr, Radarr, Prowlarr, FlareSolverr, Ryokan, and Shoko have zero
+replicas, and qBittorrent's maintenance CronJobs are suspended. Retained PVCs,
+Services, and library playback remain in place. Jellyfin, Seerr, Episeerr,
+Profilarr, and Music Assistant remain available.
+
 ## Architecture
 
 - `qBittorrent`: torrent download client.
@@ -23,13 +31,15 @@ Kubernetes manifests for custom services.
 All app releases run in the `media` namespace, which is assigned to the Rancher
 `Entertainment` project.
 
-The completed media library is stored on the NAS NFS export
-`192.168.3.115:/nfs/media_new`. The storage bundle binds that export to the
-`media/media-library-nfs-csi` PVC through the upstream NFS CSI driver, with a
+The completed media library is stored on the UNAS Pro 4 Shared Drive
+`192.168.1.128:/var/nfs/shared/media`. The storage bundle binds that export to
+the `media/media-library-unas` PVC through the upstream NFS CSI driver, with a
 requested capacity of `10Ti`. This is an advertised Kubernetes capacity rather
-than an NFS quota; the NAS controls the export's actual available space. The
-PV/PVC pair is statically bound with no StorageClass, so the driver mounts the
-existing export root and does not create a server-side subdirectory.
+than an NFS quota; the UNAS controls the Shared Drive's actual available space.
+The PV/PVC pair is statically bound with no StorageClass, so the driver mounts
+the existing export root and does not create a server-side subdirectory. It
+currently uses NFSv3 because the Shared Drive is not exposed in the UNAS NFSv4
+namespace; move it to NFSv4.1 only after a real read-write v4 mount succeeds.
 
 Sonarr and Radarr mount the completed-media PVC at `/data`. Jellyfin mounts the
 same PVC at `/media`, while keeping its own application data under its
@@ -49,14 +59,23 @@ Fleet bundles. Their old shared-export directories—`music/Lidarr`,
 operator-owned retained data and are not removed by Kubernetes retirement.
 
 The previous Longhorn `media-library` PVC and standalone Longhorn volume are no
-longer declared. Do not recreate `media-library`; the NAS-backed
-`media-library-nfs-csi` PVC is the completed-media library.
+longer declared. Do not recreate `media-library`; the UNAS-backed
+`media-library-unas` PVC is the completed-media library. The old
+`media-library-nfs-csi` claim remains bound to
+`192.168.3.115:/nfs/media_new` as a read-only rollback source and is not mounted
+by active consumers.
 
 Downloads are intentionally separated from the completed Jellyfin library.
 The qBittorrent clients, Sonarr, Ryokan, and Radarr mount the
-`media-downloads-nfs-csi` PVC backed by `192.168.3.115:/nfs/torrents`; Jellyfin
-does not mount it. The claim advertises exactly `3T` (decimal 3 TB), matching
-the downloads export ceiling; the NAS remains the quota enforcement boundary.
+`media-downloads-unas` PVC backed by
+`192.168.1.128:/var/nfs/shared/torrents` on the UNAS Pro 4; Jellyfin does not
+mount it. The existing static claim still advertises `3T`; that pre-bound PVC
+cannot be expanded without recreation and its requested size does not enforce
+NFS capacity. The UNAS Shared Drive's decimal `4 TB` quota is the authoritative
+ceiling and remains the NAS enforcement boundary.
+The static volume currently mounts with NFSv3 because UniFi Drive does not yet
+expose the Shared Drive in its advertised NFSv4 namespace. Move it to NFSv4.1
+only after a real read-write v4 mount succeeds.
 The qBittorrent
 clients write incomplete and completed torrent payloads to `/downloads`, then
 Sonarr imports finished TV into `/data/tv`. Radarr imports normal movies into
@@ -69,6 +88,13 @@ anime movies. Shoko scans the NAS anime library read-only at `/media/anime`,
 and Jellyfin scans the same completed library path. This keeps Jellyfin from
 scanning partial downloads and preserves the completed-media PVC as the final
 library only.
+
+The `media-downloads-unas` and `media-library-unas` claims are the active
+download and completed-library storage. The former `media-downloads-nfs-csi`
+claim remains bound to
+`192.168.3.115:/nfs/torrents` only as a retained rollback source until that old
+Shared Drive is removed. The old `media_new` export also remains unchanged for
+rollback. `media-storage` permanently owns both retained UNAS PV/PVC pairs.
 
 Use the
 [anime library relocation and Shoko recovery runbook](../../../../../docs/runbooks/storage/anime-library-relocation-and-shoko-recovery.md)
@@ -88,7 +114,7 @@ The legacy Longhorn-backed `media-downloads` PVC and the former direct-NFS
 pairs were removed after Fleet reported both NFS CSI claims bound and every
 current media consumer was verified against them. The static direct-NFS PVs
 used `Retain`, so deleting their Kubernetes objects did not remove either NAS
-export or its data. No migration Job remains in desired state.
+export or its data.
 
 The qBittorrent clients also auto-add the `ngosang/trackerslist`
 `trackers_all.txt` public tracker fallback list to new downloads. This can help
@@ -148,16 +174,11 @@ rate-limit failures. If qBittorrent needs VPN transport, use a provider and
 protocol that support stable inbound port forwarding, then wire that explicitly
 instead of routing the whole media stack through a random free OpenVPN endpoint.
 
-The live public-indexer proxy is a Squid instance on the DigitalOcean Droplet
-`squid-proxy` at `157.230.236.164:3128`. Prowlarr has an HTTP indexer proxy
-named `DigitalOcean Squid` with the `do-proxy` tag. Ryokan uses the same proxy
-through its SOPS-encrypted `HTTPS_PROXY` value because the home ISP resets
-direct Nyaa TLS connections. The Droplet stores the proxy credentials at
-`/root/prowlarr-squid-credentials.txt`. The DigitalOcean cloud firewall allows
-`3128/tcp` only from the current media namespace egress IP and is kept current
-by the `do-squid-firewall` CronJob. The Droplet-local UFW and Squid rules allow
-authenticated proxy traffic; the cloud firewall is the dynamic source IP
-allowlist.
+Public indexers use the normal cluster egress path by default. The previous
+DigitalOcean Squid proxy path has been retired now that the primary WAN has a
+static public IPv4 address and direct Nyaa access from the Ryokan pod validates.
+Do not recreate the old `DigitalOcean Squid` Prowlarr proxy or `do-proxy` tag
+unless a future indexer-specific incident justifies a new alternate egress path.
 
 Cloudflare-protected public indexers are routed through the in-cluster
 FlareSolverr service at `http://flaresolverr.media.svc.cluster.local:8191`.
@@ -222,35 +243,27 @@ application PVC rather than in Git.
    app title matching still gates actual grabs. Current per-indexer routing
    rules:
    - Direct app-synced TV: `showRSS`.
-   - Direct app-synced TV/movie: `Knaben`, `nekoBT`, `The Pirate Bay`, and
-     `TorrentKitty`.
+   - Direct app-synced TV/movie: `Knaben`, `nekoBT`, `The Pirate Bay`,
+     `TorrentKitty`, `LimeTorrents`, `TorrentDownload`, and `Uindex`.
    - Direct app-synced movie: `YTS`.
-   - DigitalOcean Squid app-synced TV/movie: `LimeTorrents`,
-     `TorrentDownload`, and `Uindex`.
    - Anime TV for Ryokan manual Torznab/Newznab setup: `Bangumi Moe`,
      `Nyaa.si`, `SubsPlease`, `Shana Project`, `Tokyo Toshokan`, and
      `AnimeTosho`.
-   - Manual-only enabled: `TorrentsCSV` direct, and `Torrent Downloads` through
-     `do-proxy`. `Torrent Downloads` passed Prowlarr validation but failed
-     Sonarr/Radarr validation with Cloudflare/429, so it must not have app-sync
-     tags.
+   - Manual-only enabled: `TorrentsCSV` and `Torrent Downloads` direct.
+     `Torrent Downloads` passed Prowlarr validation but failed Sonarr/Radarr
+     validation with Cloudflare/429, so it must not have app-sync tags.
    - Disabled with `flaresolverr`: `1337x`, `ExtraTorrent.st`,
      `kickasstorrents.to`, and `Torrent[CORE]`.
-   - Disabled with `do-proxy`: `Demonoid Clone`, `EZTV`,
-     `kickasstorrents.ws`, `Magnet Cat`, `Magnetz`, and
-     `TorrentGalaxyClone`.
-   - Disabled direct: `Anidex` and `AniSource`.
-   Disabled indexers keep `manual-only` plus their proxy route tag, and must not
-   keep `sonarr-sync` or `radarr-sync`; otherwise Prowlarr will
-   sync broken indexers into Sonarr/Radarr.
+   - Disabled direct: `Anidex`, `AniSource`, `Demonoid Clone`, `EZTV`,
+     `kickasstorrents.ws`, `Magnet Cat`, `Magnetz`, and `TorrentGalaxyClone`.
+   Disabled indexers keep `manual-only` and must not keep `sonarr-sync` or
+   `radarr-sync`; otherwise Prowlarr will sync broken indexers into Sonarr/Radarr.
    Ryokan's Seerr-facing Sonarr API shim uses anibridge plus AniList/MAL
    fallback for anime requests. Shoko does not consume Prowlarr indexers or
    download media.
-12. If a public indexer must use alternate egress, use the live DigitalOcean
-    Squid proxy:
-    add the `do-proxy` tag to specific public indexers that fail from the home
-    IP. If the cluster's public egress IP changes, the `do-squid-firewall`
-    CronJob updates the DigitalOcean cloud firewall rule within 15 minutes.
+12. If a public indexer fails from the home IP, prefer direct validation and
+    FlareSolverr for browser challenges before adding any new alternate egress
+    path. There is no live DigitalOcean Squid proxy or firewall updater.
 13. Keep Prowlarr indexers on the default `Standard` sync profile. For indexers
     with published API/query caps, set each indexer's Query Limit and Grab Limit
     from the provider's documented allowance instead of creating extra sync
@@ -262,14 +275,15 @@ application PVC rather than in Git.
 15. In Sonarr, keep one qBittorrent download client using the `tv` category and
     `http://qbittorrent.media.svc.cluster.local:8080`.
     Sonarr owns normal TV only, with `/data/tv` as its only root folder and
-    `[TV] WEB-1080p` as the active request profile. Cap the active automatic
-    Sonarr and Radarr request profiles at 1080p and use `Bluray-1080p` as their
-    cutoff so lower-quality files can still upgrade without automatically
-    replacing 1080p media with 2160p copies. Keep separate 2160p/UHD profiles
-    unassigned from the default Seerr mappings and select one only for an
-    explicit manual request. When cleaning pre-policy queue entries, remove and
-    blocklist a torrent with its download data only when every item in that
-    torrent already has a library file and progress is at most 30 percent.
+    `Default` as the active request profile. Keep the active automatic Sonarr
+    and Radarr request profiles in the app-default quality order with HD and UHD
+    qualities allowed through the highest 2160p cutoff, so existing UHD library
+    files are not replaced by lower-resolution 1080p releases. Keep CAM,
+    telesync, SD/DVD, raw-HD, BR-DISK, and other low-quality sources disabled
+    for normal automatic requests. When cleaning pre-policy queue entries,
+    remove and blocklist a torrent with its download data only when every item
+    in that torrent already has a library file and progress is at most 30
+    percent.
     Preserve mixed or missing-item torrents and pure upgrades above 30 percent
     so useful downloads and already-spent bandwidth are not discarded. Add
     Sonarr's `Emby / Jellyfin` notification connection to
@@ -280,9 +294,10 @@ application PVC rather than in Git.
     `http://qbittorrent.media.svc.cluster.local:8080` using the `anime`
     category, set the qBittorrent download path to `/downloads`, and set
     the media root to `/media/anime`. Enable post-processing and set the file
-    operation mode to `Move` so completed anime is removed from downloads after
-    import to the NAS. Install Ryokan's bundled anime custom format defaults
-    from the Custom Formats settings. Add the enabled anime Prowlarr Torznab
+    operation mode to `Copy` so completed anime remains recoverable until exact
+    Ryokan receipts and distinct size-matched NAS targets are verified; Smart
+    Queues then removes the qBittorrent source. Install Ryokan's bundled anime
+    custom format defaults from the Custom Formats settings. Add the enabled anime Prowlarr Torznab
     feeds and enable RSS for them. Configure Ryokan's Jellyfin integration with
     `http://jellyfin.media.svc.cluster.local:8096` and an active Jellyfin API key
     so Ryokan can validate the server connection and request library refreshes
@@ -290,9 +305,9 @@ application PVC rather than in Git.
     `SONARR_ANIME_API_KEY` and Radarr API compatibility with `RADARR_API_KEY`;
     the Radarr-compatible Seerr entry must use URL Base `/radarr`.
     Shoko/Shokofin still owns anime metadata in Jellyfin after files are
-    imported. Keep Ryokan's preferred and cutoff resolution at 1080p so its
-    scheduled upgrade search can improve source quality without crossing the
-    automatic resolution ceiling.
+    imported. Keep Ryokan's preferred source at WEB, cutoff source at Blu-ray,
+    and both preferred and cutoff resolution at 2160p so scheduled upgrade
+    search can improve anime through the highest common library tier.
 17. Manage the existing movie and TV quality profiles, custom formats, delay
     profiles, naming, quality definitions, and media-management settings
     directly in Radarr and Sonarr.
@@ -302,6 +317,8 @@ application PVC rather than in Git.
     `jellyfin.media.svc.cluster.local:8096` with `Update Library` enabled,
     import/upgrade/rename/delete triggers enabled, and path mapping
     `/data -> /media` so Jellyfin refreshes imported movie paths immediately.
+    Use `Default` as the normal movie request profile and keep its HD/UHD
+    quality order aligned with Sonarr's normal TV profile.
 18. In Radarr, add `/data/anime` as the anime movie root and use the separate
     anime movie profile and custom formats that match the live stack's scoring
     policy. Use this root and profile only for anime movies unless a second
@@ -330,19 +347,16 @@ application PVC rather than in Git.
     `http://ryokan.media.svc.cluster.local:8978`, and Radarr at
     `http://radarr.media.svc.cluster.local:7878`. Use the existing
     `SONARR_ANIME_API_KEY` for the anime server. Set Radarr's default movie
-    request profile to the Dictionarry-managed normal movie profile; add a
+    request profile to `Default`; add a
     second non-default Radarr service entry named `Ryokan Anime Movies` pointing
     at `http://ryokan.media.svc.cluster.local:8978` with URL Base `/radarr` and
     the existing `RADARR_API_KEY`. Set Sonarr's normal TV request profile to
-    `[TV] WEB-1080p` and root folder to `/data/tv`; add a second non-default
+    `Default` and root folder to `/data/tv`; add a second non-default
     Sonarr service entry named
     `Ryokan Anime` using Ryokan's shim-provided quality profile and root folder.
-    Keep 4K request servers disabled. The live Seerr network settings prefer IPv4,
-    use a 30 second Servarr API timeout, and route external metadata requests
-    through the DigitalOcean Squid proxy. Keep the Seerr proxy bypass filter
-    covering local media hosts, currently
-    `*.cluster.local,*.svc.cluster.local,*.media.home,watch.media.home,localhost,127.0.0.1`,
-    so Radarr, Sonarr, and Jellyfin stay direct instead of going through Squid.
+    Keep 4K request servers disabled. The live Seerr network settings prefer IPv4
+    and use a 30 second Servarr API timeout; external metadata requests use
+    direct egress.
 
 ## Music Initial Wiring
 

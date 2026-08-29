@@ -7,7 +7,7 @@ Proposed
 ## Context
 
 The current Jellyfin deployment is a single process with SQLite-backed state on
-Longhorn RWO volumes and media on the NFS CSI-backed `media-library-nfs-csi`
+Longhorn RWO volumes and media on the NFS CSI-backed `media-library-unas`
 PVC. This can fail over, but it cannot horizontally scale without sharing
 mutable local state between pods.
 

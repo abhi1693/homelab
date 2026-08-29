@@ -1,0 +1,18 @@
+---
+apiVersion: home-lab.io/v1alpha1
+kind: WorkloadCatalog
+metadata:
+  name: cnpg-operator
+spec:
+  displayName: CloudNativePG Operator
+  purpose: Reconcile PostgreSQL clusters, poolers, databases, backups, and failover operations.
+  owner: home-lab
+  project: database
+  cluster: home-k3s
+  lifecycle: active
+  criticality: critical
+  dataClassification: internal
+  repository: https://github.com/abhi1693/home-lab
+  gitPath: kubernetes/projects/database/apps/cnpg-operator
+  workloads:
+    - {key: home-k3s/cnpg-system/apps/deployment/psql, namespace: cnpg-system, apiGroup: apps, kind: Deployment, name: psql, desiredReplicas: 1, sourcePath: kubernetes/projects/database/apps/cnpg-operator/values.yaml}

@@ -64,17 +64,21 @@ declared app-side maximum connection demand.
 
 | Role | Pooler | App-side budget | Backend capacity | Role limit |
 | --- | --- | ---: | ---: | ---: |
-| `jellyfin` | `jellyfin-rw` | implicit | 14 | 15 |
+| `jellyfin` | `jellyfin-rw` | implicit | 30 | 32 |
 | `shipyardhq` | `shipyardhq-rw` | 16 | 28 | 32 |
 | `harbor` | `harbor-rw` | chart-managed | 24 | 36 |
-| `netbox` | `netbox-rw` | disabled | 0 | 10 |
+| `netbox` | direct | implicit | n/a | 10 |
 | `wardn_hub` | `wardn-hub-rw` | implicit | 12 | 12 |
 | `wardn_ai` | `wardn-ai-rw` | implicit | 6 | 12 |
-| `firefly` | `firefly-iii-rw` | disabled | 0 | 10 |
+| `firefly` | `firefly-iii-rw` | implicit | 4 | 10 |
 | `zitadel` | `zitadel-rw` | implicit | 16 | 24 |
+| `home_assistant` | `home-assistant-rw` | implicit | 10 | 12 |
 
-Paused and single-replica poolers intentionally have no PDB. A
-`minAvailable: 1` budget is useful only when another replica can remain
+Jellyfin uses session pooling because its Npgsql clients retain connections.
+Two replicas provide 30 backend slots in total, enough for the observed
+post-restart burst while retaining two role slots for pooler turnover and
+operator diagnosis. Single-replica poolers intentionally have no
+PDB. A `minAvailable: 1` budget is useful only when another replica can remain
 available during a voluntary disruption.
 
 PostgreSQL itself is tuned for the 1Gi instance limit and the bounded pooler

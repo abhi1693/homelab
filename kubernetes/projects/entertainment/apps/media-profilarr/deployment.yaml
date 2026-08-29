@@ -38,7 +38,7 @@ spec:
       containers:
         - name: profilarr
           # renovate: datasource=docker depName=ghcr.io/dictionarry-hub/profilarr
-          image: registry.home/ghcr.io/dictionarry-hub/profilarr:2.0.9
+          image: registry.home/ghcr.io/dictionarry-hub/profilarr:2.2.0
           imagePullPolicy: IfNotPresent
           env:
             - name: TZ

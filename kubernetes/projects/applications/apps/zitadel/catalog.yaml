@@ -1,0 +1,19 @@
+---
+apiVersion: home-lab.io/v1alpha1
+kind: WorkloadCatalog
+metadata:
+  name: zitadel
+spec:
+  displayName: Zitadel
+  purpose: Provide identity, authentication, and login services for cluster applications.
+  owner: home-lab
+  project: applications
+  cluster: home-k3s
+  lifecycle: active
+  criticality: critical
+  dataClassification: restricted
+  repository: https://github.com/abhi1693/home-lab
+  gitPath: kubernetes/projects/applications/apps/zitadel
+  workloads:
+    - {key: home-k3s/zitadel/apps/deployment/zitadel, namespace: zitadel, apiGroup: apps, kind: Deployment, name: zitadel, desiredReplicas: 2, sourcePath: kubernetes/projects/applications/apps/zitadel/values.yaml}
+    - {key: home-k3s/zitadel/apps/deployment/zitadel-login, namespace: zitadel, apiGroup: apps, kind: Deployment, name: zitadel-login, desiredReplicas: 2, sourcePath: kubernetes/projects/applications/apps/zitadel/values.yaml}

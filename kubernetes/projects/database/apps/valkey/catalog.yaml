@@ -1,0 +1,18 @@
+---
+apiVersion: home-lab.io/v1alpha1
+kind: WorkloadCatalog
+metadata:
+  name: valkey
+spec:
+  displayName: Valkey
+  purpose: Provide the shared replicated cache, queue, and Sentinel discovery service.
+  owner: home-lab
+  project: database
+  cluster: home-k3s
+  lifecycle: active
+  criticality: critical
+  dataClassification: restricted
+  repository: https://github.com/abhi1693/home-lab
+  gitPath: kubernetes/projects/database/apps/valkey
+  workloads:
+    - {key: home-k3s/valkey/apps/statefulset/valkey-node, namespace: valkey, apiGroup: apps, kind: StatefulSet, name: valkey-node, desiredReplicas: 3, sourcePath: kubernetes/projects/database/apps/valkey/values.yaml}

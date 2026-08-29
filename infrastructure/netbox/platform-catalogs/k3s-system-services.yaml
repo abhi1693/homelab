@@ -1,0 +1,22 @@
+---
+apiVersion: home-lab.io/v1alpha1
+kind: WorkloadCatalog
+metadata:
+  name: k3s-system-services
+spec:
+  displayName: K3s System Services
+  purpose: Provide cluster DNS, resource metrics, ingress, and the control-plane registration VIP.
+  owner: home-lab
+  project: system
+  cluster: home-k3s
+  lifecycle: active
+  criticality: critical
+  dataClassification: internal
+  repository: https://github.com/abhi1693/home-lab
+  gitPath: infrastructure/ansible/roles/k3s_system_addons
+  runbook: docs/runbooks/k3s-netbox-drift-reconciliation.md
+  workloads:
+    - {key: home-k3s/kube-system/apps/deployment/coredns, namespace: kube-system, apiGroup: apps, kind: Deployment, name: coredns, desiredReplicas: 2, sourcePath: infrastructure/ansible/roles/k3s_system_addons/templates/coredns.yaml.j2}
+    - {key: home-k3s/kube-system/apps/deployment/metrics-server, namespace: kube-system, apiGroup: apps, kind: Deployment, name: metrics-server, desiredReplicas: 2, sourcePath: infrastructure/ansible/roles/k3s_system_addons/templates/metrics-server.yaml.j2}
+    - {key: home-k3s/kube-system/apps/deployment/traefik, namespace: kube-system, apiGroup: apps, kind: Deployment, name: traefik, desiredReplicas: 2, sourcePath: infrastructure/ansible/roles/cilium/templates/traefik-config.yaml.j2}
+    - {key: home-k3s/kube-system/apps/daemonset/kube-vip-ds, namespace: kube-system, apiGroup: apps, kind: DaemonSet, name: kube-vip-ds, sourcePath: infrastructure/ansible/roles/kube_vip/templates/kube-vip.yaml.j2}

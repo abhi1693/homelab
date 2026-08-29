@@ -17,6 +17,7 @@ helm:
   releaseName: external-dns-unifi
   chart: external-dns
   repo: https://kubernetes-sigs.github.io/external-dns/
+  # renovate: datasource=helm depName=external-dns registryUrl=https://kubernetes-sigs.github.io/external-dns/
   version: 1.21.1
   valuesFiles:
     - values.yaml

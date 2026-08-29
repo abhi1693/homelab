@@ -164,6 +164,42 @@
     fail_msg: "Expected Rancher to use priority class {{ rancher.priority_class_name }}"
     success_msg: "Rancher uses priority class {{ rancher.priority_class_name }}"
 
+- name: Read Rancher deployment scheduling
+  ansible.builtin.command:
+    argv:
+      - /usr/local/bin/k3s
+      - kubectl
+      - -n
+      - "{{ rancher.namespace }}"
+      - get
+      - deployment
+      - rancher
+      - -o
+      - json
+  environment:
+    KUBECONFIG: /etc/rancher/k3s/k3s.yaml
+  register: rancher_deployment_scheduling_raw
+  changed_when: false
+
+- name: Assert Rancher uses critical control-plane scheduling
+  ansible.builtin.assert:
+    that:
+      - rancher_deployment_spec.nodeSelector['node-role.kubernetes.io/control-plane'] == 'true'
+      - rancher_critical_tolerations | length == 1
+    fail_msg: Expected Rancher to select control-plane nodes and tolerate CriticalAddonsOnly=true:NoExecute.
+    success_msg: "Rancher uses the critical control-plane scheduling contract"
+  vars:
+    rancher_deployment_spec: "{{ (rancher_deployment_scheduling_raw.stdout | from_json).spec.template.spec }}"
+    rancher_critical_tolerations: >-
+      {{
+        rancher_deployment_spec.tolerations | default([])
+        | selectattr('key', 'equalto', 'CriticalAddonsOnly')
+        | selectattr('operator', 'equalto', 'Equal')
+        | selectattr('value', 'equalto', 'true')
+        | selectattr('effect', 'equalto', 'NoExecute')
+        | list
+      }}
+
 - name: Read Rancher deployment resource requirements
   ansible.builtin.command:
     argv:
@@ -470,6 +506,72 @@
   environment:
     KUBECONFIG: /etc/rancher/k3s/k3s.yaml
   changed_when: false
+
+- name: Read local Fleet agent deployment
+  ansible.builtin.command:
+    argv:
+      - /usr/local/bin/k3s
+      - kubectl
+      - -n
+      - cattle-fleet-local-system
+      - get
+      - deployment
+      - fleet-agent
+      - -o
+      - json
+  environment:
+    KUBECONFIG: /etc/rancher/k3s/k3s.yaml
+  register: rancher_local_fleet_agent_deployment_raw
+  changed_when: false
+
+- name: Read local Fleet agent pods
+  ansible.builtin.command:
+    argv:
+      - /usr/local/bin/k3s
+      - kubectl
+      - -n
+      - cattle-fleet-local-system
+      - get
+      - pods
+      - -l
+      - app=fleet-agent
+      - -o
+      - json
+  environment:
+    KUBECONFIG: /etc/rancher/k3s/k3s.yaml
+  register: rancher_local_fleet_agent_pods_raw
+  changed_when: false
+
+- name: Record local Fleet agent availability
+  ansible.builtin.set_fact:
+    rancher_local_fleet_agent_deployment: "{{ rancher_local_fleet_agent_deployment_raw.stdout | from_json }}"
+    rancher_local_fleet_agent_nodes: >-
+      {{
+        (rancher_local_fleet_agent_pods_raw.stdout | from_json)['items']
+        | rejectattr('metadata.deletionTimestamp', 'defined')
+        | selectattr('status.phase', 'equalto', 'Running')
+        | map(attribute='spec.nodeName')
+        | reject('equalto', '')
+        | unique
+        | list
+      }}
+
+- name: Assert local Fleet agents are highly available across control-plane nodes
+  ansible.builtin.assert:
+    that:
+      - rancher_local_fleet_agent_deployment.spec.replicas | int == rancher_fleet_agent.replicas | int
+      - rancher_local_fleet_agent_deployment.status.readyReplicas | default(0) | int == rancher_fleet_agent.replicas | int
+      - rancher_local_fleet_agent_nodes | length == rancher_fleet_agent.replicas | int
+      - rancher_local_fleet_agent_required_anti_affinity | length > 0
+    fail_msg: >-
+      Expected {{ rancher_fleet_agent.replicas }} Ready local Fleet agents on
+      distinct control-plane nodes.
+    success_msg: >-
+      Local Fleet agents are Ready on distinct control-plane nodes
+  vars:
+    rancher_fleet_agent: "{{ (rancher.fleet | default({})).agent | default({}) }}"
+    rancher_local_fleet_agent_required_anti_affinity: >-
+      {{ ((rancher_local_fleet_agent_deployment.spec.template.spec.affinity | default({})).get('podAntiAffinity', {})).get('requiredDuringSchedulingIgnoredDuringExecution', []) }}
 
 - name: Read Fleet ImageScans when ImageScan is disabled
   ansible.builtin.command:

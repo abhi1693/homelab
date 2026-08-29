@@ -5,8 +5,17 @@ crds:
 controller:
   type: deployment
   replicas: 1
+  podDisruptionBudget:
+    enabled: true
+    minAvailable: 1
   nodeSelector:
     kubernetes.io/arch: arm64
+    node-role.kubernetes.io/control-plane: "true"
+  tolerations:
+    - key: CriticalAddonsOnly
+      operator: Equal
+      value: "true"
+      effect: NoExecute
 
 alloy:
   enableReporting: false

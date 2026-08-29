@@ -5,15 +5,10 @@ namespace.
 
 ## Status
 
-Firefly III is paused by default. The Deployment stays present with
-`replicas: 0`, the `firefly-iii-cron` CronJob is suspended, and the dedicated
-PostgreSQL pooler is retained with `0` instances. Services, ingress, secrets,
-network policies, the upload PVC, database, and role remain declared.
-
-To re-enable the app, restore the Deployment to `1` replica, unsuspend the
-CronJob, set the `firefly-iii-rw` pooler back to `1` instance, and unsuspend
-the `finance` ApplicationProfile's normal resource metric profile and scaling
-bounds after the workload is healthy.
+Firefly III runs with one web replica, an active daily `firefly-iii-cron`
+CronJob, and one dedicated `firefly-iii-rw` PostgreSQL pooler instance. The
+`finance` ApplicationProfile observes the web and importer workloads with
+single-replica bounds and normal resource metrics.
 
 ## Access
 
@@ -34,18 +29,18 @@ are owned by the database project PostgreSQL bundle.
 
 ## Resources
 
-While paused, the web workload schedules no Pods. The retained web template
-requests `30m` CPU and `103Mi` memory, with no CPU limit and a `256Mi` memory
-limit. The memory headroom accommodates Firefly's sequential database integrity
-and running-balance maintenance commands; do not run memory-intensive
-maintenance commands concurrently in the web container.
+The web workload requests `30m` CPU and `103Mi` memory, with no CPU limit and a
+`256Mi` memory limit. The memory headroom accommodates Firefly's sequential
+database integrity and running-balance maintenance commands; do not run
+memory-intensive maintenance commands concurrently in the web container.
 
 ## Scheduled Tasks
 
-The suspended `firefly-iii-cron` CronJob is configured to call Firefly's static
-cron endpoint daily at 03:00 when re-enabled. The token is stored in the
+The `firefly-iii-cron` CronJob calls Firefly's static cron endpoint daily at
+03:00. The token is stored in the
 `firefly-iii` SOPS-managed Secret and must match the app's `STATIC_CRON_TOKEN`
-environment variable.
+environment variable. Completed Job objects expire after one hour so a past
+failure cannot leave the cluster-wide `KubeJobFailed` alert firing indefinitely.
 
 ## Network Policy
 

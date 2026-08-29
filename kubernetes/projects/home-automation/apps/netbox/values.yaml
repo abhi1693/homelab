@@ -6,7 +6,7 @@ image:
   registry: registry.home
   repository: ghcr.io/abhi1693/home-lab-netbox
   # renovate: datasource=docker depName=ghcr.io/abhi1693/home-lab-netbox
-  tag: 4.6.3-cf39083
+  tag: 4.6.9-f3db127
   pullPolicy: IfNotPresent
   pullSecrets:
     - harbor-registry
@@ -14,10 +14,10 @@ allowedHosts:
   - netbox.home
 csrf:
   trustedOrigins:
-    - http://netbox.home
+    - https://netbox.home
 loginRequired: true
 timeZone: Asia/Kolkata
-replicaCount: 0
+replicaCount: 1
 pdb:
   enabled: false
   minAvailable: 1
@@ -32,7 +32,7 @@ persistence:
 postgresql:
   enabled: false
 externalDatabase:
-  host: postgresql-pooler-netbox-rw.postgresql.svc.cluster.local
+  host: postgresql-rw.postgresql.svc.cluster.local
   port: 5432
   database: netbox
   username: netbox
@@ -89,18 +89,24 @@ startupProbe:
 service:
   type: ClusterIP
 ingress:
-  enabled: false
+  enabled: true
   className: traefik
   pathType: Prefix
+  annotations:
+    traefik.ingress.kubernetes.io/router.middlewares: netbox-netbox-https-redirect@kubernetescrd
   hosts:
     - host: netbox.home
       paths:
         - /
-  tls: []
+  tls:
+    - hosts:
+        - netbox.home
+      secretName: netbox-home-tls
 metrics:
   enabled: false
 plugins:
   - netbox_metatype_importer
+  - netbox_custom_objects
   - netbox_topology_views
   - netbox_dns
   - netbox_lifecycle
@@ -115,7 +121,7 @@ extraConfig:
       secretName: netbox-metatype-importer
       optional: true
 housekeeping:
-  enabled: false
+  enabled: true
   timezone: Asia/Kolkata
   successfulJobsHistoryLimit: 0
   failedJobsHistoryLimit: 0
@@ -129,8 +135,8 @@ housekeeping:
       cpu: 500m
       memory: 512Mi
 worker:
-  enabled: false
-  replicaCount: 0
+  enabled: true
+  replicaCount: 1
   pdb:
     enabled: false
     minAvailable: 1
@@ -161,6 +167,44 @@ worker:
     limits:
       memory: 512Mi
 extraDeploy:
+  - apiVersion: cert-manager.io/v1
+    kind: Certificate
+    metadata:
+      name: netbox-home
+      namespace: netbox
+      labels:
+        app.kubernetes.io/name: netbox
+        app.kubernetes.io/part-of: netbox
+    spec:
+      secretName: netbox-home-tls
+      commonName: netbox.home
+      dnsNames:
+        - netbox.home
+      duration: 2160h
+      renewBefore: 360h
+      privateKey:
+        algorithm: ECDSA
+        size: 256
+      usages:
+        - digital signature
+        - key encipherment
+        - server auth
+      issuerRef:
+        name: home-local-ca
+        kind: ClusterIssuer
+        group: cert-manager.io
+  - apiVersion: traefik.io/v1alpha1
+    kind: Middleware
+    metadata:
+      name: netbox-https-redirect
+      namespace: netbox
+      labels:
+        app.kubernetes.io/name: netbox
+        app.kubernetes.io/part-of: netbox
+    spec:
+      redirectScheme:
+        scheme: https
+        permanent: true
   - apiVersion: v1
     kind: PersistentVolumeClaim
     metadata:
@@ -179,8 +223,8 @@ extraDeploy:
         requests:
           storage: 2Gi
       storageClassName: nfs-shared-retain
+      volumeName: pvc-578aa1db-c088-4a39-b5eb-26bb5cffd912
       volumeMode: Filesystem
-      volumeName: pvc-e979efd6-d5fc-4f14-94a5-3e79a78edf3c
   - apiVersion: networking.k8s.io/v1
     kind: NetworkPolicy
     metadata:
@@ -227,7 +271,8 @@ extraDeploy:
                   kubernetes.io/metadata.name: postgresql
               podSelector:
                 matchLabels:
-                  cnpg.io/poolerName: postgresql-pooler-netbox-rw
+                  cnpg.io/cluster: postgresql
+                  cnpg.io/instanceRole: primary
           ports:
             - protocol: TCP
               port: 5432

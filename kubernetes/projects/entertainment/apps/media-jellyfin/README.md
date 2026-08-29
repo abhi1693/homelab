@@ -14,16 +14,29 @@ The target is not multiple pods sharing the same SQLite PVC. Jellyfin currently
 runs as a single replica on the custom image backed by the shared PostgreSQL
 cluster:
 
+The main container requests `570m` CPU and `822Mi` memory, with limits of
+`2500m` CPU and `4Gi` memory.
+The pod keeps the chart's application group `568` and the NAS group `1000` as
+supplemental groups. Its filesystem group remains compatible with the
+root-owned media export; the NFS CSI driver leaves `fsGroupPolicy` unset so
+Kubernetes does not recursively rewrite these `ReadWriteMany`, root-squashed
+exports on every singleton restart.
+
 - Image:
-  `registry.home/ghcr.io/abhi1693/home-lab-jellyfin:10.11.8-pgsql.10.11.8-1-1c9ae30`
+  `registry.home/ghcr.io/abhi1693/home-lab-jellyfin:10.11.8-pgsql.10.11.8-1-webhook-v21-overlay2`
 - Plugin binaries: baked into the image from
   `kubernetes/images/jellyfin/required-plugins.txt`
+- Episeerr playback events: official Webhook plugin `21.0.0.0`, configured
+  from the `media-jellyfin-episeerr-webhook` ConfigMap
 - Device auth token lookup: patched in `Jellyfin.Server.Implementations.dll`
   so sessions are read from PostgreSQL instead of only local startup cache.
 - Database: `jellyfin`
 - Role: `jellyfin`
 - Pooler:
   `postgresql-pooler-jellyfin-rw.postgresql.svc.cluster.local:5432`
+- Npgsql maximum pool size: `14`, capped below either PgBouncer replica's
+  15-session backend pool so uneven Service hashing cannot queue Jellyfin's
+  client connections behind idle session-bound backends.
 
 The database project declares the Jellyfin role, database, RW pooler,
 NetworkPolicy, and pooler PDB. The image build lives under
@@ -32,6 +45,9 @@ NetworkPolicy, and pooler PDB. The image build lives under
 On startup, the custom image replaces a SQLite `database.xml` with a PostgreSQL
 provider config and keeps a one-time backup at
 `/config/database.xml.sqlite-provider-backup`.
+The current chart command also patches older published image entrypoints to
+honor the same 14-connection cap; newly built images support
+`POSTGRES_MAX_POOL_SIZE` directly.
 
 Plugin settings and credentials should not be baked into the image. Mount
 non-secret plugin XML/JSON as a ConfigMap and credentials as a Secret at the
@@ -40,8 +56,13 @@ entrypoint defaults:
 - `/opt/jellyfin/plugin-config`
 - `/opt/jellyfin/plugin-secrets`
 
-Those mounts are copied into `/data/plugins/configurations` on startup so the
-pod starts with the same plugin settings without committing secrets.
+Those mounts are dereferenced and copied into `/data/plugins/configurations` in
+source order on startup, so later overlays replace duplicate files and the pod
+starts with the same plugin settings without committing secrets.
+
+The non-secret Episeerr destination is mounted separately at
+`/opt/jellyfin/plugin-episeerr`. It sends episode playback start/stop events to
+the in-cluster Episeerr webhook; the Jellyfin NetworkPolicy allows that egress.
 
 Jellyfin Enhanced auto-skip outro is disabled in Git. An init container copies
 the secret-backed Jellyfin Enhanced XML into `/opt/jellyfin/plugin-overrides`,
@@ -73,6 +94,17 @@ symlink before Jellyfin starts.
 TrueCharts default PVC affinity remains disabled for this app, and the pod is
 restricted to ARM64 nodes. Rollouts use `Recreate` so upgrades do not run two
 Jellyfin pods at the same time.
+
+## Home Assistant access
+
+The Jellyfin ingress NetworkPolicy permits the Home Assistant workload in the
+`home-assistant` namespace on TCP `8096`. Configure the Home Assistant Jellyfin
+integration with the in-cluster endpoint:
+
+- `http://jellyfin.media.svc.cluster.local:8096`
+
+The matching Home Assistant Cilium policy is service-aware, so neither the
+Jellyfin ClusterIP nor its pod IP is hard-coded.
 
 ## Required Secrets
 
@@ -152,3 +184,7 @@ fork also needs:
   depending only on sticky sessions.
 
 Until those are implemented, keep Jellyfin as a single replica.
+
+For a pod blocked before initialization by recursive NFS ownership processing,
+follow
+[`docs/runbooks/storage/nfs-csi-volume-ownership-storms.md`](../../../../../docs/runbooks/storage/nfs-csi-volume-ownership-storms.md).

@@ -14,10 +14,10 @@ spec:
   accessModes:
     - ReadWriteOnce
   storageClassName: nfs-shared-retain
-  volumeName: pvc-b4978100-a4f4-40f1-80c2-917438a57922
+  volumeName: pvc-e734340c-26bc-4def-a62f-0a2e74822cad
   resources:
     requests:
-      storage: 20Gi
+      storage: 64Gi
 ---
 apiVersion: v1
 kind: PersistentVolumeClaim
@@ -34,7 +34,7 @@ spec:
   accessModes:
     - ReadWriteOnce
   storageClassName: nfs-shared-retain
-  volumeName: pvc-c3ba698c-3214-4a22-a1b8-a70ce794c3fb
+  volumeName: pvc-eb50ae79-e260-491b-9211-5321c41d7677
   resources:
     requests:
       storage: 2Gi
@@ -54,7 +54,7 @@ spec:
   accessModes:
     - ReadWriteOnce
   storageClassName: nfs-shared-retain
-  volumeName: pvc-e93f97c4-6c97-4235-a572-75ba6cdd6bda
+  volumeName: pvc-fc6f7ade-1c27-42ea-86aa-4d79744c73f2
   resources:
     requests:
       storage: 2Gi
@@ -74,7 +74,7 @@ spec:
   accessModes:
     - ReadWriteOnce
   storageClassName: nfs-shared-retain
-  volumeName: pvc-da80f89a-89ad-4c35-977c-973ed1c6ff92
+  volumeName: pvc-8a53931a-95dd-4cac-a1b6-8d2fdf1ad15b
   resources:
     requests:
       storage: 2Gi

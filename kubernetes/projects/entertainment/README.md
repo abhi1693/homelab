@@ -27,17 +27,17 @@ apps.
 | --- | --- | --- |
 | `media-storage` | Owns the `media` namespace and the NAS-backed completed-library and downloads PVCs. | NFS CSI and existing NAS exports. |
 | `media-qbittorrent` | Torrent client and smart queue automation. | LoadBalancer peer port, downloads PVC, state snapshots, tracker refresh, rack automation. |
-| `media-prowlarr` | Indexer manager. | qBittorrent, Sonarr, Radarr, FlareSolverr, optional proxy. |
+| `media-prowlarr` | Indexer manager. | qBittorrent, Sonarr, Radarr, FlareSolverr. |
 | `media-sonarr` | TV library automation. | Prowlarr, qBittorrent, completed media PVC. |
 | `media-radarr` | Movie library automation. | Prowlarr, qBittorrent, completed media PVC. |
+| `media-episeerr` | Season-ahead TV download automation. | Sonarr delay tags and webhook, Jellyseerr request tags, Jellyfin playback events. |
 | `media-music-assistant` | Authenticated YouTube Music account mirror, persistent local playback cache, local audio-similarity radio, HTTPS PWA, MCP access, and playback. | Hash-pinned YouTube Music provider, SOPS-fed account cookie, PostgreSQL cache catalog, NAS music storage, Sonic Analysis, Last.fm, host-network players. |
 | `media-music-assistant-alexa-skill` | Alexa Custom Skill bridge for Music Assistant playback. | Amazon Developer authorization, public bridge endpoint, public port `8097` stream route, retained ASK credentials. |
-| `media-ryokan` | Anime request/import workflow. | qBittorrent anime category, NAS anime library, controlled Squid HTTPS egress. |
+| `media-ryokan` | Anime request/import workflow. | qBittorrent anime category, NAS anime library, direct public-indexer HTTPS egress. |
 | `media-shoko` | Anime metadata and library management. | NAS anime library, Jellyfin/Shokofin workflow. |
 | `media-jellyfin` | Media server. | NAS media library, custom image, PostgreSQL experiment, shared metadata PVCs. |
 | `media-jellyseerr` | Media request portal. | Jellyfin and media app APIs. |
 | `media-flaresolverr` | Browser challenge helper for indexers. | Prowlarr indexer proxy. |
-| `media-do-squid-firewall` | Keeps a remote Squid proxy allowlist aligned with cluster egress. | Public indexer proxy path. |
 | `media-helm-repositories` | Registers Helm repositories for media charts. | Rancher ClusterRepo. |
 
 ## Storage Flow
@@ -76,9 +76,10 @@ flowchart LR
 ```
 
 This avoids Jellyfin scanning partial downloads and keeps the final media
-library on NAS-backed NFS CSI storage. Sonarr, Radarr, and Ryokan import completed
-downloads into the final library. Jellyfin and metadata tools read from the
-completed library.
+library on the UNAS-backed `media-library-unas` NFS CSI claim. Sonarr, Radarr,
+and Ryokan import completed downloads into the final library. Jellyfin and
+metadata tools read from the completed library. The old
+`media-library-nfs-csi` claim remains retained and unmounted as rollback.
 
 Music Assistant owns the music path directly. Its authenticated YouTube Music
 provider mirrors the account library, likes, playlists, uploads, subscriptions,
@@ -114,11 +115,16 @@ shared-export paths.
   custom-skill callback and `music-stream.abhimanyu-saharan.com` for transient
   player streams. The Music Assistant server itself remains private.
 - Media apps communicate east-west through ClusterIP services.
+- Jellyseerr tags new standard-TV requests and reports the requested season to
+  Episeerr; Sonarr delays the initial grab until Episeerr limits monitoring to
+  that complete season, and Jellyfin playback advances the next season
+  automatically.
 - Network policies limit ingress to Traefik, monitoring, and approved app
   peers.
-- Indexer traffic can use FlareSolverr or an explicit proxy path when needed.
-- Ryokan uses the controlled Squid path for external HTTPS so direct Nyaa
-  searches do not depend on the home ISP route.
+- Indexer traffic goes direct by default, with FlareSolverr retained only for
+  indexers that need browser-challenge handling.
+- Ryokan uses direct public HTTPS for Nyaa and other external metadata/search
+  endpoints.
 
 ## Operating Notes
 

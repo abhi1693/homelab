@@ -1,0 +1,18 @@
+---
+apiVersion: home-lab.io/v1alpha1
+kind: WorkloadCatalog
+metadata:
+  name: openbao
+spec:
+  displayName: OpenBao
+  purpose: Provide the internal secrets-management and encryption service used by Wardn workloads.
+  owner: home-lab
+  project: applications
+  cluster: home-k3s
+  lifecycle: active
+  criticality: critical
+  dataClassification: restricted
+  repository: https://github.com/abhi1693/home-lab
+  gitPath: kubernetes/projects/applications/apps/openbao
+  workloads:
+    - {key: home-k3s/wardn/apps/statefulset/openbao, namespace: wardn, apiGroup: apps, kind: StatefulSet, name: openbao, desiredReplicas: 1, sourcePath: kubernetes/projects/applications/apps/openbao/values.yaml}

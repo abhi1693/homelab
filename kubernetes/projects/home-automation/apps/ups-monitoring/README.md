@@ -71,3 +71,7 @@ the `ServiceMonitor` in this bundle. The PeaNUT scrape provides the detailed
 NUT numeric variables, while the NUT exporter provides status flags that are
 easier to alert on. Grafana auto-loads the `UPS / NUT` dashboard from the
 `cattle-dashboards` ConfigMap and alerts are defined in `prometheusrule.yaml`.
+Low-battery, low-charge, and low-runtime alerts require the exporter to report
+the UPS as on battery (`OB`). They remain inactive while the UPS is online
+(`OL`) or charging (`CHRG`); scrape-health and replace-battery alerts remain
+independent of the current power source.

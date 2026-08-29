@@ -1,0 +1,135 @@
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: netbox-mcp-server
+  namespace: netbox
+  labels:
+    app.kubernetes.io/name: netbox-mcp-server
+    app.kubernetes.io/part-of: netbox
+    home-lab.io/project-slug: home-automation
+spec:
+  replicas: 1
+  revisionHistoryLimit: 2
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxUnavailable: 0
+      maxSurge: 1
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: netbox-mcp-server
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: netbox-mcp-server
+        app.kubernetes.io/part-of: netbox
+        home-lab.io/project-slug: home-automation
+    spec:
+      automountServiceAccountToken: false
+      nodeSelector:
+        kubernetes.io/arch: arm64
+      imagePullSecrets:
+        - name: harbor-registry
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 1000
+        runAsGroup: 1000
+        fsGroup: 1000
+        fsGroupChangePolicy: OnRootMismatch
+        seccompProfile:
+          type: RuntimeDefault
+      containers:
+        - name: server
+          # renovate: datasource=docker depName=registry.home/home/netbox-mcp-server
+          image: registry.home/home/netbox-mcp-server:0.0.2@sha256:c3ae736d7bf68967c25f7db32792bc8d1aadeb3fdc1225582cac51bd110c63a5
+          imagePullPolicy: IfNotPresent
+          env:
+            - name: ALLOWED_NETBOX_URLS
+              value: https://netbox.home/
+            - name: HOST
+              value: 0.0.0.0
+            - name: PORT
+              value: "8000"
+            - name: MCP_PUBLIC_URL
+              value: https://mcp.netbox.home/mcp
+            - name: ALLOWED_HOSTS
+              value: mcp.netbox.home,netbox-mcp-server,netbox-mcp-server.netbox,netbox-mcp-server.netbox.svc,netbox-mcp-server.netbox.svc.cluster.local,127.0.0.1,localhost
+            - name: ALLOWED_ORIGINS
+              value: https://mcp.netbox.home
+            - name: CORS_ORIGINS
+              value: https://mcp.netbox.home
+            - name: ALLOW_REMOTE_HTTP
+              value: "true"
+            - name: TLS_TERMINATED_BY_PROXY
+              value: "true"
+            - name: ALLOW_NONEXPIRING_TOKENS
+              value: "true"
+            - name: ENABLE_PLUGIN_DISCOVERY
+              value: "true"
+            - name: ALLOW_ADMINISTRATIVE_WRITES
+              value: "true"
+            - name: ALLOW_PLUGIN_ACTIONS
+              value: "true"
+            - name: REQUIRE_DELETE_CONFIRMATION
+              value: "true"
+            - name: REQUEST_TIMEOUT
+              value: "30"
+            - name: HTTP_RETRIES
+              value: "2"
+            - name: MAX_PAGE_SIZE
+              value: "100"
+            - name: MAX_BULK_ITEMS
+              value: "100"
+            - name: LOG_LEVEL
+              value: INFO
+          ports:
+            - name: http
+              containerPort: 8000
+              protocol: TCP
+          startupProbe:
+            exec:
+              command:
+                - python
+                - -c
+                - import urllib.request; request = urllib.request.Request("http://127.0.0.1:8000/", headers={"Accept":"text/html"}); urllib.request.urlopen(request, timeout=2).read(1)
+            periodSeconds: 3
+            timeoutSeconds: 3
+            failureThreshold: 40
+          readinessProbe:
+            exec:
+              command:
+                - python
+                - -c
+                - import urllib.request; request = urllib.request.Request("http://127.0.0.1:8000/", headers={"Accept":"text/html"}); urllib.request.urlopen(request, timeout=2).read(1)
+            periodSeconds: 10
+            timeoutSeconds: 3
+            failureThreshold: 3
+          livenessProbe:
+            exec:
+              command:
+                - python
+                - -c
+                - import urllib.request; request = urllib.request.Request("http://127.0.0.1:8000/", headers={"Accept":"text/html"}); urllib.request.urlopen(request, timeout=2).read(1)
+            periodSeconds: 30
+            timeoutSeconds: 3
+            failureThreshold: 3
+          resources:
+            requests:
+              cpu: 25m
+              memory: 192Mi
+            limits:
+              memory: 512Mi
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop:
+                - ALL
+            readOnlyRootFilesystem: true
+          volumeMounts:
+            - name: tmp
+              mountPath: /tmp
+      volumes:
+        - name: tmp
+          emptyDir:
+            sizeLimit: 32Mi

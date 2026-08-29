@@ -34,6 +34,7 @@ spec:
   helm:
     releaseName: zitadel
     repo: oci://ghcr.io/zitadel/zitadel-charts/zitadel
+    # renovate: datasource=docker depName=ghcr.io/zitadel/zitadel-charts/zitadel
     version: 10.0.4
     timeoutSeconds: 900
     takeOwnership: true

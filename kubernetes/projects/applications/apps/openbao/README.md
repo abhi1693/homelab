@@ -1,5 +1,9 @@
 # OpenBao
 
+The StatefulSet is no longer pinned to `k8s-rpi3`. It retains its ARM64
+selector and has no critical-addons toleration, so it schedules in the worker
+pool after control-plane segregation.
+
 Minimal OpenBao deployment for the `wardn` namespace.
 
 - Uses the official `openbao/openbao` Helm chart.

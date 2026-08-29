@@ -13,11 +13,10 @@ It owns:
 - `oci://oci.trueforge.org/truecharts/radarr`
 - `oci://oci.trueforge.org/truecharts/sonarr`
 
-The `seerr-team` repository keeps the most recent `spec.forceUpdate` timestamp
-in Git. It was last advanced after an ISP outage left Rancher's OCI download
-condition stuck on a transient CoreDNS failure even after external DNS
-recovered. Advance that timestamp only to retry a failed repository download
-after connectivity has been restored.
+Affected OCI repositories keep their most recent `spec.forceUpdate` timestamp
+in Git. Advance a timestamp only after connectivity has recovered when an ISP
+or CoreDNS outage leaves Rancher's download condition stuck on the transient
+failure.
 
 Shared chart repositories live in their owning project-specific
 `*-helm-repositories` bundles.

@@ -1,0 +1,22 @@
+---
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: home-assistant-mobile-webhook
+  namespace: home-assistant
+  labels:
+    app.kubernetes.io/name: home-assistant-mobile-webhook
+    app.kubernetes.io/part-of: home-automation
+spec:
+  ingressClassName: cloudflare-tunnel
+  rules:
+    - host: sensors.abhimanyu-saharan.com
+      http:
+        paths:
+          - path: /api/webhook/
+            pathType: Prefix
+            backend:
+              service:
+                name: home-assistant-mobile-webhook
+                port:
+                  number: 8080

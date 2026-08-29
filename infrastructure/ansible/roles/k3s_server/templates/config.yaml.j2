@@ -15,6 +15,12 @@ embedded-registry: true
 disable-default-registry-endpoint: true
 {% endif %}
 protect-kernel-defaults: {{ k3s_server.protect_kernel_defaults | bool | lower }}
+{% if k3s_server.node_taints | length > 0 %}
+node-taint:
+{% for taint in k3s_server.node_taints %}
+  - "{{ taint }}"
+{% endfor %}
+{% endif %}
 tls-san:
 {% for san in k3s.tls_sans %}
   - "{{ san }}"

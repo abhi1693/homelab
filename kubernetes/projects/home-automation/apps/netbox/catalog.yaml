@@ -1,0 +1,91 @@
+---
+apiVersion: home-lab.io/v1alpha1
+kind: WorkloadCatalog
+metadata:
+  name: netbox
+spec:
+  displayName: NetBox
+  purpose: Source of truth for IPAM, infrastructure inventory, cabling, DNS, lifecycle, and the K3s service catalog.
+  owner: home-lab
+  project: home-automation
+  cluster: home-k3s
+  lifecycle: active
+  criticality: high
+  dataClassification: sensitive
+  repository: https://github.com/abhi1693/home-lab
+  gitPath: kubernetes/projects/home-automation/apps/netbox
+  runbook: docs/runbooks/k3s-netbox-drift-reconciliation.md
+  dashboard: http://netbox.home
+  knownLimitations:
+    - A single web replica and a single worker make planned maintenance visible to users.
+  workloads:
+    - key: home-k3s/netbox/apps/deployment/netbox
+      namespace: netbox
+      apiGroup: apps
+      kind: Deployment
+      name: netbox
+      desiredReplicas: 1
+      sourcePath: kubernetes/projects/home-automation/apps/netbox/values.yaml
+      images:
+        - ghcr.io/abhi1693/home-lab-netbox
+    - key: home-k3s/netbox/apps/deployment/netbox-worker
+      namespace: netbox
+      apiGroup: apps
+      kind: Deployment
+      name: netbox-worker
+      desiredReplicas: 1
+      sourcePath: kubernetes/projects/home-automation/apps/netbox/values.yaml
+      images:
+        - ghcr.io/abhi1693/home-lab-netbox
+    - key: home-k3s/netbox/batch/cronjob/netbox-housekeeping
+      namespace: netbox
+      apiGroup: batch
+      kind: CronJob
+      name: netbox-housekeeping
+      sourcePath: kubernetes/projects/home-automation/apps/netbox/values.yaml
+      images:
+        - ghcr.io/abhi1693/home-lab-netbox
+  persistentStores:
+    - key: home-k3s/netbox/persistentvolumeclaim/netbox-media-v2-nfs
+      namespace: netbox
+      type: PersistentVolumeClaim
+      name: netbox-media-v2-nfs
+      storageClass: nfs-shared-retain
+      capacity: 2Gi
+      accessModes:
+        - ReadWriteMany
+      retention: retain
+      backup: Covered by retained shared-NFS storage operations.
+      dataClassification: sensitive
+      sourcePath: kubernetes/projects/home-automation/apps/netbox/values.yaml
+  endpoints:
+    - key: netbox/web
+      name: web
+      url: http://netbox.home
+      dnsName: netbox.home
+      exposure: internal
+      protocol: http
+      ports:
+        - 80
+      sourcePath: kubernetes/projects/home-automation/apps/netbox/values.yaml
+  dependencies:
+    - key: netbox/postgresql/database
+      name: postgresql
+      type: database
+      criticality: required
+      failureImpact: NetBox web and worker operations cannot read or persist inventory.
+    - key: netbox/valkey/service
+      name: valkey
+      type: service
+      criticality: required
+      failureImpact: Background jobs and cache-backed application behavior fail.
+    - key: netbox/traefik/network
+      name: traefik
+      type: network
+      criticality: degraded
+      failureImpact: The internal web endpoint becomes unavailable while cluster-local access remains possible.
+    - key: netbox/nfs-shared/storage
+      name: nfs-shared-retain
+      type: storage
+      criticality: required
+      failureImpact: Uploaded media and generated artifacts are unavailable.

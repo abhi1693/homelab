@@ -24,6 +24,11 @@ spec:
       nodeSelector:
         kubernetes.io/arch: arm64
         kubernetes.io/hostname: k8s-rpi1
+      tolerations:
+        - key: CriticalAddonsOnly
+          operator: Equal
+          value: "true"
+          effect: NoExecute
       securityContext:
         fsGroup: 1000
         fsGroupChangePolicy: OnRootMismatch

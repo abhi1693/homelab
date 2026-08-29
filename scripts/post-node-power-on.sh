@@ -129,10 +129,11 @@ wait_for_system_pods() {
 }
 
 print_pod_distribution() {
-  kubectl get pods -A -o wide --no-headers |
+  kubectl get pods -A --field-selector=status.phase=Running \
+    -o jsonpath='{range .items[*]}{.spec.nodeName}{"\n"}{end}' |
     awk '
-      $4 == "Running" && $8 != "<none>" {
-        count[$8]++
+      NF {
+        count[$1]++
       }
       END {
         printf "%-24s %s\n", "NODE", "RUNNING_PODS"

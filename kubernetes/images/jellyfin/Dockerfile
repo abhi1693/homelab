@@ -70,6 +70,7 @@ USER root
 
 RUN set -eux; \
     apt-get update; \
+    apt-get upgrade -y; \
     apt-get install -y --no-install-recommends ca-certificates curl jq postgresql-client xmlstarlet; \
     rm -rf /opt/jellyfin/plugins; \
     mkdir -p /opt/jellyfin/plugins; \

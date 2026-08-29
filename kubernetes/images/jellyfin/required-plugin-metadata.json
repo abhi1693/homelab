@@ -217,5 +217,20 @@
     "autoUpdate": false,
     "imagePath": "/data/plugins/Trakt_29.0.0.0/jellyfin-plugin-trakt.png",
     "assemblies": []
+  },
+  "Webhook_21.0.0.0": {
+    "category": "Administration",
+    "description": "Sends notifications to destinations via webhooks.",
+    "guid": "71552a5a-5c5c-4350-a2ae-ebe451a30173",
+    "name": "Webhook",
+    "overview": "Sends notifications.",
+    "owner": "jellyfin",
+    "targetAbi": "10.11.8.0",
+    "timestamp": "2026-05-05T15:43:56.0000000Z",
+    "version": "21.0.0.0",
+    "status": "Active",
+    "autoUpdate": false,
+    "imagePath": "",
+    "assemblies": []
   }
 }
