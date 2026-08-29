@@ -27,7 +27,6 @@ hide inside a manifest comment:
 | Document | Purpose |
 | --- | --- |
 | `architecture/adr-001-jellyfin-horizontal-scaling.md` | Design decision for Jellyfin horizontal scaling work. |
-| `architecture/eight-node-cluster-expansion-roadmap.md` | Phased roadmap for expanding to three control-plane nodes and five workers, isolating user scheduling, and migrating Longhorn placement safely. |
 | `architecture/unifi-enterprise-network-roadmap.md` | Dated UniFi audit, target segmentation and topology, hardware integration, security hardening, phased validation, and rollback plan. |
 | `architecture/lan-service-resilience-incident-review.md` | Evidence-based ISP-outage learning review and Layer 2 service exposure decision. |
 | `runbooks/README.md` | Standard format for new runbooks. |
@@ -39,8 +38,6 @@ hide inside a manifest comment:
 | `runbooks/k3s-node-maintenance.md` | Sequential K3s Raspberry Pi drain, clean shutdown, and recovery with kube-vip, PDB, Longhorn, Fleet, and controller gates. |
 | `runbooks/node-saturation-and-zombie-processes.md` | Node load, CPU, I/O, D-state, and zombie-process diagnosis with targeted recovery. |
 | `runbooks/statefulset-ondelete-rollout-recovery.md` | Sequential Valkey OnDelete rollout and Sentinel failover procedure. |
-| `runbooks/k3s-rancher-upgrade-recovery-points-2026-08-11.md` | Recovery points and pre-state captured before the K3s/Rancher upgrade sequence. |
-| `runbooks/jellyfin-sqlite-to-postgresql-migration.md` | Notes for Jellyfin SQLite to PostgreSQL migration rehearsal. |
 | `runbooks/networking/laptop-wireguard-mtu-tls-handshake-timeouts.md` | Diagnosis and fix for laptop WireGuard MTU blackholes causing Kubernetes API and `*.home` TLS timeouts. |
 | `runbooks/networking/unifi-netbox-drift-reconciliation.md` | Infrastructure-only UniFi API drift detection and reviewed NetBox MCP reconciliation; Network client data is excluded. |
 | `runbooks/storage/anime-library-relocation-and-shoko-recovery.md` | Safe anime library relocation and Shoko unrecognized-file recovery. |

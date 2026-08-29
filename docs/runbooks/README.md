@@ -82,9 +82,6 @@ sections when they help the operator apply or undo a local change safely.
   session-mode application pool.
 - [Node saturation and zombie processes](node-saturation-and-zombie-processes.md):
   separate CPU, load, I/O, and process-table pressure before a targeted repair.
-- [K3s and Rancher upgrade recovery points - 2026-08-11](k3s-rancher-upgrade-recovery-points-2026-08-11.md):
-  Rancher Backup, K3s etcd snapshot, and pre-upgrade cluster state captured
-  before the K3s/Rancher upgrade sequence.
 - [Kubernetes resource policy](kubernetes-resource-policy.md): production
   requests, selective limits, generated-container defaults, and Longhorn
   exceptions.
