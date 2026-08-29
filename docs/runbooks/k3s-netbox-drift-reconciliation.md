@@ -59,7 +59,7 @@ five worker Devices, and these stable network objects:
 
 | Object | Expected value |
 | --- | --- |
-| K3s version | `v1.35.6+k3s1` |
+| K3s version | `v1.35.8+k3s1` |
 | Platform | `Debian 13 (Trixie)`, ARM64 hardware |
 | API VIP | `192.168.3.2/24` |
 | Pod prefix | `10.42.0.0/16`, marked utilized |

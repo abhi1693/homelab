@@ -15,7 +15,7 @@ and <a href=".pre-commit-config.yaml">pre-commit</a></em></p>
 
 <p>
   <img alt="Raspberry Pi 5 Model B" src="https://img.shields.io/badge/Raspberry%20Pi-5%20Model%20B-C51A4A?style=flat-square&amp;logo=raspberrypi&amp;logoColor=white">
-  <img alt="K3s v1.35.6+k3s1" src="https://img.shields.io/badge/K3s-v1.35.6%2Bk3s1-326CE5?style=flat-square&amp;logo=k3s&amp;logoColor=white">
+  <img alt="K3s v1.35.8+k3s1" src="https://img.shields.io/badge/K3s-v1.35.8%2Bk3s1-326CE5?style=flat-square&amp;logo=k3s&amp;logoColor=white">
   <img alt="Cilium 1.20.1" src="https://img.shields.io/badge/Cilium-1.20.1-F8C517?style=flat-square&amp;logo=cilium&amp;logoColor=black">
   <img alt="Rancher 2.14.3" src="https://img.shields.io/badge/Rancher-2.14.3-0075A8?style=flat-square&amp;logo=rancher&amp;logoColor=white">
   <img alt="Longhorn 1.11.2" src="https://img.shields.io/badge/Longhorn-1.11.2-6D4AFF?style=flat-square">
@@ -52,7 +52,7 @@ applications are modeled as Git-managed bundles.
 | Area | Current shape |
 | --- | --- |
 | Hardware | Eight ARM64 Raspberry Pi nodes: three K3s servers and five workers. |
-| Kubernetes | K3s `v1.35.6+k3s1` with embedded etcd and a kube-vip API registration VIP. |
+| Kubernetes | K3s `v1.35.8+k3s1` with embedded etcd and a kube-vip API registration VIP. |
 | Bootstrap | Ansible prepares hosts, configures K3s, installs Cilium, Longhorn, Rancher, and Fleet. |
 | GitOps | Rancher Fleet reconciles one GitRepo per major project boundary. |
 | Networking | Cilium `1.20.1` provides CNI, kube-proxy replacement, and NetworkPolicy; MetalLB `0.16.1` provides Layer 2 service VIPs. |
@@ -1056,7 +1056,6 @@ you need implementation detail.
 | [coder/README.md](coder/README.md) | Coder workspace model and template ownership. |
 | [coder/templates/README.md](coder/templates/README.md) | Coder template catalog, image flow, validation, and push commands. |
 | [docs/README.md](docs/README.md) | Runbooks, architecture notes, and long-form operational docs. |
-| [docs/architecture/eight-node-cluster-expansion-roadmap.md](docs/architecture/eight-node-cluster-expansion-roadmap.md) | Proposed three-control-plane and five-worker expansion, placement, storage migration, validation gates, and rollback plan. |
 | [docs/architecture/unifi-enterprise-network-roadmap.md](docs/architecture/unifi-enterprise-network-roadmap.md) | Dated UniFi audit, enterprise-style segmentation and topology, incoming network/Protect/storage hardware integration, validation gates, and rollback plan. |
 | [infrastructure/README.md](infrastructure/README.md) | Bootstrap, host configuration, networking, and source-of-truth tooling. |
 | [infrastructure/ansible/README.md](infrastructure/ansible/README.md) | Ansible control plane, playbook flow, role entrypoints, and validation. |
@@ -1162,7 +1161,6 @@ Runbooks and architecture decisions:
 | [docs/runbooks/k3s-node-maintenance.md](docs/runbooks/k3s-node-maintenance.md) | Sequential Raspberry Pi node drain, clean shutdown, and recovery with kube-vip, PDB, Longhorn, Fleet, and controller gates. |
 | [docs/runbooks/node-saturation-and-zombie-processes.md](docs/runbooks/node-saturation-and-zombie-processes.md) | Node load, I/O, CPU, and zombie-process diagnosis with targeted recovery. |
 | [docs/runbooks/statefulset-ondelete-rollout-recovery.md](docs/runbooks/statefulset-ondelete-rollout-recovery.md) | Safe sequential Valkey OnDelete rollout and Sentinel failover procedure. |
-| [docs/runbooks/jellyfin-sqlite-to-postgresql-migration.md](docs/runbooks/jellyfin-sqlite-to-postgresql-migration.md) | Jellyfin SQLite-to-PostgreSQL migration rehearsal notes. |
 | [docs/runbooks/networking/laptop-wireguard-mtu-tls-handshake-timeouts.md](docs/runbooks/networking/laptop-wireguard-mtu-tls-handshake-timeouts.md) | WireGuard MTU diagnosis for Kubernetes API and `*.home` TLS timeouts. |
 | [docs/runbooks/storage/anime-library-relocation-and-shoko-recovery.md](docs/runbooks/storage/anime-library-relocation-and-shoko-recovery.md) | Move misplaced anime into the NAS anime library and recover unrecognized Shoko files. |
 | [docs/runbooks/storage/ryokan-batch-import-corruption-recovery.md](docs/runbooks/storage/ryokan-batch-import-corruption-recovery.md) | Quarantine and manually recover corrupt Ryokan batch imports without repeating destructive remaps. |
