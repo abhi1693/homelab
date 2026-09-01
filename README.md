@@ -17,8 +17,8 @@ and <a href=".pre-commit-config.yaml">pre-commit</a></em></p>
   <img alt="Raspberry Pi 5 Model B" src="https://img.shields.io/badge/Raspberry%20Pi-5%20Model%20B-C51A4A?style=flat-square&amp;logo=raspberrypi&amp;logoColor=white">
   <img alt="K3s v1.35.8+k3s1" src="https://img.shields.io/badge/K3s-v1.35.8%2Bk3s1-326CE5?style=flat-square&amp;logo=k3s&amp;logoColor=white">
   <img alt="Cilium 1.20.1" src="https://img.shields.io/badge/Cilium-1.20.1-F8C517?style=flat-square&amp;logo=cilium&amp;logoColor=black">
-  <img alt="Rancher 2.14.3" src="https://img.shields.io/badge/Rancher-2.14.3-0075A8?style=flat-square&amp;logo=rancher&amp;logoColor=white">
-  <img alt="Longhorn 1.11.2" src="https://img.shields.io/badge/Longhorn-1.11.2-6D4AFF?style=flat-square">
+  <img alt="Rancher 2.15.1" src="https://img.shields.io/badge/Rancher-2.15.1-0075A8?style=flat-square&amp;logo=rancher&amp;logoColor=white">
+  <img alt="Longhorn 1.11.3" src="https://img.shields.io/badge/Longhorn-1.11.3-6D4AFF?style=flat-square">
   <img alt="NFS CSI 4.13.4" src="https://img.shields.io/badge/NFS%20CSI-4.13.4-326CE5?style=flat-square&amp;logo=kubernetes&amp;logoColor=white">
 </p>
 
@@ -110,17 +110,19 @@ and selected application integrations.
 
 ## Common Commands
 
-Install and run the repository validation hooks before committing. The hooks
-operate only on repository files and do not mutate the live cluster.
+Install and run the repository validation hooks before committing. The Linux
+bootstrap uses `uv` for the pinned Python tools, installs checksum-verified
+validator binaries, and configures the Git hook. The hooks operate only on
+repository files and do not mutate the live cluster.
 
 ```sh
-python -m pip install --requirement .github/requirements/pre-commit.txt
-pre-commit install
+scripts/setup-pre-commit.sh
 pre-commit run --all-files
 ```
 
-The hooks expect `kubeconform` `v0.6.7`, Terraform, `shfmt` `v3.10.0`,
-ShellCheck, and `hadolint` `v2.12.0` on `PATH`.
+The bootstrap requires `uv`, Terraform, ShellCheck, `curl`, and standard archive
+tools. It installs the remaining pinned tools in
+`${UV_TOOL_BIN_DIR:-$HOME/.local/bin}`.
 
 Run narrower validation from the subsystem you are changing when needed.
 
@@ -721,7 +723,7 @@ callback and Music Assistant's player-stream port.
 | App | What it does |
 | --- | --- |
 | Home Assistant | Home automation runtime with commit-pinned source from `abhi1693/home-assistant`, responsive family dashboard, private per-user health views, account-filtered Protect activity and alerts, a dedicated LAN-reachable go2rtc WebRTC relay, PostgreSQL Recorder, HACS bootstrap, and code-server sidecar. |
-| NetBox | Source of truth for IPAM, infrastructure inventory, cabling, DNS, lifecycle documentation, and the Git-backed catalog of 57 durable K3s applications and 136 controllers; every project app directory is cataloged or explicitly classified, while UniFi Network clients and transient or operator-generated Kubernetes objects remain excluded. |
+| NetBox | Source of truth for IPAM, infrastructure inventory, cabling, DNS, lifecycle documentation, and the Git-backed catalog of 56 durable K3s applications and 135 controllers; every project app directory is cataloged or explicitly classified, while UniFi Network clients and transient or operator-generated Kubernetes objects remain excluded. |
 | NetBox MCP Server | Authenticated per-user MCP access to NetBox through an ARM64, TLS-proxied, network-isolated service. |
 | Cloudflare Tunnel ingress controller | Maps Kubernetes ingress intent to Cloudflare Tunnel routes. |
 | Rack Ops controllers | Rack/node automation, policy, monitoring, and guarded actions. |
@@ -738,9 +740,6 @@ callback and Music Assistant's player-stream port.
 | OpenTelemetry Collector | Two gateways route OTLP telemetry by trace/stream identity into two processing replicas that forward to Prometheus and Tempo. |
 | ExternalDNS for UniFi | Creates internal DNS records from Traefik Ingress hosts. |
 | Rancher Backup | Rancher backup operator and R2-backed backup configuration. |
-| Rancher Compliance | Rancher Compliance operator. |
-| Rancher Compliance Scans | One-time and monthly K3s CIS scan definitions. |
-| Descheduler | Periodic workload rebalancing with separate guarded control-plane and worker profiles. |
 | SOPS Secrets Operator | Decrypts encrypted SOPS resources into Kubernetes Secrets. |
 | Longhorn recurring jobs | Filesystem trim and recurring storage maintenance hooks. |
 
@@ -944,21 +943,22 @@ should not become the normal deployment mechanism.
 
 ## Validation
 
-Pre-commit is the repository-wide validation runner. Install its Python tooling,
-install the hooks, and run the complete suite with:
+Pre-commit is the repository-wide validation runner. On Linux, bootstrap its
+Python and native tooling, install the hook, and run the complete suite with:
 
 ```sh
-python -m pip install --requirement .github/requirements/pre-commit.txt
-pre-commit install
+scripts/setup-pre-commit.sh
 pre-commit run --all-files
 ```
 
 The pre-commit configuration preserves the former validation workflow's
 Ansible, YAML policy, Kubernetes schema, Terraform, shell, and Dockerfile
-checks. `kubeconform` `v0.6.7`, Terraform, `shfmt` `v3.10.0`, ShellCheck, and
-`hadolint` `v2.12.0` must be available on `PATH`. The hooks run the matching
-check against relevant staged files; context-wide checks such as Ansible,
-Renovate policy, and Terraform validation run when their subsystem changes.
+checks. The bootstrap requires `uv`, Terraform, ShellCheck, `curl`, and standard
+archive tools; it installs pinned Python tooling, `kubeconform`, `shfmt`, and
+`hadolint` under `${UV_TOOL_BIN_DIR:-$HOME/.local/bin}`. The hooks run the
+matching check against relevant staged files; context-wide checks such as
+Ansible, Renovate policy, and Terraform validation run when their subsystem
+changes.
 
 Subsystem-specific checks remain useful during development.
 
@@ -1134,14 +1134,11 @@ App and component deep dives:
 | [kubernetes/projects/system/apps/alloy-faro/README.md](kubernetes/projects/system/apps/alloy-faro/README.md) | Alloy Faro frontend telemetry collector. |
 | [kubernetes/projects/system/apps/alloy-logs/README.md](kubernetes/projects/system/apps/alloy-logs/README.md) | Alloy application log collector. |
 | [kubernetes/projects/system/apps/csi-driver-nfs/README.md](kubernetes/projects/system/apps/csi-driver-nfs/README.md) | Upstream NFS CSI driver for static exports and retained per-PVC NAS directories. |
-| [kubernetes/projects/system/apps/descheduler/README.md](kubernetes/projects/system/apps/descheduler/README.md) | Descheduler policy. |
 | [kubernetes/projects/system/apps/external-dns-unifi/README.md](kubernetes/projects/system/apps/external-dns-unifi/README.md) | ExternalDNS integration for UniFi DNS. |
 | [kubernetes/projects/system/apps/loki/README.md](kubernetes/projects/system/apps/loki/README.md) | Loki log backend. |
 | [kubernetes/projects/system/apps/opentelemetry-collector/README.md](kubernetes/projects/system/apps/opentelemetry-collector/README.md) | OpenTelemetry Collector. |
 | [kubernetes/projects/system/apps/pyroscope/README.md](kubernetes/projects/system/apps/pyroscope/README.md) | Pyroscope profiling. |
 | [kubernetes/projects/system/apps/rancher-backup/README.md](kubernetes/projects/system/apps/rancher-backup/README.md) | Rancher backup. |
-| [kubernetes/projects/system/apps/rancher-compliance/README.md](kubernetes/projects/system/apps/rancher-compliance/README.md) | Rancher compliance operator. |
-| [kubernetes/projects/system/apps/rancher-compliance-scans/README.md](kubernetes/projects/system/apps/rancher-compliance-scans/README.md) | Compliance scan definitions. |
 | [kubernetes/projects/system/apps/rancher-generated-resource-defaults/README.md](kubernetes/projects/system/apps/rancher-generated-resource-defaults/README.md) | Resource defaults for Rancher/Fleet-generated containers without chart values. |
 | [kubernetes/projects/system/apps/rancher-monitoring/README.md](kubernetes/projects/system/apps/rancher-monitoring/README.md) | Rancher monitoring stack. |
 | [kubernetes/projects/system/apps/sops-secrets-operator/README.md](kubernetes/projects/system/apps/sops-secrets-operator/README.md) | SOPS secrets operator. |

@@ -71,7 +71,7 @@ qbitportforward:
   enabled: false
 workload:
   main:
-    replicas: 0
+    replicas: 1
     podSpec:
       automountServiceAccountToken: false
       labels:
@@ -389,6 +389,14 @@ networkPolicy:
             port: 53
           - protocol: TCP
             port: 53
+      - to:
+          - podSelector:
+              matchLabels:
+                app.kubernetes.io/instance: prowlarr
+                app.kubernetes.io/name: prowlarr
+        ports:
+          - protocol: TCP
+            port: 9696
       - to:
           - ipBlock:
               cidr: 0.0.0.0/0

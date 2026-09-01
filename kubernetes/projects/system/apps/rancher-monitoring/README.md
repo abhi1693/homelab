@@ -19,7 +19,7 @@ It owns two HelmOps:
 - `rancher-monitoring-crd`, which installs the Prometheus Operator CRDs.
 - `rancher-monitoring-stack`, which installs Rancher's monitoring stack.
 
-The stack is pinned to chart version `109.0.3+up80.9.1-rancher.14` and starts as
+The stack is pinned to chart version `109.0.5+up80.9.1-rancher.19` and starts as
 cluster-infrastructure monitoring for Rancher and K3s. Prometheus runs two
 replicas with hard pod anti-affinity and one retained `64Gi` Longhorn PVC per
 replica. Each replica has `30d` retention, a `52GiB` retention-size

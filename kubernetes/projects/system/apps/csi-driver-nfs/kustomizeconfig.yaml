@@ -6,3 +6,6 @@ nameReference:
       - kind: HelmOp
         group: fleet.cattle.io
         path: spec/helm/valuesFrom/configMapKeyRef/name
+      - kind: HelmOp
+        group: fleet.cattle.io
+        path: spec/downstreamResources/name

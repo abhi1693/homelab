@@ -22,7 +22,7 @@ podOptions:
     kubernetes.io/arch: arm64
 resources:
   requests:
-    cpu: 190m
+    cpu: 220m
     memory: 505Mi
   limits:
     memory: 544Mi
@@ -38,9 +38,19 @@ ingress:
     tls: []
 workload:
   main:
-    replicas: 0
+    replicas: 1
     podSpec:
       automountServiceAccountToken: false
+      annotations:
+        home-lab.io/api-key-revision: "2026-08-31T00:00:22+05:30"
+      containers:
+        main:
+          env:
+            PROWLARR__AUTH__APIKEY:
+              secretKeyRef:
+                name: media-jellyfin-arr-api-keys
+                key: PROWLARR_API_KEY
+                expandObjectName: false
       labels:
         home-lab.io/topology-group: heavy-media
       topologySpreadConstraints:
@@ -86,6 +96,10 @@ networkPolicy:
           - podSelector:
               matchLabels:
                 app.kubernetes.io/name: ryokan
+          - podSelector:
+              matchLabels:
+                app.kubernetes.io/instance: qbittorrent
+                app.kubernetes.io/name: qbittorrent
         ports:
           - protocol: TCP
             port: 9696

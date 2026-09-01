@@ -1,0 +1,33 @@
+---
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: launchboard
+  namespace: launchboard
+  labels:
+    app.kubernetes.io/name: launchboard
+    app.kubernetes.io/component: web
+    app.kubernetes.io/part-of: launchboard
+spec:
+  ingressClassName: cloudflare-tunnel
+  rules:
+    - host: launchboard.win
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: launchboard
+                port:
+                  name: http
+    - host: www.launchboard.win
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: launchboard
+                port:
+                  name: http

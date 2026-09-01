@@ -22,7 +22,7 @@ The receiver accepts browser telemetry from the public app hostnames listed in
 Each pod's requests retain headroom over the 14-day pod p95 of approximately
 5.2m CPU and 106Mi memory. The replicas are stateless receivers. Required
 hostname anti-affinity and the PodDisruptionBudget keep one receiver available
-during voluntary disruption, including descheduler balancing.
+during voluntary disruption.
 
 ## Sourcemaps
 

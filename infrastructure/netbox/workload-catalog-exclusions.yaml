@@ -29,6 +29,10 @@ spec:
       disposition: component
       application: postgresql
       reason: Network boundaries are part of the PostgreSQL application.
+    - path: kubernetes/projects/database/apps/postgresql-launchboard-prerequisites
+      disposition: component
+      application: postgresql
+      reason: Launchboard database credentials and bootstrap network access are part of PostgreSQL.
     - path: kubernetes/projects/database/apps/postgresql-pooler-pdb
       disposition: component
       application: postgresql
@@ -53,14 +57,6 @@ spec:
       disposition: component
       application: jellyseerr
       reason: Network boundaries are part of the Jellyseerr application.
-    - path: kubernetes/projects/entertainment/apps/media-library-migration
-      disposition: retired
-      application: media-storage
-      reason: Completed one-time migration directory has no active desired state.
-    - path: kubernetes/projects/entertainment/apps/media-library-migration-stop
-      disposition: retired
-      application: media-storage
-      reason: Completed migration stop marker has no active desired state.
     - path: kubernetes/projects/entertainment/apps/media-ryokan-networkpolicy
       disposition: component
       application: ryokan
@@ -69,10 +65,6 @@ spec:
       disposition: support
       application: media-stack
       reason: Shared PV, PVC, namespace, and credential declarations are referenced by media applications.
-    - path: kubernetes/projects/entertainment/apps/media-torrents-migration
-      disposition: retired
-      application: qbittorrent
-      reason: Completed one-time migration directory has no active desired state.
     - path: kubernetes/projects/home-automation/apps/cloudflare-tunnel-ingress-controller-networkpolicy
       disposition: component
       application: cloudflare-tunnel-ingress-controller
@@ -117,22 +109,10 @@ spec:
       disposition: component
       application: metallb
       reason: Address pools and advertisements are part of the MetalLB application.
-    - path: kubernetes/projects/system/apps/nfs-shared-storage-migration
-      disposition: retired
-      application: csi-driver-nfs
-      reason: Completed one-time migration directory has no active desired state.
-    - path: kubernetes/projects/system/apps/nfs-shared-storage-rebind-access
-      disposition: retired
-      application: csi-driver-nfs
-      reason: Completed recovery directory has no active desired state.
     - path: kubernetes/projects/system/apps/rancher-backup-secrets
       disposition: component
       application: rancher-backup
       reason: Object-store credentials support Rancher Backup.
-    - path: kubernetes/projects/system/apps/rancher-compliance-scans
-      disposition: component
-      application: rancher-compliance
-      reason: ClusterScan schedules are part of Rancher Compliance.
     - path: kubernetes/projects/system/apps/rancher-generated-resource-defaults
       disposition: support
       application: rancher

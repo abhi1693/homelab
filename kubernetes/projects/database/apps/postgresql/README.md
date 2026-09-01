@@ -50,6 +50,7 @@ declared app-side maximum connection demand.
 | --- | --- | ---: | ---: | ---: |
 | `jellyfin` | `jellyfin-rw` | 14 | 30 | 32 |
 | `shipyardhq` | `shipyardhq-rw` | 16 | 28 | 32 |
+| `launchboard` | `launchboard-rw` | 4 | 8 | 10 |
 | `harbor` | `harbor-rw` | chart-managed | 24 | 36 |
 | `netbox` | direct | implicit | n/a | 10 |
 | `wardn_hub` | `wardn-hub-rw` | implicit | 12 | 12 |
@@ -70,6 +71,10 @@ The release builder uses `PG_POOL_MAX=1` in each of its two Next.js workers,
 limiting its direct connection path to two sessions. Even if the 28 pooler
 backend slots are all occupied, two role connections remain available for
 short-lived build and reconnect activity.
+`launchboard` has a dedicated retained database and role; it does not read or
+write ShipyardHQ's database. Its two session-mode poolers expose eight backend
+slots against a four-connection app pool, leaving two direct role connections
+for migrations and reconnect activity.
 ZITADEL caps each of its two replicas at eight open connections. Each
 session-pool replica can therefore absorb the full 16-connection steady-state
 budget even when service load balancing is uneven. The two poolers expose 32
@@ -90,8 +95,8 @@ the same node and primary failover to another trusted K3s node.
 The requests use the latest available seven-day p95/p99 review with burst
 headroom. `wardn-hub-rw` requests 50m CPU per replica, `jellyfin-rw` requests
 15m, and the other active poolers request 10m. Every active pooler requests 56Mi
-memory and retains its 192Mi memory limit. The scheduler reserves 230m CPU and
-784Mi memory across 14 active replicas. NetBox connects directly and does not
+memory and retains its 192Mi memory limit. The scheduler reserves 250m CPU and
+896Mi memory across 16 active replicas. NetBox connects directly and does not
 add a pooler.
 Wardn Hub's two replicas used 16m at p95 and 39m at p99 in aggregate, with a
 123m maximum. Their combined 100m request therefore preserves p99 headroom
@@ -124,7 +129,7 @@ and the 14 active PgBouncer replicas:
 
 | Parameter | Value | Rationale |
 | --- | ---: | --- |
-| `max_connections` | 160 | The 14-day maximum was 104 and p99 was 90. The modeled pooler, control, replication, monitoring, and direct-client ceiling remains about 132. |
+| `max_connections` | 160 | The 14-day maximum was 104 and p99 was 90. The modeled pooler, control, replication, monitoring, and direct-client ceiling remains about 140. |
 | `shared_buffers` | 256MiB | Retains the 25% memory allocation; per-database cache-hit ratios remain between 98.7% and 99.99%. |
 | `effective_cache_size` | 768MiB | Gives the planner a realistic 75% cache hint for the 1Gi cgroup; it does not allocate memory. |
 | `work_mem` | 4MiB | Avoids multiplying a larger allocation across concurrent sort and hash operations. Expensive maintenance queries must use statement-local overrides. |

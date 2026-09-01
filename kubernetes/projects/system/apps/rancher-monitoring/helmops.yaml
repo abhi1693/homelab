@@ -38,7 +38,7 @@ spec:
     releaseName: rancher-monitoring-crd
     repo: https://charts.rancher.io
     chart: rancher-monitoring-crd
-    version: 109.0.3+up80.9.1-rancher.14
+    version: 109.0.5+up80.9.1-rancher.19
     timeoutSeconds: 1200
     takeOwnership: true
     valuesFrom:
@@ -99,7 +99,7 @@ spec:
     releaseName: rancher-monitoring
     repo: https://charts.rancher.io
     chart: rancher-monitoring
-    version: 109.0.3+up80.9.1-rancher.14
+    version: 109.0.5+up80.9.1-rancher.19
     timeoutSeconds: 1200
     takeOwnership: true
     valuesFrom:

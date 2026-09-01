@@ -3,13 +3,6 @@
 This bundle installs Radarr through a Fleet `HelmOp` for movie library
 automation.
 
-## Operational state
-
-Radarr is intentionally stopped with zero replicas while the qBittorrent
-download stack is disabled. Its retained config and media PVCs are unchanged.
-Restore it to one replica together with qBittorrent and the other download
-automation workloads.
-
 ## Runtime Shape
 
 - Namespace: `media`

@@ -197,6 +197,11 @@ argument_specs:
             required: true
             description:
               - Maximum concurrent replica rebuilds Longhorn should run per node.
+          concurrent_automatic_engine_upgrade_per_node_limit:
+            type: int
+            required: true
+            description:
+              - Maximum concurrent automatic volume engine upgrades per node.
           guaranteed_instance_manager_cpu:
             type: int
             required: true

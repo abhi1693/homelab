@@ -2,13 +2,6 @@
 
 This bundle installs Sonarr through a Fleet `HelmOp` for TV library automation.
 
-## Operational state
-
-Sonarr is intentionally stopped with zero replicas while the qBittorrent
-download stack is disabled. Its retained config and media PVCs are unchanged.
-Restore it to one replica together with qBittorrent and the other download
-automation workloads.
-
 ## Runtime Shape
 
 - Namespace: `media`

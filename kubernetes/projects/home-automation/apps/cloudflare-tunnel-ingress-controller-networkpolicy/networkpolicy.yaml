@@ -125,6 +125,17 @@ spec:
     - to:
         - namespaceSelector:
             matchLabels:
+              kubernetes.io/metadata.name: launchboard
+          podSelector:
+            matchLabels:
+              app.kubernetes.io/name: launchboard
+              app.kubernetes.io/component: web
+      ports:
+        - protocol: TCP
+          port: 3000
+    - to:
+        - namespaceSelector:
+            matchLabels:
               kubernetes.io/metadata.name: shipyardhq
           podSelector:
             matchLabels:

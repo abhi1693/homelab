@@ -116,8 +116,8 @@ spec:
               protocol: TCP
           resources:
             requests:
-              cpu: 220m
-              memory: 3403Mi
+              cpu: 200m
+              memory: 3610Mi
             limits:
               cpu: "1"
               memory: 4Gi

@@ -20,8 +20,8 @@ component, then forwards logs to Loki.
 
 The collector remains a singleton because a second independent Kubernetes log
 source would ingest the same pod streams twice. Its PodDisruptionBudget blocks
-voluntary eviction, including descheduler balancing, so log collection does not
-develop a known gap while the pod is healthy.
+voluntary eviction so log collection does not develop a known gap while the pod
+is healthy.
 
 The requests retain headroom over the 14-day pod p95 of approximately 25m CPU
 and 179Mi memory.

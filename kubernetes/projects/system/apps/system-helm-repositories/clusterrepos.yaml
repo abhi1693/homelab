@@ -14,18 +14,6 @@ spec:
 apiVersion: catalog.cattle.io/v1
 kind: ClusterRepo
 metadata:
-  name: descheduler
-  labels:
-    app.kubernetes.io/part-of: system
-    app.kubernetes.io/component: helm-repository
-    home-lab.io/project-slug: system
-spec:
-  enabled: true
-  url: https://kubernetes-sigs.github.io/descheduler/
----
-apiVersion: catalog.cattle.io/v1
-kind: ClusterRepo
-metadata:
   name: external-dns
   labels:
     app.kubernetes.io/part-of: system

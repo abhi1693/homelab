@@ -15,4 +15,4 @@ spec:
   repository: https://github.com/abhi1693/home-lab
   gitPath: kubernetes/projects/entertainment/apps/media-radarr
   workloads:
-    - {key: home-k3s/media/apps/deployment/radarr, namespace: media, apiGroup: apps, kind: Deployment, name: radarr, desiredReplicas: 0, sourcePath: kubernetes/projects/entertainment/apps/media-radarr/values.yaml}
+    - {key: home-k3s/media/apps/deployment/radarr, namespace: media, apiGroup: apps, kind: Deployment, name: radarr, desiredReplicas: 1, sourcePath: kubernetes/projects/entertainment/apps/media-radarr/values.yaml}

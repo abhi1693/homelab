@@ -1,9 +1,0 @@
----
-name: descheduler-helmop
-defaultNamespace: fleet-local
-labels:
-  app.kubernetes.io/name: descheduler
-  app.kubernetes.io/part-of: descheduler
-  home-lab.io/project-slug: system
-dependsOn:
-  - name: system-helm-repositories

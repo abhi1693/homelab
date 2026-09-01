@@ -9,7 +9,7 @@ metadata:
     home-lab.io/project-slug: entertainment
 spec:
   revisionHistoryLimit: 2
-  replicas: 0
+  replicas: 1
   strategy:
     type: Recreate
   selector:
@@ -19,6 +19,7 @@ spec:
     metadata:
       annotations:
         home-lab.io/qbittorrent-credential-revision: "2026-08-11T00:30:00Z"
+        home-lab.io/ryokan-indexer-revision: "2026-08-31T00:00:22+05:30"
       labels:
         app.kubernetes.io/name: ryokan
         app.kubernetes.io/part-of: media-stack
@@ -60,6 +61,7 @@ spec:
               db_path = Path("/data/ryokan.db")
               username = os.environ["QBT_USER"]
               password = os.environ["QBT_PASSWORD"]
+              prowlarr_api_key = os.environ["PROWLARR_API_KEY"]
 
               if not db_path.exists():
                   print("Ryokan database does not exist yet; skipping qBittorrent credential sync")
@@ -72,7 +74,11 @@ spec:
                   config_updates = connection.execute(
                       """
                       UPDATE config
-                      SET qbit_user = ?, qbit_pass = ?, post_processing_mode = 'copy'
+                      SET qbit_user = ?,
+                          qbit_pass = ?,
+                          post_processing_mode = 'copy',
+                          recycle_bin_path = '/media/anime/.recycle',
+                          recycle_bin_age_days = 14
                       WHERE id = 1
                       """,
                       (username, password),
@@ -85,6 +91,91 @@ spec:
                       """,
                       (username, password, int(time.time())),
                   ).rowcount
+
+                  indexer_columns = {
+                      row[1]
+                      for row in connection.execute("PRAGMA table_info(indexers)")
+                  }
+                  if "category_ids" not in indexer_columns:
+                      connection.execute(
+                          "ALTER TABLE indexers ADD COLUMN category_ids "
+                          "TEXT NOT NULL DEFAULT '5070'"
+                      )
+
+                  prowlarr_key_updates = connection.execute(
+                      """
+                      UPDATE indexers
+                      SET api_key = ?, updated_at = ?
+                      WHERE url LIKE 'http://prowlarr.media.svc.cluster.local:9696/%/api'
+                      """,
+                      (prowlarr_api_key, int(time.time())),
+                  ).rowcount
+                  configured_indexer_updates = 0
+                  redacted_error_rows = connection.execute(
+                      """
+                      UPDATE indexers
+                      SET rss_last_poll_error = ''
+                      WHERE rss_last_poll_error LIKE '%apikey=%'
+                      """
+                  ).rowcount
+                  indexer_url = (
+                      "http://prowlarr.media.svc.cluster.local:9696/31/api"
+                  )
+                  qbit_row = connection.execute(
+                      """
+                      SELECT id
+                      FROM download_clients
+                      WHERE kind = 'qbittorrent' AND enabled = 1
+                      ORDER BY is_default DESC, id
+                      LIMIT 1
+                      """
+                  ).fetchone()
+                  existing_row = connection.execute(
+                      "SELECT id FROM indexers WHERE url = ? LIMIT 1",
+                      (indexer_url,),
+                  ).fetchone()
+                  if existing_row:
+                      configured_indexer_updates = connection.execute(
+                          """
+                          UPDATE indexers
+                          SET name = 'Sukebei Nyaa Anime',
+                              kind = 'torznab',
+                              api_key = ?,
+                              category_ids = '6000',
+                              priority = 16,
+                              enabled = 1,
+                              is_private_tracker = 0,
+                              min_seeders = 1,
+                              download_client_id = ?,
+                              rss_enabled = 1,
+                              updated_at = ?
+                          WHERE id = ?
+                          """,
+                          (
+                              prowlarr_api_key,
+                              qbit_row[0] if qbit_row else None,
+                              int(time.time()),
+                              existing_row[0],
+                          ),
+                      ).rowcount
+                  else:
+                      configured_indexer_updates = connection.execute(
+                          """
+                          INSERT INTO indexers (
+                              name, kind, url, api_key, category_ids,
+                              priority, enabled, is_private_tracker,
+                              min_seeders, download_client_id, rss_enabled
+                          ) VALUES (
+                              'Sukebei Nyaa Anime', 'torznab', ?, ?, '6000',
+                              16, 1, 0, 1, ?, 1
+                          )
+                          """,
+                          (
+                              indexer_url,
+                              prowlarr_api_key,
+                              qbit_row[0] if qbit_row else None,
+                          ),
+                      ).rowcount
                   connection.commit()
               except Exception:
                   connection.rollback()
@@ -95,7 +186,10 @@ spec:
               print(
                   "Synced qBittorrent credentials and enforced source-retaining copy mode "
                   "in Ryokan database: "
-                  f"config_rows={config_updates} download_client_rows={client_updates}"
+                  f"config_rows={config_updates} download_client_rows={client_updates} "
+                  f"prowlarr_key_rows={prowlarr_key_updates} "
+                  f"configured_indexer_rows={configured_indexer_updates} "
+                  f"redacted_error_rows={redacted_error_rows}"
               )
           env:
             - name: QBT_USER
@@ -108,6 +202,11 @@ spec:
                 secretKeyRef:
                   name: media-qbittorrent-cleanup
                   key: QBT_PASSWORD
+            - name: PROWLARR_API_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: media-jellyfin-arr-api-keys
+                  key: PROWLARR_API_KEY
           resources:
             requests:
               cpu: 5m
@@ -129,7 +228,7 @@ spec:
       containers:
         - name: ryokan
           # renovate: datasource=docker depName=ghcr.io/abhi1693/ryokan
-          image: registry.home/ghcr.io/abhi1693/ryokan:1.8.8
+          image: registry.home/ghcr.io/abhi1693/ryokan:1.9.8
           imagePullPolicy: IfNotPresent
           envFrom:
             - configMapRef:

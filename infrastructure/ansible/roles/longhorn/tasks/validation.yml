@@ -556,6 +556,8 @@
       expected: "{{ longhorn.replica_file_sync_http_client_timeout | string }}"
     - name: concurrent-replica-rebuild-per-node-limit
       expected: "{{ longhorn.concurrent_replica_rebuild_per_node_limit | string }}"
+    - name: concurrent-automatic-engine-upgrade-per-node-limit
+      expected: "{{ longhorn.concurrent_automatic_engine_upgrade_per_node_limit | string }}"
     - name: remove-snapshots-during-filesystem-trim
       expected: "{{ longhorn.remove_snapshots_during_filesystem_trim | lower }}"
     - name: orphan-resource-auto-deletion

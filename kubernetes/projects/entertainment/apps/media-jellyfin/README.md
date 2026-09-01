@@ -59,6 +59,15 @@ entrypoint defaults:
 Those mounts are dereferenced and copied into `/data/plugins/configurations` in
 source order on startup, so later overlays replace duplicate files and the pod
 starts with the same plugin settings without committing secrets.
+Increment `workload.main.podSpec.annotations.home-lab.io/config-seed-revision`
+whenever a startup-copied config or plugin seed changes so Fleet rolls the pod
+and applies the new seed.
+
+The JavaScript Injector seed includes a `MediaBar-Exclude-Anime` filter. It is
+scoped to the Media Bar plugin's random movie/series request and removes items
+from the Shokofin VFS or items carrying the exact `anime` tag. This also covers
+anime that still resides in the TV or Movies library without hiding it from
+library pages, search, or other home-screen sections.
 
 The non-secret Episeerr destination is mounted separately at
 `/opt/jellyfin/plugin-episeerr`. It sends episode playback start/stop events to

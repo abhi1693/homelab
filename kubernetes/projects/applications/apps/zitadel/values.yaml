@@ -69,6 +69,11 @@ tools:
       limits:
         cpu: 100m
         memory: 64Mi
+  kubectl:
+    image:
+      repository: alpine/k8s
+      # renovate: datasource=docker depName=docker.io/alpine/k8s
+      tag: 1.35.6
 service:
   type: ClusterIP
   port: 8080
@@ -129,7 +134,7 @@ login:
   resources:
     requests:
       cpu: 20m
-      memory: 165Mi
+      memory: 157Mi
     limits:
       memory: 256Mi
   nodeSelector:
@@ -144,7 +149,7 @@ login:
 resources:
   requests:
     cpu: 30m
-    memory: 254Mi
+    memory: 207Mi
   limits:
     memory: 768Mi
 nodeSelector:

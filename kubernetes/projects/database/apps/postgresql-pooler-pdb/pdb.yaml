@@ -17,6 +17,21 @@ spec:
 apiVersion: policy/v1
 kind: PodDisruptionBudget
 metadata:
+  name: postgresql-pooler-launchboard-rw
+  namespace: postgresql
+  labels:
+    app.kubernetes.io/name: postgresql-pooler
+    app.kubernetes.io/part-of: postgresql
+    home-lab.io/client: launchboard
+spec:
+  minAvailable: 1
+  selector:
+    matchLabels:
+      cnpg.io/poolerName: postgresql-pooler-launchboard-rw
+---
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
   name: postgresql-pooler-shipyardhq-rw
   namespace: postgresql
   labels:

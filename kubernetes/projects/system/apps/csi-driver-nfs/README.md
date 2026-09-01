@@ -60,6 +60,10 @@ That HelmOp installs the chart into `kube-system` and loads values from the
 generated ConfigMap. The system Helm repository bundle registers the upstream
 chart repository before this bundle reconciles.
 
+Kustomize rewrites both the Helm values reference and Fleet's
+`downstreamResources` reference to the generated ConfigMap's hashed name. Keep
+the two references aligned so Fleet can copy the values into the target cluster.
+
 ## Validation
 
 Render the source bundle and upstream release locally:

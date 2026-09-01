@@ -4,14 +4,6 @@ This stack runs a Rancher/Fleet-managed media automation pipeline using
 TrueCharts OCI Helm charts, the official Seerr OCI Helm chart, and raw
 Kubernetes manifests for custom services.
 
-## Operational state
-
-The download and import pipeline is intentionally stopped: qBittorrent, Smart
-Queues, Sonarr, Radarr, Prowlarr, FlareSolverr, Ryokan, and Shoko have zero
-replicas, and qBittorrent's maintenance CronJobs are suspended. Retained PVCs,
-Services, and library playback remain in place. Jellyfin, Seerr, Episeerr,
-Profilarr, and Music Assistant remain available.
-
 ## Architecture
 
 - `qBittorrent`: torrent download client.

@@ -1,0 +1,18 @@
+---
+apiVersion: home-lab.io/v1alpha1
+kind: WorkloadCatalog
+metadata:
+  name: launchboard
+spec:
+  displayName: Launchboard
+  purpose: Run the public pay-to-rank product and People leaderboard at launchboard.win.
+  owner: home-lab
+  project: applications
+  cluster: home-k3s
+  lifecycle: active
+  criticality: medium
+  dataClassification: restricted
+  repository: https://github.com/abhi1693/launchboard.win
+  gitPath: kubernetes/projects/applications/apps/launchboard
+  workloads:
+    - {key: home-k3s/launchboard/apps/deployment/launchboard, namespace: launchboard, apiGroup: apps, kind: Deployment, name: launchboard, desiredReplicas: 1, sourcePath: kubernetes/projects/applications/apps/launchboard/deployment.yaml}

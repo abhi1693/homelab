@@ -15,4 +15,4 @@ spec:
   repository: https://github.com/abhi1693/home-lab
   gitPath: kubernetes/projects/entertainment/apps/media-flaresolverr
   workloads:
-    - {key: home-k3s/media/apps/deployment/flaresolverr, namespace: media, apiGroup: apps, kind: Deployment, name: flaresolverr, desiredReplicas: 0, sourcePath: kubernetes/projects/entertainment/apps/media-flaresolverr/values.yaml}
+    - {key: home-k3s/media/apps/deployment/flaresolverr, namespace: media, apiGroup: apps, kind: Deployment, name: flaresolverr, desiredReplicas: 1, sourcePath: kubernetes/projects/entertainment/apps/media-flaresolverr/values.yaml}

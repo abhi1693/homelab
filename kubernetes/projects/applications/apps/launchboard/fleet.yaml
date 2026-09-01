@@ -1,0 +1,19 @@
+---
+name: launchboard
+defaultNamespace: launchboard
+labels:
+  app.kubernetes.io/name: launchboard
+  app.kubernetes.io/part-of: launchboard
+  home-lab.io/project-slug: applications
+rolloutStrategy:
+  maxUnavailable: 1
+  maxUnavailablePartitions: 1
+dependsOn:
+  - name: rancher-project-applications
+  - name: postgresql
+  - name: postgresql-launchboard-prerequisites
+  - name: postgresql-pooler-pdb
+  - name: cloudflare-tunnel-ingress-controller
+helm:
+  takeOwnership: true
+  timeoutSeconds: 1800
