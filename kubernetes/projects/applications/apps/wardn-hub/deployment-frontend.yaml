@@ -218,8 +218,8 @@ spec:
               protocol: TCP
           resources:
             requests:
-              cpu: 90m
-              memory: 260Mi
+              cpu: 100m
+              memory: 320Mi
             limits:
               memory: 320Mi
           startupProbe:

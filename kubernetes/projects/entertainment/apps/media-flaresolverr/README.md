@@ -3,12 +3,6 @@
 This bundle installs FlareSolverr through a Fleet `HelmOp` for indexers that
 require browser-challenge handling.
 
-## Operational state
-
-FlareSolverr is intentionally stopped with zero replicas while Prowlarr and the
-qBittorrent download stack are disabled. Its runtime state is disposable.
-Restore it to one replica with Prowlarr.
-
 ## Runtime Shape
 
 - Namespace: `media`

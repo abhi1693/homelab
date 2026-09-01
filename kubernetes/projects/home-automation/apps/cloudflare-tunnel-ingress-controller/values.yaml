@@ -34,7 +34,7 @@ cloudflared:
     repository: registry.home/docker.io/cloudflare/cloudflared
     pullPolicy: IfNotPresent
     # renovate: datasource=github-releases depName=cloudflare/cloudflared
-    tag: 2026.8.2
+    tag: 2026.8.3
   podSecurityContext:
     runAsGroup: 65532
     runAsNonRoot: true

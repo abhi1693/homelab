@@ -20,7 +20,7 @@ podOptions:
     kubernetes.io/arch: arm64
 resources:
   requests:
-    cpu: 670m
+    cpu: 770m
     memory: 542Mi
   limits:
     memory: 864Mi
@@ -36,7 +36,7 @@ ingress:
     tls: []
 workload:
   main:
-    replicas: 0
+    replicas: 1
     podSpec:
       automountServiceAccountToken: false
       labels:

@@ -26,7 +26,7 @@ workload:
         supplementalGroups:
           - 1000
       annotations:
-        home-lab.io/config-seed-revision: "20260724"
+        home-lab.io/config-seed-revision: "20260831"
       labels:
         home-lab.io/topology-group: heavy-media
       initContainers:
@@ -166,8 +166,8 @@ podOptions:
     kubernetes.io/arch: arm64
 resources:
   requests:
-    cpu: 570m
-    memory: 822Mi
+    cpu: 490m
+    memory: 1125Mi
   limits:
     cpu: 2500m
     memory: 4Gi

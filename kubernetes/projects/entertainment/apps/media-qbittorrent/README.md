@@ -4,15 +4,10 @@ The qBittorrent Deployment and its state-backup CronJob are no longer pinned to
 `k8s-rpi2`. They retain the ARM64 selector and, because they do not tolerate the
 control-plane critical-addons taint, schedule on any available worker.
 
-This bundle runs the qBittorrent client used by the media stack.
-
-## Operational state
-
-qBittorrent and the Smart Queues controller are intentionally stopped with
-zero replicas. The downloads-layout, state-backup, and tracker-refresh CronJobs
-are suspended. Persistent qBittorrent configuration and download storage are
-retained. Restore both Deployments to one replica and remove the three CronJob
-suspensions together when re-enabling the download stack.
+This bundle runs the qBittorrent client used by the media stack. qBittorrent
+and the Smart Queues controller each run with one replica, and the maintenance
+CronJobs are active. The HelmOp explicitly remains unpaused so Fleet
+reconciles the one-replica desired state after an out-of-band pause.
 
 The smart queues controller code lives in
 `https://github.com/abhi1693/qbittorrent-smart-queues` and runs from the
@@ -23,6 +18,8 @@ and runs in the `media` namespace.
 All media applications connect to the single in-cluster service at
 `http://qbittorrent.media.svc.cluster.local:8080`. Category-specific routing is
 handled inside qBittorrent rather than through separate workloads or Services.
+qBittorrent can reach Prowlarr on TCP `9696` because Prowlarr download URLs are
+submitted to qBittorrent for the client to fetch directly.
 
 ## Bandwidth policy
 

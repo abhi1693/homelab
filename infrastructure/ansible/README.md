@@ -45,6 +45,8 @@ policy and Longhorn exceptions are documented in
 Longhorn instance managers reserve 12 percent of each node's CPU, and each
 Rancher replica requests 200m CPU; both remain able to burst to their configured
 limits or the node's available capacity.
+Fleet HelmOps requests 192Mi and is capped at 384Mi so a repository-wide
+reconciliation can render concurrent chart updates without being OOM-killed.
 The Longhorn role also reconciles every existing Longhorn volume replica count
 to the inventory default of three, including PostgreSQL and Valkey volumes that
 also maintain application-level replicas.
@@ -52,6 +54,10 @@ Longhorn permits up to five concurrent replica rebuilds per node so one slow
 recovery does not block unrelated degraded volumes. Operators should monitor
 the Raspberry Pi nodes' shared root NVMe and 1 GbE utilization while several
 rebuilds are active.
+Automatic engine upgrades remain disabled during normal operation. For a
+reviewed Longhorn chart upgrade, temporarily set the per-node automatic engine
+upgrade limit to one, verify every volume uses the new engine image, then return
+the limit to zero.
 
 ## Execution Model
 

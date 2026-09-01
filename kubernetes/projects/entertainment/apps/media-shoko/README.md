@@ -2,12 +2,8 @@
 
 Shoko is the anime-only metadata and library manager for this stack.
 
-## Operational state
-
-Shoko is intentionally stopped with zero replicas while the qBittorrent anime
-download and import pipeline is disabled. Its persistent configuration and
-library storage are retained. Restore it to one replica with Ryokan and the
-other download automation workloads.
+The deployment runs as a single replica with persistent configuration and
+library mounts.
 
 It retains two ReplicaSet revisions; Git and Fleet history remain the primary
 rollback path.
@@ -20,6 +16,15 @@ normal idle and scan baseline.
 The server runs at `http://anime.media.home` and listens in-cluster at
 `http://shoko.media.svc.cluster.local:8111`.
 
+## GitHub API access
+
+Shoko uses the GitHub API to check the latest compatible server and WebUI
+versions. The `shoko-github` SopsSecret provides `GITHUB_TOKEN` to avoid the
+low unauthenticated API limit surfacing as `WebUI/LatestVersion` and
+`WebUI/LatestServerVersion` errors. Keep the token encrypted in
+`secrets.sops.yaml`; its `data` value must remain base64-encoded before SOPS
+encryption. Never store the token in the ConfigMap or Deployment.
+
 ## Storage
 
 - Config and Shoko database: `shoko-config` mounted at `/home/shoko/.shoko`
@@ -31,6 +36,11 @@ Shoko should be configured to import or scan `/media/anime` so the path matches
 Jellyfin's Anime library path for Shokofin. The mount is
 read-only so Shoko cannot move or rewrite the NAS library; change that only if
 you intentionally want Shoko to manage files directly.
+
+Before Shoko starts, an idempotent init container ensures the `.recycle`
+directory is present in `Import.Exclude`. This keeps both folder scans and the
+live file watcher from scheduling files held there while preserving the other
+settings on the configuration volume.
 
 ## Jellyfin
 

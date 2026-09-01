@@ -217,6 +217,18 @@ cluster:
       bypassrls: false
       passwordSecret:
         name: shipyardhq-postgresql
+    - name: launchboard
+      ensure: present
+      login: true
+      connectionLimit: 10
+      superuser: false
+      createdb: false
+      createrole: false
+      inherit: true
+      replication: false
+      bypassrls: false
+      passwordSecret:
+        name: launchboard-postgresql
     - name: harbor
       ensure: present
       login: true
@@ -345,6 +357,9 @@ databases:
   - name: shipyardhq
     owner: shipyardhq
     databaseReclaimPolicy: retain
+  - name: launchboard
+    owner: launchboard
+    databaseReclaimPolicy: retain
   - name: harbor
     owner: harbor
     databaseReclaimPolicy: retain
@@ -448,6 +463,53 @@ poolers:
               - labelSelector:
                   matchLabels:
                     cnpg.io/poolerName: postgresql-pooler-shipyardhq-rw
+                matchLabelKeys:
+                  - pod-template-hash
+                topologyKey: kubernetes.io/hostname
+        containers:
+          - name: pgbouncer
+            # renovate: datasource=docker depName=ghcr.io/cloudnative-pg/pgbouncer
+            image: registry.home/ghcr.io/cloudnative-pg/pgbouncer:1.25.2
+            resources:
+              requests:
+                cpu: 10m
+                memory: 56Mi
+              limits:
+                memory: 192Mi
+  - name: launchboard-rw
+    type: rw
+    poolMode: session
+    instances: 2
+    monitoring:
+      enabled: true
+      podMonitor:
+        enabled: true
+    parameters:
+      max_client_conn: "30"
+      default_pool_size: "4"
+    template:
+      metadata:
+        labels:
+          app.kubernetes.io/part-of: postgresql
+          home-lab.io/client: launchboard
+      spec:
+        nodeSelector:
+          kubernetes.io/arch: arm64
+        topologySpreadConstraints:
+          - maxSkew: 1
+            topologyKey: kubernetes.io/hostname
+            whenUnsatisfiable: DoNotSchedule
+            labelSelector:
+              matchLabels:
+                cnpg.io/poolerName: postgresql-pooler-launchboard-rw
+            matchLabelKeys:
+              - pod-template-hash
+        affinity:
+          podAntiAffinity:
+            requiredDuringSchedulingIgnoredDuringExecution:
+              - labelSelector:
+                  matchLabels:
+                    cnpg.io/poolerName: postgresql-pooler-launchboard-rw
                 matchLabelKeys:
                   - pod-template-hash
                 topologyKey: kubernetes.io/hostname

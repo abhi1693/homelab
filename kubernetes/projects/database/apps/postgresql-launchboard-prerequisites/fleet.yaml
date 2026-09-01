@@ -1,0 +1,9 @@
+---
+name: postgresql-launchboard-prerequisites
+defaultNamespace: postgresql
+labels:
+  app.kubernetes.io/name: postgresql-launchboard-prerequisites
+  app.kubernetes.io/part-of: postgresql
+  home-lab.io/project-slug: database
+dependsOn:
+  - name: rancher-project-database

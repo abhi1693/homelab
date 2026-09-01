@@ -8,7 +8,7 @@ metadata:
     app.kubernetes.io/part-of: media-stack
 spec:
   revisionHistoryLimit: 2
-  replicas: 0
+  replicas: 1
   strategy:
     type: Recreate
   selector:
@@ -40,6 +40,65 @@ spec:
           - 568
         seccompProfile:
           type: RuntimeDefault
+      initContainers:
+        - name: configure-import-exclusions
+          # renovate: datasource=docker depName=docker.io/library/python
+          image: registry.home/docker.io/library/python:3.12-alpine
+          imagePullPolicy: IfNotPresent
+          command:
+            - python3
+            - -c
+            - |
+              import json
+              import os
+              from pathlib import Path
+
+              settings_path = Path(
+                  "/config/Shoko.CLI/settings-server.json"
+              )
+              exclusion = r"[\\/]\.recycle[\\/]"
+
+              settings_path.parent.mkdir(parents=True, exist_ok=True)
+              if settings_path.exists():
+                  with settings_path.open(encoding="utf-8") as settings_file:
+                      settings = json.load(settings_file)
+              else:
+                  settings = {}
+
+              import_settings = settings.setdefault("Import", {})
+              exclusions = import_settings.setdefault("Exclude", [])
+              if not isinstance(exclusions, list):
+                  raise TypeError("Import.Exclude must be a list")
+
+              if exclusion in exclusions:
+                  print("Shoko import exclusion is already configured")
+                  raise SystemExit(0)
+
+              exclusions.append(exclusion)
+              temporary_path = settings_path.with_suffix(".json.tmp")
+              with temporary_path.open("w", encoding="utf-8") as settings_file:
+                  json.dump(settings, settings_file, indent=2)
+                  settings_file.write("\n")
+              os.replace(temporary_path, settings_path)
+              print("Configured Shoko import exclusion")
+          resources:
+            requests:
+              cpu: 5m
+              memory: 16Mi
+            limits:
+              memory: 64Mi
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop:
+                - ALL
+            readOnlyRootFilesystem: true
+            runAsGroup: 100
+            runAsNonRoot: true
+            runAsUser: 1000
+          volumeMounts:
+            - name: config
+              mountPath: /config
       containers:
         - name: shoko
           # renovate: datasource=github-releases depName=ShokoAnime/ShokoServer
@@ -48,6 +107,12 @@ spec:
           envFrom:
             - configMapRef:
                 name: shoko
+          env:
+            - name: GITHUB_TOKEN
+              valueFrom:
+                secretKeyRef:
+                  name: shoko-github
+                  key: GITHUB_TOKEN
           ports:
             - name: http
               containerPort: 8111

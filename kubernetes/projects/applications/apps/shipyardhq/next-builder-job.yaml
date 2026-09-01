@@ -7,6 +7,7 @@ metadata:
     helm.sh/hook: pre-install,pre-upgrade
     helm.sh/hook-delete-policy: before-hook-creation,hook-succeeded
     helm.sh/hook-weight: "-5"
+    home-lab.io/reconcile-token: "20260829T1410Z"
   labels:
     app.kubernetes.io/name: shipyardhq
     app.kubernetes.io/component: next-builder
@@ -38,7 +39,7 @@ spec:
       containers:
         - name: build-next-app
           # renovate: datasource=docker depName=ghcr.io/abhi1693/shipyardhq
-          image: registry.home/ghcr.io/abhi1693/shipyardhq:1.15.17
+          image: registry.home/ghcr.io/abhi1693/shipyardhq:1.5.18
           imagePullPolicy: IfNotPresent
           command:
             - /bin/sh

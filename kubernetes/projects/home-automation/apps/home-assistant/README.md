@@ -5,7 +5,7 @@ chart. Rancher Fleet reconciles this directory and K3s' Helm controller installs
 the resulting `HelmChart` resource.
 
 - endpoint: `http://ha.home`
-- chart version: `0.3.67`
+- chart version: `0.3.75`
 - app version: `2026.8.3`
 - namespace: `home-assistant`
 - replicas: `1`, using `Recreate` updates

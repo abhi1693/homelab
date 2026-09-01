@@ -15,8 +15,8 @@ spec:
   repository: https://github.com/abhi1693/home-lab
   gitPath: kubernetes/projects/entertainment/apps/media-qbittorrent
   workloads:
-    - {key: home-k3s/media/apps/deployment/qbittorrent, namespace: media, apiGroup: apps, kind: Deployment, name: qbittorrent, desiredReplicas: 0, sourcePath: kubernetes/projects/entertainment/apps/media-qbittorrent/values.yaml}
-    - {key: home-k3s/media/apps/deployment/qbittorrent-smart-queues, namespace: media, apiGroup: apps, kind: Deployment, name: qbittorrent-smart-queues, desiredReplicas: 0, sourcePath: kubernetes/projects/entertainment/apps/media-qbittorrent/smart-queues-controller.yaml}
+    - {key: home-k3s/media/apps/deployment/qbittorrent, namespace: media, apiGroup: apps, kind: Deployment, name: qbittorrent, desiredReplicas: 1, sourcePath: kubernetes/projects/entertainment/apps/media-qbittorrent/values.yaml}
+    - {key: home-k3s/media/apps/deployment/qbittorrent-smart-queues, namespace: media, apiGroup: apps, kind: Deployment, name: qbittorrent-smart-queues, desiredReplicas: 1, sourcePath: kubernetes/projects/entertainment/apps/media-qbittorrent/smart-queues-controller.yaml}
     - {key: home-k3s/media/batch/cronjob/qbittorrent-downloads-layout, namespace: media, apiGroup: batch, kind: CronJob, name: qbittorrent-downloads-layout, sourcePath: kubernetes/projects/entertainment/apps/media-qbittorrent/downloads-layout-cronjob.yaml}
     - {key: home-k3s/media/batch/cronjob/qbittorrent-state-backup, namespace: media, apiGroup: batch, kind: CronJob, name: qbittorrent-state-backup, sourcePath: kubernetes/projects/entertainment/apps/media-qbittorrent/state-backup-cronjob.yaml}
     - {key: home-k3s/media/batch/cronjob/qbittorrent-tracker-refresh, namespace: media, apiGroup: batch, kind: CronJob, name: qbittorrent-tracker-refresh, sourcePath: kubernetes/projects/entertainment/apps/media-qbittorrent/tracker-refresh-cronjob.yaml}

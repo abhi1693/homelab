@@ -2,12 +2,8 @@
 
 Ryokan replaces the old Sonarr Anime instance as the anime-only PVR.
 
-## Operational state
-
-Ryokan is intentionally stopped with zero replicas while the qBittorrent anime
-download and import pipeline is disabled. Its persistent configuration and
-library storage are retained. Restore it to one replica with Shoko and the
-other download automation workloads.
+The deployment runs as a single replica with persistent configuration and
+library mounts.
 
 It retains two ReplicaSet revisions; Git and Fleet history remain the primary
 rollback path.
@@ -38,6 +34,10 @@ The web UI is available at `http://requests.anime.media.home`.
    planned workload shutdowns can interrupt a cross-filesystem copy.
    The short-lived credential sync requests `5m` CPU and `32Mi` memory with a
    `96Mi` memory limit.
+   The Fleet-managed init container keeps the recycle bin at
+   `/media/anime/.recycle` with 14-day retention. The hidden directory shares
+   the media filesystem, so replacements use an atomic move and can be restored
+   from Library -> Recycle Bin before cleanup.
 4. In Settings -> Indexers, add the anime Prowlarr Torznab feeds. The live
    cluster uses `Bangumi Moe`, `Nyaa.si`, `SubsPlease`, `Shana Project`,
    `Tokyo Toshokan`, and `AnimeTosho`.
@@ -61,6 +61,28 @@ The web UI is available at `http://requests.anime.media.home`.
 Ryokan mounts `/downloads` so it can read qBittorrent's reported anime torrent
 paths, and `/media/anime` as the NAS-backed anime library.
 
+Ryokan 1.9.8 stores a durable checkpoint after each file reaches its final
+library path. If the process restarts while a multi-file grab is still pending,
+the next pass verifies and resumes completed files instead of copying or
+recycling them again. It also finishes deferred replacement bookkeeping after
+an interrupted upgrade. Existing destinations created before checkpoint
+support are adopted only after a full byte comparison. The release retains the
+per-indexer Torznab/Newznab categories, serialized metadata-provider requests,
+redacted diagnostic URLs, interrupted replacement staging, and runtime
+`ffprobe` support from 1.9.4.
+
+The deployment uses one read-only verification worker for that one-time byte
+comparison. Two workers were slower on the shared storage path, so verification
+stays sequential to avoid extra contention. Import placement, replacement
+bookkeeping, and database writes remain serialized.
+Each completed grab processes at most one new file per pass, then yields to the
+next pending grab. Durable checkpoints let large batches continue on later
+passes without making other ready downloads wait for the whole batch.
+
+The filename parser recognizes zero-padded trailing episode tokens such as
+`Group_Title_01.mkv` while rejecting years, resolutions, and one-digit title
+suffixes.
+
 Completed multi-video grabs are treated as batches from their actual wanted
 file shape even when the indexer recorded `is_batch=false` and only episode 1.
 Videos beneath `Extras/`, `Samples/`, `Trailers/`, and similar secondary-media
@@ -83,6 +105,8 @@ and unknown, ambiguous, or batch-shape-mismatched hashes are never modified.
 Authentication reuses
 `SONARR_ANIME_API_KEY` from `media-jellyfin-arr-api-keys`. Ryokan's ingress
 boundary exposes port `8979` only to the Smart Queues pod selector.
+The same encrypted Secret supplies `PROWLARR_API_KEY` to the startup reconciler
+so all configured Prowlarr endpoints stay aligned after credential rotation.
 
 Do not use automatic requeue for a partial multi-file batch when the current
 qBittorrent selection differs from the original episode set, or when a prior
@@ -148,7 +172,7 @@ Fleet-managed PVC when capacity is the problem, then rerun the native rebuild.
   `graphql.anilist.co`, then retry after connectivity recovers. A successful
   workstation request does not prove that the Ryokan Pod can reach AniList.
 - **Nyaa search shows `No results` for a known title:** inspect the Ryokan logs
-  for `Nyaa request failed`. Ryokan 1.8.x renders transport failures as an empty
+  for `Nyaa request failed`. Ryokan renders transport failures as an empty
   result set. Confirm direct pod egress to `https://nyaa.si/` and check whether
   the indexer is blocking or rate-limiting the current public WAN address.
 - **Low-resolution posters:** verify `/data` is not full, then run **Rebuild

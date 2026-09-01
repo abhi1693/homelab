@@ -37,9 +37,6 @@ operator lifecycle.
 | `cert-manager-secrets` | Secret bundle for DNS01 credentials. | Supplies cert-manager provider credentials. |
 | `rancher-backup` | Rancher Backup CRDs and operator. | Backs up Rancher state to object storage. |
 | `rancher-backup-secrets` | Backup credential bundle. | Provides object-store credentials through SOPS. |
-| `rancher-compliance` | Rancher Compliance CRDs and operator. | Provides CIS scan capability. |
-| `rancher-compliance-scans` | One-time and scheduled scan definitions. | Keeps compliance scan cadence in Git. |
-| `descheduler` | Periodic workload rebalancing. | Uses separate guarded profiles for control-plane infrastructure and worker workloads. |
 | `longhorn-recurring-jobs` | Recurring Longhorn jobs such as filesystem trim. | Handles storage maintenance policy. |
 | `longhorn-fstrim-labeler` | Labels Longhorn PVCs for recurring filesystem trim. | Ensures Helm and StatefulSet-created volumes participate in fstrim. |
 
@@ -62,11 +59,10 @@ Internal HTTP apps declare Traefik `Ingress` hosts. ExternalDNS watches those
 Ingress objects and writes matching UniFi DNS records for the internal domain.
 That keeps app hostnames Git-driven while the router remains the DNS authority.
 
-## Backup and Compliance Coupling
+## Backup Coupling
 
-Rancher Backup protects Rancher-managed state. Rancher Compliance provides CIS
-scan definitions. These do not replace application database backups or storage
-snapshots; they cover cluster management and compliance reporting concerns.
+Rancher Backup protects Rancher-managed state. This does not replace application
+database backups or storage snapshots.
 
 ## Operating Notes
 

@@ -10,7 +10,6 @@ metadata:
     app.kubernetes.io/part-of: media-stack
     home-lab.io/project-slug: entertainment
 spec:
-  suspend: true
   schedule: "*/15 * * * *"
   concurrencyPolicy: Forbid
   successfulJobsHistoryLimit: 1

@@ -9,7 +9,7 @@ spec:
   createNamespace: true
   chart: home-assistant
   repo: http://pajikos.github.io/home-assistant-helm-chart/
-  version: 0.3.67
+  version: 0.3.75
   timeout: 10m0s
   valuesContent: |-
     replicaCount: 1
@@ -191,7 +191,7 @@ spec:
             mountPath: /trust
       - name: install-home-assistant-source
         # renovate: datasource=github-releases depName=home-assistant/core
-        image: registry.home/ghcr.io/home-assistant/home-assistant:2026.8.1
+        image: registry.home/ghcr.io/home-assistant/home-assistant:2026.8.3
         imagePullPolicy: IfNotPresent
         securityContext:
           runAsUser: 0

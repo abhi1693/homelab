@@ -5,7 +5,7 @@ image:
   repository: registry.home/oci.trueforge.org/containerforge/radarr
   pullPolicy: IfNotPresent
   # renovate: datasource=docker depName=oci.trueforge.org/containerforge/radarr
-  tag: "6.4.2"
+  tag: "6.4.3"
 imagePullSecret:
   harbor-registry:
     enabled: true
@@ -20,8 +20,8 @@ podOptions:
     kubernetes.io/arch: arm64
 resources:
   requests:
-    cpu: 260m
-    memory: 518Mi
+    cpu: 240m
+    memory: 584Mi
   limits:
     memory: 976Mi
 ingress:
@@ -36,7 +36,7 @@ ingress:
     tls: []
 workload:
   main:
-    replicas: 0
+    replicas: 1
     podSpec:
       automountServiceAccountToken: false
       labels:

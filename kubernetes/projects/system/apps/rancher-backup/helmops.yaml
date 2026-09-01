@@ -36,7 +36,7 @@ spec:
     releaseName: rancher-backup-crd
     repo: https://charts.rancher.io
     chart: rancher-backup-crd
-    version: 109.0.5+up10.0.5
+    version: 109.0.8+up10.0.9
     timeoutSeconds: 900
     takeOwnership: true
     valuesFrom:
@@ -85,7 +85,7 @@ spec:
     releaseName: rancher-backup
     repo: https://charts.rancher.io
     chart: rancher-backup
-    version: 109.0.5+up10.0.5
+    version: 109.0.8+up10.0.9
     timeoutSeconds: 900
     takeOwnership: true
     valuesFrom:

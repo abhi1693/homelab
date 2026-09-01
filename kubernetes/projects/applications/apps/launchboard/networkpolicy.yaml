@@ -1,0 +1,139 @@
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: launchboard-default-deny
+  namespace: launchboard
+  labels:
+    app.kubernetes.io/name: launchboard
+    app.kubernetes.io/part-of: launchboard
+spec:
+  podSelector: {}
+  policyTypes:
+    - Ingress
+    - Egress
+  ingress: []
+  egress: []
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: launchboard-web-ingress
+  namespace: launchboard
+  labels:
+    app.kubernetes.io/name: launchboard
+    app.kubernetes.io/part-of: launchboard
+spec:
+  podSelector:
+    matchLabels:
+      app.kubernetes.io/name: launchboard
+      app.kubernetes.io/component: web
+  policyTypes:
+    - Ingress
+  ingress:
+    - from:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: cloudflare
+          podSelector:
+            matchLabels:
+              app: controlled-cloudflared-connector
+              strrl.dev/cloudflare-tunnel-ingress-controller: controlled-cloudflared-connector
+      ports:
+        - protocol: TCP
+          port: 3000
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: launchboard-dns-egress
+  namespace: launchboard
+  labels:
+    app.kubernetes.io/name: launchboard
+    app.kubernetes.io/part-of: launchboard
+spec:
+  podSelector: {}
+  policyTypes:
+    - Egress
+  egress:
+    - to:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: kube-system
+          podSelector:
+            matchLabels:
+              k8s-app: kube-dns
+      ports:
+        - protocol: UDP
+          port: 53
+        - protocol: TCP
+          port: 53
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: launchboard-postgresql-egress
+  namespace: launchboard
+  labels:
+    app.kubernetes.io/name: launchboard
+    app.kubernetes.io/part-of: launchboard
+spec:
+  podSelector:
+    matchLabels:
+      launchboard-psql-client: "true"
+  policyTypes:
+    - Egress
+  egress:
+    - to:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: postgresql
+          podSelector:
+            matchLabels:
+              cnpg.io/poolerName: postgresql-pooler-launchboard-rw
+      ports:
+        - protocol: TCP
+          port: 5432
+    - to:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: postgresql
+          podSelector:
+            matchLabels:
+              cnpg.io/cluster: postgresql
+              cnpg.io/podRole: instance
+      ports:
+        - protocol: TCP
+          port: 5432
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: launchboard-public-web-egress
+  namespace: launchboard
+  labels:
+    app.kubernetes.io/name: launchboard
+    app.kubernetes.io/part-of: launchboard
+spec:
+  podSelector:
+    matchLabels:
+      app.kubernetes.io/name: launchboard
+      app.kubernetes.io/component: web
+  policyTypes:
+    - Egress
+  egress:
+    - to:
+        - ipBlock:
+            cidr: 0.0.0.0/0
+            except:
+              - 10.0.0.0/8
+              - 100.64.0.0/10
+              - 127.0.0.0/8
+              - 169.254.0.0/16
+              - 172.16.0.0/12
+              - 192.168.0.0/16
+      ports:
+        - protocol: TCP
+          port: 80
+        - protocol: TCP
+          port: 443

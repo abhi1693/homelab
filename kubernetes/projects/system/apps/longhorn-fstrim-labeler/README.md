@@ -11,10 +11,10 @@ and the matching Longhorn `Volume`. Use this for disposable or latency-sensitive
 RWX cache volumes where Longhorn remount requests can generate recurring
 `FailedMount` events without improving recoverability.
 
-The one-time Job handles existing PVCs when the bundle is first reconciled. The
-CronJob runs hourly so PVCs created later by Helm charts or StatefulSet
-`volumeClaimTemplates` receive the same labels without hand-editing generated
-claims.
+The original one-time Job handled existing PVCs during the initial rollout and
+was retired after completion. The CronJob runs hourly so existing PVCs and PVCs
+created later by Helm charts or StatefulSet `volumeClaimTemplates` receive the
+same labels without hand-editing generated claims.
 
-Both the one-time Job and hourly CronJob request `10m` CPU and `32Mi` memory and
-are capped at `250m` CPU and `128Mi` memory.
+The hourly CronJob requests `10m` CPU and `32Mi` memory and is capped at `250m`
+CPU and `128Mi` memory.
