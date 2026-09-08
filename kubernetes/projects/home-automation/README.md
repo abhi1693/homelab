@@ -21,7 +21,7 @@ Keeping these services in one project makes the boundary clear.
 | --- | --- | --- |
 | `home-automation-helm-repositories` | Registers chart repositories for this project. | Rancher ClusterRepo. |
 | `cloudflare-tunnel-ingress-controller` | Runs the Cloudflare Tunnel ingress controller. | Public app ingress, Cloudflare credentials. |
-| `cloudflare-tunnel-ingress-controller-networkpolicy` | Applies network boundaries for tunnel connector traffic. | Public ingress to app services. |
+| `cloudflare-tunnel-ingress-controller-networkpolicy` | Applies network boundaries for tunnel connector traffic. | Public ingress to explicitly allowlisted app services, including the Wardn AI website. |
 | `cluster-ops` | Runs worker-hosted cluster operation controllers, including K8s Recommendation Engine profile runners. | Kubernetes API, Prometheus, Fleet-managed app state. |
 | `home-assistant` | Home automation runtime with commit-pinned source from `abhi1693/home-assistant` and a code-server sidecar. | Family desktop dashboard, UniFi Protect camera wall, Atomberg fans, media integrations, Longhorn config PVC, PostgreSQL Recorder. |
 | `home-assistant-go2rtc` | Runs the authenticated WebRTC relay used by Home Assistant camera entities. | Cluster-only signaling API, fixed MetalLB LAN media candidate, and exact Protect RTSPS egress. |

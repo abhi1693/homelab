@@ -6,11 +6,11 @@ REPOSITORY_ROOT="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/.." && pwd)"
 readonly REPOSITORY_ROOT
 
 # renovate: datasource=github-releases depName=yannh/kubeconform
-KUBECONFORM_VERSION=v0.6.7
+KUBECONFORM_VERSION=v0.8.0
 # renovate: datasource=github-releases depName=mvdan/sh
-SHFMT_VERSION=v3.10.0
+SHFMT_VERSION=v3.14.1
 # renovate: datasource=github-releases depName=hadolint/hadolint
-HADOLINT_VERSION=v2.12.0
+HADOLINT_VERSION=v2.15.1
 
 require_command() {
   local command_name="$1"
@@ -32,6 +32,7 @@ validate_ansible() {
   require_command ansible-galaxy
   require_command ansible-playbook
   require_command ansible-lint
+  require_command python3
 
   ansible-galaxy collection install \
     -r infrastructure/ansible/collections/requirements.yml
@@ -41,6 +42,7 @@ validate_ansible() {
     export ANSIBLE_VARS_ENABLED=host_group_vars
     ansible-playbook --syntax-check playbooks/site.yml
     ansible-lint --profile min
+    python3 -m unittest discover -s roles/k3s_server/tests -v
   )
 }
 

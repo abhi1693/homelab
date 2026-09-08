@@ -1,0 +1,116 @@
+---
+- name: Close only the verified 2026-09-05 staging endpoint and retain its data
+  hosts: server-1
+  become: true
+  gather_facts: false
+  any_errors_fatal: true
+  environment:
+    KUBECONFIG: /etc/rancher/k3s/k3s.yaml
+  vars:
+    longhorn_cleanup_source: 192.168.3.243:/backupstore
+    longhorn_cleanup_mount: /var/lib/longhorn-backupstore-mounts/192_168_3_243/backupstore
+  tasks:
+    - name: Require independently verified recovery data
+      ansible.builtin.assert:
+        that:
+          - longhorn_upgrade_recovery_verified | default(false) | bool
+
+    - name: Read the Fleet-managed backup target
+      ansible.builtin.command: /usr/local/bin/k3s kubectl -n longhorn-system get backuptarget default -o json
+      register: longhorn_cleanup_target
+      changed_when: false
+
+    - name: Require the target to be disabled before closing its listener
+      ansible.builtin.assert:
+        that:
+          - (longhorn_cleanup_target.stdout | from_json).spec.backupTargetURL == ''
+
+    - name: Read instance manager pods
+      ansible.builtin.command: >-
+        /usr/local/bin/k3s kubectl -n longhorn-system get pods
+        -l longhorn.io/component=instance-manager -o json
+      register: longhorn_cleanup_pods
+      changed_when: false
+
+    - name: Inspect only the maintenance backup mount in each instance manager
+      ansible.builtin.command:
+        argv:
+          - /usr/local/bin/k3s
+          - kubectl
+          - -n
+          - longhorn-system
+          - exec
+          - "{{ item }}"
+          - -c
+          - instance-manager
+          - --
+          - findmnt
+          - -rn
+          - -S
+          - "{{ longhorn_cleanup_source }}"
+          - -o
+          - TARGET
+      loop: "{{ (longhorn_cleanup_pods.stdout | from_json)['items'] | map(attribute='metadata.name') | list }}"
+      register: longhorn_cleanup_mounts
+      changed_when: false
+      failed_when: longhorn_cleanup_mounts.rc not in [0, 1]
+
+    - name: Reject any unexpected staging mount locations before cleanup
+      ansible.builtin.assert:
+        that:
+          - item.stdout | trim in ['', longhorn_cleanup_mount]
+      loop: "{{ longhorn_cleanup_mounts.results }}"
+      loop_control:
+        label: "{{ item.item }}"
+
+    - name: Normally unmount the exact staging mount without touching volume mounts
+      ansible.builtin.command:
+        argv:
+          - /usr/local/bin/k3s
+          - kubectl
+          - -n
+          - longhorn-system
+          - exec
+          - "{{ item.item }}"
+          - -c
+          - instance-manager
+          - --
+          - umount
+          - "{{ longhorn_cleanup_mount }}"
+      loop: "{{ longhorn_cleanup_mounts.results }}"
+      loop_control:
+        label: "{{ item.item }}"
+      when: item.stdout | trim == longhorn_cleanup_mount
+      changed_when: true
+
+    - name: Inspect the host restore-test backup mount
+      ansible.builtin.command:
+        argv: [findmnt, -rn, -S, "{{ longhorn_cleanup_source }}", -o, TARGET]
+      register: longhorn_cleanup_host_mount
+      changed_when: false
+      failed_when: longhorn_cleanup_host_mount.rc not in [0, 1]
+
+    - name: Reject unexpected host mount locations
+      ansible.builtin.assert:
+        that:
+          - longhorn_cleanup_host_mount.stdout | trim in ['', longhorn_cleanup_mount]
+
+    - name: Normally unmount the isolated restore-test source
+      ansible.builtin.command:
+        argv: [umount, "{{ longhorn_cleanup_mount }}"]
+      when: longhorn_cleanup_host_mount.stdout | trim == longhorn_cleanup_mount
+      changed_when: true
+
+    - name: Stop the task-specific staging listener
+      ansible.builtin.systemd_service:
+        name: nfs-server
+        state: stopped
+        enabled: false
+
+    - name: Remove only this maintenance listener configuration
+      ansible.builtin.file:
+        path: "{{ item }}"
+        state: absent
+      loop:
+        - /etc/exports.d/longhorn-local-backup.exports
+        - /etc/nfs.conf.d/longhorn-local-backup.conf

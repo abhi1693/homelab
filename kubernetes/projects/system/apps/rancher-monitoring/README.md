@@ -1,5 +1,12 @@
 # Rancher Monitoring
 
+Longhorn 1.12.1 isolates manager ingress by default. The colocated
+`longhorn-networkpolicy.yaml` permits TCP/9500 only from this stack's Prometheus
+pods in `cattle-monitoring-system`, preserving the existing Longhorn metrics
+scrape without disabling upstream network policies. After an upgrade, verify
+all eight manager targets are up and `longhorn_volume_robustness` is present;
+the Home Assistant status bridge intentionally rejects missing storage metrics.
+
 Prometheus, Alertmanager, Grafana, the monitoring operator, adapter,
 kube-state-metrics, and the K3s PushProx proxy select control-plane nodes and
 tolerate `CriticalAddonsOnly=true:NoExecute`. Thanos Query prefers worker nodes,
@@ -26,30 +33,33 @@ replica. Each replica has `30d` retention, a `52GiB` retention-size
 cap, a 4Gi memory request, and a 5Gi memory limit. The size cap keeps Prometheus
 near 81 percent of the declared claim capacity so WAL and compaction activity
 retain filesystem headroom. The global Prometheus scrape interval is `60s`.
-Each Thanos sidecar requests `256Mi` and is limited to `1Gi`; the original
-`256Mi` limit was raised after replica 0 exhausted it while querying the migrated
-history.
+Each Thanos sidecar requests `512Mi` and is limited to `2Gi`. Go's automatic
+memory limit targets 75 percent of the cgroup limit, and each StoreAPI request is
+capped at 10,000 series and 1.2 million samples. These bounds prevent oversized
+reads from exhausting sidecar memory.
 Two Thanos Query replicas discover a sidecar on every Prometheus replica through
 the chart's headless discovery Service. Query deduplicates the
 `prometheus_replica` external label, fails a request when a source is unavailable
 instead of silently returning partial data, and has no cloud or object-storage
-dependency. Prometheus therefore keeps normal local TSDB compaction.
+dependency. Each Query replica is limited to four concurrent queries and two
+concurrent selects per query, requests `768Mi`, and has a `3Gi` memory limit with
+the same 75-percent Go memory target. Prometheus therefore keeps normal local
+TSDB compaction without allowing oversized reads to take down the query plane.
 
-The staged migration first proved both scrapers, sidecars, and Query replicas.
-Prometheus was then scaled to zero, and a one-shot Job copied the retained
-replica 0 NFS claim into its Longhorn claim. The read-only source and destination
-directory, file-content, and symlink digests matched at
-`ef834f03e5f61f3da54ea503938d306b02c6aeac89d55206b149ce5679a50b65`.
-Replica 1's Longhorn claim remains empty so the new scraper starts with an
-independent history. A namespace-scoped cutover Job replaced the immutable
-StatefulSet storage owner while the Prometheus resource was paused. The old NFS
-claims remain retained for rollback. Grafana, Prometheus Adapter, automation
+Retained former NFS Prometheus claims are rollback data, not active TSDB storage.
+Review retention before deleting them. Grafana, Prometheus Adapter, automation
 controllers, and `prometheus.home` query Thanos Query. Grafana explicitly
 allows partial responses for interactive dashboards; automation retains Query's
 fail-closed default. The OpenTelemetry Collector writes every metrics batch to
 ordinal-specific Services for both Prometheus replicas.
 `thanos-query-health` alerts when either Query replica is unavailable or a
 Query pod resolves fewer than both Prometheus sidecars for five minutes.
+
+The chart's stock `KubeJobFailed` alert is disabled because it fires forever for
+retained failed Job objects. `kubernetes-job-health` preserves the same 15-minute
+failure threshold for Jobs that started within the last 24 hours. The object and
+its logs can remain available for diagnosis without turning an old, superseded
+run into a permanent alert.
 
 The Prometheus OTLP metrics receiver is enabled for application OpenTelemetry
 metrics and promotes common service resource attributes. Grafana also provisions
@@ -59,9 +69,9 @@ Alertmanager runs two replicas with retained `2Gi` NFS PVCs. Grafana is exposed 
 `alertmanager.home`. Grafana intentionally runs as a single
 persisted `2Gi` NFS-backed instance because HA Grafana would need external
 database/shared-session work that is not useful for the initial scope.
-Grafana's root `init-chown-data` container is disabled on NFS; the migration
-copy runs as Grafana UID/GID `472`, and the NAS export rejects root-squashed
-ownership changes.
+Grafana's root `init-chown-data` container is disabled on NFS. Its retained
+NAS directory must be writable by UID/GID `472`; root-squashed ownership
+changes are rejected.
 Grafana's `/api/health` readiness probe allows five seconds for a response so
 brief storage or node latency does not cause the default one-second timeout. If
 readiness timeouts continue, investigate latency and events for the
@@ -76,13 +86,6 @@ prolonged storage latency.
 Because Grafana has one replica, database HA coordination is disabled. SQLite
 queries and transactions each retry lock contention up to ten times so a
 temporary NFS delay cannot make an otherwise healthy Grafana process exit.
-The monitoring storage migration provisioned retained NFS claims for Prometheus,
-both Alertmanager replicas, and Grafana before stopping their writers. One-shot
-copy Jobs mounted every Longhorn source read-only, ran as the corresponding
-workload UID, and required matching directory, file-content, and symlink digests
-before the claim templates changed. During cutover, the Prometheus Operator
-resources remain paused and their old StatefulSets are removed before the new
-NFS-backed StatefulSets are allowed to start.
 Alertmanager loads `AlertmanagerConfig` resources cluster-wide and uses the
 `home-lab-slack` config to send non-`Watchdog`, non-`none` severity alert
 notifications to Slack.
@@ -127,32 +130,20 @@ applying that host configuration, roll the K3s servers through
 `infrastructure/ansible/playbooks/k3s_server.yml`; the playbook's `serial: 1`
 policy preserves etcd quorum and API availability while each server restarts.
 
-Roll this change out in two stages. First let Fleet reconcile the monitoring
-values and verify that both the dedicated `apiserver` target and the filtered
-K3s server target are healthy. Then run the K3s server playbook from
-`infrastructure/ansible/`; it restarts and returns each server before moving to
-the next. Afterward, run the role's `validation` entrypoint and compare
-`prometheus_tsdb_head_series`, ingestion rate, K3s process RSS, and the API SLO
-rules with the pre-change baseline.
+When changing metric collection, reconcile Fleet values first and verify both
+API server and filtered K3s targets. Host metric configuration changes require
+the serialized K3s server play and its recovery gates. Verify target health,
+series ingestion, and API SLO rules afterward.
 
 ## Resource request baseline
 
-Requests are reviewed against 14 days of five-minute CPU and memory samples,
-using the busiest replica at each sample before taking p95. Prometheus retains
-its 400m CPU request and now requests 4Gi memory; the observed p95 was about
-307m CPU and 3,348Mi memory, while p99 memory was about 3,609Mi. Grafana's main,
-dashboard-sidecar, and proxy containers request 40m CPU and 528Mi memory in
-total, above the pod p95 of about 12m CPU and 449Mi memory. Lower-usage
-components, including Alertmanager, the operator, adapter, node exporter,
-kube-state-metrics, PushProx, and the chart proxies, use smaller requests with
-explicit per-container memory. The Grafana sidecar request is configured at the
-chart-wide `grafana.sidecar.resources` path because the chart applies that
-single value to its sidecars. Node exporter requests `5m` CPU on each node and
-remains CPU-burstable.
-
-`kube-state-metrics` requests `192Mi` and is capped at `384Mi`. The previous
-`160Mi` limit was below its startup working set at the cluster's current object
-count and caused immediate `OOMKilled` restarts after observability resumed.
+Review requests against sustained CPU and memory use with burst headroom.
+Prometheus requests `400m` CPU and `4Gi` memory per replica. Grafana's main,
+dashboard-sidecar, and proxy containers request `40m` CPU and `528Mi` memory
+in total. The chart-wide `grafana.sidecar.resources` key applies to its
+sidecars. Node exporter requests `5m` CPU on each node and remains burstable.
+`kube-state-metrics` requests `192Mi` and is capped at `384Mi`; preserve
+startup headroom when resizing it.
 
 `traefik-podmonitor` scrapes the bundled K3s Traefik pods in `kube-system` on
 their existing internal Prometheus metrics port, `9100`. The metrics port is not

@@ -44,49 +44,19 @@ directly to the PostgreSQL primary. Each app should have:
 This pattern keeps shared PostgreSQL efficient while preserving app-level
 boundaries.
 
-The ShipyardHQ release-builder Job is the only direct-client exception. Its
-long-running prerender step connects to `postgresql-rw` so a PgBouncer
-backend-DNS cache failure cannot abort a release. Paired NetworkPolicies select
-only `shipyardhq` pods with component `next-builder` and PostgreSQL instance
-pods on TCP 5432; ShipyardHQ runtime pods continue to use their RW pooler.
+Direct PostgreSQL access is explicitly scoped for NetBox, Music Assistant, and
+application migration/build jobs. Runtime clients otherwise use their dedicated
+poolers. Each direct path still needs a bounded role and matching network policy.
 
 ## PgBouncer Connection Budgets
 
-Keep each pooler's backend capacity at or below the matching PostgreSQL role
-`connectionLimit`:
+Keep aggregate backend capacity within the matching PostgreSQL role's
+`connectionLimit`, including headroom for direct migration/build connections.
+Single-replica poolers have no PDB; redundant poolers use `minAvailable: 1`.
 
-```text
-backend capacity = pooler instances * default_pool_size
-```
-
-For apps with explicit DB pool settings, keep backend capacity aligned with the
-declared app-side maximum connection demand.
-
-| Role | Pooler | App-side budget | Backend capacity | Role limit |
-| --- | --- | ---: | ---: | ---: |
-| `jellyfin` | `jellyfin-rw` | implicit | 30 | 32 |
-| `shipyardhq` | `shipyardhq-rw` | 16 | 28 | 32 |
-| `harbor` | `harbor-rw` | chart-managed | 24 | 36 |
-| `netbox` | direct | implicit | n/a | 10 |
-| `wardn_hub` | `wardn-hub-rw` | implicit | 12 | 12 |
-| `wardn_ai` | `wardn-ai-rw` | implicit | 6 | 12 |
-| `firefly` | `firefly-iii-rw` | implicit | 4 | 10 |
-| `zitadel` | `zitadel-rw` | implicit | 16 | 24 |
-| `home_assistant` | `home-assistant-rw` | implicit | 10 | 12 |
-
-Jellyfin uses session pooling because its Npgsql clients retain connections.
-Two replicas provide 30 backend slots in total, enough for the observed
-post-restart burst while retaining two role slots for pooler turnover and
-operator diagnosis. Single-replica poolers intentionally have no
-PDB. A `minAvailable: 1` budget is useful only when another replica can remain
-available during a voluntary disruption.
-
-PostgreSQL itself is tuned for the 1Gi instance limit and the bounded pooler
-fleet. The cluster allows 160 connections, keeps 256MiB of shared buffers and
-4MiB of global per-operation memory, uses a 768MiB planner cache hint, and
-spreads routine checkpoints across a 15-minute interval. See the PostgreSQL
-app README for the measured connection, WAL, checkpoint, and autovacuum
-rationale.
+The [PostgreSQL app reference](apps/postgresql/README.md) owns the per-app
+connection budgets, resources, runtime tuning, and validation details. Keep
+those values aligned with the manifests rather than duplicating them here.
 
 ## Valkey Contract
 

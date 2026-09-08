@@ -5,6 +5,7 @@
   gather_facts: true
   order: inventory
   serial: 1
+  any_errors_fatal: true
 
   vars:
     k3s_server_selected_entrypoint: "{{ k3s_server_entrypoint | default('main') }}"
@@ -33,3 +34,10 @@
   post_tasks:
     - name: Restart k3s after k3s_server if requested by handlers
       ansible.builtin.meta: flush_handlers
+
+    - name: Require recovery before advancing to the next server
+      ansible.builtin.include_role:
+        name: k3s_server
+        tasks_from: recovery
+        rolespec_validate: false
+      when: k3s_server_selected_entrypoint == 'main'

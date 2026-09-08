@@ -1,0 +1,17 @@
+---
+- name: Validate explicit bootstrap or rolling mode
+  ansible.builtin.assert:
+    that:
+      - k3s_server_rollout_mode in ['bootstrap', 'rolling']
+    fail_msg: Use bootstrap only for initial site provisioning; established clusters require rolling mode.
+
+- name: Require a healthy established cluster before changing this server
+  ansible.builtin.include_tasks: health.yml
+  vars:
+    k3s_server_health_phase: preflight
+  when: k3s_server_rollout_mode == 'rolling'
+
+- name: Preserve the preflight membership for the post-restart comparison
+  ansible.builtin.set_fact:
+    k3s_server_baseline_members: "{{ (k3s_server_health_result.stdout | from_json).members }}"
+  when: k3s_server_rollout_mode == 'rolling'

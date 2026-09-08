@@ -47,7 +47,7 @@ spec:
       initContainers:
         - name: sync-qbittorrent-credentials
           # renovate: datasource=docker depName=docker.io/library/python
-          image: registry.home/docker.io/library/python:3.12-alpine
+          image: registry.home/docker.io/library/python:3.14-alpine
           imagePullPolicy: IfNotPresent
           command:
             - python3
@@ -228,7 +228,7 @@ spec:
       containers:
         - name: ryokan
           # renovate: datasource=docker depName=ghcr.io/abhi1693/ryokan
-          image: registry.home/ghcr.io/abhi1693/ryokan:1.9.8
+          image: registry.home/ghcr.io/abhi1693/ryokan:1.9.11
           imagePullPolicy: IfNotPresent
           envFrom:
             - configMapRef:
@@ -279,7 +279,7 @@ spec:
               mountPath: /tmp
         - name: import-reconciler
           # renovate: datasource=docker depName=ghcr.io/abhi1693/qbittorrent-smart-queues
-          image: registry.home/ghcr.io/abhi1693/qbittorrent-smart-queues:0.2.11
+          image: registry.home/ghcr.io/abhi1693/qbittorrent-smart-queues:0.2.12
           imagePullPolicy: IfNotPresent
           command:
             - python
@@ -325,7 +325,7 @@ spec:
               cpu: 10m
               memory: 32Mi
             limits:
-              memory: 96Mi
+              memory: 256Mi
           securityContext:
             allowPrivilegeEscalation: false
             capabilities:

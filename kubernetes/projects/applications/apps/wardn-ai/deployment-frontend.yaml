@@ -56,7 +56,7 @@ spec:
       containers:
         - name: frontend
           # renovate: datasource=git-refs depName=https://github.com/abhi1693/wardn-ai currentValue=master
-          image: registry.home/ghcr.io/abhi1693/wardn-ai-frontend:12b8f664b80a28656b7fa86ac191e29c3f734ae7
+          image: registry.home/ghcr.io/abhi1693/wardn-ai-frontend:360fa3738d2f607dc82e4f51dde5f55035a29693
           imagePullPolicy: IfNotPresent
           envFrom:
             - configMapRef:
@@ -67,8 +67,8 @@ spec:
               protocol: TCP
           resources:
             requests:
-              cpu: 70m
-              memory: 310Mi
+              cpu: 30m
+              memory: 294Mi
             limits:
               memory: 448Mi
           startupProbe:

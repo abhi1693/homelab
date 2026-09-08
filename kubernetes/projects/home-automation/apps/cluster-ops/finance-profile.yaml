@@ -17,8 +17,8 @@ spec:
     branch: master
     basePath: kubernetes/projects/applications/apps
   # Replica floors and resource requests are captured from the live production
-  # Deployments. The single-replica bounds prevent availability recommendations
-  # from scaling either stateful web workload beyond its supported shape.
+  # Deployment. The single-replica bounds prevent availability recommendations
+  # from scaling the stateful web workload beyond its supported shape.
   workloads:
     - name: firefly-iii
       targetRef:
@@ -60,46 +60,6 @@ spec:
         namespace: finance
         deployment: firefly-iii
         container: firefly-iii
-    - name: data-importer
-      targetRef:
-        apiVersion: apps/v1
-        kind: Deployment
-        name: firefly-iii-data-importer
-      sourceFile: firefly-iii-data-importer/deployment.yaml
-      metricProfileRef: resource-only
-      scaling:
-        replicas: true
-        cpu: true
-        memory: true
-      bounds:
-        replicas:
-          min: 1
-          max: 1
-        cpu:
-          maxIncreasePercent: 25
-          maxDecreasePercent: 10
-          minChangePercent: 5
-        memory:
-          maxIncreasePercent: 25
-          maxDecreasePercent: 10
-          minChangePercent: 5
-      policy:
-        maxProposalsPerHour: 1
-        maxProposalsPerDay: 2
-        safety:
-          allowAutoCommit:
-            - low_risk
-            - medium_risk
-          maxDecreaseRisk: low_risk
-          urgentBypassAllowed: false
-        confidence:
-          minAutoCommit: 0.85
-        availabilityRecovery:
-          enabled: false
-      vars:
-        namespace: finance
-        deployment: firefly-iii-data-importer
-        container: data-importer
   reconcileInterval: 5m
   metricProfiles:
     resource-only:

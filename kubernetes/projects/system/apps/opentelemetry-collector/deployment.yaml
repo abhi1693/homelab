@@ -116,7 +116,7 @@ spec:
       containers:
         - name: collector
           # renovate: datasource=docker depName=docker.io/otel/opentelemetry-collector-contrib
-          image: docker.io/otel/opentelemetry-collector-contrib:0.155.0
+          image: docker.io/otel/opentelemetry-collector-contrib:0.160.0
           imagePullPolicy: IfNotPresent
           args:
             - --config=/conf/collector.yaml

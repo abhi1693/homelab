@@ -14,7 +14,8 @@ subsystem.
 | `site.yml` | Full bootstrap sequence. |
 | `os_prep.yml` | Base OS preparation. |
 | `rpi_prep.yml` | Raspberry Pi-specific preparation. |
-| `k3s_server.yml` | K3s server configuration. |
+| `k3s_server.yml` | Serial K3s server changes with Node, etcd, and platform recovery gates. |
+| `k3s_server_tools.yml` | Prepare the checksum-pinned etcd client before server maintenance; no restarts. |
 | `k3s_agent.yml` | K3s agent configuration. |
 | `k3s_system_addons.yml` | HA CoreDNS and Metrics Server overrides with inventory-managed resources. |
 | `kube_vip.yml` | Kubernetes API registration VIP support. |

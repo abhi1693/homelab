@@ -1,7 +1,7 @@
 # NetBox Infrastructure Workspace
 
-This directory is reserved for infrastructure source-of-truth workflows related
-to NetBox. Import and reconciliation helpers must exclude UniFi Network client
+This directory owns infrastructure source-of-truth schemas and workflows for
+NetBox. Import and reconciliation helpers must exclude UniFi Network client
 devices and all client-derived interfaces, MACs, DHCP addresses, attachment
 cables, status observations, and reservation-local DNS.
 
@@ -40,16 +40,15 @@ source-of-truth tooling here.
 
 ## Workload catalog
 
-Each durable app owns a `catalog.yaml` beside its Fleet manifests. The catalog
-includes all 85 project app directories: 51 are independent applications and
-34 are explicitly classified as component, support, or retired directories in
-`workload-catalog-exclusions.yaml`. Six additional catalogs under
-`platform-catalogs/` cover the Ansible-owned Cilium, cert-manager, Fleet, K3s
-system services, Longhorn, and Rancher platforms. The resulting 57 applications
-currently declare 136 durable controller workloads. Detailed catalogs can additionally record retained
-stores, stable endpoints, and named dependencies without duplicating Pods,
-ReplicaSets, Pod IPs, completed Jobs, Secrets, health history, or runtime
-metrics.
+Each durable app owns a `catalog.yaml` beside its Fleet manifests.
+Every project app directory must have a catalog or an explicit component,
+support, or retired classification in `workload-catalog-exclusions.yaml`.
+Additional catalogs under `platform-catalogs/` cover Ansible-owned platforms.
+The validator reports current application and controller counts.
+
+Detailed catalogs can record retained stores, stable endpoints, and named
+dependencies without duplicating Pods, ReplicaSets, Pod IPs, completed Jobs,
+Secrets, health history, or runtime metrics.
 
 Runtime expansion remains intentionally bounded. A declared CloudNativePG
 `Pooler` represents its generated Deployment; Longhorn engine-image and
@@ -81,10 +80,6 @@ The NetBox Custom Objects plugin projects the Git catalog into five types:
 to update that projection. NetBox must never become an alternate deployment
 controller.
 
-The current projection contains 57 Applications and 136 controller workloads.
-The five original detailed application graphs also contain five logical
-persistent stores, nine stable endpoints, and eighteen dependency edges; those
-relationship types are extended only when a durable Git-backed fact exists.
 The live-safe field names `service_owner`, `container_images`, and
 `endpoint_url` intentionally avoid collisions with fields inherited from the
 NetBox model and REST serializer.

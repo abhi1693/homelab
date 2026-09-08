@@ -1,0 +1,36 @@
+---
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: wardn-license-server
+  namespace: wardn
+  labels:
+    app.kubernetes.io/name: wardn-license-server
+    app.kubernetes.io/part-of: wardn
+spec:
+  ingressClassName: cloudflare-tunnel
+  rules:
+    - host: licenses.wardnai.dev
+      http:
+        paths:
+          - path: /v1
+            pathType: Prefix
+            backend:
+              service:
+                name: wardn-license-api
+                port:
+                  name: http
+          - path: /health
+            pathType: Prefix
+            backend:
+              service:
+                name: wardn-license-api
+                port:
+                  name: http
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: wardn-license-frontend
+                port:
+                  name: http

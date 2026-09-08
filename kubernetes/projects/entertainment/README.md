@@ -101,7 +101,7 @@ shared-export paths.
 ## Traffic Flow
 
 - Browser UIs use Traefik ingress on internal hostnames such as
-  `sonarr.media.home`, `radarr.media.home`, `requests.music.media.home`, and
+  `sonarr.media.home`, `radarr.media.home`, and
   `watch.media.home`.
 - Music Assistant uses the Home Lab Local CA at `https://music.media.home`;
   HTTP redirects to HTTPS so WebRTC and MCP credential exchange have a secure

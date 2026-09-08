@@ -2,15 +2,15 @@ terraform {
   required_providers {
     coder = {
       source  = "coder/coder"
-      version = "2.16.0"
+      version = "2.18.0"
     }
     kubernetes = {
       source  = "hashicorp/kubernetes"
-      version = "3.1.0"
+      version = "3.2.1"
     }
     random = {
       source  = "hashicorp/random"
-      version = "3.8.1"
+      version = "3.9.0"
     }
   }
 }
@@ -182,7 +182,7 @@ locals {
   template_name       = "python-3-12"
   workspace_namespace = "coder-workspaces"
   # renovate: datasource=docker depName=ghcr.io/abhi1693/home-lab versioning=regex:^python-3-12-(?<patch>\d{2})(?<minor>\d{2})(?<major>\d{4})$
-  workspace_image = "ghcr.io/abhi1693/home-lab:python-3-12-13052026"
+  workspace_image = "ghcr.io/abhi1693/home-lab:python-3-12-17052026"
   workspace_bootstrap_packages = [
     "build-essential",
     "curl",
@@ -397,7 +397,7 @@ module "git_config" {
   count = data.coder_workspace.me.start_count
 
   source  = "registry.coder.com/coder/git-config/coder"
-  version = "1.0.33"
+  version = "1.0.34"
 
   agent_id              = coder_agent.main.id
   allow_username_change = false
@@ -417,7 +417,7 @@ module "git_clone" {
   count = data.coder_workspace.me.start_count == 1 && data.coder_parameter.repo_url.value != "" ? 1 : 0
 
   source  = "registry.coder.com/coder/git-clone/coder"
-  version = "1.2.3"
+  version = "2.0.3"
 
   agent_id    = coder_agent.main.id
   url         = data.coder_parameter.repo_url.value
@@ -453,7 +453,7 @@ module "filebrowser" {
   count = data.coder_workspace.me.start_count
 
   source  = "registry.coder.com/coder/filebrowser/coder"
-  version = "1.1.4"
+  version = "1.1.5"
 
   agent_id      = coder_agent.main.id
   agent_name    = "main"
@@ -646,7 +646,7 @@ module "dotfiles" {
   count = data.coder_workspace.me.start_count
 
   source  = "registry.coder.com/coder/dotfiles/coder"
-  version = "1.4.1"
+  version = "1.4.2"
 
   agent_id        = coder_agent.main.id
   dotfiles_uri    = data.coder_parameter.dotfiles_uri.value
@@ -1117,7 +1117,7 @@ resource "kubernetes_pod_v1" "redis" {
 
     container {
       name              = "redis"
-      image             = "redis:7-alpine"
+      image             = "redis:8-alpine"
       image_pull_policy = "IfNotPresent"
       args              = ["redis-server", "--appendonly", "yes", "--requirepass", "$(REDIS_PASSWORD)"]
 

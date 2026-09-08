@@ -1,0 +1,26 @@
+---
+- name: Wait for the local K3s service to be active
+  ansible.builtin.command: systemctl is-active k3s
+  register: k3s_server_recovered_service
+  changed_when: false
+  check_mode: false
+  retries: 60
+  delay: 5
+  until: k3s_server_recovered_service.rc == 0 and k3s_server_recovered_service.stdout | trim == 'active'
+
+- name: Check the installed server version after handlers
+  ansible.builtin.command: /usr/local/bin/k3s --version
+  register: k3s_server_recovered_version
+  changed_when: false
+  check_mode: false
+
+- name: Assert the installed server version matches inventory
+  ansible.builtin.assert:
+    that:
+      - k3s_server_recovered_version.stdout_lines[0].split()[2] == k3s.version
+
+- name: Require cluster recovery after all restart handlers
+  ansible.builtin.include_tasks: health.yml
+  vars:
+    k3s_server_health_phase: recovery
+  when: k3s_server_rollout_mode == 'rolling'

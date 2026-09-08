@@ -112,7 +112,7 @@ optimization.
 
 ## Availability
 
-The public web Deployment runs three replicas and imgproxy runs two, both with
+The public web Deployment runs three replicas and imgproxy runs four, both with
 `maxUnavailable: 0` and the `shipyardhq-critical` PriorityClass. That priority
 stays below system, Rancher, and Longhorn priorities but above normal
 application pods.
@@ -123,6 +123,8 @@ ephemeral-storage requests do not exceed the running web container's requests,
 so a completed restore does not inflate the pod's scheduler footprint. Its
 higher limits retain short extraction burst capacity. Keep the requests and
 limits aligned with the `emptyDir` size when changing restore behavior.
+The web and restore-init CPU requests are both `125m` per pod.
+Web CPU remains uncapped; the finite restore init retains its `3` CPU limit.
 
 ## Background Worker
 
@@ -130,7 +132,7 @@ The `shipyardhq-worker` Deployment runs `npm run worker` from the same
 application image. It consumes BullMQ event envelopes and owns scheduled jobs
 declared in ShipyardHQ source, replacing the legacy curl CronJobs.
 
-The worker runs three replicas. The `cluster-ops/shipyard` recommendation
+The worker runs two replicas. The `cluster-ops/shipyard` recommendation
 profile caps managed worker replicas at three because the worker's resource-only
 metrics do not include queue demand and each Node.js worker adds fixed memory
 overhead.
@@ -183,7 +185,7 @@ The Deployment uses imgproxy's built-in `GET /health` endpoint for startup,
 readiness, and liveness probes on the main `http` port. imgproxy returns `200 OK`
 from this endpoint after the server has successfully started.
 
-Each of the two imgproxy replicas requests `10m` CPU and retains a `200m`
+Each imgproxy replica requests `10m` CPU and retains a `200m`
 limit for transform bursts.
 
 The external-image ingestion CronJob retains one failed Job for diagnosis and

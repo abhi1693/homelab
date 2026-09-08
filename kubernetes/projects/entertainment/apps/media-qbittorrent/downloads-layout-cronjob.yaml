@@ -42,7 +42,7 @@ spec:
           containers:
             - name: ensure-layout
               # renovate: datasource=docker depName=docker.io/curlimages/curl
-              image: registry.home/docker.io/curlimages/curl:8.21.0
+              image: registry.home/docker.io/curlimages/curl:8.22.0
               imagePullPolicy: IfNotPresent
               securityContext:
                 allowPrivilegeEscalation: false

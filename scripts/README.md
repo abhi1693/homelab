@@ -24,3 +24,6 @@ here when it helps with conversion, migration, or controlled operator action.
 
 When a script becomes part of a reconciled workload, move that behavior into the
 owning app bundle or Ansible role so it is visible in the desired state.
+
+Standalone Firefly III statement import utilities are maintained in
+[`abhi1693/firefly-importer`](https://github.com/abhi1693/firefly-importer).

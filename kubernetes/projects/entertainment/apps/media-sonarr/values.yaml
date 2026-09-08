@@ -20,9 +20,11 @@ podOptions:
     kubernetes.io/arch: arm64
 resources:
   requests:
-    cpu: 770m
+    cpu: 100m
     memory: 542Mi
   limits:
+    # TrueCharts: omit the inherited 1500m CPU cap; imports may burst.
+    cpu: 0
     memory: 864Mi
 ingress:
   main:

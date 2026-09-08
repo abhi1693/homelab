@@ -1,0 +1,10 @@
+name: wardn-ai-website
+defaultNamespace: wardn
+labels:
+  app.kubernetes.io/part-of: wardn-ai
+  home-lab.io/project-slug: applications
+dependsOn:
+  - name: rancher-project-applications
+  - name: wardn-hub
+helm:
+  takeOwnership: true

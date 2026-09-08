@@ -52,6 +52,11 @@ through a Cilium policy.
 
 ## Operating Notes
 
+- `rack-ops-secret-bootstrap-v5` is a completed one-shot migration. Its image
+  stays pinned to `rancher/kuberlr-kubectl:v7.0.1`, and Renovate excludes
+  `secret-bootstrap.yaml`: changing a completed Job's pod template prevents
+  Fleet reconciliation. A required future rerun must advance the Job name and
+  both selector labels together after reviewing its copy-if-missing behavior.
 - Treat this bundle as a safety controller; review policy changes with the same
   care as cluster maintenance automation.
 - Keep `dryRun: false` deliberate in `rack-ops-policy.yaml`.

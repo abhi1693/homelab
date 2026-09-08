@@ -1,0 +1,70 @@
+---
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: wardn-license-migrate
+  namespace: wardn
+  annotations:
+    helm.sh/hook: pre-install,pre-upgrade
+    helm.sh/hook-delete-policy: before-hook-creation,hook-succeeded
+    helm.sh/hook-weight: "-5"
+  labels:
+    app.kubernetes.io/name: wardn-license-server
+    app.kubernetes.io/component: migration
+    app.kubernetes.io/part-of: wardn
+spec:
+  activeDeadlineSeconds: 600
+  backoffLimit: 2
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: wardn-license-server
+        app.kubernetes.io/component: migration
+        app.kubernetes.io/part-of: wardn
+        wardn-license-psql-client: "true"
+    spec:
+      automountServiceAccountToken: false
+      restartPolicy: Never
+      imagePullSecrets:
+        - name: harbor-registry
+      nodeSelector:
+        kubernetes.io/arch: arm64
+      securityContext:
+        seccompProfile:
+          type: RuntimeDefault
+      containers:
+        - name: migrate
+          # renovate: datasource=github-releases depName=abhi1693/wardn-license-server
+          image: registry.home/ghcr.io/abhi1693/wardn-license-server-backend:0.1.1
+          imagePullPolicy: IfNotPresent
+          command:
+            - alembic
+          args:
+            - upgrade
+            - head
+          envFrom:
+            - configMapRef:
+                name: wardn-license-server
+            - secretRef:
+                name: wardn-license-server
+          env:
+            - name: WARDN_LICENSE_DATABASE_URL
+              valueFrom:
+                secretKeyRef:
+                  name: wardn-license-server
+                  key: WARDN_LICENSE_DIRECT_DATABASE_URL
+          resources:
+            requests:
+              cpu: 25m
+              memory: 128Mi
+            limits:
+              memory: 256Mi
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop:
+                - ALL
+            readOnlyRootFilesystem: true
+            runAsGroup: 65532
+            runAsNonRoot: true
+            runAsUser: 65532

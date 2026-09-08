@@ -1,0 +1,12 @@
+---
+- name: Prepare the pinned etcd client before a maintenance window
+  hosts: k3s_servers
+  become: true
+  gather_facts: true
+  any_errors_fatal: true
+  tasks:
+    - name: Install the read-only health gate prerequisite
+      ansible.builtin.include_role:
+        name: k3s_server
+        tasks_from: tools
+        rolespec_validate: false

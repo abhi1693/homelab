@@ -34,7 +34,7 @@ spec:
     releaseName: sonarr
     repo: oci://oci.trueforge.org/truecharts/sonarr
     # renovate: datasource=docker depName=oci.trueforge.org/truecharts/sonarr
-    version: 26.5.0
+    version: 26.9.2
     atomic: true
     timeoutSeconds: 600
     takeOwnership: true

@@ -1,4 +1,4 @@
-ARG NETBOX_IMAGE=ghcr.io/netbox-community/netbox:v4.6.9
+ARG NETBOX_IMAGE=ghcr.io/netbox-community/netbox:v4.7.0
 FROM ${NETBOX_IMAGE}
 
 COPY required-plugins.txt /tmp/required-plugins.txt

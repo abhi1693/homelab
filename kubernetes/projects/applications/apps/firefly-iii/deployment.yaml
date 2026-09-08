@@ -39,7 +39,7 @@ spec:
       containers:
         - name: firefly-iii
           # renovate: datasource=docker depName=docker.io/fireflyiii/core
-          image: registry.home/docker.io/fireflyiii/core:version-6.6.3
+          image: registry.home/docker.io/fireflyiii/core:version-6.6.6
           imagePullPolicy: IfNotPresent
           envFrom:
             - configMapRef:
@@ -66,8 +66,8 @@ spec:
               protocol: TCP
           resources:
             requests:
-              cpu: 30m
-              memory: 166Mi
+              cpu: 90m
+              memory: 216Mi
             limits:
               memory: 256Mi
           startupProbe:

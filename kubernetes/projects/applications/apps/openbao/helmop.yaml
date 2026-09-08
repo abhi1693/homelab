@@ -34,7 +34,7 @@ spec:
     repo: https://openbao.github.io/openbao-helm
     chart: openbao
     # renovate: datasource=helm depName=openbao registryUrl=https://openbao.github.io/openbao-helm
-    version: 0.28.4
+    version: 0.29.4
     timeoutSeconds: 600
     takeOwnership: true
     valuesFrom:

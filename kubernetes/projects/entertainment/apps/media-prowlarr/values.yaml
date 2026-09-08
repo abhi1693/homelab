@@ -5,7 +5,7 @@ image:
   repository: registry.home/oci.trueforge.org/containerforge/prowlarr
   pullPolicy: IfNotPresent
   # renovate: datasource=docker depName=oci.trueforge.org/containerforge/prowlarr
-  tag: "2.6.2"
+  tag: "2.6.3"
 imagePullSecret:
   harbor-registry:
     enabled: true
@@ -22,9 +22,11 @@ podOptions:
     kubernetes.io/arch: arm64
 resources:
   requests:
-    cpu: 220m
-    memory: 505Mi
+    cpu: 130m
+    memory: 369Mi
   limits:
+    # TrueCharts: omit the inherited 1500m CPU cap; indexer work may burst.
+    cpu: 0
     memory: 544Mi
 ingress:
   main:
@@ -64,7 +66,7 @@ workload:
           nodeTaintsPolicy: Honor
 persistence:
   config:
-    size: 256Mi
+    size: 512Mi
     storageClass: longhorn
     volumeName: pvc-02ce383f-d495-4e4e-b2d7-cd27b86021f2
 metrics:

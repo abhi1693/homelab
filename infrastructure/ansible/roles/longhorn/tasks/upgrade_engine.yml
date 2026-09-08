@@ -1,0 +1,74 @@
+---
+- name: Read the new default engine image
+  ansible.builtin.command: /usr/local/bin/k3s kubectl -n longhorn-system get settings default-engine-image -o jsonpath={.value}
+  register: longhorn_upgrade_engine_image
+  changed_when: false
+
+- name: Verify the engine image matches the pinned chart app version
+  ansible.builtin.assert:
+    that:
+      - longhorn_upgrade_engine_image.stdout.endswith(':v' + longhorn.chart_version.split('+up')[1])
+
+- name: Request the reviewed engine image for this volume
+  ansible.builtin.command:
+    argv:
+      - /usr/local/bin/k3s
+      - kubectl
+      - -n
+      - longhorn-system
+      - patch
+      - volumes.longhorn.io
+      - "{{ longhorn_upgrade_volume }}"
+      - --type=merge
+      - -p
+      - "{{ {'spec': {'image': longhorn_upgrade_engine_image.stdout}} | to_json }}"
+  register: longhorn_upgrade_engine_patch
+  changed_when: "'(no change)' not in longhorn_upgrade_engine_patch.stdout"
+
+- name: Wait for this volume to finish its live engine upgrade
+  ansible.builtin.command:
+    argv:
+      - /usr/local/bin/k3s
+      - kubectl
+      - -n
+      - longhorn-system
+      - get
+      - volumes.longhorn.io
+      - "{{ longhorn_upgrade_volume }}"
+      - -o
+      - json
+  register: longhorn_upgrade_volume_state
+  changed_when: false
+  until:
+    - (longhorn_upgrade_volume_state.stdout | from_json).status.currentImage == longhorn_upgrade_engine_image.stdout
+    - (longhorn_upgrade_volume_state.stdout | from_json).status.robustness == 'healthy'
+    - (longhorn_upgrade_volume_state.stdout | from_json).status.state == 'attached'
+  retries: 90
+  delay: 10
+
+- name: Require the upgraded engine to have three writable replicas
+  ansible.builtin.command:
+    argv:
+      - /usr/local/bin/k3s
+      - kubectl
+      - -n
+      - longhorn-system
+      - get
+      - engines.longhorn.io
+      - -l
+      - "longhornvolume={{ longhorn_upgrade_volume }}"
+      - -o
+      - json
+  register: longhorn_upgrade_engine_state
+  changed_when: false
+  until:
+    - (longhorn_upgrade_engine_state.stdout | from_json)['items'] | length == 1
+    - (longhorn_upgrade_engine_state.stdout | from_json)['items'][0].status.currentState == 'running'
+    - >-
+      (longhorn_upgrade_engine_state.stdout | from_json)['items'][0].status.replicaModeMap |
+      dict2items | selectattr('value', 'equalto', 'RW') | list | length == longhorn.default_replica_count | int
+    - >-
+      (longhorn_upgrade_engine_state.stdout | from_json)['items'][0].status.replicaModeMap |
+      dict2items | rejectattr('value', 'equalto', 'RW') | list | length == 0
+  retries: 60
+  delay: 10

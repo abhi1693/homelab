@@ -1,0 +1,19 @@
+---
+apiVersion: home-lab.io/v1alpha1
+kind: WorkloadCatalog
+metadata:
+  name: wardn-license-server
+spec:
+  displayName: Wardn License Server
+  purpose: Issue signed Wardn leases and fulfill Dodo-managed self-hosted subscriptions.
+  owner: home-lab
+  project: applications
+  cluster: home-k3s
+  lifecycle: active
+  criticality: high
+  dataClassification: restricted
+  repository: https://github.com/abhi1693/wardn-license-server
+  gitPath: kubernetes/projects/applications/apps/wardn-license-server
+  workloads:
+    - {key: home-k3s/wardn/apps/deployment/wardn-license-api, namespace: wardn, apiGroup: apps, kind: Deployment, name: wardn-license-api, desiredReplicas: 2, sourcePath: kubernetes/projects/applications/apps/wardn-license-server/deployment.yaml}
+    - {key: home-k3s/wardn/apps/deployment/wardn-license-frontend, namespace: wardn, apiGroup: apps, kind: Deployment, name: wardn-license-frontend, desiredReplicas: 2, sourcePath: kubernetes/projects/applications/apps/wardn-license-server/deployment.yaml}

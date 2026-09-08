@@ -10,6 +10,9 @@ application.
 The custom Deployment retains two ReplicaSet revisions; Git and Fleet history
 remain the primary rollback path.
 
+The web container requests `10m` CPU without a CPU limit. Verify the public
+route after Fleet rolls the pod.
+
 ## Runtime Dependencies
 
 - Namespace-scoped `harbor-registry` image pull Secret for `registry.home`,

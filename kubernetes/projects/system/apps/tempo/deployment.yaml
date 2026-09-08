@@ -43,7 +43,7 @@ spec:
       containers:
         - name: tempo
           # renovate: datasource=docker depName=docker.io/grafana/tempo
-          image: docker.io/grafana/tempo:2.9.1
+          image: docker.io/grafana/tempo:3.0.3
           imagePullPolicy: IfNotPresent
           args:
             - -config.file=/etc/tempo/tempo.yaml

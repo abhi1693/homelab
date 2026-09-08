@@ -65,7 +65,7 @@ spec:
       containers:
         - name: qbittorrent-smart-queues
           # renovate: datasource=docker depName=ghcr.io/abhi1693/qbittorrent-smart-queues
-          image: registry.home/ghcr.io/abhi1693/qbittorrent-smart-queues:0.2.11
+          image: registry.home/ghcr.io/abhi1693/qbittorrent-smart-queues:0.2.12
           imagePullPolicy: IfNotPresent
           ports:
             - name: metrics
@@ -558,7 +558,7 @@ spec:
           resources:
             requests:
               cpu: 70m
-              memory: 72Mi
+              memory: 65Mi
             limits:
               memory: 144Mi
           securityContext:

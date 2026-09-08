@@ -1,0 +1,22 @@
+---
+name: longhorn-backups
+defaultNamespace: longhorn-system
+# Retry the retained-resource cleanup after the upgrade's webhook restart.
+forceSyncGeneration: 1
+labels:
+  app.kubernetes.io/part-of: longhorn
+  home-lab.io/project-slug: system
+dependsOn:
+  - name: csi-driver-nfs-helmop
+helm:
+  takeOwnership: true
+  waitForJobs: true
+  timeoutSeconds: 900
+diff:
+  comparePatches:
+    - apiVersion: v1
+      kind: PersistentVolumeClaim
+      name: longhorn-backups
+      namespace: longhorn-system
+      jsonPointers:
+        - /spec/volumeName

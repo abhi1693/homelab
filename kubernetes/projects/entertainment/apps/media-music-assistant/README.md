@@ -5,6 +5,10 @@ recommendation, playback, and persistent YouTube Music cache for the music
 stack. Account synchronization and cache acquisition run inside the provider;
 no separate music acquisition application or bridge is required.
 
+The server requests `50m` CPU with no CPU limit, preserving bursts for provider
+sync and playback. Resource changes restart the singleton through
+Fleet; choose a quiet playback window and verify discovery and streaming.
+
 ## Runtime Shape
 
 - Namespace: `media`
@@ -189,23 +193,10 @@ supported by Music Assistant upstream.
   encrypted provider configuration, PostgreSQL account snapshots, and cached
   audio under the media-library NFS path `music/YouTube Music` therefore
   survive restart.
-- `yt-dlp` 2026.8.19 removes the broken `android_vr` default player client.
-  That client could resolve signed Googlevideo URLs but every FFmpeg or yt-dlp
-  media request then received HTTP 403, making uncached tracks unplayable.
-- The module/domain rename is an atomic startup migration. Before Music
-  Assistant starts, the init container moves the retained PostgreSQL catalog,
-  library mappings and metadata, provider settings, archived listen-history
-  path, and persistent player queues to `ytmusic--home`. Derived metadata,
-  recommendation, search, and provider cache entries that still reference the
-  retired domain are invalidated so Music Assistant rebuilds them. It creates
-  `/data/library.db.before-ytmusic-domain-rename.sqlite3` before changing the
-  SQLite library and refuses to merge if both provider identities already have
-  records. The migration also removes scheduled-task state owned by the retired
-  provider instance, including its account mirror, prefetch, and core library
-  sync tasks; the renamed instance registers fresh schedules without retaining
-  duplicate jobs. The renamed provider source is stored outside
-  `provider-patches`; that directory remains only for overlays that actually
-  alter upstream Music Assistant or Alexa code.
+- The provider identity is `ytmusic--home`. Startup preserves a pre-rename
+  library backup at `/data/library.db.before-ytmusic-domain-rename.sqlite3`
+  and refuses to merge conflicting identities. Review retained backups before
+  removing compatibility state.
 - The provider registers a native Music Assistant background task that
   prefetches up to 1,000 saved, liked, uploaded, and mirrored-history tracks
   every six hours into that same persistent cache. Production permits three

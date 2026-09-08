@@ -13,7 +13,7 @@ server:
   resources:
     requests:
       cpu: 70m
-      memory: 160Mi
+      memory: 168Mi
     limits:
       memory: 256Mi
   updateStrategyType: RollingUpdate

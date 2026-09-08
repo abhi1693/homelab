@@ -1,0 +1,84 @@
+---
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: longhorn-backup-minio-import-20260905
+  namespace: longhorn-system
+spec:
+  activeDeadlineSeconds: 1800
+  backoffLimit: 1
+  template:
+    metadata:
+      labels:
+        app: longhorn-backup-minio-init
+    spec:
+      nodeSelector:
+        kubernetes.io/hostname: k8s-rpi1
+      tolerations:
+        - key: CriticalAddonsOnly
+          operator: Equal
+          value: 'true'
+          effect: NoExecute
+      restartPolicy: Never
+      automountServiceAccountToken: false
+      securityContext:
+        runAsUser: 1000
+        runAsGroup: 1000
+        runAsNonRoot: true
+        seccompProfile:
+          type: RuntimeDefault
+      containers:
+        - name: import
+          # renovate: datasource=docker depName=quay.io/minio/mc
+          image: quay.io/minio/mc@sha256:a7fe349ef4bd8521fb8497f55c6042871b2ae640607cf99d9bede5e9bdf11727
+          command: [/bin/sh, -ec]
+          args:
+            - |
+              mc alias set backup "$AWS_ENDPOINTS" "$AWS_ACCESS_KEY_ID" "$AWS_SECRET_ACCESS_KEY" >/dev/null
+              test -d /source/backupstore/volumes
+              mc mirror --quiet /source/ backup/longhorn/
+              mc diff /source/ backup/longhorn/
+              mc stat --recursive --json backup/longhorn/ | wc -l
+              echo 'Imported native recovery store without removing source files'
+          env:
+            - name: MC_CONFIG_DIR
+              value: /tmp/mc
+            - name: AWS_ENDPOINTS
+              valueFrom:
+                secretKeyRef:
+                  name: longhorn-backup-minio
+                  key: AWS_ENDPOINTS
+            - name: AWS_ACCESS_KEY_ID
+              valueFrom:
+                secretKeyRef:
+                  name: longhorn-backup-minio
+                  key: AWS_ACCESS_KEY_ID
+            - name: AWS_SECRET_ACCESS_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: longhorn-backup-minio
+                  key: AWS_SECRET_ACCESS_KEY
+          resources:
+            requests:
+              cpu: 50m
+              memory: 128Mi
+            limits:
+              cpu: '1'
+              memory: 512Mi
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop: [ALL]
+          volumeMounts:
+            - name: source
+              mountPath: /source
+              readOnly: true
+            - name: scratch
+              mountPath: /tmp
+      volumes:
+        - name: source
+          hostPath:
+            path: /var/tmp/longhorn-20260905/store/backupstore
+            type: Directory
+        - name: scratch
+          emptyDir: {}

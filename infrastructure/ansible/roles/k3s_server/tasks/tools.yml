@@ -1,0 +1,55 @@
+---
+- name: Validate the reviewed client artifact and host architecture
+  ansible.builtin.assert:
+    that:
+      - ansible_facts.architecture == 'aarch64'
+      - k3s_server_etcdctl_k3s_version == k3s.version
+      - k3s_server_etcdctl_sha256 is match('^[0-9a-f]{64}$')
+
+- name: Create the versioned client artifact directory
+  ansible.builtin.file:
+    path: /opt/k3s-health-tools
+    state: directory
+    owner: root
+    group: root
+    mode: '0755'
+
+- name: Download the checksum-pinned ARM64 etcd release
+  ansible.builtin.get_url:
+    url: "https://github.com/etcd-io/etcd/releases/download/v{{ k3s_server_etcdctl_version }}/etcd-v{{ k3s_server_etcdctl_version }}-linux-arm64.tar.gz"
+    dest: "/opt/k3s-health-tools/etcd-v{{ k3s_server_etcdctl_version }}-linux-arm64.tar.gz"
+    checksum: "sha256:{{ k3s_server_etcdctl_sha256 }}"
+    owner: root
+    group: root
+    mode: '0644'
+
+- name: Extract only the etcd client from the verified archive
+  ansible.builtin.unarchive:
+    src: "/opt/k3s-health-tools/etcd-v{{ k3s_server_etcdctl_version }}-linux-arm64.tar.gz"
+    dest: /opt/k3s-health-tools
+    remote_src: true
+    include:
+      - "etcd-v{{ k3s_server_etcdctl_version }}-linux-arm64/etcdctl"
+    owner: root
+    group: root
+
+- name: Install the pinned etcd client without changing any service
+  ansible.builtin.copy:
+    src: "/opt/k3s-health-tools/etcd-v{{ k3s_server_etcdctl_version }}-linux-arm64/etcdctl"
+    dest: "{{ k3s_server_etcdctl_path }}"
+    remote_src: true
+    owner: root
+    group: root
+    mode: '0755'
+
+- name: Verify the installed etcd client
+  ansible.builtin.command: "{{ k3s_server_etcdctl_path }} version"
+  register: k3s_server_etcdctl_installed
+  changed_when: false
+  when: not ansible_check_mode
+
+- name: Assert the client version matches the reviewed pin
+  ansible.builtin.assert:
+    that:
+      - "('etcdctl version: ' + k3s_server_etcdctl_version) in k3s_server_etcdctl_installed.stdout_lines"
+  when: not ansible_check_mode

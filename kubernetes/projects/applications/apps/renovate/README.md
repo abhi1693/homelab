@@ -7,9 +7,24 @@ title: Renovate
 This bundle runs the official Renovate image as an hourly single-run CronJob in
 the `renovate` namespace. It scans explicitly selected GitOps, Coder, image
 build, GitHub Actions, Python requirements, and Ansible collection files for
-updates. Existing allowlisted application-image families can still merge within
-their guarded version ranges; newly covered charts, build dependencies,
-providers, modules, actions, and tools open review-only PRs.
+updates. All enabled dependencies and lockfile maintenance use branch automerge
+to update the default branch directly. Existing image version ranges and the
+cluster-foundational exclusions still apply.
+
+The shared policy sets `automerge: true`, `automergeType: "branch"`, and
+`platformAutomerge: false`. `prCreation: "immediate"` allows branch automerge in
+the same run that creates or rebases an update branch. Despite the option name,
+successful branch automerge does not create a PR. Do not use `"approval"`,
+`"not-pending"`, or `"status-success"`: Renovate 43.288.0 returns newly written
+branches as pending before attempting automerge with those settings.
+Renovate may create a fallback PR if the branch merge itself fails; inspect the
+job logs in that case. `recreateWhen: "always"` allows
+updates to proceed after obsolete review PRs are closed, instead of interpreting
+those closures as instructions to ignore a version.
+
+When migrating from review PRs, close the existing Renovate PRs without merging
+them after Fleet has applied this policy. An open PR blocks branch automerge.
+Renovate will re-evaluate those updates on its next hourly run.
 
 The CronJob retains at most one failed Job and expires terminal Jobs after two
 hours. Persistent hourly failures continue to produce a current failed Job,
@@ -96,6 +111,10 @@ python scripts/check-renovate-policy.py
 ```
 
 Some version sets remain manual even though they are not cluster-foundational.
+The Valkey `helmop.yaml` chart pin requires a guarded `OnDelete` rollout, and
+Rack Ops `secret-bootstrap.yaml` is a completed immutable Job whose name and
+selector must advance together for a deliberate rerun. Both files are excluded
+from scanning; their metadata still documents the upstream dependency.
 The Jellyfin plugin bundle couples release URLs, checksums, ABI metadata, and
 the generated metadata file. PyCharm and Portable Desktop pins likewise couple
 versions, download URLs, and checksums. Native Renovate managers cannot safely

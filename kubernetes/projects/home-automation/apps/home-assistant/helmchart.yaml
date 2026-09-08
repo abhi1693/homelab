@@ -20,14 +20,16 @@ spec:
       repository: registry.home/ghcr.io/home-assistant/home-assistant
       pullPolicy: IfNotPresent
       # renovate: datasource=github-releases depName=home-assistant/core
-      tag: "2026.8.3"
+      tag: "2026.9.1"
     env:
       - name: TZ
         value: Asia/Kolkata
+      - name: FAMILY_FINANCE_INVESTMENT_FILE
+        value: /finance/investments.json
       - name: REQUESTS_CA_BUNDLE
         value: /etc/ssl/certs/ca-certificates.crt
       - name: HOME_ASSISTANT_SOURCE_REVISION
-        value: "44589ba9200c1c7bc87c8cb444bd19001194fcef"
+        value: "84baef94a154e23f5a1eb71581ad1ab03bfe3f5c"
       - name: GO2RTC_USERNAME
         valueFrom:
           secretKeyRef:
@@ -77,7 +79,7 @@ spec:
     initContainers:
       - name: wait-for-go2rtc
         # renovate: datasource=github-releases depName=home-assistant/core
-        image: registry.home/ghcr.io/home-assistant/home-assistant:2026.8.3
+        image: registry.home/ghcr.io/home-assistant/home-assistant:2026.9.1
         imagePullPolicy: IfNotPresent
         env:
           - name: GO2RTC_USERNAME
@@ -126,7 +128,7 @@ spec:
             memory: 64Mi
       - name: archive-sqlite-recorder
         # renovate: datasource=github-releases depName=home-assistant/core
-        image: registry.home/ghcr.io/home-assistant/home-assistant:2026.8.3
+        image: registry.home/ghcr.io/home-assistant/home-assistant:2026.9.1
         imagePullPolicy: IfNotPresent
         securityContext:
           runAsUser: 0
@@ -162,7 +164,7 @@ spec:
             mountPath: /config
       - name: build-home-lab-ca-bundle
         # renovate: datasource=github-releases depName=home-assistant/core
-        image: registry.home/ghcr.io/home-assistant/home-assistant:2026.8.3
+        image: registry.home/ghcr.io/home-assistant/home-assistant:2026.9.1
         imagePullPolicy: IfNotPresent
         securityContext:
           runAsUser: 0
@@ -191,7 +193,7 @@ spec:
             mountPath: /trust
       - name: install-home-assistant-source
         # renovate: datasource=github-releases depName=home-assistant/core
-        image: registry.home/ghcr.io/home-assistant/home-assistant:2026.8.3
+        image: registry.home/ghcr.io/home-assistant/home-assistant:2026.9.1
         imagePullPolicy: IfNotPresent
         securityContext:
           runAsUser: 0
@@ -212,8 +214,8 @@ spec:
         args:
           - |-
             set -eu
-            revision="44589ba9200c1c7bc87c8cb444bd19001194fcef"
-            expected_sha256="bfe2143bf027dc46bf38915c3ab91ba6dff4d98c79e3cb93f0090505c8b38687"
+            revision="84baef94a154e23f5a1eb71581ad1ab03bfe3f5c"
+            expected_sha256="1796a78e9d66d93a2ba275ce004441d3da495c11cd64547f4832e12049a04768"
             archive="/tmp/home-assistant-source.tar.gz"
             source_root="/tmp/home-assistant-source"
 
@@ -235,6 +237,9 @@ spec:
     configuration:
       enabled: false
     additionalVolumes:
+      - name: home-assistant-finance-investments
+        configMap:
+          name: home-assistant-finance-investments
       - name: home-assistant-music-media-home-tls
         secret:
           secretName: home-assistant-music-media-home-tls
@@ -244,6 +249,9 @@ spec:
       - name: home-assistant-ca-bundle
         emptyDir: {}
     additionalMounts:
+      - name: home-assistant-finance-investments
+        mountPath: /finance
+        readOnly: true
       - name: home-assistant-ca-bundle
         mountPath: /etc/ssl/certs/ca-certificates.crt
         subPath: ca-certificates.crt

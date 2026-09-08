@@ -12,7 +12,7 @@ qbitConfigImage:
   repository: registry.home/docker.io/curlimages/curl
   pullPolicy: IfNotPresent
   # renovate: datasource=github-releases depName=curl/curl-container
-  tag: 8.21.0
+  tag: 8.22.0
 chartContext:
   appUrl: https://qbittorrent.media.home
 global:
@@ -32,6 +32,8 @@ resources:
     # peer-reconnect bursts; lower limits repeatedly OOM-killed the client.
     memory: 1572Mi
   limits:
+    # Keep the measured request, but allow hashing and transfers to burst.
+    cpu: 0
     memory: 2Gi
 service:
   main:
@@ -299,6 +301,8 @@ workload:
               cpu: 2m
               memory: 32Mi
             limits:
+              # Retain the former cap for finite config initialization only.
+              cpu: 1500m
               memory: 128Mi
   qbitportforward:
     enabled: false

@@ -36,6 +36,17 @@ spec:
     - from:
         - namespaceSelector:
             matchLabels:
+              kubernetes.io/metadata.name: home-assistant
+          podSelector:
+            matchLabels:
+              app.kubernetes.io/instance: home-assistant
+              app.kubernetes.io/name: home-assistant
+      ports:
+        - protocol: TCP
+          port: 8080
+    - from:
+        - namespaceSelector:
+            matchLabels:
               kubernetes.io/metadata.name: kube-system
           podSelector:
             matchLabels:
@@ -48,14 +59,6 @@ spec:
             matchLabels:
               app.kubernetes.io/name: firefly-iii
               app.kubernetes.io/component: cron
-      ports:
-        - protocol: TCP
-          port: 8080
-    - from:
-        - podSelector:
-            matchLabels:
-              app.kubernetes.io/name: firefly-iii-data-importer
-              app.kubernetes.io/component: web
       ports:
         - protocol: TCP
           port: 8080

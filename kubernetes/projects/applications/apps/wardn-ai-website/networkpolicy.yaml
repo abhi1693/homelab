@@ -1,0 +1,28 @@
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: wardn-ai-website-ingress
+  namespace: wardn
+  labels:
+    app.kubernetes.io/name: wardn-ai-website
+    app.kubernetes.io/part-of: wardn-ai
+spec:
+  podSelector:
+    matchLabels:
+      app.kubernetes.io/name: wardn-ai-website
+      app.kubernetes.io/component: frontend
+  policyTypes:
+    - Ingress
+  ingress:
+    - from:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: cloudflare
+          podSelector:
+            matchLabels:
+              app: controlled-cloudflared-connector
+              strrl.dev/cloudflare-tunnel-ingress-controller: controlled-cloudflared-connector
+      ports:
+        - protocol: TCP
+          port: 3000

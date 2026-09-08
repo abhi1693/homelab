@@ -1,0 +1,23 @@
+---
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: wardn-ai-website
+  namespace: wardn
+  labels:
+    app.kubernetes.io/name: wardn-ai-website
+    app.kubernetes.io/component: frontend
+    app.kubernetes.io/part-of: wardn-ai
+spec:
+  ingressClassName: cloudflare-tunnel
+  rules:
+    - host: wardnai.dev
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: wardn-ai-website
+                port:
+                  name: http

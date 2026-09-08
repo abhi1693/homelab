@@ -23,9 +23,6 @@ source would ingest the same pod streams twice. Its PodDisruptionBudget blocks
 voluntary eviction so log collection does not develop a known gap while the pod
 is healthy.
 
-The requests retain headroom over the 14-day pod p95 of approximately 25m CPU
-and 179Mi memory.
-
 ## Dependencies
 
 Fleet orders this bundle after `system-helm-repositories` and `loki-helmop`.

@@ -1,9 +1,9 @@
-# syntax=docker/dockerfile:1.7
+# syntax=docker/dockerfile:1.27
 
 ARG POSTGRES_PROVIDER_REF=10.11.8-1
-ARG JELLYFIN_IMAGE=jellyfin/jellyfin:10.11.8
+ARG JELLYFIN_IMAGE=jellyfin/jellyfin:10.11.11
 
-FROM --platform=$BUILDPLATFORM alpine:3.22 AS plugin-download
+FROM --platform=$BUILDPLATFORM alpine:3.24 AS plugin-download
 
 COPY required-plugins.txt /tmp/required-plugins.txt
 COPY required-plugin-metadata.json /tmp/required-plugin-metadata.json
@@ -33,7 +33,7 @@ RUN set -eux; \
     find /opt/jellyfin/plugins -name meta.json -print0 \
       | xargs -0 -I '{}' sh -c 'tmp="${1}.tmp"; jq ".autoUpdate = false" "$1" > "${tmp}"; mv "${tmp}" "$1"' sh '{}'
 
-FROM --platform=$BUILDPLATFORM mcr.microsoft.com/dotnet/sdk:9.0 AS postgres-provider-build
+FROM --platform=$BUILDPLATFORM mcr.microsoft.com/dotnet/sdk:10.0 AS postgres-provider-build
 ARG POSTGRES_PROVIDER_REF
 
 COPY patches/ /tmp/jellyfin-patches/

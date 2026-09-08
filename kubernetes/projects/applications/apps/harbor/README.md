@@ -50,20 +50,12 @@ token service URLs stay local-only.
 
 The registry claim is provisioned from `nfs-shared-retain`, which gives Harbor
 the isolated NAS directory `harbor/harbor-registry-nfs` below
-`192.168.1.128:/var/nfs/shared/k3s_shared_storage` on the UNAS Pro 4. The
-former Longhorn registry claim was removed after the NFS copy and live registry
-API were verified.
+`192.168.1.128:/var/nfs/shared/k3s_shared_storage` on the UNAS Pro 4.
 
 The Trivy claim uses the same retained NFS class at
 `harbor/harbor-trivy-cache-nfs`. Its contents are disposable vulnerability and
 Java databases; scan coordination and report metadata remain in external
-Valkey. The migration intentionally starts with an empty NFS cache instead of
-copying the roughly 2.6GiB Longhorn cache, allowing Trivy to download clean
-databases. Fleet removed the old volume-template StatefulSet before recreating
-it against `harbor-trivy-cache-nfs`, avoiding an invalid immutable update. The
-old `data-harbor-trivy-0` claim and its Longhorn volume were retired after the
-replacement became Ready, downloaded its databases, and completed a Harbor
-scan.
+Valkey.
 
 ## Monitoring
 
@@ -71,6 +63,10 @@ Harbor exposes Prometheus metrics for exporter, core, jobservice, and registry
 components on port `8001`. The Helm chart creates the `ServiceMonitor`, and the
 Harbor network policy allows the Rancher Monitoring Prometheus pod in
 `cattle-monitoring-system` to scrape those metrics.
+
+The registry container keeps a `48Mi` memory request for its low steady-state
+usage and a `256Mi` limit for concurrent image pushes. Include push-time peak
+usage and container restarts in rollout health checks when changing this budget.
 
 Grafana auto-loads the upstream Harbor dashboard from the `harbor-dashboard`
 ConfigMap in `cattle-dashboards`.

@@ -20,10 +20,10 @@ podOptions:
     kubernetes.io/arch: arm64
 resources:
   requests:
-    cpu: 40m
-    memory: 289Mi
+    cpu: 50m
+    memory: 290Mi
   limits:
-    cpu: 200m
+    cpu: 500m
     memory: 496Mi
 service:
   main:

@@ -18,6 +18,9 @@ spec:
     spec:
       activeDeadlineSeconds: 300
       backoffLimit: 1
+      # Keep a failed run long enough for alerting and diagnosis without
+      # retaining it indefinitely after the evidence window has passed.
+      ttlSecondsAfterFinished: 86400
       template:
         metadata:
           labels:

@@ -3,15 +3,21 @@
   hosts: "{{ k3s_agent_target_hosts | default('k3s_workers') }}"
   become: true
   gather_facts: true
+  order: inventory
+  serial: 1
+  any_errors_fatal: true
 
   vars:
     k3s_agent_selected_entrypoint: "{{ k3s_agent_entrypoint | default('main') }}"
+    k3s_agent_rollout_mode: rolling
+    k3s_agent_readiness_delegate: "{{ groups['k3s_servers'] | first }}"
 
   pre_tasks:
     - name: Assert k3s_agent entrypoint is supported
       ansible.builtin.assert:
         that:
           - k3s_agent_selected_entrypoint in ['main', 'validation', 'reset']
+          - k3s_agent_rollout_mode in ['bootstrap', 'rolling']
         fail_msg: "Unsupported k3s_agent entrypoint {{ k3s_agent_selected_entrypoint }}"
         success_msg: "Running k3s_agent entrypoint {{ k3s_agent_selected_entrypoint }}"
 
@@ -29,5 +35,107 @@
       when: k3s_agent_selected_entrypoint != 'main'
 
   post_tasks:
+    - name: Read K3s agent Node lease before pending handler restart
+      ansible.builtin.command:
+        argv:
+          - /usr/local/bin/k3s
+          - kubectl
+          - --namespace
+          - kube-node-lease
+          - get
+          - lease
+          - "{{ node_identity.hostname }}"
+          - --output
+          - "jsonpath={.spec.renewTime}"
+      environment:
+        KUBECONFIG: /etc/rancher/k3s/k3s.yaml
+      register: k3s_agent_node_lease_before_handlers
+      changed_when: false
+      check_mode: false
+      delegate_to: "{{ k3s_agent_readiness_delegate }}"
+      retries: 60
+      delay: 5
+      until:
+        - k3s_agent_node_lease_before_handlers.rc == 0
+        - k3s_agent_node_lease_before_handlers.stdout | trim != ''
+      when: k3s_agent_selected_entrypoint == 'main'
+
     - name: Restart k3s_agent if requested by handlers
       ansible.builtin.meta: flush_handlers
+
+    - name: Wait for K3s agent service after pending handler restart
+      ansible.builtin.command: systemctl is-active k3s-agent
+      register: k3s_agent_service_after_handlers
+      changed_when: false
+      check_mode: false
+      retries: 60
+      delay: 5
+      until: k3s_agent_service_after_handlers.stdout | trim == 'active'
+      when: k3s_agent_selected_entrypoint == 'main'
+
+    - name: Wait for K3s agent Node lease to renew after handlers
+      ansible.builtin.command:
+        argv:
+          - /usr/local/bin/k3s
+          - kubectl
+          - --namespace
+          - kube-node-lease
+          - get
+          - lease
+          - "{{ node_identity.hostname }}"
+          - --output
+          - "jsonpath={.spec.renewTime}"
+      environment:
+        KUBECONFIG: /etc/rancher/k3s/k3s.yaml
+      register: k3s_agent_node_lease_after_handlers
+      changed_when: false
+      check_mode: false
+      delegate_to: "{{ k3s_agent_readiness_delegate }}"
+      retries: 60
+      delay: 5
+      until:
+        - k3s_agent_node_lease_after_handlers.rc == 0
+        - k3s_agent_node_lease_after_handlers.stdout | trim != ''
+        - >-
+          k3s_agent_node_lease_after_handlers.stdout | trim
+          != k3s_agent_node_lease_before_handlers.stdout | trim
+      when: k3s_agent_selected_entrypoint == 'main'
+
+    - name: Wait for the API to observe the desired K3s agent version
+      ansible.builtin.command:
+        argv:
+          - /usr/local/bin/k3s
+          - kubectl
+          - get
+          - node
+          - "{{ node_identity.hostname }}"
+          - --output
+          - "jsonpath={.status.nodeInfo.kubeletVersion}"
+      environment:
+        KUBECONFIG: /etc/rancher/k3s/k3s.yaml
+      register: k3s_agent_observed_kubelet_version
+      changed_when: false
+      check_mode: false
+      delegate_to: "{{ k3s_agent_readiness_delegate }}"
+      retries: 60
+      delay: 5
+      until: k3s_agent_observed_kubelet_version.stdout | trim == k3s.version
+      when: k3s_agent_selected_entrypoint == 'main'
+
+    - name: Wait for the upgraded K3s agent Node to report Ready
+      ansible.builtin.command:
+        argv:
+          - /usr/local/bin/k3s
+          - kubectl
+          - wait
+          - --for=condition=Ready
+          - "node/{{ node_identity.hostname }}"
+          - --timeout=300s
+      environment:
+        KUBECONFIG: /etc/rancher/k3s/k3s.yaml
+      changed_when: false
+      check_mode: false
+      delegate_to: "{{ k3s_agent_readiness_delegate }}"
+      when:
+        - k3s_agent_selected_entrypoint == 'main'
+        - k3s_agent_rollout_mode == 'rolling'

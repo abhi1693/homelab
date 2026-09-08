@@ -1,3 +1,7 @@
+---
+- name: Check server rollout prerequisites before changing the host
+  ansible.builtin.import_tasks: preflight.yml
+
 - name: Assert K3s registration VIP is set
   ansible.builtin.assert:
     that:
@@ -261,6 +265,23 @@
     port: 6443
     timeout: 300
 
+- name: Require the local API readiness checks before reconciling Node taints
+  ansible.builtin.command:
+    argv:
+      - /usr/local/bin/k3s
+      - kubectl
+      - --kubeconfig=/etc/rancher/k3s/k3s.yaml
+      - --server=https://127.0.0.1:6443
+      - --request-timeout=10s
+      - get
+      - --raw=/readyz
+  register: k3s_server_local_readyz
+  changed_when: false
+  check_mode: false
+  retries: 60
+  delay: 5
+  until: k3s_server_local_readyz.rc == 0 and k3s_server_local_readyz.stdout | trim == 'ok'
+
 - name: Read the current K3s server Node
   ansible.builtin.command:
     argv:
@@ -301,6 +322,13 @@
       - --overwrite
   loop: "{{ k3s_server.node_taints }}"
   register: k3s_server_taint_apply
+  when: >-
+    ((k3s_server_node_raw.stdout | from_json).spec.taints | default([])
+    | selectattr('key', 'equalto', item.split('=', 1)[0])
+    | selectattr('value', 'defined')
+    | selectattr('value', 'equalto', item.split('=', 1)[1].rsplit(':', 1)[0])
+    | selectattr('effect', 'equalto', item.rsplit(':', 1)[1])
+    | list | length) == 0
   changed_when: "'not tainted' not in k3s_server_taint_apply.stdout"
 
 - name: Remove managed K3s server Node taints absent from desired state

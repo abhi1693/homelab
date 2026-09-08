@@ -1,0 +1,12 @@
+---
+name: wardn-license-server-prerequisites
+defaultNamespace: wardn
+labels:
+  app.kubernetes.io/name: wardn-license-server-prerequisites
+  app.kubernetes.io/part-of: wardn
+  home-lab.io/project-slug: applications
+dependsOn:
+  - name: rancher-project-applications
+helm:
+  takeOwnership: true
+  timeoutSeconds: 600

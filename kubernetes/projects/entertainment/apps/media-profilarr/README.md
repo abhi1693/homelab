@@ -31,6 +31,3 @@ Use the TRaSH Guides database for quality-definition configs:
 
 - Radarr: `Movie`
 - Sonarr: `Series`
-
-The one-time profile resync performed on 2026-08-05 used a temporary Profilarr
-instance and did not persist its API keys or GitHub token into GitOps.

@@ -1,0 +1,21 @@
+---
+apiVersion: longhorn.io/v1beta2
+kind: Snapshot
+metadata:
+  name: minio-smoke-20260905
+  namespace: longhorn-system
+spec:
+  volume: pvc-02ce383f-d495-4e4e-b2d7-cd27b86021f2
+  createSnapshot: true
+---
+apiVersion: longhorn.io/v1beta2
+kind: Backup
+metadata:
+  name: minio-smoke-20260905
+  namespace: longhorn-system
+  labels:
+    backup-volume: pvc-02ce383f-d495-4e4e-b2d7-cd27b86021f2
+    backup-target: default
+spec:
+  snapshotName: minio-smoke-20260905
+  backupMode: full

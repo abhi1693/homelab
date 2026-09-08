@@ -14,9 +14,8 @@ replicate data. The `nfs-shared-retain` StorageClass dynamically provisions an
 isolated `${namespace}/${pvc-name}` directory below
 `192.168.1.128:/var/nfs/shared/k3s_shared_storage` on the UNAS Pro 4. Consumer
 PVCs opt into this class explicitly; Longhorn remains the default StorageClass.
-The current mount is NFSv3 with both NFS and `mountd` forced over TCP. Move the
-class to NFSv4.1 only after the UNAS exposes this Shared Drive in its v4
-namespace and a real read/write mount succeeds.
+The current mount is NFSv3 with both NFS and `mountd` forced over TCP.
+UNAS does not support NFSv4; retain NFSv3 for this export.
 
 CPU requests are sized from the live low-volume workload: each node-sidecar
 requests `5m`, and the controller sidecars request `5m` each. CPU limits remain

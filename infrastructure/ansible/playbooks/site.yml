@@ -10,22 +10,29 @@
 - import_playbook: k3s_server.yml
   vars:
     k3s_server_target_hosts: server-1
+    k3s_server_rollout_mode: bootstrap
 - import_playbook: k3s_server.yml
   vars:
     k3s_server_target_hosts: server-1
     k3s_server_entrypoint: validation
+    k3s_server_rollout_mode: bootstrap
 - import_playbook: kube_vip.yml
 - import_playbook: k3s_server.yml
   vars:
     k3s_server_target_hosts: "server-2:server-3"
+    k3s_server_rollout_mode: bootstrap
 - import_playbook: k3s_server.yml
   vars:
     k3s_server_target_hosts: "server-2:server-3"
     k3s_server_entrypoint: validation
+    k3s_server_rollout_mode: bootstrap
 - import_playbook: k3s_agent.yml
+  vars:
+    k3s_agent_rollout_mode: bootstrap
 - import_playbook: k3s_agent.yml
   vars:
     k3s_agent_entrypoint: validation
+    k3s_agent_rollout_mode: bootstrap
 - import_playbook: cilium.yml
 - import_playbook: k3s_system_addons.yml
 - import_playbook: cert_manager.yml

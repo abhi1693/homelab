@@ -1,0 +1,11 @@
+---
+apiVersion: longhorn.io/v1beta2
+kind: SystemBackup
+metadata:
+  name: pre-longhorn-1121-20260905
+  namespace: longhorn-system
+  annotations:
+    helm.sh/resource-policy: keep
+spec:
+  # The 18 selected volume backups have already completed separately.
+  volumeBackupPolicy: disabled

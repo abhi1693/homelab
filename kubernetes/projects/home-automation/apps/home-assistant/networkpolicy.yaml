@@ -56,6 +56,17 @@ spec:
     - to:
         - namespaceSelector:
             matchLabels:
+              kubernetes.io/metadata.name: finance
+          podSelector:
+            matchLabels:
+              app.kubernetes.io/name: firefly-iii
+              app.kubernetes.io/component: web
+      ports:
+        - protocol: TCP
+          port: 8080
+    - to:
+        - namespaceSelector:
+            matchLabels:
               kubernetes.io/metadata.name: kube-system
           podSelector:
             matchLabels:
@@ -160,3 +171,37 @@ spec:
               protocol: TCP
             - port: "5055"
               protocol: TCP
+---
+apiVersion: cilium.io/v2
+kind: CiliumNetworkPolicy
+metadata:
+  name: home-assistant-finance-http-egress
+  namespace: home-assistant
+  labels:
+    app.kubernetes.io/name: home-assistant
+    app.kubernetes.io/part-of: home-automation
+    home-lab.io/project-slug: home-automation
+spec:
+  endpointSelector:
+    matchLabels:
+      app.kubernetes.io/instance: home-assistant
+      app.kubernetes.io/name: home-assistant
+  egress:
+    # The native Firefly integration may use the LAN hostname. Its VIP is
+    # translated to Traefik pods, which the external-CIDR rule cannot select.
+    # Scope plain HTTP access to read-only Firefly API requests on this host.
+    - toServices:
+        - k8sService:
+            serviceName: traefik
+            namespace: kube-system
+      toPorts:
+        - ports:
+            - port: "80"
+              protocol: TCP
+            - port: "8000"
+              protocol: TCP
+          rules:
+            http:
+              - host: '^finance\.home(:80)?$'
+                method: GET
+                path: '/api/v1/.*'

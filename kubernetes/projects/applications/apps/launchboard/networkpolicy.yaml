@@ -18,6 +18,56 @@ spec:
 apiVersion: networking.k8s.io/v1
 kind: NetworkPolicy
 metadata:
+  name: launchboard-x-automation
+  namespace: launchboard
+  labels:
+    app.kubernetes.io/name: launchboard
+    app.kubernetes.io/part-of: launchboard
+spec:
+  podSelector:
+    matchLabels:
+      app.kubernetes.io/name: launchboard
+      app.kubernetes.io/component: x-automation
+  policyTypes:
+    - Egress
+  egress:
+    - to:
+        - podSelector:
+            matchLabels:
+              app.kubernetes.io/name: launchboard
+              app.kubernetes.io/component: web
+      ports:
+        - protocol: TCP
+          port: 3000
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: launchboard-x-automation-ingress
+  namespace: launchboard
+  labels:
+    app.kubernetes.io/name: launchboard
+    app.kubernetes.io/part-of: launchboard
+spec:
+  podSelector:
+    matchLabels:
+      app.kubernetes.io/name: launchboard
+      app.kubernetes.io/component: web
+  policyTypes:
+    - Ingress
+  ingress:
+    - from:
+        - podSelector:
+            matchLabels:
+              app.kubernetes.io/name: launchboard
+              app.kubernetes.io/component: x-automation
+      ports:
+        - protocol: TCP
+          port: 3000
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
   name: launchboard-web-ingress
   namespace: launchboard
   labels:

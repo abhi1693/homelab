@@ -1,8 +1,7 @@
 # OpenBao
 
-The StatefulSet is no longer pinned to `k8s-rpi3`. It retains its ARM64
-selector and has no critical-addons toleration, so it schedules in the worker
-pool after control-plane segregation.
+The ARM64 StatefulSet schedules on workers and does not tolerate the
+control-plane critical-addons taint.
 
 Minimal OpenBao deployment for the `wardn` namespace.
 
@@ -19,35 +18,15 @@ encrypted secret and the age identity needed to decrypt it in backups. Recovery
 shares cannot replace a lost static wrapping key; if that key is permanently
 lost, the OpenBao data cannot be recovered, including from storage backups.
 
-## One-time Shamir migration
+## Recovery
 
-The home deployment completed this migration on 2026-07-12. Do not repeat it
-against the current static-sealed storage. The procedure remains documented for
-restoring a pre-migration Shamir backup or rebuilding the deployment from that
-state.
-
-Changing the configuration does not migrate an already initialized Shamir
-deployment automatically. Take a storage backup first. After Fleet has deployed
-the static-seal Secret and restarted the pod with the new seal configuration,
-run:
-
-```bash
-kubectl -n wardn exec -ti openbao-0 -- bao operator unseal -migrate
-```
-
-Enter the existing Shamir unseal share at the hidden prompt. This deployment has
-a `1/1` threshold, so one invocation completes the migration. The old Shamir
-share becomes a recovery share. Keep it securely, but do not use it as the
-static wrapping key.
-
-Seal migration is a stateful operational change. Reverting only the Helm values
-does not revert the stored seal metadata. Migrating back to Shamir requires the
-documented reverse seal-migration procedure while the static key is still
-available.
+Restore both the data volume and its matching static wrapping key. A backup
+from a different seal configuration requires a separately reviewed seal
+migration; changing Helm values alone does not migrate persisted seal metadata.
 
 ## Verification
 
-Verify the migration without exposing either secret:
+Verify seal status without exposing key material:
 
 ```bash
 kubectl -n wardn exec openbao-0 -- bao status

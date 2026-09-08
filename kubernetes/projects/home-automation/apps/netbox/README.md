@@ -73,14 +73,9 @@ Git-backed workflow for them.
 
 The dynamic NFS claim is declared with its live controller-assigned
 `volumeName`, and the HelmOp comparison policy ignores that immutable field
-during drift checks. The detached former Longhorn media claim was retired after
-its NFS copy was verified.
-
-Housekeeping is enabled and retains neither successful nor failed Jobs because
-retained housekeeping Pods can still be reported as consumers of the shared
-media PVC after they finish. That stale consumer state can make Longhorn reject
-a later CSI republish when no consumer Pod is Pending. Job output remains
-available through centralized logs.
+during drift checks.
+Housekeeping is enabled. Finished Jobs are not retained; use centralized logs
+for their output.
 
 ## Plugins
 

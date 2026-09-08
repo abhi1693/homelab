@@ -92,9 +92,12 @@ spec:
             - --query.replica-label=prometheus_replica
             - --no-query.partial-response
             - --query.timeout=2m
+            - --query.max-concurrent=4
+            - --query.max-concurrent-select=2
             - --store.response-timeout=1m
             - --endpoint=dnssrv+_grpc._tcp.rancher-monitoring-thanos-discovery.cattle-monitoring-system.svc.cluster.local
             - --enable-auto-gomemlimit
+            - --auto-gomemlimit.ratio=0.75
           ports:
             - name: grpc
               containerPort: 10901
@@ -119,9 +122,9 @@ spec:
           resources:
             requests:
               cpu: 100m
-              memory: 512Mi
+              memory: 768Mi
             limits:
-              memory: 2Gi
+              memory: 3Gi
           securityContext:
             allowPrivilegeEscalation: false
             readOnlyRootFilesystem: true

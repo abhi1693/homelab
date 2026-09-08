@@ -1,0 +1,14 @@
+---
+apiVersion: longhorn.io/v1beta2
+kind: BackupTarget
+metadata:
+  name: default
+  namespace: longhorn-system
+  annotations:
+    helm.sh/resource-policy: keep
+spec:
+  # Maintenance complete: disable access before retiring temporary MinIO.
+  # Retain the NAS claim and independent PC recovery copy.
+  backupTargetURL: ''
+  credentialSecret: ''
+  pollInterval: 5m0s
