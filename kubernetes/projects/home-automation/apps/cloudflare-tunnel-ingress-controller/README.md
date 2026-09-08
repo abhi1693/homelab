@@ -38,13 +38,23 @@ controller-managed `cloudflared` connector pods do not need an image pull
 Secret.
 
 The chart exposes connector metrics through the controller-managed
-`cloudflared` pods on port `44483`. `cloudflaredServiceMonitor.create` is enabled
-so Rancher Monitoring scrapes those metrics through the chart-owned Prometheus
-Operator `ServiceMonitor`. The controller exposes controller-runtime metrics on
-port `9090`; the companion raw Fleet bundle maps its stable metrics `Service`
-port `8080` to that target and adds a `ServiceMonitor`. The companion
+`cloudflared` pods on port `44483`. Chart `0.1.0` uses `serviceMonitor.create`
+to create both the connector and controller Prometheus Operator
+`ServiceMonitor` resources; the former `cloudflaredServiceMonitor.create` value
+is no longer read. The controller exposes controller-runtime metrics on port
+`9090` through the chart-owned metrics `Service`. Both monitors scrape every
+30 seconds with a 10-second timeout. The companion
 NetworkPolicies allow only the Rancher Monitoring Prometheus pods to reach
 either workload's metrics port.
+
+The chart is the sole owner of both metrics Services and ServiceMonitors. Do
+not add duplicate metrics definitions to the companion bundle: competing Fleet
+releases change ownership and selectors repeatedly, interrupting scrapes. The
+legacy companion definitions have been removed. Fleet recreated the metrics
+Service during the handoff despite the temporary retention annotation, so do
+not assume that annotation alone preserves identity across competing releases.
+Verify the final Service owner and both controller and connector scrape targets
+after any ownership change.
 
 The Rancher Monitoring bundle keeps the existing cloudflared Grafana dashboard
 and adds alerts for lost connector scrape redundancy, fewer than four edge
@@ -65,7 +75,7 @@ replicas of either workload on the same node. A `PodDisruptionBudget` with
 `minAvailable: 1` protects each workload during voluntary disruptions. The
 chart owns the connector budget, while the companion
 `cloudflare-tunnel-ingress-controller-networkpolicy` raw Fleet bundle owns the
-controller budget because chart `0.0.24` does not expose a controller PDB
+controller budget because chart `0.1.0` does not expose a controller PDB
 setting.
 
 Each connector requests `40m` CPU and keeps CPU uncapped, preserving burst
@@ -83,13 +93,13 @@ pod from ready endpoints but must not restart it. Using the same endpoint for
 liveness or startup would cause avoidable restart loops during an ISP outage
 and delay recovery when the WAN returns.
 
-Chart `0.0.24` passes `cloudflared.resources` to the controller-generated
+Chart `0.1.0` passes `cloudflared.resources` to the controller-generated
 connector Deployment and grants the controller namespace-scoped access to its
 managed `controlled-cloudflared-token` Secret. Keep the chart and controller
 image versions aligned because the connector reconciliation contract spans
 both.
 
-Chart and controller `0.0.24` do not support a connector Deployment
+Chart and controller `0.1.0` do not support a connector Deployment
 `revisionHistoryLimit`. The controller's strict customization schema rejects
 unknown fields, and each reconciliation replaces the managed Deployment spec,
 so a separate patch would drift and be removed. A future controller release

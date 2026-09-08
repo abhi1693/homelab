@@ -1,0 +1,102 @@
+---
+- name: Close the unreachable local listener while retaining its recovery directory
+  hosts: localhost
+  connection: local
+  become: true
+  gather_facts: false
+  tasks:
+    - name: Stop the local listener created for this maintenance
+      ansible.builtin.systemd_service:
+        name: nfs-server
+        state: stopped
+        enabled: false
+    - name: Remove only this maintenance listener configuration
+      ansible.builtin.file:
+        path: "{{ item }}"
+        state: absent
+      loop:
+        - /etc/exports.d/longhorn-local-backup.exports
+        - /etc/nfs.conf.d/longhorn-local-backup.conf
+
+- name: Prepare the authorized staging store before copying backups to the PC
+  hosts: server-1
+  become: true
+  gather_facts: false
+  vars:
+    longhorn_local_backup_path: /var/tmp/longhorn-20260905
+    longhorn_local_backup_clients:
+      - 192.168.3.243
+      - 192.168.3.191
+      - 192.168.3.108
+      - 192.168.3.135
+      - 192.168.3.197
+      - 192.168.3.71
+      - 192.168.3.179
+      - 192.168.3.8
+  tasks:
+    - name: Check free space before accepting backup data
+      ansible.builtin.command: df -B1 --output=avail /var/tmp
+      register: longhorn_local_backup_space
+      changed_when: false
+
+    - name: Require room for the selected application volumes and reserve
+      ansible.builtin.assert:
+        that:
+          - longhorn_local_backup_space.stdout_lines[-1] | trim | int > 32212254720
+
+    - name: Install the local NFS server
+      ansible.builtin.apt:
+        name:
+          - nfs-kernel-server
+          - qemu-utils
+        state: present
+        update_cache: true
+        cache_valid_time: 3600
+        install_recommends: false
+
+    - name: Create private local backup directories
+      ansible.builtin.file:
+        path: "{{ item }}"
+        state: directory
+        owner: "1000"
+        group: "1000"
+        mode: "0700"
+      loop:
+        - "{{ longhorn_local_backup_path }}"
+        - "{{ longhorn_local_backup_path }}/store"
+        - "{{ longhorn_local_backup_path }}/store/backupstore"
+
+    - name: Configure an NFSv4-only listener on the LAN address
+      ansible.builtin.copy:
+        dest: /etc/nfs.conf.d/longhorn-local-backup.conf
+        mode: "0644"
+        content: |
+          [nfsd]
+          host=192.168.3.243
+          vers3=n
+          vers4=y
+          udp=n
+          tcp=y
+
+    - name: Create the export configuration directory
+      ansible.builtin.file:
+        path: /etc/exports.d
+        state: directory
+        mode: "0755"
+
+    - name: Restrict the recovery export to the cluster nodes
+      ansible.builtin.copy:
+        dest: /etc/exports.d/longhorn-local-backup.exports
+        mode: "0600"
+        content: |
+          {{ longhorn_local_backup_path }}/store {% for address in longhorn_local_backup_clients %}{{ address }}(rw,sync,no_subtree_check,all_squash,anonuid=1000,anongid=1000,fsid=0) {% endfor %}
+
+    - name: Start the temporary local NFS service without enabling boot startup
+      ansible.builtin.systemd_service:
+        name: nfs-server
+        state: restarted
+        enabled: false
+
+    - name: Load the authorized export
+      ansible.builtin.command: exportfs -ra
+      changed_when: true

@@ -197,6 +197,7 @@ spec:
           - postgresql-pooler-jellyfin-rw
           - postgresql-pooler-shipyardhq-rw
           - postgresql-pooler-wardn-ai-rw
+          - postgresql-pooler-wardn-license-rw
           - postgresql-pooler-wardn-hub-rw
           - postgresql-pooler-zitadel-rw
   egress:

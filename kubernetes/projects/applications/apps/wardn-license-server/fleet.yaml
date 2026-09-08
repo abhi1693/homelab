@@ -1,0 +1,23 @@
+---
+name: wardn-license-server
+defaultNamespace: wardn
+labels:
+  app.kubernetes.io/name: wardn-license-server
+  app.kubernetes.io/part-of: wardn
+  home-lab.io/project-slug: applications
+rolloutStrategy:
+  maxUnavailable: 1
+  maxUnavailablePartitions: 1
+dependsOn:
+  - name: rancher-project-applications
+  - name: wardn-license-server-prerequisites
+  - name: wardn-hub
+  - name: postgresql
+  - name: postgresql-wardn-license-prerequisites
+  - name: postgresql-networkpolicy
+  - name: postgresql-pooler-pdb
+  - name: cloudflare-tunnel-ingress-controller
+helm:
+  takeOwnership: true
+  timeoutSeconds: 1800
+  waitForJobs: true

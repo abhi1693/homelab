@@ -1,0 +1,126 @@
+---
+# Archived temporary runtime; restore only for explicitly authorized recovery.
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: longhorn-backup-minio
+  namespace: longhorn-system
+spec:
+  replicas: 1
+  strategy:
+    type: Recreate
+  selector:
+    matchLabels:
+      app: longhorn-backup-minio
+  template:
+    metadata:
+      labels:
+        app: longhorn-backup-minio
+    spec:
+      automountServiceAccountToken: false
+      securityContext:
+        # Match the UNAS export's mapped owner; avoid recursive chmod/chown.
+        runAsUser: 977
+        runAsGroup: 988
+        runAsNonRoot: true
+        seccompProfile:
+          type: RuntimeDefault
+      containers:
+        - name: minio
+          # renovate: datasource=docker depName=quay.io/minio/minio
+          image: quay.io/minio/minio@sha256:14cea493d9a34af32f524e538b8346cf79f3321eff8e708c1e2960462bd8936e
+          args: [server, /data/minio, --console-address, ':9001']
+          env:
+            - name: MINIO_ROOT_USER
+              valueFrom:
+                secretKeyRef:
+                  name: longhorn-backup-minio
+                  key: rootUser
+            - name: MINIO_ROOT_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: longhorn-backup-minio
+                  key: rootPassword
+            - name: MINIO_BROWSER
+              value: 'off'
+          ports:
+            - name: s3
+              containerPort: 9000
+          resources:
+            requests:
+              cpu: 100m
+              memory: 256Mi
+            limits:
+              memory: 1Gi
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop: [ALL]
+          readinessProbe:
+            httpGet:
+              path: /minio/health/ready
+              port: s3
+            periodSeconds: 10
+          livenessProbe:
+            httpGet:
+              path: /minio/health/live
+              port: s3
+            periodSeconds: 30
+          startupProbe:
+            httpGet:
+              path: /minio/health/live
+              port: s3
+            periodSeconds: 5
+            failureThreshold: 60
+          volumeMounts:
+            - name: data
+              mountPath: /data
+      volumes:
+        - name: data
+          persistentVolumeClaim:
+            claimName: longhorn-backups
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: longhorn-backup-minio
+  namespace: longhorn-system
+spec:
+  selector:
+    app: longhorn-backup-minio
+  ports:
+    - name: s3
+      port: 9000
+      targetPort: s3
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: longhorn-backup-minio
+  namespace: longhorn-system
+spec:
+  podSelector:
+    matchLabels:
+      app: longhorn-backup-minio
+  policyTypes: [Ingress]
+  ingress:
+    - from:
+        - podSelector:
+            matchLabels:
+              app: longhorn-manager
+        - podSelector:
+            matchLabels:
+              longhorn.io/component: instance-manager
+        - podSelector:
+            matchLabels:
+              app: longhorn-backup-minio-init
+        - podSelector:
+            matchLabels:
+              longhorn.io/managed-by: longhorn-manager
+        - podSelector:
+            matchExpressions:
+              - key: longhorn.io/job-task
+                operator: Exists
+      ports:
+        - port: 9000
+          protocol: TCP

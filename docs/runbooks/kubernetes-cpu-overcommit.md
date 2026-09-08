@@ -45,8 +45,11 @@ kubectl get pods -A -o json \
 ```
 
 Use retained Prometheus history for the candidate workload. Compare p95 and
-peak CPU over at least seven days, and preserve meaningful headroom above the
-observed peak. Check startup, scan, backup, and transcoding periods separately;
+peak CPU over at least seven days. Join workload ownership within historical
+queries so old pod revisions are included; missing history is not zero usage.
+Requests for burstable apps can cover measured baseline demand with headroom
+instead of reserving every rare peak, provided node-level burst/failure headroom
+and latency objectives are checked. Check startup, scan, backup, and transcoding periods separately;
 a low steady-state p95 is not sufficient evidence for a bursty workload.
 
 ## Mitigation
@@ -73,7 +76,8 @@ immediate capacity emergency outweighs the drift and rollout risk.
 - The N-1 Prometheus expression is at or below zero.
 - Fleet shows the Git commit applied.
 - The replacement workload is Ready and its health endpoint succeeds.
-- Runtime CPU remains below the new request during representative bursts.
+- Representative bursts retain acceptable latency and queue throughput without
+  node saturation. CPU usage above a request is allowed; a request is not a cap.
 
 ## Rollback
 

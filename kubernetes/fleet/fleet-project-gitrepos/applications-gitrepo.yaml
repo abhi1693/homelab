@@ -17,7 +17,6 @@ spec:
     - kubernetes/projects/applications/apps/applications-helm-repositories
     - kubernetes/projects/applications/apps/firefly-iii-storage
     - kubernetes/projects/applications/apps/firefly-iii
-    - kubernetes/projects/applications/apps/firefly-iii-data-importer
     - kubernetes/projects/applications/apps/harbor
     - kubernetes/projects/applications/apps/launchboard
     - kubernetes/projects/applications/apps/openbao
@@ -25,6 +24,9 @@ spec:
     - kubernetes/projects/applications/apps/portfolio
     - kubernetes/projects/applications/apps/renovate
     - kubernetes/projects/applications/apps/shipyardhq
+    - kubernetes/projects/applications/apps/wardn-ai-website
+    - kubernetes/projects/applications/apps/wardn-license-server-prerequisites
+    - kubernetes/projects/applications/apps/wardn-license-server
     - kubernetes/projects/applications/apps/wardn-hub
     - kubernetes/projects/applications/apps/zitadel
   correctDrift:

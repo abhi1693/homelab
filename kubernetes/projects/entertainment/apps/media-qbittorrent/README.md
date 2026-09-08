@@ -1,13 +1,14 @@
 # qBittorrent
 
-The qBittorrent Deployment and its state-backup CronJob are no longer pinned to
-`k8s-rpi2`. They retain the ARM64 selector and, because they do not tolerate the
-control-plane critical-addons taint, schedule on any available worker.
+qBittorrent and its state-backup CronJob use ARM64 workers. Required pod
+affinity keeps the backup on the node holding qBittorrent's RWO config volume.
 
 This bundle runs the qBittorrent client used by the media stack. qBittorrent
 and the Smart Queues controller each run with one replica, and the maintenance
-CronJobs are active. The HelmOp explicitly remains unpaused so Fleet
-reconciles the one-replica desired state after an out-of-band pause.
+CronJobs are active. Fleet reconciles their desired state from this bundle.
+
+qBittorrent requests `360m` CPU. Set TrueCharts `resources.limits.cpu: 0` to remove its
+inherited CPU cap and allow hashing/transfer bursts. Let Fleet roll this singleton only in a quiet transfer window.
 
 The smart queues controller code lives in
 `https://github.com/abhi1693/qbittorrent-smart-queues` and runs from the
@@ -38,8 +39,7 @@ peer-reconnect bursts without OOM-killing the client and dropping active peers.
 
 `qbittorrent-smart-queues` also enforces runtime limits. The primary ISP link is
 currently a static-IP 1 Gbps service with a `3 TB` monthly high-speed allowance,
-then `300 Mbps` service after that allowance. For the 2026-08 temporary policy,
-the controller keeps the uncapped download window active all day, raises the
+then `300 Mbps` service after that allowance. The configured policy keeps the uncapped download window active all day, raises the
 download ceiling to `100 MiB/s`, allows up to 5 useful download workers, and
 caps upload at `512 KiB/s` (`524,288 B/s`) so peer traffic stays bounded while
 still giving peers enough return bandwidth for healthier swarms. The five-worker
@@ -48,7 +48,7 @@ CPU load on the client node.
 These lower normal-mode limits are a conservative response to sustained NFS
 write waits observed on the qBittorrent node; monitor node load and I/O wait for
 at least the 15-minute alert window before increasing them again.
-The quota guardrail is temporarily lifted to `1 PB`; storage, thermal, backup-WAN,
+The configured quota guardrail is `1 PB`; storage, thermal, backup-WAN,
 and qBittorrent-authentication guards still apply. If UDM quota data is
 unavailable, the controller fails closed by applying the 1 B/s safety limits and
 pausing every torrent until accounting recovers.
@@ -103,9 +103,7 @@ privileged because they chroot into the host root and run the host
 `systemctl poweroff` or `shutdown -h now` command. The controller does not
 cordon or drain nodes before shutdown.
 
-Automatic PoE off/on recovery through Home Assistant is currently disabled. The
-previous webhook automations were removed during the 2026-08-13 Home Assistant
-automation reset. Thermal throttling, pausing, and guarded clean shutdown remain
+Automatic PoE off/on recovery through Home Assistant is currently disabled. Thermal throttling, pausing, and guarded clean shutdown remain
 active, but powered-off nodes require manual PoE recovery until replacement
 actuators are deliberately introduced.
 
@@ -186,8 +184,7 @@ failure in an unrelated catalog source from blocking qBittorrent reconciliation.
 combined primary-WAN download and upload usage. The billing cycle starts on the
 17th in the gateway's reporting timezone and runs through the 16th inclusive.
 It normally derives a daily guardrail by dividing the monthly guardrail by the
-number of days in the current billing cycle. During the 2026-08 temporary
-uncapped policy, the daily and monthly quota stop points are intentionally
+number of days in the current billing cycle. The configured daily and monthly quota stop points are intentionally
 lifted and the local-time uncapped window spans `00:00` through `00:00`, which
 the controller treats as a full-day window. There is no client-activity based
 bypass.
@@ -227,7 +224,7 @@ are available again.
 
 `qbittorrent-smart-queues` runs as a single-replica Deployment in continuous
 mode, polling every 30 seconds after each pass. Five is the useful-worker
-ceiling during the temporary full-day uncapped policy, not a fixed target. The
+ceiling under the full-day uncapped policy, not a fixed target. The
 controller begins with up to two discovery workers when nothing is productive,
 then adds at most two probe slots beside known productive downloads while
 aggregate throughput remains below 80% of the effective download capacity. It
@@ -239,7 +236,7 @@ the productive minimum rate can lower that ceiling when a low quota, fallback,
 or thermal cap cannot feed every worker. The global upload ceiling is
 independently configurable through
 `QBT_SINGLE_DOWNLOAD_UPLOAD_LIMIT_BYTES_PER_SEC`; production currently allows
-`512 KiB/s` (`524,288 B/s`). Storage-constrained recovery remains limited to two workers.
+`512 KiB/s` (`524,288 B/s`). Storage-constrained recovery uses the separately configured worker limit.
 Up to two stalled torrents that are already listening for peers may remain
 active above the useful worker limit, so returning seeders retain a bounded
 chance to move them without unbounded node load. No-progress probes beyond
@@ -324,11 +321,11 @@ finish with the least verified remaining data. When free space is already at or
 below reserve, it enters constrained recovery mode instead of pausing every
 torrent: it only considers torrents whose selected remaining bytes fit in the
 currently free space, selects the smallest verified remaining downloads first,
-temporarily raises qBittorrent's active download limit to `5`, and tracks
+sets qBittorrent's active download limit to `2`, and tracks
 no-progress samples for each recovery member. In constrained recovery mode,
 after two no-progress samples, a
 stalled member is parked: it stays active in qBittorrent so it can resume when
-seeders appear, but it no longer consumes one of the five active recovery worker
+seeders appear, but it no longer consumes one of the two active recovery worker
 slots. The guard then refills open worker slots with other fitting torrents while
 accounting for parked torrents in the storage headroom budget. There is no count
 cap on parked stalled torrents; the storage fit budget still applies while

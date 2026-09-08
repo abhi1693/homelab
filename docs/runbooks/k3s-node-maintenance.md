@@ -224,7 +224,8 @@ kubectl -n cattle-fleet-local-system get deployment fleet-agent \
 ```
 
 Expected state: Cilium, CoreDNS, metrics-server, and Traefik are `2/2`; Rancher
-is `3/3`; and the Fleet agent is `1/1`.
+is `3/3`; and the Fleet agent is `2/2`. Compare ready/available counts with the
+current desired replica counts when the declarative configuration changes.
 
 Confirm Fleet has no unapplied or stalled home-lab source before deliberately
 removing another node:
@@ -534,7 +535,7 @@ The maintenance is recovered only when:
 - every node is Ready and schedulable;
 - the API VIP responds, the kube-vip lease is current, and its holder is Ready;
 - Cilium, CoreDNS, metrics-server, and Traefik are 2/2;
-- Rancher is 3/3 and Fleet agent is 1/1;
+- Rancher is 3/3 and Fleet agent is 2/2;
 - every Longhorn volume is healthy and PostgreSQL is 3/3;
 - every home-lab GitRepo has its desired Ready count and no stalled state.
 
@@ -642,6 +643,14 @@ most recent relevant controller logs.
       is corrected in this runbook while the maintenance evidence is fresh.
 
 ## References
+
+For configuration or version changes through Ansible, use the
+[server rollout gates](../../infrastructure/ansible/roles/k3s_server/README.md).
+They enforce these platform prerequisites plus direct etcd membership, Raft,
+alarm, and linearizable-read checks before and after each server change.
+Prepare the pinned client with `playbooks/k3s_server_tools.yml` before the window.
+An unauthenticated VIP `401` above establishes reachability only; the rolling
+server gate requires authenticated `/readyz` success on every server and the VIP.
 
 - `scripts/safe-node-shutdown.sh`
 - `scripts/post-node-power-on.sh`

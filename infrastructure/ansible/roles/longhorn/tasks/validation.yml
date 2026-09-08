@@ -1,4 +1,22 @@
 ---
+- name: Verify the deployed Longhorn Helm releases rather than only requested pins
+  ansible.builtin.command:
+    argv: [helm, list, -n, longhorn-system, --filter, "^{{ item.name }}$", -o, json]
+  delegate_to: localhost
+  become: false
+  register: longhorn_validation_release
+  changed_when: false
+  failed_when: >-
+    longhorn_validation_release.stdout | from_json | length != 1 or
+    (longhorn_validation_release.stdout | from_json)[0].chart != item.name + '-' + item.version or
+    (longhorn_validation_release.stdout | from_json)[0].status != 'deployed'
+  loop:
+    - name: longhorn-crd
+      version: "{{ longhorn.crd_chart_version }}"
+    - name: longhorn
+      version: "{{ longhorn.chart_version }}"
+  when: k3s_node.cluster_init | bool
+
 - name: Gather package facts for Longhorn validation
   ansible.builtin.package_facts:
     manager: auto
@@ -171,7 +189,7 @@
     - longhorn-ui
   when: k3s_node.cluster_init | bool
 
-- name: Wait for all Longhorn pods to become Ready
+- name: Wait for active Longhorn pods to become Ready
   ansible.builtin.command:
     argv:
       - /usr/local/bin/k3s
@@ -182,7 +200,7 @@
       - --for=condition=Ready
       - pod
       - --all
-      - --field-selector=status.phase!=Succeeded
+      - --field-selector=status.phase!=Succeeded,status.phase!=Failed
       - --timeout=600s
   environment:
     KUBECONFIG: /etc/rancher/k3s/k3s.yaml
@@ -678,20 +696,23 @@
       - "{{ longhorn.namespace }}"
       - get
       - pvc
-      - --no-headers
+      - -o
+      - json
   environment:
     KUBECONFIG: /etc/rancher/k3s/k3s.yaml
   register: longhorn_namespace_pvcs
   changed_when: false
-  failed_when: false
   when: k3s_node.cluster_init | bool
 
-- name: Assert Longhorn system namespace does not use PVCs
+- name: Assert Longhorn system namespace only uses explicitly allowed ancillary PVCs
   ansible.builtin.assert:
     that:
-      - longhorn_namespace_pvcs.stdout | trim == ''
-    fail_msg: Expected Longhorn system namespace to have no PVCs because PVC-backed persistence was not enabled.
-    success_msg: "Longhorn system namespace has no PVCs"
+      - >-
+        ((longhorn_namespace_pvcs.stdout | from_json)['items']
+        | map(attribute='metadata.name') | list
+        | difference(longhorn.validation_allowed_pvcs | default([])) | length) == 0
+    fail_msg: Unexpected PVCs in the Longhorn system namespace; review persistence ownership.
+    success_msg: "Longhorn namespace PVCs match the ancillary allowlist"
   when: k3s_node.cluster_init | bool
 
 - name: Read Longhorn Manager resource requirements

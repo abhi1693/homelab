@@ -1,0 +1,29 @@
+---
+- name: Restore this CSI controller's existing control-plane placement policy
+  ansible.builtin.command:
+    argv:
+      - /usr/local/bin/k3s
+      - kubectl
+      - -n
+      - longhorn-system
+      - patch
+      - deployment
+      - "{{ longhorn_upgrade_csi_controller }}"
+      - --type=merge
+      - -p
+      - '{"spec":{"template":{"spec":{"nodeSelector":{"kubernetes.io/arch":"arm64","node-role.kubernetes.io/control-plane":"true"}}}}}'
+  register: longhorn_upgrade_csi_patch
+  changed_when: "'(no change)' not in longhorn_upgrade_csi_patch.stdout"
+
+- name: Require this CSI controller to recover before changing the next
+  ansible.builtin.command:
+    argv:
+      - /usr/local/bin/k3s
+      - kubectl
+      - -n
+      - longhorn-system
+      - rollout
+      - status
+      - "deployment/{{ longhorn_upgrade_csi_controller }}"
+      - --timeout=300s
+  changed_when: false

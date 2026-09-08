@@ -35,7 +35,7 @@ spec:
           containers:
             - name: refresh
               # renovate: datasource=github-releases depName=curl/curl-container
-              image: registry.home/docker.io/curlimages/curl:8.21.0
+              image: registry.home/docker.io/curlimages/curl:8.22.0
               imagePullPolicy: IfNotPresent
               command:
                 - /bin/sh

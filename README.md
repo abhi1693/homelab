@@ -15,10 +15,10 @@ and <a href=".pre-commit-config.yaml">pre-commit</a></em></p>
 
 <p>
   <img alt="Raspberry Pi 5 Model B" src="https://img.shields.io/badge/Raspberry%20Pi-5%20Model%20B-C51A4A?style=flat-square&amp;logo=raspberrypi&amp;logoColor=white">
-  <img alt="K3s v1.35.8+k3s1" src="https://img.shields.io/badge/K3s-v1.35.8%2Bk3s1-326CE5?style=flat-square&amp;logo=k3s&amp;logoColor=white">
+  <img alt="K3s v1.36.4+k3s1" src="https://img.shields.io/badge/K3s-v1.36.4%2Bk3s1-326CE5?style=flat-square&amp;logo=k3s&amp;logoColor=white">
   <img alt="Cilium 1.20.1" src="https://img.shields.io/badge/Cilium-1.20.1-F8C517?style=flat-square&amp;logo=cilium&amp;logoColor=black">
   <img alt="Rancher 2.15.1" src="https://img.shields.io/badge/Rancher-2.15.1-0075A8?style=flat-square&amp;logo=rancher&amp;logoColor=white">
-  <img alt="Longhorn 1.11.3" src="https://img.shields.io/badge/Longhorn-1.11.3-6D4AFF?style=flat-square">
+  <img alt="Longhorn 1.12.1" src="https://img.shields.io/badge/Longhorn-1.12.1-6D4AFF?style=flat-square">
   <img alt="NFS CSI 4.13.4" src="https://img.shields.io/badge/NFS%20CSI-4.13.4-326CE5?style=flat-square&amp;logo=kubernetes&amp;logoColor=white">
 </p>
 
@@ -52,7 +52,7 @@ applications are modeled as Git-managed bundles.
 | Area | Current shape |
 | --- | --- |
 | Hardware | Eight ARM64 Raspberry Pi nodes: three K3s servers and five workers. |
-| Kubernetes | K3s `v1.35.8+k3s1` with embedded etcd and a kube-vip API registration VIP. |
+| Kubernetes | K3s `v1.36.4+k3s1` with embedded etcd and a kube-vip API registration VIP. |
 | Bootstrap | Ansible prepares hosts, configures K3s, installs Cilium, Longhorn, Rancher, and Fleet. |
 | GitOps | Rancher Fleet reconciles one GitRepo per major project boundary. |
 | Networking | Cilium `1.20.1` provides CNI, kube-proxy replacement, and NetworkPolicy; MetalLB `0.16.1` provides Layer 2 service VIPs. |
@@ -432,8 +432,8 @@ controller rather than by opening the home network directly. That pattern keeps
 public HTTPS termination and edge protection outside the home gateway while the
 in-cluster app still receives normal Kubernetes service traffic.
 
-Examples include the portfolio, blog, ShipyardHQ, and Wardn Hub. The
-app bundle usually owns:
+Examples include the portfolio, blog, ShipyardHQ, Wardn AI website, Wardn Hub,
+and Wardn License Server. The app bundle usually owns:
 
 - namespace and labels;
 - deployment and service;
@@ -592,8 +592,8 @@ Important bootstrap roles:
 | --- | --- |
 | `os_prep` | Base operating-system preparation. |
 | `rpi_prep` | Raspberry Pi-specific host setup and telemetry helpers. |
-| `k3s_server` | K3s server configuration, secrets encryption, registry mirror settings, audit logging, API and scheduler arguments. |
-| `k3s_agent` | K3s worker/agent configuration. |
+| `k3s_server` | Serial K3s server configuration with Node, etcd consensus, and platform recovery gates; explicit bootstrap mode and a separately prepared pinned etcd client. |
+| `k3s_agent` | K3s worker/agent configuration with one-at-a-time execution and post-restart Node lease, version, and readiness gates. |
 | `kube_vip` | Kubernetes API registration VIP support. |
 | `cilium` | CNI, NetworkPolicy, Hubble, and Traefik-to-MetalLB wiring. |
 | `longhorn` | Distributed storage installation. |
@@ -661,15 +661,16 @@ These services are not just "apps"; they are the platform other apps depend on.
 
 | App | What it does | Notable dependencies |
 | --- | --- | --- |
-| Firefly III | Personal finance application. | PostgreSQL pooler, NFS upload PVC, internal Traefik ingress. |
-| Firefly III Data Importer | Financial data import UI. | Firefly service, NFS config PVC. |
+| Firefly III | Personal finance application. | PostgreSQL pooler, NFS upload PVC, internal Traefik ingress, scoped Home Assistant API access. |
 | Harbor | Local registry and proxy/cache registry. | PostgreSQL, Valkey, NFS storage, monitoring. |
 | OpenBao | Lightweight secret-management experiment for the Wardn namespace. | Longhorn PVC, Traefik ingress. |
 | Personal Blog | Public blog deployment. | Harbor image, Cloudflare Tunnel, Sanity revalidation secret. |
 | Portfolio | Public portfolio deployment. | Harbor image, Cloudflare Tunnel. |
 | ShipyardHQ | Public commerce/content application with web, worker, image proxy, and build jobs. | PostgreSQL, Valkey, R2, Harbor, NFS build cache, Cloudflare Tunnel. |
 | Wardn AI | Agent platform with API, frontend, worker, WhatsApp bridge, and on-demand MCP runtimes. | PostgreSQL, Wardn Hub, NFS and Longhorn storage, internal Traefik ingress. |
+| Wardn AI Website | Public product website for Wardn AI. | Harbor image, Cloudflare Tunnel. |
 | Wardn Hub | Public AI/review platform with backend, frontend, workers, webhooks, and Codex login state. | PostgreSQL, OpenTelemetry, Harbor, Cloudflare Tunnel, NFS build cache, Longhorn Codex state. |
+| Wardn License Server | Private entitlement issuer, Dodo webhook worker, and administration console. | PostgreSQL, Zitadel, Harbor, Dodo, Cloudflare Tunnel. |
 
 ### Database Project
 
@@ -722,8 +723,8 @@ callback and Music Assistant's player-stream port.
 
 | App | What it does |
 | --- | --- |
-| Home Assistant | Home automation runtime with commit-pinned source from `abhi1693/home-assistant`, responsive family dashboard, private per-user health views, account-filtered Protect activity and alerts, a dedicated LAN-reachable go2rtc WebRTC relay, PostgreSQL Recorder, HACS bootstrap, and code-server sidecar. |
-| NetBox | Source of truth for IPAM, infrastructure inventory, cabling, DNS, lifecycle documentation, and the Git-backed catalog of 56 durable K3s applications and 135 controllers; every project app directory is cataloged or explicitly classified, while UniFi Network clients and transient or operator-generated Kubernetes objects remain excluded. |
+| Home Assistant | Home automation runtime with commit-pinned source from `abhi1693/home-assistant`, responsive family dashboard, private per-user health views, an Abhimanyu-only Firefly III finance dashboard with savings and payment-method charts, daily spending/income month comparisons and calendar/financial-year comparisons, dated bills and private investment schedules, account-filtered Protect activity and alerts, a dedicated LAN-reachable go2rtc WebRTC relay, PostgreSQL Recorder, HACS bootstrap, and code-server sidecar. |
+| NetBox | Source of truth for IPAM, infrastructure inventory, cabling, DNS, lifecycle documentation, and the Git-backed catalog of durable K3s applications and controllers; every project app directory is cataloged or explicitly classified, while UniFi Network clients and transient or operator-generated Kubernetes objects remain excluded. |
 | NetBox MCP Server | Authenticated per-user MCP access to NetBox through an ARM64, TLS-proxied, network-isolated service. |
 | Cloudflare Tunnel ingress controller | Maps Kubernetes ingress intent to Cloudflare Tunnel routes. |
 | Rack Ops controllers | Rack/node automation, policy, monitoring, and guarded actions. |
@@ -749,9 +750,9 @@ The main coupling points are explicit and intentional.
 
 ### Database coupling
 
-Applications do not each run their own database. The database project owns a
+Most applications do not run their own database. The database project owns a
 shared PostgreSQL cluster and app-specific roles, databases, and PgBouncer-style
-poolers. Apps connect to their own pooler and use their own credentials.
+poolers.
 
 This gives the lab one place to manage:
 
@@ -782,10 +783,14 @@ Harbor's own component images are a bootstrap exception: they pull directly
 from GHCR so the registry can recover without depending on `registry.home`.
 
 Renovate checks non-foundational application, build, CI, and Coder dependencies
-while manifests keep Harbor pull paths. Home-built images use GHCR source paths
+and automerges enabled updates directly into the default branch without opening
+PRs, while manifests keep Harbor pull paths. Home-built images use GHCR source paths
 through the Harbor GHCR proxy cache, for example
 `registry.home/ghcr.io/abhi1693/...`. Cluster-foundational versions such as
 K3s, Cilium, Rancher, Longhorn, MetalLB, and CSI NFS remain manually governed.
+Valkey chart upgrades also require a guarded `OnDelete` rollout, and completed
+Rack Ops bootstrap Jobs require an explicit new Job revision; Renovate excludes
+those two manifests to preserve their operational contracts.
 
 ### Ingress coupling
 
@@ -809,7 +814,7 @@ sampling routine trace traffic before Tempo.
 ### Storage coupling
 
 Longhorn is the default Kubernetes storage class for replicated cluster-managed
-volumes. Every Longhorn PVC requests three replicas spread across the four
+volumes. Every Longhorn PVC requests three replicas spread across eligible
 storage nodes, including PostgreSQL data/WAL and Valkey data. Those services
 also retain application-level replication, intentionally stacking block and
 application redundancy; PostgreSQL object-store backups remain its independent
@@ -841,11 +846,10 @@ The storage design is pragmatic. PostgreSQL and Valkey use three-replica
 Longhorn volumes beneath three application-level copies. Media downloads and
 completed media are separate UNAS Shared Drives mounted through NFS CSI.
 Selected file-oriented application
-claims use retained directories below the shared NAS export after an explicit
-copy-and-cutover migration; database-backed claims stay on Longhorn.
-Prometheus uses two independent retained Longhorn claims after a quiesced,
-verified copy of the original TSDB into replica 0; the existing NFS claims stay
-retained for rollback. Other monitoring components still use retained NFS where
+claims use retained directories below the shared NAS export; database-backed
+claims stay on Longhorn. Prometheus uses two independent retained Longhorn
+claims. Retained rollback storage is documented with its owning app.
+Other monitoring components still use retained NFS where
 that capacity tradeoff is acceptable. NFS has weaker latency and failure
 semantics than local block storage:
 [upstream Prometheus does not support NFS for its local TSDB](https://prometheus.io/docs/prometheus/latest/storage/),
@@ -897,11 +901,26 @@ and probe metrics without ingesting duplicate API server series.
 
 Scheduler reservations are periodically right-sized from Prometheus history
 while CPU remains burstable for storage and database hot paths. Longhorn
-instance managers reserve 12% CPU per four-core node, Rancher replicas request
-200m, and PostgreSQL instances request 250m. Recommendation profiles use a 5%
+instance managers reserve 12% CPU **per instance-manager pod** on a four-core
+node, Rancher replicas request 200m, and PostgreSQL instances request 250m.
+Recommendation profiles use a 5%
 material-change gate with conservative 10% maximum decrease steps. Application
 and system requests are kept below the allocatable CPU remaining after one
-four-core node is lost, so the scheduler retains single-node failure headroom.
+four-core node is lost; placement constraints and per-node headroom still need
+checking. See the [resource policy](docs/runbooks/kubernetes-resource-policy.md)
+for sizing and validation.
+
+Platform version badges describe desired state, not live rollout status.
+K3s maintenance requires [server preparation and recovery gates](infrastructure/ansible/roles/k3s_server/README.md#prepare-before-maintenance).
+The [staged Longhorn upgrade](infrastructure/ansible/roles/longhorn/README.md)
+checks deployed Helm versions and upgrades engines one at a time. Retiring older
+instance managers requires [application recovery gates](docs/runbooks/storage/longhorn-instance-manager-retirement.md).
+
+Longhorn has no active backup target. Its
+[retained recovery storage](kubernetes/projects/system/apps/longhorn-backups/README.md)
+is not a recurring backup service. Establish and verify a supported target,
+review the backup scope, and test recovery before storage maintenance.
+PostgreSQL retains its independent base backups and WAL archive.
 
 Git/Fleet is the primary rollback source for custom workloads. Literal
 Deployments retain two ReplicaSet revisions so automated resource proposals and
@@ -927,6 +946,11 @@ The workspace design uses the same platform primitives as the rest of the lab:
 - image build definitions tracked in Git.
 
 ## Operational Workflow
+
+Standalone DBS, HDFC, OneCard, and ICICI statement conversion and Firefly API
+workflows live in the
+[`abhi1693/firefly-importer`](https://github.com/abhi1693/firefly-importer)
+repository. This repository continues to own the Firefly III GitOps deployment.
 
 Typical change flow:
 
@@ -1096,14 +1120,15 @@ App and component deep dives:
 | [kubernetes/images/episeerr/README.md](kubernetes/images/episeerr/README.md) | Hardened Episeerr image wrapper. |
 | [kubernetes/images/jellyfin/README.md](kubernetes/images/jellyfin/README.md) | Custom Jellyfin image context. |
 | [kubernetes/projects/applications/apps/firefly-iii/README.md](kubernetes/projects/applications/apps/firefly-iii/README.md) | Firefly III personal finance app. |
-| [kubernetes/projects/applications/apps/firefly-iii-data-importer/README.md](kubernetes/projects/applications/apps/firefly-iii-data-importer/README.md) | Firefly III importer. |
 | [kubernetes/projects/applications/apps/applications-helm-repositories/README.md](kubernetes/projects/applications/apps/applications-helm-repositories/README.md) | Application Helm repository registrations. |
 | [kubernetes/projects/applications/apps/harbor/README.md](kubernetes/projects/applications/apps/harbor/README.md) | Harbor registry. |
 | [kubernetes/projects/applications/apps/openbao/README.md](kubernetes/projects/applications/apps/openbao/README.md) | OpenBao service. |
 | [kubernetes/projects/applications/apps/personal-blog/README.md](kubernetes/projects/applications/apps/personal-blog/README.md) | Personal blog deployment. |
 | [kubernetes/projects/applications/apps/portfolio/README.md](kubernetes/projects/applications/apps/portfolio/README.md) | Portfolio deployment. |
 | [kubernetes/projects/applications/apps/shipyardhq/README.md](kubernetes/projects/applications/apps/shipyardhq/README.md) | ShipyardHQ deployment. |
+| [kubernetes/projects/applications/apps/wardn-ai-website/README.md](kubernetes/projects/applications/apps/wardn-ai-website/README.md) | Wardn AI public website deployment. |
 | [kubernetes/projects/applications/apps/wardn-hub/README.md](kubernetes/projects/applications/apps/wardn-hub/README.md) | Wardn Hub deployment. |
+| [kubernetes/projects/applications/apps/wardn-license-server/README.md](kubernetes/projects/applications/apps/wardn-license-server/README.md) | Wardn entitlement issuer and Dodo fulfillment deployment. |
 | [kubernetes/projects/database/apps/cnpg-operator/README.md](kubernetes/projects/database/apps/cnpg-operator/README.md) | CloudNativePG operator. |
 | [kubernetes/projects/database/apps/database-helm-repositories/README.md](kubernetes/projects/database/apps/database-helm-repositories/README.md) | Database Helm repository registrations. |
 | [kubernetes/projects/database/apps/postgresql/README.md](kubernetes/projects/database/apps/postgresql/README.md) | PostgreSQL cluster, roles, and poolers. |

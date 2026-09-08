@@ -21,7 +21,7 @@ cloudnative-pg:
   resources:
     requests:
       cpu: 40m
-      memory: 158Mi
+      memory: 154Mi
     limits:
       memory: 208Mi
   podAnnotations:

@@ -2,15 +2,15 @@ terraform {
   required_providers {
     coder = {
       source  = "coder/coder"
-      version = "2.16.0"
+      version = "2.18.0"
     }
     kubernetes = {
       source  = "hashicorp/kubernetes"
-      version = "3.1.0"
+      version = "3.2.1"
     }
     random = {
       source  = "hashicorp/random"
-      version = "3.8.1"
+      version = "3.9.0"
     }
   }
 }
@@ -151,7 +151,7 @@ locals {
   template_name       = "ubuntu-desktop"
   workspace_namespace = "coder-workspaces"
   # renovate: datasource=docker depName=ghcr.io/abhi1693/home-lab versioning=regex:^ubuntu-desktop-(?<patch>\d{2})(?<minor>\d{2})(?<major>\d{4})$
-  workspace_image = "ghcr.io/abhi1693/home-lab:ubuntu-desktop-13052026"
+  workspace_image = "ghcr.io/abhi1693/home-lab:ubuntu-desktop-17052026"
   workspace_required_packages = [
     "adwaita-icon-theme",
     "build-essential",
@@ -376,7 +376,7 @@ module "git_config" {
   count = data.coder_workspace.me.start_count
 
   source  = "registry.coder.com/coder/git-config/coder"
-  version = "1.0.33"
+  version = "1.0.34"
 
   agent_id              = coder_agent.main.id
   allow_username_change = false
@@ -396,7 +396,7 @@ module "filebrowser" {
   count = data.coder_workspace.me.start_count
 
   source  = "registry.coder.com/coder/filebrowser/coder"
-  version = "1.1.4"
+  version = "1.1.5"
 
   agent_id      = coder_agent.main.id
   agent_name    = "main"
@@ -621,7 +621,7 @@ module "dotfiles" {
   count = data.coder_workspace.me.start_count
 
   source  = "registry.coder.com/coder/dotfiles/coder"
-  version = "1.4.1"
+  version = "1.4.2"
 
   agent_id        = coder_agent.main.id
   dotfiles_uri    = data.coder_parameter.dotfiles_uri.value

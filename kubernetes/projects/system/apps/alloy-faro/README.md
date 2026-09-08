@@ -19,8 +19,7 @@ This bundle runs the public frontend telemetry collector for browser RUM data.
 The receiver accepts browser telemetry from the public app hostnames listed in
 `values.yaml`. It writes logs to Loki and traces to Tempo.
 
-Each pod's requests retain headroom over the 14-day pod p95 of approximately
-5.2m CPU and 106Mi memory. The replicas are stateless receivers. Required
+The replicas are stateless receivers. Required
 hostname anti-affinity and the PodDisruptionBudget keep one receiver available
 during voluntary disruption.
 

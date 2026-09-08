@@ -48,4 +48,7 @@ The `k3s_server` role also renders inventory-managed kube-apiserver arguments.
 The home inventory uses that path to disable unconsumed, high-cardinality
 control-plane histogram families before they consume K3s process memory or
 Prometheus ingestion capacity. The server playbook applies configuration one
-host at a time so component-argument changes preserve embedded-etcd quorum.
+host at a time and stops unless the established cluster passes Node, etcd
+consensus, and platform recovery gates before and after each change. See
+[k3s_server/README.md](k3s_server/README.md) for tooling preparation and the
+explicit bootstrap exception.

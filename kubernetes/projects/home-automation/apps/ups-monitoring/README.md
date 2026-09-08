@@ -34,14 +34,14 @@ The deployment uses a `Recreate` update strategy so only one pod tries to own
 the USB device at a time.
 The init container also supplies a minimal `upsmon.conf` with
 `SHUTDOWNCMD "/bin/true"` so a low-battery event does not try to power off a
-host from inside the privileged container. Cluster shutdown automation should be
-added separately as Git-managed desired state if needed.
+host from inside the privileged container. Cluster shutdown is handled separately by the
+[Rack Ops controller](../rack-ops-controllers/README.md).
 The configuration init container is bounded at `5m`/`16Mi` requests and
 `100m`/`64Mi` limits; the three long-running containers retain their existing
 workload-specific envelopes.
 
 PeaNUT reads `/config/settings.yml`, seeded from the `ups-monitoring` ConfigMap
-in [configmap.yaml](/home/asaharan/PycharmProjects/home-lab/kubernetes/projects/home-automation/apps/ups-monitoring/configmap.yaml).
+in [configmap.yaml](configmap.yaml).
 The active `/config` directory is an `emptyDir`, so dashboard-side UI edits do
 not become durable desired state. Change the ConfigMap in Git instead.
 

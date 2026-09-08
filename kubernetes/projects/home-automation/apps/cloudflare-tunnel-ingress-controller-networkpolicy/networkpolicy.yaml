@@ -158,6 +158,39 @@ spec:
     - to:
         - namespaceSelector:
             matchLabels:
+              kubernetes.io/metadata.name: wardn
+          podSelector:
+            matchLabels:
+              app.kubernetes.io/name: wardn-ai-website
+              app.kubernetes.io/component: frontend
+      ports:
+        - protocol: TCP
+          port: 3000
+    - to:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: wardn
+          podSelector:
+            matchLabels:
+              app.kubernetes.io/name: wardn-license-server
+              app.kubernetes.io/component: frontend
+      ports:
+        - protocol: TCP
+          port: 3000
+    - to:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: wardn
+          podSelector:
+            matchLabels:
+              app.kubernetes.io/name: wardn-license-server
+              app.kubernetes.io/component: api
+      ports:
+        - protocol: TCP
+          port: 8000
+    - to:
+        - namespaceSelector:
+            matchLabels:
               kubernetes.io/metadata.name: cattle-monitoring-system
           podSelector:
             matchLabels:

@@ -9,7 +9,7 @@ hide inside a manifest comment:
 
 - architecture decisions and their tradeoffs;
 - procedures that operators need to follow carefully;
-- migration notes;
+- migration or recovery instructions that still have an operational use;
 - recovery plans;
 - known limitations and future hardening work.
 
@@ -51,3 +51,11 @@ hide inside a manifest comment:
 Prefer app-local READMEs when the documentation only applies to one bundle.
 Use `docs/` when the procedure crosses project boundaries, changes operational
 policy, or records a decision that future operators need to understand.
+
+READMEs describe the current setup, dependencies, configuration, and validation.
+Keep rationale only while its constraint still applies. Link to the owning app
+or source repository instead of repeating configuration tables and feature lists.
+Completed rollout reports, measurements, retired services, and rejected
+experiments normally belong in Git history. Keep a dated recovery guide only
+when retained data or artifacts still require it; label its scope and link to it
+from current instructions. Past maintenance approval is not standing authority.

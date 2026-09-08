@@ -30,12 +30,11 @@ requested capacity of `10Ti`. This is an advertised Kubernetes capacity rather
 than an NFS quota; the UNAS controls the Shared Drive's actual available space.
 The PV/PVC pair is statically bound with no StorageClass, so the driver mounts
 the existing export root and does not create a server-side subdirectory. It
-currently uses NFSv3 because the Shared Drive is not exposed in the UNAS NFSv4
-namespace; move it to NFSv4.1 only after a real read-write v4 mount succeeds.
+uses NFSv3; UNAS does not support NFSv4.
 
 Sonarr and Radarr mount the completed-media PVC at `/data`. Jellyfin mounts the
-same PVC at `/media`, while keeping its own application data under its
-chart-managed `/data` PVC.
+same PVC at `/media`, while keeping application state in PostgreSQL and shared
+files on `jellyfin-shared-data-nfs`; `/config` and `/data` are pod-local.
 
 Music Assistant mounts the same completed-library PVC twice: the common
 `/library/music` tree is read-only at `/media`, while
@@ -50,12 +49,9 @@ Fleet bundles. Their old shared-export directories—`music/Lidarr`,
 `music/Aurral`, and `downloads/slskd`—remain on the NAS. Those paths are
 operator-owned retained data and are not removed by Kubernetes retirement.
 
-The previous Longhorn `media-library` PVC and standalone Longhorn volume are no
-longer declared. Do not recreate `media-library`; the UNAS-backed
-`media-library-unas` PVC is the completed-media library. The old
-`media-library-nfs-csi` claim remains bound to
-`192.168.3.115:/nfs/media_new` as a read-only rollback source and is not mounted
-by active consumers.
+The retained `media-library-nfs-csi` claim points at
+`192.168.3.115:/nfs/media_new` as a read-only rollback source. Active consumers
+use `media-library-unas`; review retention before deleting old storage.
 
 Downloads are intentionally separated from the completed Jellyfin library.
 The qBittorrent clients, Sonarr, Ryokan, and Radarr mount the
@@ -65,9 +61,7 @@ mount it. The existing static claim still advertises `3T`; that pre-bound PVC
 cannot be expanded without recreation and its requested size does not enforce
 NFS capacity. The UNAS Shared Drive's decimal `4 TB` quota is the authoritative
 ceiling and remains the NAS enforcement boundary.
-The static volume currently mounts with NFSv3 because UniFi Drive does not yet
-expose the Shared Drive in its advertised NFSv4 namespace. Move it to NFSv4.1
-only after a real read-write v4 mount succeeds.
+The static volume uses NFSv3, matching the supported UNAS export.
 The qBittorrent
 clients write incomplete and completed torrent payloads to `/downloads`, then
 Sonarr imports finished TV into `/data/tv`. Radarr imports normal movies into
@@ -96,17 +90,9 @@ The qBittorrent clients stop torrents immediately after completion by using a
 zero ratio and zero seeding-time limit. Sonarr and Radarr have
 completed-download removal enabled, so after they successfully import a
 completed item to the NAS-backed library, they remove the stopped torrent and
-its payload from `/downloads`. Ryokan owns anime post-processing from the anime
-qBittorrent client and uses move mode so completed anime lands in the
-NAS-backed `/media/anime` library and is removed from `/downloads` after
-import.
-
-The legacy Longhorn-backed `media-downloads` PVC and the former direct-NFS
-`media-library-nas`, `media-library-nas-v2`, and `media-downloads-nas` PV/PVC
-pairs were removed after Fleet reported both NFS CSI claims bound and every
-current media consumer was verified against them. The static direct-NFS PVs
-used `Retain`, so deleting their Kubernetes objects did not remove either NAS
-export or its data.
+its payload from `/downloads`. Ryokan copies anime into the NAS-backed `/media/anime` library. Smart Queues
+removes the source only after exact import receipts and distinct size-matched
+library files are verified.
 
 The qBittorrent clients also auto-add the `ngosang/trackerslist`
 `trackers_all.txt` public tracker fallback list to new downloads. This can help
@@ -166,11 +152,8 @@ rate-limit failures. If qBittorrent needs VPN transport, use a provider and
 protocol that support stable inbound port forwarding, then wire that explicitly
 instead of routing the whole media stack through a random free OpenVPN endpoint.
 
-Public indexers use the normal cluster egress path by default. The previous
-DigitalOcean Squid proxy path has been retired now that the primary WAN has a
-static public IPv4 address and direct Nyaa access from the Ryokan pod validates.
-Do not recreate the old `DigitalOcean Squid` Prowlarr proxy or `do-proxy` tag
-unless a future indexer-specific incident justifies a new alternate egress path.
+Public indexers use normal cluster egress. Validate pod connectivity before
+introducing an indexer-specific alternate path.
 
 Cloudflare-protected public indexers are routed through the in-cluster
 FlareSolverr service at `http://flaresolverr.media.svc.cluster.local:8191`.
@@ -255,7 +238,7 @@ application PVC rather than in Git.
    download media.
 12. If a public indexer fails from the home IP, prefer direct validation and
     FlareSolverr for browser challenges before adding any new alternate egress
-    path. There is no live DigitalOcean Squid proxy or firewall updater.
+    path.
 13. Keep Prowlarr indexers on the default `Standard` sync profile. For indexers
     with published API/query caps, set each indexer's Query Limit and Grab Limit
     from the provider's documented allowance instead of creating extra sync

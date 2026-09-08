@@ -32,7 +32,7 @@ spec:
       containers:
         - name: bridge
           # renovate: datasource=docker depName=docker.io/library/python
-          image: registry.home/docker.io/python:3.14.1-alpine3.23
+          image: registry.home/docker.io/python:3.14.7-alpine3.23
           imagePullPolicy: IfNotPresent
           command: [python3, /app/bridge.py]
           env:

@@ -11,9 +11,10 @@ to distinguish a live fault from a retained Kubernetes object. `Watchdog` is
 expected to fire continuously. `InfoInhibitor` is a routing helper created by
 an underlying `severity="info"` alert; do not repair or silence it directly.
 
-`KubeJobFailed` remains active for as long as a failed Job object exists. It
-does not prove that the current CronJob schedule, Fleet revision, or storage
-policy is still failing.
+The local `KubeJobFailed` rule covers failed Jobs for 24 hours after their start
+time. A failed Job can remain after the alert resolves so its status and logs are
+available for diagnosis. It does not prove that the current CronJob schedule,
+Fleet revision, or storage policy is still failing.
 
 ## Impact
 
@@ -107,7 +108,8 @@ Longhorn policy, or all failed Jobs merely to make the alert disappear.
 
 Re-read Alertmanager and the failed-Job inventory. A clean result contains only
 `Watchdog`; a transient `InfoInhibitor` is acceptable only while its underlying
-information-level alert is understood and actively resolving.
+information-level alert is understood and actively resolving. A diagnosed Job
+older than 24 hours may remain in the inventory after its alert expires.
 
 ```sh
 kubectl get jobs -A -o json \

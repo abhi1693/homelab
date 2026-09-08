@@ -67,7 +67,7 @@ cloudflared:
       memory: 48Mi
     limits:
       memory: 112Mi
-cloudflaredServiceMonitor:
+serviceMonitor:
   create: true
   interval: 30s
   scrapeTimeout: 10s

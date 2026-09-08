@@ -27,6 +27,8 @@ CRITICAL_GLOBS = (
 REQUIRED_IGNORE_PATHS = (
     "infrastructure/ansible/inventories/home/group_vars/**",
     "kubernetes/projects/database/apps/cnpg-operator/chart/**",
+    "kubernetes/projects/database/apps/valkey/helmop.yaml",
+    "kubernetes/projects/home-automation/apps/rack-ops-controllers/secret-bootstrap.yaml",
     "kubernetes/projects/system/apps/csi-driver-nfs/**",
     "kubernetes/projects/system/apps/longhorn-fstrim-labeler/**",
     "kubernetes/projects/system/apps/metallb/**",
@@ -60,6 +62,19 @@ def iter_files(path: Path):
 def main() -> int:
     failures: list[str] = []
     config = (REPOSITORY_ROOT / CONFIG_PATH).read_text(encoding="utf-8")
+
+    required_merge_policy = {
+        "automerge": "true",
+        "automergeType": '"branch"',
+        "platformAutomerge": "false",
+        "prCreation": '"immediate"',
+        "dependencyDashboard": "false",
+        "recreateWhen": '"always"',
+    }
+    for key, expected in required_merge_policy.items():
+        values = re.findall(rf"^\s*{key}:\s*([^,\n]+)", config, re.MULTILINE)
+        if not values or any(value.strip() != expected for value in values):
+            failures.append(f"Renovate direct-update policy requires {key}: {expected}")
 
     for required_path in REQUIRED_IGNORE_PATHS:
         quoted_path = f'"{required_path}"'

@@ -11,8 +11,8 @@ ZITADEL is the central identity provider for cluster applications.
 The chart's `wait-for-zitadel` init container is bounded through
 `tools.wait4x.resources` at `10m`/`32Mi` requests and `100m`/`64Mi` limits.
 Setup and cleanup jobs use the ARM64 `alpine/k8s:1.35.6` image through the local
-registry cache. Its Kubernetes minor matches the cluster, and the Alpine shell
-is required by the chart's helper commands.
+registry cache. The Alpine shell is required by the chart's helper commands; review client
+compatibility when the cluster or helper image changes.
 Each ZITADEL server requests `25m` CPU and each Login UI replica requests
 `15m`; the combined `80m` reservation stays well above the observed 7-day
 aggregate p99 while both workloads remain CPU-burstable.

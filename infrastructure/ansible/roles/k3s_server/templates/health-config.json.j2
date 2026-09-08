@@ -1,0 +1,20 @@
+{{
+  {
+    'servers': groups['k3s_servers'] | map('extract', hostvars, 'ansible_host') | list,
+    'nodes': groups['k3s_servers'] | map('extract', hostvars, ['node_identity', 'hostname']) | list,
+    'target': node_identity.hostname,
+    'version': k3s.version,
+    'vip': k3s.registration_vip,
+    'phase': k3s_server_health_phase | default('validation'),
+    'timeout': k3s_server_health_timeout | int,
+    'interval': k3s_server_health_interval | int,
+    'samples': k3s_server_health_samples | int,
+    'max_index_lag': k3s_server_etcd_max_index_lag | int,
+    'etcdctl': k3s_server_etcdctl_path,
+    'etcdctl_version': k3s_server_etcdctl_version,
+    'baseline_members': k3s_server_baseline_members | default([]),
+    'deployments': k3s_server_health_deployments,
+    'daemonsets': k3s_server_health_daemonsets,
+    'gitrepos': k3s_server_health_gitrepos
+  } | to_json
+}}

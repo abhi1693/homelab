@@ -16,3 +16,4 @@ spec:
   gitPath: kubernetes/projects/applications/apps/launchboard
   workloads:
     - {key: home-k3s/launchboard/apps/deployment/launchboard, namespace: launchboard, apiGroup: apps, kind: Deployment, name: launchboard, desiredReplicas: 1, sourcePath: kubernetes/projects/applications/apps/launchboard/deployment.yaml}
+    - {key: home-k3s/launchboard/batch/cronjob/launchboard-x-automation, namespace: launchboard, apiGroup: batch, kind: CronJob, name: launchboard-x-automation, sourcePath: kubernetes/projects/applications/apps/launchboard/x-automation-cronjob.yaml}

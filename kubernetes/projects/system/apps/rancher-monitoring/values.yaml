@@ -13,6 +13,11 @@ global:
   systemDefaultRegistry: ""
 nameOverride: rancher-monitoring
 namespaceOverride: cattle-monitoring-system
+defaultRules:
+  disabled:
+    # The upstream rule fires forever while a diagnosed failed Job is retained.
+    # job-rules.yaml keeps the same alert for the first 24 hours instead.
+    KubeJobFailed: true
 crds:
   enabled: false
 rancherMonitoring:
@@ -222,12 +227,22 @@ prometheus:
     # Prometheus StoreAPI, so Prometheus retains normal local compaction.
     thanos:
       image: docker.io/rancher/appco-thanos:0.40.1-8.1
+      additionalArgs:
+        # Keep Go heap growth below the cgroup limit and reject the rare
+        # unbounded StoreAPI reads that previously OOM-killed both sidecars.
+        - name: enable-auto-gomemlimit
+        - name: auto-gomemlimit.ratio
+          value: "0.75"
+        - name: store.limits.request-series
+          value: "10000"
+        - name: store.limits.request-samples
+          value: "1200000"
       resources:
         requests:
           cpu: 25m
-          memory: 256Mi
+          memory: 512Mi
         limits:
-          memory: 1Gi
+          memory: 2Gi
     persistentVolumeClaimRetentionPolicy:
       whenDeleted: Retain
       # Retain both the source and destination claims across staged scaling.

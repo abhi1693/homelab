@@ -6,7 +6,8 @@ through a Fleet `HelmOp`.
 ## Runtime Shape
 
 - Namespace: `valkey`
-- Chart: Bitnami `valkey` from `oci://registry-1.docker.io/bitnamicharts/valkey`
+- Chart: Bitnami `valkey` `6.1.11` from
+  `oci://registry-1.docker.io/bitnamicharts/valkey`
 - Release: `valkey`
 - Architecture: replicated Valkey with Sentinel enabled
 - Storage: three retained Longhorn-backed 4Gi PVCs, each with three storage
@@ -73,14 +74,18 @@ label.
 ## Operating Notes
 
 - Change chart behavior in `values.yaml`, not by patching live workloads.
+- The chart pin in `helmop.yaml` is excluded from Renovate. Chart updates can
+  change the pod revision even when digest-pinned containers stay identical;
+  schedule them with the guarded `OnDelete` rollout procedure. The automatic
+  `6.2.19` update was reverted because its pod-template changes were only chart
+  and application-version labels. The running image digests remain unchanged.
 - Keep client additions paired with `valkey-networkpolicy` updates.
 - Keep the retained PVC policy in mind before deleting or renaming the release.
 - Keep `pvc-expansion.yaml` at or above the live retained-claim size. Kubernetes
   does not shrink PVCs, and the chart's StatefulSet claim template cannot resize
   claims that already exist.
-- Add any replacement PVC's Longhorn volume ID to the scoped override before
-  considering its storage replication reduced. The live volume IDs are pinned
-  because Fleet must preserve this immutable binding while expanding a claim.
+- Preserve each retained PVC's explicit volume binding during expansion.
+  Replacement volumes inherit the three-replica storage policy.
 - `repl-diskless-load swapdb` prevents full replica synchronization from
   requiring another dataset-sized temporary RDB file on the data volume. Keep
   the data-container limit large enough to hold both datasets during the swap.

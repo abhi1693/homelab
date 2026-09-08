@@ -14,7 +14,7 @@ helm:
   chart: cloudflare-tunnel-ingress-controller
   repo: https://helm.strrl.dev
   # renovate: datasource=helm depName=cloudflare-tunnel-ingress-controller registryUrl=https://helm.strrl.dev
-  version: 0.0.24
+  version: 0.1.0
   valuesFiles:
     - values.yaml
   waitForJobs: true

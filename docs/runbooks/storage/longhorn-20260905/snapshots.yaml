@@ -1,0 +1,234 @@
+---
+apiVersion: longhorn.io/v1beta2
+kind: Snapshot
+metadata:
+  name: pre-1121-02ce383f-d495-4e4e-b2d7-cd27b86021f2
+  namespace: longhorn-system
+  annotations:
+    helm.sh/resource-policy: keep
+spec:
+  volume: pvc-02ce383f-d495-4e4e-b2d7-cd27b86021f2
+  createSnapshot: true
+  labels:
+    maintenance: longhorn-20260905
+---
+apiVersion: longhorn.io/v1beta2
+kind: Snapshot
+metadata:
+  name: pre-1121-0f3c85e9-a6f8-43ec-ae91-338c1f48cb20
+  namespace: longhorn-system
+  annotations:
+    helm.sh/resource-policy: keep
+spec:
+  volume: pvc-0f3c85e9-a6f8-43ec-ae91-338c1f48cb20
+  createSnapshot: true
+  labels:
+    maintenance: longhorn-20260905
+---
+apiVersion: longhorn.io/v1beta2
+kind: Snapshot
+metadata:
+  name: pre-1121-2fcf21b6-ab48-475a-bd36-5359dda76806
+  namespace: longhorn-system
+  annotations:
+    helm.sh/resource-policy: keep
+spec:
+  volume: pvc-2fcf21b6-ab48-475a-bd36-5359dda76806
+  createSnapshot: true
+  labels:
+    maintenance: longhorn-20260905
+---
+apiVersion: longhorn.io/v1beta2
+kind: Snapshot
+metadata:
+  name: pre-1121-3592d0d7-92fe-47f9-abe6-01fa52c2b71b
+  namespace: longhorn-system
+  annotations:
+    helm.sh/resource-policy: keep
+spec:
+  volume: pvc-3592d0d7-92fe-47f9-abe6-01fa52c2b71b
+  createSnapshot: true
+  labels:
+    maintenance: longhorn-20260905
+---
+apiVersion: longhorn.io/v1beta2
+kind: Snapshot
+metadata:
+  name: pre-1121-40ca7f7d-43a4-42ee-9d56-720b4f66d34f
+  namespace: longhorn-system
+  annotations:
+    helm.sh/resource-policy: keep
+spec:
+  volume: pvc-40ca7f7d-43a4-42ee-9d56-720b4f66d34f
+  createSnapshot: true
+  labels:
+    maintenance: longhorn-20260905
+---
+apiVersion: longhorn.io/v1beta2
+kind: Snapshot
+metadata:
+  name: pre-1121-6f8f01dd-1ce5-4f45-90a1-10c78c273270
+  namespace: longhorn-system
+  annotations:
+    helm.sh/resource-policy: keep
+spec:
+  volume: pvc-6f8f01dd-1ce5-4f45-90a1-10c78c273270
+  createSnapshot: true
+  labels:
+    maintenance: longhorn-20260905
+---
+apiVersion: longhorn.io/v1beta2
+kind: Snapshot
+metadata:
+  name: pre-1121-8c177217-1f84-4ee6-a765-b1ef5c2e73b2
+  namespace: longhorn-system
+  annotations:
+    helm.sh/resource-policy: keep
+spec:
+  volume: pvc-8c177217-1f84-4ee6-a765-b1ef5c2e73b2
+  createSnapshot: true
+  labels:
+    maintenance: longhorn-20260905
+---
+apiVersion: longhorn.io/v1beta2
+kind: Snapshot
+metadata:
+  name: pre-1121-93f9e8ec-0145-4f6a-b3c6-11e0edec0a0f
+  namespace: longhorn-system
+  annotations:
+    helm.sh/resource-policy: keep
+spec:
+  volume: pvc-93f9e8ec-0145-4f6a-b3c6-11e0edec0a0f
+  createSnapshot: true
+  labels:
+    maintenance: longhorn-20260905
+---
+apiVersion: longhorn.io/v1beta2
+kind: Snapshot
+metadata:
+  name: pre-1121-96c0087d-3053-4e66-b265-011e27e7f294
+  namespace: longhorn-system
+  annotations:
+    helm.sh/resource-policy: keep
+spec:
+  volume: pvc-96c0087d-3053-4e66-b265-011e27e7f294
+  createSnapshot: true
+  labels:
+    maintenance: longhorn-20260905
+---
+apiVersion: longhorn.io/v1beta2
+kind: Snapshot
+metadata:
+  name: pre-1121-98113d72-ab80-43b0-a9a9-58c91ac78919
+  namespace: longhorn-system
+  annotations:
+    helm.sh/resource-policy: keep
+spec:
+  volume: pvc-98113d72-ab80-43b0-a9a9-58c91ac78919
+  createSnapshot: true
+  labels:
+    maintenance: longhorn-20260905
+---
+apiVersion: longhorn.io/v1beta2
+kind: Snapshot
+metadata:
+  name: pre-1121-ac497f73-e6b9-4433-b257-936fc5f745c7
+  namespace: longhorn-system
+  annotations:
+    helm.sh/resource-policy: keep
+spec:
+  volume: pvc-ac497f73-e6b9-4433-b257-936fc5f745c7
+  createSnapshot: true
+  labels:
+    maintenance: longhorn-20260905
+---
+apiVersion: longhorn.io/v1beta2
+kind: Snapshot
+metadata:
+  name: pre-1121-b7e4d48a-867b-4d63-9573-8d1a9da7bce9
+  namespace: longhorn-system
+  annotations:
+    helm.sh/resource-policy: keep
+spec:
+  volume: pvc-b7e4d48a-867b-4d63-9573-8d1a9da7bce9
+  createSnapshot: true
+  labels:
+    maintenance: longhorn-20260905
+---
+apiVersion: longhorn.io/v1beta2
+kind: Snapshot
+metadata:
+  name: pre-1121-bb05c929-edd9-40b7-8c5d-3d822f6b00de
+  namespace: longhorn-system
+  annotations:
+    helm.sh/resource-policy: keep
+spec:
+  volume: pvc-bb05c929-edd9-40b7-8c5d-3d822f6b00de
+  createSnapshot: true
+  labels:
+    maintenance: longhorn-20260905
+---
+apiVersion: longhorn.io/v1beta2
+kind: Snapshot
+metadata:
+  name: pre-1121-c005090e-a911-4f4a-b7f0-b30a2a7ac30c
+  namespace: longhorn-system
+  annotations:
+    helm.sh/resource-policy: keep
+spec:
+  volume: pvc-c005090e-a911-4f4a-b7f0-b30a2a7ac30c
+  createSnapshot: true
+  labels:
+    maintenance: longhorn-20260905
+---
+apiVersion: longhorn.io/v1beta2
+kind: Snapshot
+metadata:
+  name: pre-1121-c3df9932-c01e-4a67-a320-57a97ec455a6
+  namespace: longhorn-system
+  annotations:
+    helm.sh/resource-policy: keep
+spec:
+  volume: pvc-c3df9932-c01e-4a67-a320-57a97ec455a6
+  createSnapshot: true
+  labels:
+    maintenance: longhorn-20260905
+---
+apiVersion: longhorn.io/v1beta2
+kind: Snapshot
+metadata:
+  name: pre-1121-d73d3f41-1725-40f8-978e-55ae183b365f
+  namespace: longhorn-system
+  annotations:
+    helm.sh/resource-policy: keep
+spec:
+  volume: pvc-d73d3f41-1725-40f8-978e-55ae183b365f
+  createSnapshot: true
+  labels:
+    maintenance: longhorn-20260905
+---
+apiVersion: longhorn.io/v1beta2
+kind: Snapshot
+metadata:
+  name: pre-1121-e6d8a127-ac59-4ce2-861c-f0c54f069d0e
+  namespace: longhorn-system
+  annotations:
+    helm.sh/resource-policy: keep
+spec:
+  volume: pvc-e6d8a127-ac59-4ce2-861c-f0c54f069d0e
+  createSnapshot: true
+  labels:
+    maintenance: longhorn-20260905
+---
+apiVersion: longhorn.io/v1beta2
+kind: Snapshot
+metadata:
+  name: pre-1121-ec085850-85b7-41e3-a415-3c45d4907852
+  namespace: longhorn-system
+  annotations:
+    helm.sh/resource-policy: keep
+spec:
+  volume: pvc-ec085850-85b7-41e3-a415-3c45d4907852
+  createSnapshot: true
+  labels:
+    maintenance: longhorn-20260905

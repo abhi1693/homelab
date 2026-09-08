@@ -134,8 +134,6 @@ The frontend builder, frontend Deployment, and cleanup CronJob share the
 `wardn-hub-next-build-cache-nfs` RWX PVC. NFS CSI provisions its retained NAS
 directory below `wardn/wardn-hub-next-build-cache-nfs`; Codex authentication
 continues to use the separate Longhorn-backed `wardn-hub-codex-home` PVC.
-The unused legacy `wardn-hub-codex-config` Longhorn claim has been retired; the
-active Codex home claim is unaffected.
 
 The consolidated worker requests `370m` CPU and `1200Mi` memory with a `1536Mi`
 memory limit. CPU remains burstable for review, audit, and delivery spikes.

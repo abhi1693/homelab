@@ -1,0 +1,8 @@
+---
+k3s_server_rollout_mode: rolling
+k3s_server_health_timeout: 600
+k3s_server_health_interval: 20
+k3s_server_health_samples: 2
+k3s_server_etcd_max_index_lag: 1000
+k3s_server_etcdctl_path: /usr/local/bin/etcdctl
+k3s_server_readiness_delegate: "{{ groups['k3s_servers'] | reject('equalto', inventory_hostname) | first }}"

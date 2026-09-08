@@ -5,7 +5,7 @@ metadata:
   name: renovate
 spec:
   displayName: Renovate
-  purpose: Scan approved dependency sources and open guarded dependency-update pull requests.
+  purpose: Scan approved dependency sources and automerge updates into the default branch.
   owner: home-lab
   project: applications
   cluster: home-k3s

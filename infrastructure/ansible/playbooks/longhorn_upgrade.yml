@@ -1,0 +1,135 @@
+---
+- name: Perform one explicitly authorized Longhorn upgrade stage
+  hosts: server-1
+  become: true
+  gather_facts: false
+  any_errors_fatal: true
+  environment:
+    KUBECONFIG: /etc/rancher/k3s/k3s.yaml
+  pre_tasks:
+    - name: Require explicit stage and independent recovery verification
+      ansible.builtin.assert:
+        that:
+          - longhorn_upgrade_phase | default('') in ['crd', 'manager', 'engines']
+          - longhorn_upgrade_recovery_verified | default(false) | bool
+          - not longhorn.v2_data_engine | bool
+          - longhorn.concurrent_automatic_engine_upgrade_per_node_limit | int == 0
+
+    - name: Check the local API readiness endpoint
+      ansible.builtin.command: /usr/local/bin/k3s kubectl get --raw=/readyz
+      register: longhorn_upgrade_api
+      changed_when: false
+      failed_when: longhorn_upgrade_api.stdout | trim != 'ok'
+
+    - name: Read volumes before this stage
+      ansible.builtin.command: /usr/local/bin/k3s kubectl -n longhorn-system get volumes.longhorn.io -o json
+      register: longhorn_upgrade_volumes
+      changed_when: false
+
+    - name: Require every Kubernetes node to be Ready
+      ansible.builtin.command: /usr/local/bin/k3s kubectl wait --for=condition=Ready nodes --all --timeout=30s
+      changed_when: false
+
+    - name: Require every volume to be healthy and attached
+      ansible.builtin.assert:
+        that:
+          - (longhorn_upgrade_volumes.stdout | from_json)['items'] | length > 0
+          - >-
+            (longhorn_upgrade_volumes.stdout | from_json)['items'] |
+            rejectattr('status.robustness', 'equalto', 'healthy') | list | length == 0
+          - >-
+            (longhorn_upgrade_volumes.stdout | from_json)['items'] |
+            rejectattr('status.state', 'equalto', 'attached') | list | length == 0
+
+  tasks:
+    - name: Render only the paired CRD chart
+      ansible.builtin.template:
+        src: ../roles/longhorn/templates/longhorn-crd-helmchart.yaml.j2
+        dest: /var/lib/rancher/k3s/server/manifests/longhorn-crd.yaml
+        owner: root
+        group: root
+        mode: "0644"
+      when: longhorn_upgrade_phase == 'crd'
+
+    - name: Require the actual CRD Helm release at the target version
+      ansible.builtin.command:
+        argv: [helm, list, -n, longhorn-system, --filter, '^longhorn-crd$', -o, json]
+      delegate_to: localhost
+      become: false
+      environment:
+        KUBECONFIG: "{{ lookup('env', 'KUBECONFIG') | default(lookup('env', 'HOME') + '/.kube/config', true) }}"
+      register: longhorn_upgrade_crd_release
+      changed_when: false
+      until:
+        - longhorn_upgrade_crd_release.stdout | from_json | length == 1
+        - (longhorn_upgrade_crd_release.stdout | from_json)[0].chart == 'longhorn-crd-' + longhorn.crd_chart_version
+        - (longhorn_upgrade_crd_release.stdout | from_json)[0].status == 'deployed'
+      retries: 90
+      delay: 10
+
+    - name: Render the manager chart only after the CRD release passes
+      ansible.builtin.template:
+        src: ../roles/longhorn/templates/longhorn-helmchart.yaml.j2
+        dest: /var/lib/rancher/k3s/server/manifests/longhorn.yaml
+        owner: root
+        group: root
+        mode: "0644"
+      when: longhorn_upgrade_phase == 'manager'
+
+    - name: Require the actual manager Helm release at the target version
+      ansible.builtin.command:
+        argv: [helm, list, -n, longhorn-system, --filter, '^longhorn$', -o, json]
+      delegate_to: localhost
+      become: false
+      environment:
+        KUBECONFIG: "{{ lookup('env', 'KUBECONFIG') | default(lookup('env', 'HOME') + '/.kube/config', true) }}"
+      register: longhorn_upgrade_manager_release
+      changed_when: false
+      until:
+        - longhorn_upgrade_manager_release.stdout | from_json | length == 1
+        - (longhorn_upgrade_manager_release.stdout | from_json)[0].chart == 'longhorn-' + longhorn.chart_version
+        - (longhorn_upgrade_manager_release.stdout | from_json)[0].status == 'deployed'
+      retries: 90
+      delay: 10
+      when: longhorn_upgrade_phase != 'crd'
+
+    - name: Wait for manager and driver readiness
+      ansible.builtin.command:
+        argv:
+          - /usr/local/bin/k3s
+          - kubectl
+          - -n
+          - longhorn-system
+          - rollout
+          - status
+          - "{{ item }}"
+          - --timeout=600s
+      changed_when: false
+      loop:
+        - daemonset/longhorn-manager
+        - daemonset/longhorn-csi-plugin
+        - deployment/longhorn-driver-deployer
+        - deployment/longhorn-ui
+        - deployment/csi-attacher
+        - deployment/csi-provisioner
+        - deployment/csi-resizer
+        - deployment/csi-snapshotter
+      when: longhorn_upgrade_phase != 'crd'
+
+    - name: Restore repository CSI controller placement after manager reconciliation
+      ansible.builtin.include_tasks: ../roles/longhorn/tasks/upgrade_csi.yml
+      loop:
+        - csi-attacher
+        - csi-provisioner
+        - csi-resizer
+        - csi-snapshotter
+      loop_control:
+        loop_var: longhorn_upgrade_csi_controller
+      when: longhorn_upgrade_phase == 'manager'
+
+    - name: Upgrade volume engines one at a time
+      ansible.builtin.include_tasks: ../roles/longhorn/tasks/upgrade_engine.yml
+      loop: "{{ (longhorn_upgrade_volumes.stdout | from_json)['items'] | map(attribute='metadata.name') | list }}"
+      loop_control:
+        loop_var: longhorn_upgrade_volume
+      when: longhorn_upgrade_phase == 'engines'

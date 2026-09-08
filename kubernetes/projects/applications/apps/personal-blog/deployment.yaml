@@ -77,7 +77,7 @@ spec:
           resources:
             requests:
               cpu: 100m
-              memory: 774Mi
+              memory: 968Mi
             limits:
               memory: 1152Mi
           startupProbe:

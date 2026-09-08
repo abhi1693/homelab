@@ -3,19 +3,17 @@
 
 Fleet-managed Jellyfin media server.
 
-The Fleet values now point Jellyfin at the custom image and PostgreSQL pooler.
-The release is still intentionally gated by runtime secrets so it does not roll
-successfully until the image is published, the database exists, and the
-migration has been loaded.
+Jellyfin runs as one replica on the custom PostgreSQL-backed image.
+Required images, database objects, and runtime Secrets must exist before Fleet
+can start a replacement pod.
 
-## Runtime Direction
+## Runtime
 
-The target is not multiple pods sharing the same SQLite PVC. Jellyfin currently
-runs as a single replica on the custom image backed by the shared PostgreSQL
-cluster:
-
-The main container requests `570m` CPU and `822Mi` memory, with limits of
-`2500m` CPU and `4Gi` memory.
+The main container requests `300m` CPU and `1125Mi` memory, with a `4Gi`
+memory limit and no CPU limit. TrueCharts `resources.limits.cpu: 0` explicitly
+disables its inherited CPU cap. Scans and transcodes may burst above the request.
+Changing resources rolls this singleton and creates a serving gap; deploy
+through Fleet outside active playback, then verify playback and imports.
 The pod keeps the chart's application group `568` and the NAS group `1000` as
 supplemental groups. Its filesystem group remains compatible with the
 root-owned media export; the NFS CSI driver leaves `fsGroupPolicy` unset so
@@ -156,43 +154,11 @@ kubectl -n media create secret generic jellyfin-plugin-config-seed \
   --from-file='<plugin-config-directory>'
 ```
 
-## Cutover Outline
+## Availability
 
-1. Publish the ARM64 Jellyfin image from GitHub Actions.
-   Deploy only release tags through Renovate-managed values.
-2. Create the PostgreSQL role Secret in `postgresql`.
-3. Let Fleet reconcile the shared PostgreSQL role, database, pooler,
-   NetworkPolicy, and PDB.
-4. Quiesce Jellyfin, back up the current Jellyfin PVCs, and export a final copy
-   of `/data/data/jellyfin.db`.
-5. Convert the required live plugin configuration files under
-   `/data/plugins/configurations` into ConfigMaps and Secrets.
-6. Migrate SQLite data into PostgreSQL with the prepared `pgloader` wrapper or
-   a disposable migration pod.
-7. Create `media/postgresql-app`; the registry pull credential comes from the
-   namespace-scoped `harbor-registry` Secret.
-8. Verify the seeded content on `jellyfin-shared-data-nfs` before cutover.
-9. Let Fleet roll Jellyfin on the custom image.
-10. After login, libraries, playback progress, artwork, and integrations are
-   verified, keep Jellyfin as one replica unless active-active support is
-   completed later.
-
-## Remaining No-Compromise Work
-
-PostgreSQL is necessary, but not enough by itself. A real active-active Jellyfin
-fork also needs:
-
-- Leader election or PostgreSQL advisory locks for migrations, library scans,
-  scheduled tasks, and metadata writes.
-- Shared, mounted, or database-backed runtime configuration instead of
-  pod-local mutable XML files.
-- Continue validating auth/session behavior across browser and API clients
-  without sticky routing.
-- Distributed playback/session notifications.
-- A transcode design where segment requests can survive pod loss without
-  depending only on sticky sessions.
-
-Until those are implemented, keep Jellyfin as a single replica.
+Keep Jellyfin as one replica. Shared PostgreSQL does not provide coordination
+for concurrent scans, configuration writes, playback sessions, or transcodes.
+Active-active deployment requires application changes, not a replica increase.
 
 For a pod blocked before initialization by recursive NFS ownership processing,
 follow

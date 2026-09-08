@@ -34,6 +34,10 @@ workload:
           enabled: true
           type: init
           imageSelector: image
+          resources:
+            limits:
+              # Retain the former cap for finite config initialization only.
+              cpu: 2500m
           command:
             - /bin/bash
             - -ec
@@ -166,10 +170,11 @@ podOptions:
     kubernetes.io/arch: arm64
 resources:
   requests:
-    cpu: 490m
+    cpu: 250m
     memory: 1125Mi
   limits:
-    cpu: 2500m
+    # TrueCharts: numeric zero omits the CPU limit instead of inheriting a cap.
+    cpu: 0
     memory: 4Gi
 ingress:
   main:

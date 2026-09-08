@@ -2,5 +2,5 @@
 https://github.com/Onemind-Services-LLC/netbox-metatype-importer/archive/fbeb6b95817170a34bb2b8dec209a331f5155a4d.tar.gz
 netboxlabs-netbox-custom-objects==0.6.1
 netbox-topology-views==4.5.1
-netbox-plugin-dns==1.5.11
+netbox-plugin-dns==1.7.2
 netbox-lifecycle==1.1.9

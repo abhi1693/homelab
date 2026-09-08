@@ -9,14 +9,14 @@ spec:
       disposition: support
       application: fleet
       reason: ClusterRepository definitions have no independent runtime service.
-    - path: kubernetes/projects/applications/apps/firefly-iii-data-importer
-      disposition: component
-      application: firefly-iii
-      reason: The importer Deployment is recorded as part of the Firefly III application.
     - path: kubernetes/projects/applications/apps/firefly-iii-storage
       disposition: component
       application: firefly-iii
       reason: Shared Firefly PVC declarations are recorded as Firefly persistent stores.
+    - path: kubernetes/projects/applications/apps/wardn-license-server-prerequisites
+      disposition: component
+      application: wardn-license-server
+      reason: Shared runtime configuration supports the Wardn License Server application.
     - path: kubernetes/projects/database/apps/cnpg-operator-registry-secrets
       disposition: component
       application: cnpg-operator
@@ -33,6 +33,10 @@ spec:
       disposition: component
       application: postgresql
       reason: Launchboard database credentials and bootstrap network access are part of PostgreSQL.
+    - path: kubernetes/projects/database/apps/postgresql-wardn-license-prerequisites
+      disposition: component
+      application: postgresql
+      reason: Wardn license database credentials and pooler network access are part of PostgreSQL.
     - path: kubernetes/projects/database/apps/postgresql-pooler-pdb
       disposition: component
       application: postgresql

@@ -33,9 +33,9 @@ cluster:
   resources:
     requests:
       cpu: 250m
-      memory: 896Mi
-    limits:
       memory: 1Gi
+    limits:
+      memory: 1536Mi
   affinity:
     nodeSelector:
       kubernetes.io/arch: arm64
@@ -265,6 +265,18 @@ cluster:
       bypassrls: false
       passwordSecret:
         name: wardn-ai-postgresql
+    - name: wardn_license
+      ensure: present
+      login: true
+      connectionLimit: 12
+      superuser: false
+      createdb: false
+      createrole: false
+      inherit: true
+      replication: false
+      bypassrls: false
+      passwordSecret:
+        name: wardn-license-postgresql
     - name: firefly
       ensure: present
       login: true
@@ -368,6 +380,9 @@ databases:
     databaseReclaimPolicy: retain
   - name: wardn_ai
     owner: wardn_ai
+    databaseReclaimPolicy: retain
+  - name: wardn_license
+    owner: wardn_license
     databaseReclaimPolicy: retain
   - name: firefly
     owner: firefly
@@ -651,6 +666,53 @@ poolers:
               - labelSelector:
                   matchLabels:
                     cnpg.io/poolerName: postgresql-pooler-wardn-ai-rw
+                matchLabelKeys:
+                  - pod-template-hash
+                topologyKey: kubernetes.io/hostname
+        containers:
+          - name: pgbouncer
+            # renovate: datasource=docker depName=ghcr.io/cloudnative-pg/pgbouncer
+            image: registry.home/ghcr.io/cloudnative-pg/pgbouncer:1.25.2
+            resources:
+              requests:
+                cpu: 10m
+                memory: 56Mi
+              limits:
+                memory: 192Mi
+  - name: wardn-license-rw
+    type: rw
+    poolMode: session
+    instances: 2
+    monitoring:
+      enabled: true
+      podMonitor:
+        enabled: true
+    parameters:
+      max_client_conn: "30"
+      default_pool_size: "4"
+    template:
+      metadata:
+        labels:
+          app.kubernetes.io/part-of: postgresql
+          home-lab.io/client: wardn-license
+      spec:
+        nodeSelector:
+          kubernetes.io/arch: arm64
+        topologySpreadConstraints:
+          - maxSkew: 1
+            topologyKey: kubernetes.io/hostname
+            whenUnsatisfiable: DoNotSchedule
+            labelSelector:
+              matchLabels:
+                cnpg.io/poolerName: postgresql-pooler-wardn-license-rw
+            matchLabelKeys:
+              - pod-template-hash
+        affinity:
+          podAntiAffinity:
+            requiredDuringSchedulingIgnoredDuringExecution:
+              - labelSelector:
+                  matchLabels:
+                    cnpg.io/poolerName: postgresql-pooler-wardn-license-rw
                 matchLabelKeys:
                   - pod-template-hash
                 topologyKey: kubernetes.io/hostname

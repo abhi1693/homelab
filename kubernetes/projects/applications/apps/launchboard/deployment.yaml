@@ -44,7 +44,7 @@ spec:
       initContainers:
         - name: migrate
           # renovate: datasource=github-releases depName=abhi1693/launchboard.win
-          image: registry.home/ghcr.io/abhi1693/launchboard.win:0.1.10
+          image: registry.home/ghcr.io/abhi1693/launchboard.win:0.1.19
           imagePullPolicy: IfNotPresent
           args:
             - migrate
@@ -73,7 +73,7 @@ spec:
       containers:
         - name: web
           # renovate: datasource=github-releases depName=abhi1693/launchboard.win
-          image: registry.home/ghcr.io/abhi1693/launchboard.win:0.1.10
+          image: registry.home/ghcr.io/abhi1693/launchboard.win:0.1.19
           imagePullPolicy: IfNotPresent
           envFrom:
             - configMapRef:

@@ -1,0 +1,32 @@
+---
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: wardn-license-api
+  namespace: wardn
+  labels:
+    app.kubernetes.io/name: wardn-license-server
+    app.kubernetes.io/component: api
+    app.kubernetes.io/part-of: wardn
+spec:
+  minAvailable: 1
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: wardn-license-server
+      app.kubernetes.io/component: api
+---
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: wardn-license-frontend
+  namespace: wardn
+  labels:
+    app.kubernetes.io/name: wardn-license-server
+    app.kubernetes.io/component: frontend
+    app.kubernetes.io/part-of: wardn
+spec:
+  minAvailable: 1
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: wardn-license-server
+      app.kubernetes.io/component: frontend

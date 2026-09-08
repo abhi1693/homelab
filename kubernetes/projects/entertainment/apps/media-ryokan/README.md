@@ -61,7 +61,7 @@ The web UI is available at `http://requests.anime.media.home`.
 Ryokan mounts `/downloads` so it can read qBittorrent's reported anime torrent
 paths, and `/media/anime` as the NAS-backed anime library.
 
-Ryokan 1.9.8 stores a durable checkpoint after each file reaches its final
+Ryokan 1.9.11 stores a durable checkpoint after each file reaches its final
 library path. If the process restarts while a multi-file grab is still pending,
 the next pass verifies and resumes completed files instead of copying or
 recycling them again. It also finishes deferred replacement bookkeeping after
@@ -79,9 +79,11 @@ Each completed grab processes at most one new file per pass, then yields to the
 next pending grab. Durable checkpoints let large batches continue on later
 passes without making other ready downloads wait for the whole batch.
 
-The filename parser recognizes zero-padded trailing episode tokens such as
-`Group_Title_01.mkv` while rejecting years, resolutions, and one-digit title
-suffixes.
+The filename parser recognizes zero-padded episode tokens such as
+`Group_Title_01.mkv`. In the library scanner, bracketed tokens such as
+`[01][HEVC][GB][4K].mp4` are accepted only when the release contains every
+meaningful token from the target series folder name; this prevents a
+mis-mapped release from being imported into an unrelated series.
 
 Completed multi-video grabs are treated as batches from their actual wanted
 file shape even when the indexer recorded `is_batch=false` and only episode 1.
@@ -92,7 +94,8 @@ Ryokan validates every parseable episode destination before copying any file:
 unparseable or non-positive extras are warned and skipped, while duplicate
 episode destinations fail the whole import without changing the library.
 
-The pod also runs the narrowly scoped import reconciler on port `8979`. Smart
+The pod also runs the narrowly scoped import reconciler on port `8979` with a
+`256Mi` memory limit for bulk receipt checks. Smart
 Queues submits the selected qBittorrent media paths while copy-mode sources are
 still retained. The reconciler compares them with Ryokan's
 `imported_source_paths` receipt and requires one distinct library file with the
@@ -100,8 +103,10 @@ same size per source before deletion is allowed. If an exact hash is already mar
 `imported` but the receipt is incomplete, it is atomically returned to
 `pending`; Smart Queues then rechecks the torrent and Ryokan's normal
 post-processing loop imports the complete set. Requeue is allowed only when the
-grabbed episode count equals the selected qBittorrent media count. Other states
-and unknown, ambiguous, or batch-shape-mismatched hashes are never modified.
+grabbed episode count is below the selected qBittorrent media count. Older batch
+metadata may include secondary files; exact source receipts and library targets
+remain mandatory. Other states and unknown, ambiguous, or batch-shape-mismatched
+hashes are never modified.
 Authentication reuses
 `SONARR_ANIME_API_KEY` from `media-jellyfin-arr-api-keys`. Ryokan's ingress
 boundary exposes port `8979` only to the Smart Queues pod selector.
@@ -118,9 +123,7 @@ source-to-destination episode and byte size has been verified.
 
 ## Direct HTTPS egress
 
-Ryokan sends external HTTPS requests directly from the cluster. The primary WAN
-now has a static public IPv4 address and direct Nyaa access from the Ryokan pod
-has been validated, so the former DigitalOcean Squid proxy path is retired.
+Ryokan sends external HTTPS requests directly through normal cluster egress.
 
 Ryokan's qBittorrent, Prowlarr, and Jellyfin connections continue to use
 in-cluster HTTP service URLs. Nyaa and other public HTTPS indexer traffic use

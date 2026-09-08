@@ -49,12 +49,13 @@ declared app-side maximum connection demand.
 | Role | Pooler | App-side budget | Backend capacity | Role limit |
 | --- | --- | ---: | ---: | ---: |
 | `jellyfin` | `jellyfin-rw` | 14 | 30 | 32 |
-| `shipyardhq` | `shipyardhq-rw` | 16 | 28 | 32 |
+| `shipyardhq` | `shipyardhq-rw` | 20 | 28 | 32 |
 | `launchboard` | `launchboard-rw` | 4 | 8 | 10 |
 | `harbor` | `harbor-rw` | chart-managed | 24 | 36 |
 | `netbox` | direct | implicit | n/a | 10 |
 | `wardn_hub` | `wardn-hub-rw` | implicit | 12 | 12 |
 | `wardn_ai` | `wardn-ai-rw` | implicit | 6 | 12 |
+| `wardn_license` | `wardn-license-rw` | implicit | 8 | 12 |
 | `firefly` | `firefly-iii-rw` | implicit | 4 | 10 |
 | `zitadel` | `zitadel-rw` | 16 | 32 | 32 |
 | `music_assistant` | direct | 2 | 2 | 4 |
@@ -66,7 +67,7 @@ entire connection budget even if Service hashing is uneven. The two replicas'
 30-slot theoretical backend capacity remains below the role limit of 32.
 
 `shipyardhq` has database-side headroom above the normal runtime budget:
-`3 web pods * PG_POOL_MAX 4 + 1 worker pod * PG_POOL_MAX 4 = 16`.
+`3 web pods * PG_POOL_MAX 4 + 2 worker pods * PG_POOL_MAX 4 = 20`.
 The release builder uses `PG_POOL_MAX=1` in each of its two Next.js workers,
 limiting its direct connection path to two sessions. Even if the 28 pooler
 backend slots are all occupied, two role connections remain available for
@@ -92,17 +93,9 @@ the same node and primary failover to another trusted K3s node.
 
 ## PgBouncer resource reservations
 
-The requests use the latest available seven-day p95/p99 review with burst
-headroom. `wardn-hub-rw` requests 50m CPU per replica, `jellyfin-rw` requests
-15m, and the other active poolers request 10m. Every active pooler requests 56Mi
-memory and retains its 192Mi memory limit. The scheduler reserves 250m CPU and
-896Mi memory across 16 active replicas. NetBox connects directly and does not
-add a pooler.
-Wardn Hub's two replicas used 16m at p95 and 39m at p99 in aggregate, with a
-123m maximum. Their combined 100m request therefore preserves p99 headroom
-while CPU remains unlimited for short bursts. Revisit the requests if sustained
-CPU usage or pool queueing rises. The `pgbouncer-dashboard` exposes both
-signals.
+Pooler request and replica settings are declared in `values.yaml`. Review
+them against sustained usage and queueing in the `pgbouncer-dashboard`.
+NetBox and Music Assistant connect directly and do not add poolers.
 
 Only poolers with at least two replicas have a `minAvailable: 1` PDB.
 Single-replica poolers intentionally have no PDB because one would either remain
@@ -111,27 +104,21 @@ permanently unhealthy or block all voluntary disruption.
 Poolers rely on CloudNativePG's generated TCP readiness probe against the
 local PgBouncer port 5432 and intentionally have no backend-coupled liveness
 probe. A backend DNS, connection, or PostgreSQL availability interruption must
-not restart an otherwise healthy proxy. The ShipyardHQ override that ran
-`pg_isready` directly against `postgresql-rw` was removed after it restarted
-PgBouncer during a backend interruption.
-
-Each PostgreSQL instance uses a 250m CPU request. In the latest available
-seven-day window, per-instance p95 ranged from 104m to 172m and p99 ranged from
-159m to 220m. CPU remains unlimited so short bursts, including the observed
-1.05-core maximum on the primary, can exceed the scheduler reservation. Its
-896Mi memory request remains based on the prior memory review; the 1Gi memory
-limit is unchanged.
+not restart an otherwise healthy proxy.
+Each PostgreSQL instance requests `250m` CPU and `1Gi` memory, with a
+`1536Mi` memory limit. CPU is uncapped. Preserve memory headroom for startup,
+replication, and maintenance rather than sizing the limit to idle usage.
 
 ## PostgreSQL runtime tuning
 
-The connection and memory settings are sized for the shared 1Gi PostgreSQL pod
-and the 14 active PgBouncer replicas:
+The connection and memory settings are sized for the shared PostgreSQL pod
+and the 18 active PgBouncer replicas:
 
 | Parameter | Value | Rationale |
 | --- | ---: | --- |
-| `max_connections` | 160 | The 14-day maximum was 104 and p99 was 90. The modeled pooler, control, replication, monitoring, and direct-client ceiling remains about 140. |
+| `max_connections` | 160 | The 14-day maximum was 104 and p99 was 90. Adding Wardn License Server raises the modeled pooler, control, replication, monitoring, and direct-client ceiling to about 148. |
 | `shared_buffers` | 256MiB | Retains the 25% memory allocation; per-database cache-hit ratios remain between 98.7% and 99.99%. |
-| `effective_cache_size` | 768MiB | Gives the planner a realistic 75% cache hint for the 1Gi cgroup; it does not allocate memory. |
+| `effective_cache_size` | 768MiB | Gives the planner a conservative cache hint below the 1Gi request; it does not allocate memory. |
 | `work_mem` | 4MiB | Avoids multiplying a larger allocation across concurrent sort and hash operations. Expensive maintenance queries must use statement-local overrides. |
 | `wal_buffers` | 16MiB | The previous automatic 8MiB allocation recorded about 1.27 million buffer-full events over 14 days. |
 | `checkpoint_timeout` | 15 minutes | Almost all checkpoints were time-driven while checkpoint writes totaled about 26.8GiB over 14 days. The 1GiB WAL ceiling remains unchanged. |
@@ -153,17 +140,9 @@ PostgreSQL's fixed 50-tuple thresholds. This makes maintenance respond to each
 table's change rate without increasing autovacuum frequency for the rest of the
 cluster.
 
-| Table | Rows after analyze | Dead rows | Vacuum trigger | Analyze trigger |
-| --- | ---: | ---: | ---: | ---: |
-| `wardn_hub.public.event_records` | 74,737 | 29 | about 1,545 | about 798 |
-| `shipyardhq.public."EventEnvelope"` | 23,352 | 0 | about 518 | about 284 |
-
-These figures were measured immediately after the controlled July 22, 2026
-`VACUUM (ANALYZE)` run. Before it, `EventEnvelope` had inconsistent estimates:
-`pg_stat_user_tables` reported 54 live and 297 dead rows while `pg_class`
-estimated 22,572 rows. The analyze corrected the live estimate to 23,352, so
-the apparent 84.6% dead-row ratio was stale-statistics distortion rather than
-the table's actual composition.
+The overrides apply to `wardn_hub.public.event_records` and
+`shipyardhq.public."EventEnvelope"`. Use current PostgreSQL statistics to
+assess their effect; historical row counts are not a tuning baseline.
 
 [`autovacuum-high-churn-tables.sql`](autovacuum-high-churn-tables.sql) is the
 idempotent source for the table storage parameters and the controlled vacuum.

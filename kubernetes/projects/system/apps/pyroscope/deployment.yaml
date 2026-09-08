@@ -41,7 +41,7 @@ spec:
       containers:
         - name: pyroscope
           # renovate: datasource=docker depName=docker.io/grafana/pyroscope
-          image: docker.io/grafana/pyroscope:2.1.0
+          image: docker.io/grafana/pyroscope:2.3.0
           imagePullPolicy: IfNotPresent
           args:
             - -target=all

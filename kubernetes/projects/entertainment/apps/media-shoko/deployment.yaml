@@ -43,7 +43,7 @@ spec:
       initContainers:
         - name: configure-import-exclusions
           # renovate: datasource=docker depName=docker.io/library/python
-          image: registry.home/docker.io/library/python:3.12-alpine
+          image: registry.home/docker.io/library/python:3.14-alpine
           imagePullPolicy: IfNotPresent
           command:
             - python3

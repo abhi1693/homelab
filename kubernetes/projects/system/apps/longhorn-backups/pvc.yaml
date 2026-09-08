@@ -1,0 +1,16 @@
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: longhorn-backups
+  namespace: longhorn-system
+  annotations:
+    helm.sh/resource-policy: keep
+spec:
+  volumeName: pvc-2144e5f9-b332-4455-9a62-7de350473980
+  accessModes:
+    - ReadWriteMany
+  storageClassName: nfs-shared-retain
+  resources:
+    requests:
+      storage: 256Gi

@@ -155,3 +155,53 @@
       - k3s_agent_service_nofile_limit.stdout | int == k3s_agent.systemd_limits.nofile | int
     fail_msg: "Expected k3s-agent LimitNOFILE to equal {{ k3s_agent.systemd_limits.nofile }}"
     success_msg: "K3s agent LimitNOFILE is {{ k3s_agent_service_nofile_limit.stdout }}"
+
+- name: Read K3s agent Node from the control plane
+  ansible.builtin.command:
+    argv:
+      - /usr/local/bin/k3s
+      - kubectl
+      - get
+      - node
+      - "{{ node_identity.hostname }}"
+      - --output
+      - json
+  environment:
+    KUBECONFIG: /etc/rancher/k3s/k3s.yaml
+  register: k3s_agent_node_raw
+  changed_when: false
+  check_mode: false
+  delegate_to: "{{ k3s_agent_readiness_delegate }}"
+
+- name: Record K3s agent Node state
+  ansible.builtin.set_fact:
+    k3s_agent_node_object: "{{ k3s_agent_node_raw.stdout | from_json }}"
+    k3s_agent_node_ready_condition: >-
+      {{
+        (
+          (k3s_agent_node_raw.stdout | from_json).status.conditions
+          | selectattr('type', 'equalto', 'Ready')
+          | list
+          | first
+        )
+        | default({})
+      }}
+
+- name: Assert K3s agent Node is at the desired version
+  ansible.builtin.assert:
+    that:
+      - k3s_agent_node_object.metadata.name == node_identity.hostname
+      - k3s_agent_node_object.status.nodeInfo.kubeletVersion == k3s.version
+    fail_msg: >-
+      Expected Node {{ node_identity.hostname }} at K3s version
+      {{ k3s.version }}
+    success_msg: >-
+      K3s agent Node {{ node_identity.hostname }} is at version
+      {{ k3s.version }}
+
+- name: Assert K3s agent Node is Ready in an established cluster
+  ansible.builtin.assert:
+    that:
+      - (k3s_agent_node_ready_condition.status | default('')) == 'True'
+    fail_msg: "Expected Node {{ node_identity.hostname }} to be Ready"
+  when: k3s_agent_rollout_mode | default('rolling') == 'rolling'

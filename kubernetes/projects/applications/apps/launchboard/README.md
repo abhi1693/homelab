@@ -14,6 +14,15 @@ four-connection application pool. An init container runs the idempotent
 migration against the direct read-write service before the web container
 starts. This keeps first installation ordered behind SOPS secret decryption.
 
+Release `0.1.19` stores OG image snapshots and PNGs in PostgreSQL. Migration
+`004_social_card_cache.sql` adds a ranking trigger that changes the current
+image version only when the #1 listing changes; clicks and repeat bids from the
+same leader preserve the image. Cached images survive pod replacements and use
+immutable versioned URLs. The unversioned `/api/og` route uses ETag revalidation.
+The preview displays the winning bid at takeover and omits click counts.
+Rollback uses the prior `0.1.18` image pins; the additive cache tables and
+triggers are compatible with that release and can remain in place.
+
 The public routes are `https://launchboard.win` and
 `https://www.launchboard.win` through the Cloudflare Tunnel IngressClass.
 NetworkPolicies default-deny the namespace, allow only the

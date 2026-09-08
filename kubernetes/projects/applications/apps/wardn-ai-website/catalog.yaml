@@ -1,0 +1,18 @@
+---
+apiVersion: home-lab.io/v1alpha1
+kind: WorkloadCatalog
+metadata:
+  name: wardn-ai-website
+spec:
+  displayName: Wardn AI Website
+  purpose: Serve the public Wardn AI product website.
+  owner: home-lab
+  project: applications
+  cluster: home-k3s
+  lifecycle: active
+  criticality: medium
+  dataClassification: public
+  repository: https://github.com/abhi1693/home-lab
+  gitPath: kubernetes/projects/applications/apps/wardn-ai-website
+  workloads:
+    - {key: home-k3s/wardn/apps/deployment/wardn-ai-website, namespace: wardn, apiGroup: apps, kind: Deployment, name: wardn-ai-website, desiredReplicas: 1, sourcePath: kubernetes/projects/applications/apps/wardn-ai-website/deployment.yaml}

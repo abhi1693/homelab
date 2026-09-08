@@ -38,7 +38,7 @@ spec:
       containers:
         - name: worker
           # renovate: datasource=git-refs depName=https://github.com/abhi1693/wardn-ai currentValue=master
-          image: registry.home/ghcr.io/abhi1693/wardn-ai-worker:12b8f664b80a28656b7fa86ac191e29c3f734ae7
+          image: registry.home/ghcr.io/abhi1693/wardn-ai-worker:360fa3738d2f607dc82e4f51dde5f55035a29693
           imagePullPolicy: IfNotPresent
           envFrom:
             - configMapRef:

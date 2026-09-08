@@ -1,0 +1,27 @@
+---
+- name: Validate rolling health gate configuration
+  ansible.builtin.assert:
+    that:
+      - groups['k3s_servers'] | length == 3
+      - k3s_server_readiness_delegate in groups['k3s_servers']
+      - k3s_server_readiness_delegate != inventory_hostname
+      - k3s_server_health_samples | int >= 2
+      - k3s_server_health_interval | int >= 15
+      - k3s_server_health_timeout | int >= 60
+      - k3s_server_etcd_max_index_lag | int >= 0
+      - k3s_server_etcdctl_k3s_version == k3s.version
+    fail_msg: Rolling gates require three servers, a non-target peer, stable samples, and a reviewed K3s/etcdctl pin.
+
+- name: Check all server endpoints and platform recovery from a healthy peer
+  ansible.builtin.command:
+    argv:
+      - /usr/bin/python3
+      - '-'
+      - "{{ lookup('ansible.builtin.template', 'health-config.json.j2') }}"
+    stdin: "{{ lookup('ansible.builtin.file', role_path + '/files/check_server_health.py') }}"
+  environment:
+    KUBECONFIG: /etc/rancher/k3s/k3s.yaml
+  delegate_to: "{{ k3s_server_readiness_delegate }}"
+  register: k3s_server_health_result
+  changed_when: false
+  check_mode: false

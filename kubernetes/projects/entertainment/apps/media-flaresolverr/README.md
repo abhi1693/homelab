@@ -16,16 +16,15 @@ There is no user-facing ingress. Prowlarr is the intended in-cluster client.
 ## Configuration
 
 The container runs with `LOG_LEVEL=info`, HTML logging disabled, a 60-second
-browser timeout, and `https://www.google.com` as the test URL.
+browser timeout, and `https://www.google.com` as the test URL. Its 500m CPU
+limit leaves headroom for short Chromium challenge bursts without allowing the
+browser workload to consume an entire node core.
 
 ## Storage
 
 FlareSolverr uses a bounded `emptyDir` for browser and runtime config. Its state
 is disposable, so restarts begin cleanly without consuming replicated Longhorn
 capacity or depending on the shared NAS.
-
-The detached PVC from the former persistent configuration was retired after
-verifying that the current chart renders the config volume as `emptyDir`.
 
 ## Network Boundary
 

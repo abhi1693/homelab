@@ -15,10 +15,15 @@ management.
 Fleet orders Prowlarr after FlareSolverr because indexer configuration can use
 the FlareSolverr service for browser-challenge handling.
 
+CPU requests are `75m`, with no CPU limit (`resources.limits.cpu: 0` disables
+the TrueCharts default). Indexer work may burst above the request.
+Resource changes roll the singleton; deploy through Fleet in a quiet window.
+
 ## Storage
 
-Prowlarr uses a retained Longhorn config PVC. It does not mount the shared media
-library or downloads PVCs.
+Prowlarr uses a retained 512 MiB Longhorn config PVC. The manifest preserves the
+bound volume ID so Fleet expands the existing claim instead of attempting to
+replace it. Prowlarr does not mount the shared media library or downloads PVCs.
 
 ## Network Boundary
 

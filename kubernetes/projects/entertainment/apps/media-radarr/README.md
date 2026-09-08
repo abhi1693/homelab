@@ -14,6 +14,10 @@ automation.
 
 Radarr is ARM64-pinned and uses the shared `heavy-media` topology spread group.
 
+CPU requests are `75m`, with no CPU limit (`resources.limits.cpu: 0` disables
+the TrueCharts default). Imports may burst above the request. Resource changes roll the
+singleton; deploy through Fleet during a quiet import window.
+
 ## Storage
 
 - Config: Longhorn PVC with retained bound volume
