@@ -28,9 +28,9 @@ secret contract each app expects.
 | `personal-blog` | Public personal blog. | Cloudflare Tunnel at `blog.abhimanyu-saharan.com`. | Harbor image, Sanity webhook secret, ConfigMap. |
 | `portfolio` | Public portfolio site. | Cloudflare Tunnel at `abhimanyu-saharan.com`. | Harbor image, runtime config. |
 | `shipyardhq` | Public app with web, worker, image proxy, build job, and media storage. | Cloudflare Tunnel at `shipyardhq.dev` and image hostnames. | PostgreSQL, Valkey, R2, NFS build cache, Harbor image. |
-| `wardn-ai` | Agent platform with API, frontend, worker, WhatsApp bridge, and on-demand MCP runtimes. | Internal Traefik at `ai.home` and `wa.bridge.ai.home`. | PostgreSQL pooler, NFS and Longhorn PVCs, Wardn Hub. |
+| `wardn-ai` | Paused agent platform: API, frontend, worker, WhatsApp bridge, and dedicated PostgreSQL pooler at zero replicas. | Internal Traefik at `ai.home` and `wa.bridge.ai.home`. | PostgreSQL pooler, NFS and Longhorn PVCs, Wardn Hub. |
 | `wardn-ai-website` | Public Wardn AI product website. | Cloudflare Tunnel at `wardnai.dev`. | Wardn namespace, Harbor image. |
-| `wardn-hub` | Wardn Hub backend, frontend, consolidated worker, and Codex-backed automation. | Cloudflare Tunnel at `hub.wardnai.dev`. | PostgreSQL, OpenTelemetry, NFS build cache, Longhorn Codex state, Harbor image. |
+| `wardn-hub` | Wardn Hub API, frontend, and scoring online; consolidated worker and Codex automation temporarily paused, with resources and data retained. | Cloudflare Tunnel at `hub.wardnai.dev`. | PostgreSQL, OpenTelemetry, NFS build cache, Longhorn Codex state, Harbor image. |
 | `wardn-license-server` | Signed entitlement issuer, Dodo fulfillment worker, and administration console. | Cloudflare Tunnel at `licenses.wardnai.dev`. | PostgreSQL pooler, Zitadel, Dodo, SOPS secrets, Harbor images. |
 | `zitadel` | Central identity provider for app OIDC/SAML authentication. | Cloudflare Tunnel at `auth.abhimanyu-saharan.com`. | PostgreSQL, SOPS bootstrap secrets, monitoring. |
 

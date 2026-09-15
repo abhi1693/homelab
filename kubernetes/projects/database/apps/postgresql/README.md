@@ -48,18 +48,24 @@ declared app-side maximum connection demand.
 
 | Role | Pooler | App-side budget | Backend capacity | Role limit |
 | --- | --- | ---: | ---: | ---: |
+| `devfeed` | `devfeed-rw` | 13 steady processes; one connection each | 20 | 24 |
+| `devfeed_chimely` | `devfeed-rw` | Chimely-managed | 20 | 24 |
 | `jellyfin` | `jellyfin-rw` | 14 | 30 | 32 |
 | `shipyardhq` | `shipyardhq-rw` | 20 | 28 | 32 |
 | `launchboard` | `launchboard-rw` | 4 | 8 | 10 |
 | `harbor` | `harbor-rw` | chart-managed | 24 | 36 |
 | `netbox` | direct | implicit | n/a | 10 |
 | `wardn_hub` | `wardn-hub-rw` | implicit | 12 | 12 |
-| `wardn_ai` | `wardn-ai-rw` | implicit | 6 | 12 |
+| `wardn_ai` | `wardn-ai-rw` | paused | 0 | 12 |
 | `wardn_license` | `wardn-license-rw` | implicit | 8 | 12 |
 | `firefly` | `firefly-iii-rw` | implicit | 4 | 10 |
 | `zitadel` | `zitadel-rw` | 16 | 32 | 32 |
 | `music_assistant` | direct | 2 | 2 | 4 |
 | `home_assistant` | `home-assistant-rw` | implicit | 10 | 12 |
+
+`wardn-ai-rw` is paused at zero instances alongside Wardn AI. Its database and
+role remain retained in the shared cluster. Restoring its single instance
+provides six backend slots.
 
 Jellyfin caps its Npgsql pool at 14 connections. Each session-mode PgBouncer
 replica has 15 backend slots, so either replica can absorb the application's

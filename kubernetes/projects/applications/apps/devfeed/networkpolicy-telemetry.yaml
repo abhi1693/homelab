@@ -1,0 +1,114 @@
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: devfeed-private-metrics
+  namespace: devfeed
+  labels:
+    app.kubernetes.io/part-of: devfeed
+spec:
+  podSelector:
+    matchLabels:
+      devfeed-telemetry: 'true'
+  policyTypes:
+  - Ingress
+  ingress:
+  - from:
+    - namespaceSelector:
+        matchLabels:
+          kubernetes.io/metadata.name: cattle-monitoring-system
+      podSelector:
+        matchLabels:
+          app.kubernetes.io/name: prometheus
+          prometheus: rancher-monitoring-prometheus
+    ports:
+    - protocol: TCP
+      port: 9100
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: devfeed-telemetry-export
+  namespace: devfeed
+  labels:
+    app.kubernetes.io/part-of: devfeed
+spec:
+  podSelector:
+    matchLabels:
+      devfeed-telemetry: 'true'
+  policyTypes:
+  - Egress
+  egress:
+  - to:
+    - namespaceSelector:
+        matchLabels:
+          kubernetes.io/metadata.name: cattle-monitoring-system
+      podSelector:
+        matchLabels:
+          app.kubernetes.io/name: opentelemetry-collector
+          home-lab.io/telemetry-role: gateway
+    ports:
+    - protocol: TCP
+      port: 4318
+  - to:
+    - namespaceSelector:
+        matchLabels:
+          kubernetes.io/metadata.name: cattle-monitoring-system
+      podSelector:
+        matchLabels:
+          app.kubernetes.io/name: pyroscope
+    ports:
+    - protocol: TCP
+      port: 4040
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: devfeed-faro-forward
+  namespace: devfeed
+  labels:
+    app.kubernetes.io/part-of: devfeed
+spec:
+  podSelector:
+    matchLabels:
+      devfeed-faro: 'true'
+  policyTypes:
+  - Egress
+  egress:
+  - to:
+    - namespaceSelector:
+        matchLabels:
+          kubernetes.io/metadata.name: cattle-monitoring-system
+      podSelector:
+        matchLabels:
+          app.kubernetes.io/name: alloy
+          app.kubernetes.io/instance: alloy-faro
+    ports:
+    - protocol: TCP
+      port: 12347
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: devfeed-private-sourcemaps
+  namespace: devfeed
+  labels:
+    app.kubernetes.io/part-of: devfeed
+spec:
+  podSelector:
+    matchLabels:
+      devfeed-faro: 'true'
+  policyTypes:
+  - Ingress
+  ingress:
+  - from:
+    - namespaceSelector:
+        matchLabels:
+          kubernetes.io/metadata.name: cattle-monitoring-system
+      podSelector:
+        matchLabels:
+          app.kubernetes.io/name: alloy
+          app.kubernetes.io/instance: alloy-faro
+    ports:
+    - protocol: TCP
+      port: 9100

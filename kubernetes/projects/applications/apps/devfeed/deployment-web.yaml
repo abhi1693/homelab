@@ -1,0 +1,120 @@
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: devfeed-web
+  namespace: devfeed
+  labels:
+    app.kubernetes.io/name: devfeed-web
+    app.kubernetes.io/part-of: devfeed
+spec:
+  replicas: 2
+  revisionHistoryLimit: 2
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: devfeed-web
+      app.kubernetes.io/part-of: devfeed
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxSurge: 1
+      maxUnavailable: 0
+  template:
+    metadata:
+      labels:
+        devfeed-telemetry: 'true'
+        devfeed-faro: 'true'
+        app.kubernetes.io/name: devfeed-web
+        app.kubernetes.io/part-of: devfeed
+    spec:
+      serviceAccountName: devfeed
+      automountServiceAccountToken: false
+      imagePullSecrets:
+        - name: harbor-registry
+      nodeSelector:
+        kubernetes.io/arch: arm64
+      affinity:
+        podAntiAffinity:
+          requiredDuringSchedulingIgnoredDuringExecution:
+            - labelSelector:
+                matchLabels:
+                  app.kubernetes.io/name: devfeed-web
+              topologyKey: kubernetes.io/hostname
+      securityContext:
+        fsGroup: 1000
+        fsGroupChangePolicy: OnRootMismatch
+        seccompProfile:
+          type: RuntimeDefault
+      terminationGracePeriodSeconds: 180
+      containers:
+        - name: web
+          # renovate: datasource=github-releases depName=abhi1693/devfeed.tech
+          image: registry.home/ghcr.io/abhi1693/devfeed.tech/web:0.0.20@sha256:65a0d3abb8be8306e8ba6d695309bbc491f27594931ec6df834c2e5e6b1613cb
+          imagePullPolicy: IfNotPresent
+          envFrom:
+            - configMapRef:
+                name: devfeed-telemetry
+            - secretRef:
+                name: devfeed-faro
+          resources:
+            requests:
+              cpu: 100m
+              memory: 128Mi
+            limits:
+              memory: 512Mi
+          securityContext:
+            runAsNonRoot: true
+            runAsUser: 1000
+            runAsGroup: 1000
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities:
+              drop:
+                - ALL
+          env:
+            - name: DEVFEED_USER_EXTENSION_IDS
+              value: '["hliakjocndflpkmfajndigbpngfcekdm","iihaipjedchahiehignbngclgpklbddo"]'
+            - name: DEVFEED_FARO_ENABLED
+              value: 'true'
+            - name: DEVFEED_ANALYTICS_ENABLED
+              value: 'true'
+            - name: DEVFEED_USER_API_URL
+              value: http://devfeed-user-api:8002
+            - name: DEVFEED_USER_BASE_URL
+              value: https://devfeed.tech
+            - name: DEVFEED_PUBLIC_API_URL
+              value: http://devfeed-api:8000
+            - name: GOOGLE_ANALYTICS_ID
+              value: G-N4V5CW5C0M
+          ports:
+            - name: metrics
+              containerPort: 9100
+            - containerPort: 3000
+          readinessProbe:
+            tcpSocket:
+              port: 3000
+            periodSeconds: 10
+          livenessProbe:
+            tcpSocket:
+              port: 3000
+            periodSeconds: 30
+          volumeMounts:
+            - name: next-cache
+              mountPath: /app/apps/web/.next/cache
+            - name: tmp
+              mountPath: /tmp
+      volumes:
+        - name: tmp
+          emptyDir:
+            sizeLimit: 256Mi
+        - name: next-cache
+          emptyDir:
+            sizeLimit: 256Mi
+      topologySpreadConstraints:
+        - maxSkew: 1
+          topologyKey: kubernetes.io/hostname
+          whenUnsatisfiable: DoNotSchedule
+          labelSelector:
+            matchLabels:
+              app.kubernetes.io/name: devfeed-web
+              app.kubernetes.io/part-of: devfeed

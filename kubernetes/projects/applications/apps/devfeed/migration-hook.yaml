@@ -1,0 +1,78 @@
+---
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: devfeed-migrate
+  namespace: devfeed
+  annotations:
+    helm.sh/hook: pre-upgrade
+    helm.sh/hook-weight: '-10'
+    helm.sh/hook-delete-policy: before-hook-creation,hook-succeeded
+  labels:
+    app.kubernetes.io/name: devfeed-migrate
+    app.kubernetes.io/part-of: devfeed
+spec:
+  backoffLimit: 5
+  activeDeadlineSeconds: 900
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: devfeed-migrate
+        app.kubernetes.io/part-of: devfeed
+        devfeed-database-client: 'true'
+    spec:
+      serviceAccountName: devfeed
+      automountServiceAccountToken: false
+      imagePullSecrets:
+        - name: harbor-registry
+      nodeSelector:
+        kubernetes.io/arch: arm64
+      securityContext:
+        fsGroup: 10001
+        fsGroupChangePolicy: OnRootMismatch
+        seccompProfile:
+          type: RuntimeDefault
+      terminationGracePeriodSeconds: 180
+      containers:
+        - name: migrate
+          # renovate: datasource=github-releases depName=abhi1693/devfeed.tech
+          image: registry.home/ghcr.io/abhi1693/devfeed.tech/backend:0.0.20@sha256:da51e7c9655314b792610832c65b99c092e8014c083c0368da9e4d4c04c7b2fe
+          imagePullPolicy: IfNotPresent
+          resources:
+            requests:
+              cpu: 100m
+              memory: 128Mi
+            limits:
+              memory: 512Mi
+          securityContext:
+            runAsNonRoot: true
+            runAsUser: 10001
+            runAsGroup: 10001
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities:
+              drop:
+                - ALL
+          command:
+            - devfeed
+            - db
+            - upgrade
+          envFrom:
+            - configMapRef:
+                name: devfeed
+            - secretRef:
+                name: devfeed-database
+          env:
+            - name: DEVFEED_DATABASE_URL
+              valueFrom:
+                secretKeyRef:
+                  name: devfeed-database
+                  key: DEVFEED_DIRECT_DATABASE_URL
+          volumeMounts:
+            - name: tmp
+              mountPath: /tmp
+      volumes:
+        - name: tmp
+          emptyDir:
+            sizeLimit: 256Mi
+      restartPolicy: Never

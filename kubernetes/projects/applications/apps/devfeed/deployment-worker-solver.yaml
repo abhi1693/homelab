@@ -1,0 +1,227 @@
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: devfeed-worker-solver
+  namespace: devfeed
+  labels:
+    app.kubernetes.io/name: devfeed-worker-solver
+    app.kubernetes.io/part-of: devfeed
+spec:
+  replicas: 1
+  revisionHistoryLimit: 2
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: devfeed-worker-solver
+      app.kubernetes.io/part-of: devfeed
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxSurge: 0
+      maxUnavailable: 1
+  template:
+    metadata:
+      annotations:
+        devfeed.tech/quota-pacing: "weekly-reserve-20"
+        devfeed.tech/ai-content-not-before: 'disabled'
+      labels:
+        devfeed-telemetry: 'true'
+        app.kubernetes.io/name: devfeed-worker-solver
+        app.kubernetes.io/part-of: devfeed
+        devfeed-database-client: 'true'
+        devfeed-redis-client: 'true'
+        devfeed-codex-client: 'true'
+    spec:
+      serviceAccountName: devfeed
+      automountServiceAccountToken: false
+      imagePullSecrets:
+        - name: harbor-registry
+      nodeSelector:
+        kubernetes.io/arch: arm64
+      securityContext:
+        fsGroup: 10001
+        fsGroupChangePolicy: OnRootMismatch
+        seccompProfile:
+          type: RuntimeDefault
+      terminationGracePeriodSeconds: 180
+      containers:
+        - name: solver-worker
+          # renovate: datasource=github-releases depName=abhi1693/devfeed.tech
+          image: registry.home/ghcr.io/abhi1693/devfeed.tech/backend:0.0.20@sha256:da51e7c9655314b792610832c65b99c092e8014c083c0368da9e4d4c04c7b2fe
+          imagePullPolicy: IfNotPresent
+          ports:
+            - name: metrics
+              containerPort: 9100
+          resources:
+            requests:
+              cpu: 100m
+              memory: 256Mi
+            limits:
+              memory: 1Gi
+          securityContext:
+            runAsNonRoot: true
+            runAsUser: 10001
+            runAsGroup: 10001
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities:
+              drop:
+                - ALL
+          envFrom:
+            - configMapRef:
+                name: devfeed-telemetry
+            - configMapRef:
+                name: devfeed
+            - secretRef:
+                name: devfeed-database
+            - configMapRef:
+                name: devfeed-automation
+            - secretRef:
+                name: devfeed-codex
+          env:
+            - name: DEVFEED_DATABASE_POOL_ENABLED
+              value: 'false'
+            - name: DEVFEED_SOLVER_QUEUE_ENABLED
+              value: 'true'
+            - name: DEVFEED_SOLVER_TIMEOUT_SECONDS
+              value: '45'
+            - name: DEVFEED_SOLVER_SERVICES
+              value: '[{"provider":"flaresolverr","url":"http://flaresolverr.media.svc.cluster.local:8191","timeout_seconds":30}]'
+            - name: DEVFEED_WORKER_QUEUE
+              value: solver
+            - name: DEVFEED_CODEX_APP_SERVER_URL
+              value: wss://devfeed-codex.devfeed.svc.cluster.local:4501
+            - name: SSL_CERT_FILE
+              value: /run/ca/ca-bundle.crt
+          volumeMounts:
+            - name: ca-bundle
+              mountPath: /run/ca
+              readOnly: true
+            - name: tmp
+              mountPath: /tmp
+          readinessProbe:
+            exec:
+              command:
+                - python
+                - -c
+                - import os; from pathlib import Path; from devfeed_core.config import get_settings; from devfeed_core.redis
+                  import create_redis; n=Path('/tmp/devfeed-worker-name').read_text(); r=create_redis(get_settings());
+                  assert r.exists('rq:worker:'+n) and not r.hexists('rq:worker:'+n,'death')
+            periodSeconds: 30
+            timeoutSeconds: 15
+            failureThreshold: 3
+          livenessProbe:
+            exec:
+              command:
+                - python
+                - -c
+                - import os; from pathlib import Path; from devfeed_core.config import get_settings; from devfeed_core.redis
+                  import create_redis; n=Path('/tmp/devfeed-worker-name').read_text(); r=create_redis(get_settings());
+                  assert r.exists('rq:worker:'+n) and not r.hexists('rq:worker:'+n,'death')
+            periodSeconds: 30
+            timeoutSeconds: 15
+            failureThreshold: 3
+            initialDelaySeconds: 60
+          command:
+            - sh
+            - -ec
+            - |-
+              worker_name="$HOSTNAME-$(python -c 'import uuid; print(uuid.uuid4().hex)')"
+              printf %s "$worker_name" > /tmp/devfeed-worker-name
+              exec devfeed worker --queue "$DEVFEED_WORKER_QUEUE" --name "$worker_name"
+      volumes:
+        - name: tmp
+          emptyDir:
+            sizeLimit: 256Mi
+        - name: codex-ca
+          secret:
+            secretName: devfeed-codex-tls
+            items:
+              - key: ca.crt
+                path: ca.crt
+        - name: ca-bundle
+          emptyDir: {}
+      initContainers:
+        - name: trust-codex-ca
+          # renovate: datasource=github-releases depName=abhi1693/devfeed.tech
+          image: registry.home/ghcr.io/abhi1693/devfeed.tech/backend:0.0.20@sha256:da51e7c9655314b792610832c65b99c092e8014c083c0368da9e4d4c04c7b2fe
+          imagePullPolicy: IfNotPresent
+          resources:
+            requests:
+              cpu: 10m
+              memory: 64Mi
+            limits:
+              memory: 128Mi
+          securityContext:
+            runAsNonRoot: true
+            runAsUser: 10001
+            runAsGroup: 10001
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities:
+              drop:
+                - ALL
+          volumeMounts:
+            - name: codex-ca
+              mountPath: /run/codex-ca
+              readOnly: true
+            - name: ca-bundle
+              mountPath: /run/ca
+          command:
+            - python
+            - -c
+            - from pathlib import Path; Path('/run/ca/ca-bundle.crt').write_bytes(Path('/etc/ssl/certs/ca-certificates.crt').read_bytes()+b'\n'+Path('/run/codex-ca/ca.crt').read_bytes())
+        - name: wait-for-schema
+          # renovate: datasource=github-releases depName=abhi1693/devfeed.tech
+          image: registry.home/ghcr.io/abhi1693/devfeed.tech/backend:0.0.20@sha256:da51e7c9655314b792610832c65b99c092e8014c083c0368da9e4d4c04c7b2fe
+          imagePullPolicy: IfNotPresent
+          securityContext:
+            runAsNonRoot: true
+            runAsUser: 10001
+            runAsGroup: 10001
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities:
+              drop:
+                - ALL
+          resources:
+            requests:
+              cpu: 10m
+              memory: 64Mi
+            limits:
+              memory: 128Mi
+          envFrom:
+            - configMapRef:
+                name: devfeed
+            - secretRef:
+                name: devfeed-database
+          env:
+            - name: DEVFEED_DATABASE_POOL_ENABLED
+              value: 'false'
+          command:
+            - python
+            - -c
+            - |
+              import time
+              from sqlalchemy import text
+              from devfeed_core.db import get_engine
+              from devfeed_core.version import SCHEMA_REVISION, BACKWARD_COMPATIBLE_SCHEMA_REVISIONS
+              for attempt in range(180):
+                  try:
+                      with get_engine().connect() as connection:
+                          if connection.execute(text("SELECT version_num FROM alembic_version")).scalar() in {SCHEMA_REVISION, *BACKWARD_COMPATIBLE_SCHEMA_REVISIONS}:
+                              print("Database schema ready", flush=True)
+                              break
+                  except Exception:
+                      pass
+                  time.sleep(5)
+              else:
+                  raise SystemExit("Timed out waiting for release schema")
+      topologySpreadConstraints:
+        - maxSkew: 1
+          topologyKey: kubernetes.io/hostname
+          whenUnsatisfiable: ScheduleAnyway
+          labelSelector:
+            matchLabels:
+              app.kubernetes.io/name: devfeed-worker-solver
+              app.kubernetes.io/part-of: devfeed

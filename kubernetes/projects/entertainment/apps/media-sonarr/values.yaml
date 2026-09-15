@@ -5,7 +5,7 @@ image:
   repository: registry.home/oci.trueforge.org/containerforge/sonarr
   pullPolicy: IfNotPresent
   # renovate: datasource=docker depName=oci.trueforge.org/containerforge/sonarr
-  tag: 4.0.19
+  tag: 4.0.20
 imagePullSecret:
   harbor-registry:
     enabled: true
@@ -21,7 +21,7 @@ podOptions:
 resources:
   requests:
     cpu: 100m
-    memory: 542Mi
+    memory: 387Mi
   limits:
     # TrueCharts: omit the inherited 1500m CPU cap; imports may burst.
     cpu: 0

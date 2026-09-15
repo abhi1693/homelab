@@ -1,0 +1,182 @@
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: devfeed-api
+  namespace: devfeed
+  labels:
+    app.kubernetes.io/name: devfeed-api
+    app.kubernetes.io/part-of: devfeed
+spec:
+  replicas: 2
+  revisionHistoryLimit: 2
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: devfeed-api
+      app.kubernetes.io/part-of: devfeed
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxSurge: 1
+      maxUnavailable: 0
+  template:
+    metadata:
+      annotations:
+        devfeed.tech/ai-content-not-before: 'disabled'
+      labels:
+        devfeed-telemetry: 'true'
+        app.kubernetes.io/name: devfeed-api
+        app.kubernetes.io/part-of: devfeed
+        devfeed-database-client: 'true'
+        devfeed-redis-client: 'true'
+        devfeed-search-client: 'true'
+    spec:
+      serviceAccountName: devfeed
+      automountServiceAccountToken: false
+      imagePullSecrets:
+        - name: harbor-registry
+      nodeSelector:
+        kubernetes.io/arch: arm64
+      affinity:
+        podAntiAffinity:
+          requiredDuringSchedulingIgnoredDuringExecution:
+            - labelSelector:
+                matchLabels:
+                  app.kubernetes.io/name: devfeed-api
+              topologyKey: kubernetes.io/hostname
+      securityContext:
+        fsGroup: 10001
+        fsGroupChangePolicy: OnRootMismatch
+        seccompProfile:
+          type: RuntimeDefault
+      terminationGracePeriodSeconds: 180
+      containers:
+        - name: api
+          # renovate: datasource=github-releases depName=abhi1693/devfeed.tech
+          image: registry.home/ghcr.io/abhi1693/devfeed.tech/backend:0.0.20@sha256:da51e7c9655314b792610832c65b99c092e8014c083c0368da9e4d4c04c7b2fe
+          imagePullPolicy: IfNotPresent
+          resources:
+            requests:
+              cpu: 100m
+              memory: 256Mi
+            limits:
+              memory: 1Gi
+          securityContext:
+            runAsNonRoot: true
+            runAsUser: 10001
+            runAsGroup: 10001
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities:
+              drop:
+                - ALL
+          envFrom:
+            - configMapRef:
+                name: devfeed-telemetry
+            - configMapRef:
+                name: devfeed-search
+            - secretRef:
+                name: devfeed-search-query
+            - configMapRef:
+                name: devfeed
+            - secretRef:
+                name: devfeed-database
+          env:
+            - name: DEVFEED_NOTIFICATIONS_ENABLED
+              value: 'false'
+          volumeMounts:
+            - name: tmp
+              mountPath: /tmp
+          ports:
+            - name: metrics
+              containerPort: 9100
+            - containerPort: 8000
+          readinessProbe:
+            httpGet:
+              path: /health/ready
+              port: 8000
+            periodSeconds: 10
+            timeoutSeconds: 5
+            failureThreshold: 3
+          livenessProbe:
+            httpGet:
+              path: /health/live
+              port: 8000
+            periodSeconds: 10
+            timeoutSeconds: 5
+            failureThreshold: 3
+          startupProbe:
+            httpGet:
+              path: /health/live
+              port: 8000
+            periodSeconds: 10
+            timeoutSeconds: 5
+            failureThreshold: 60
+          command:
+            - uvicorn
+            - devfeed_api.main:app
+            - --host
+            - 0.0.0.0
+            - --port
+            - '8000'
+            - --no-proxy-headers
+            - --no-access-log
+      volumes:
+        - name: tmp
+          emptyDir:
+            sizeLimit: 256Mi
+      topologySpreadConstraints:
+        - maxSkew: 1
+          topologyKey: kubernetes.io/hostname
+          whenUnsatisfiable: DoNotSchedule
+          labelSelector:
+            matchLabels:
+              app.kubernetes.io/name: devfeed-api
+              app.kubernetes.io/part-of: devfeed
+      initContainers:
+        - name: wait-for-schema
+          # renovate: datasource=github-releases depName=abhi1693/devfeed.tech
+          image: registry.home/ghcr.io/abhi1693/devfeed.tech/backend:0.0.20@sha256:da51e7c9655314b792610832c65b99c092e8014c083c0368da9e4d4c04c7b2fe
+          imagePullPolicy: IfNotPresent
+          securityContext:
+            runAsNonRoot: true
+            runAsUser: 10001
+            runAsGroup: 10001
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities:
+              drop:
+                - ALL
+          resources:
+            requests:
+              cpu: 10m
+              memory: 64Mi
+            limits:
+              memory: 128Mi
+          envFrom:
+            - configMapRef:
+                name: devfeed
+            - secretRef:
+                name: devfeed-database
+          env:
+            - name: DEVFEED_DATABASE_POOL_ENABLED
+              value: 'false'
+          command:
+            - python
+            - -c
+            - |
+              import time
+              from sqlalchemy import text
+              from devfeed_core.db import get_engine
+              from devfeed_core.version import SCHEMA_REVISION, BACKWARD_COMPATIBLE_SCHEMA_REVISIONS
+              for attempt in range(180):
+                  try:
+                      with get_engine().connect() as connection:
+                          if connection.execute(text("SELECT version_num FROM alembic_version")).scalar() in {SCHEMA_REVISION, *BACKWARD_COMPATIBLE_SCHEMA_REVISIONS}:
+                              print("Database schema ready", flush=True)
+                              break
+                  except Exception:
+                      pass
+                  time.sleep(5)
+              else:
+                  raise SystemExit("Timed out waiting for release schema")

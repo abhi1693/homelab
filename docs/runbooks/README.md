@@ -16,6 +16,9 @@ high-risk maintenance tasks.
 
 ## Networking
 
+- [WiFiman Teleport stuck connecting or disconnecting](networking/wifiman-teleport-stuck-connection.md):
+  identify stale local tunnel state, remove only an inactive WiFiman interface
+  and its firewall tables, and verify the visible app plus sustained VPN health.
 - [UniFi infrastructure to NetBox drift detection and manual reconciliation](networking/unifi-netbox-drift-reconciliation.md):
   collect a secret-free infrastructure snapshot, exclude all Network client
   data, detect inventory drift, and apply only reviewed changes through the

@@ -57,7 +57,7 @@ spec:
       containers:
         - name: web
           # renovate: datasource=github-releases depName=abhi1693/personal-blog
-          image: registry.home/ghcr.io/abhi1693/personal-blog:0.3.16
+          image: registry.home/ghcr.io/abhi1693/personal-blog:0.3.17
           imagePullPolicy: IfNotPresent
           envFrom:
             - secretRef:
@@ -77,7 +77,7 @@ spec:
           resources:
             requests:
               cpu: 100m
-              memory: 968Mi
+              memory: 853Mi
             limits:
               memory: 1152Mi
           startupProbe:

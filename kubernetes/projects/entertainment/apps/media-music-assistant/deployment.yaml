@@ -49,7 +49,7 @@ spec:
       initContainers:
         - name: prepare-provider-runtime
           # renovate: datasource=docker depName=ghcr.io/music-assistant/server
-          image: registry.home/ghcr.io/music-assistant/server:2.10.0b10@sha256:3a26f60dfa144c821a45c9ad49a2d0be55ce350b7a321388aee17c42d59b52f1
+          image: registry.home/ghcr.io/music-assistant/server:2.10.3@sha256:885872224fa541c0faefc936625c939ba705a00e89c180f89e877f58448ea5d5
           imagePullPolicy: IfNotPresent
           env:
             - name: UV_CACHE_DIR
@@ -927,14 +927,22 @@ spec:
                           ProviderFeature.SIMILAR_TRACKS,
                           priority=(ProviderType.METADATA, ProviderType.PLUGIN),
                       ):
-                          try:
-                              cross_prov = cast("MetadataProvider | PluginProvider", prov)
-                              if result := await cross_prov.get_similar_tracks(ref_item, limit=limit):
-                                  return result
-                          except NotImplementedError:
+                          cross_prov = cast("MetadataProvider | PluginProvider", prov)
+                          result, error = await self._get_similar_tracks_from_provider(
+                              cross_prov, ref_item, limit
+                          )
+                          if error is not None:
+                              last_provider_error = error
                               continue
+                          if result is None:
+                              continue
+                          provider_responded = True
+                          if result:
+                              return result
 
                       if not allow_lookup:
+                          if not provider_responded and last_provider_error is not None:
+                              self._raise_similar_tracks_provider_error(ref_item, last_provider_error)
                           return []
               """
               replacement = """        # Merge metadata and local plugin results. Metadata providers can
@@ -945,24 +953,31 @@ spec:
                           ProviderFeature.SIMILAR_TRACKS,
                           priority=(ProviderType.METADATA, ProviderType.PLUGIN),
                       ):
-                          try:
-                              cross_prov = cast("MetadataProvider | PluginProvider", prov)
-                              result = await cross_prov.get_similar_tracks(ref_item, limit=limit)
-                              for candidate in result:
-                                  if (
-                                      candidate != ref_item
-                                      and candidate not in cross_provider_results
-                                  ):
-                                      cross_provider_results.append(candidate)
-                              if len(cross_provider_results) >= limit:
-                                  return cross_provider_results[:limit]
-                          except NotImplementedError:
+                          cross_prov = cast("MetadataProvider | PluginProvider", prov)
+                          result, error = await self._get_similar_tracks_from_provider(
+                              cross_prov, ref_item, limit
+                          )
+                          if error is not None:
+                              last_provider_error = error
                               continue
+                          if result is None:
+                              continue
+                          provider_responded = True
+                          for candidate in result:
+                              if (
+                                  candidate != ref_item
+                                  and candidate not in cross_provider_results
+                              ):
+                                  cross_provider_results.append(candidate)
+                          if len(cross_provider_results) >= limit:
+                              return cross_provider_results[:limit]
 
                       if cross_provider_results:
                           return cross_provider_results[:limit]
 
                       if not allow_lookup:
+                          if not provider_responded and last_provider_error is not None:
+                              self._raise_similar_tracks_provider_error(ref_item, last_provider_error)
                           return []
               """
 
@@ -971,6 +986,7 @@ spec:
                       "Similar-tracks controller changed; review the radio overlay"
                   )
               source = source.replace(original, replacement)
+              compile(source, str(patch_path), "exec")
 
               patch_path.parent.mkdir(parents=True, exist_ok=True)
               temporary_path = patch_path.with_suffix(".py.tmp")
@@ -1503,7 +1519,7 @@ spec:
       containers:
         - name: music-assistant
           # renovate: datasource=docker depName=ghcr.io/music-assistant/server
-          image: registry.home/ghcr.io/music-assistant/server:2.10.0b10@sha256:3a26f60dfa144c821a45c9ad49a2d0be55ce350b7a321388aee17c42d59b52f1
+          image: registry.home/ghcr.io/music-assistant/server:2.10.3@sha256:885872224fa541c0faefc936625c939ba705a00e89c180f89e877f58448ea5d5
           imagePullPolicy: IfNotPresent
           command:
             - /bin/sh

@@ -1,0 +1,17 @@
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: devfeed-typesense
+  namespace: devfeed
+  labels:
+    app.kubernetes.io/name: devfeed-typesense
+    app.kubernetes.io/part-of: devfeed
+spec:
+  selector:
+    app.kubernetes.io/name: devfeed-typesense
+    app.kubernetes.io/part-of: devfeed
+  ports:
+    - name: http
+      port: 8108
+      targetPort: http

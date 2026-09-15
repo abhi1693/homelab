@@ -39,6 +39,7 @@ hide inside a manifest comment:
 | `runbooks/node-saturation-and-zombie-processes.md` | Node load, CPU, I/O, D-state, and zombie-process diagnosis with targeted recovery. |
 | `runbooks/statefulset-ondelete-rollout-recovery.md` | Sequential Valkey OnDelete rollout and Sentinel failover procedure. |
 | `runbooks/networking/laptop-wireguard-mtu-tls-handshake-timeouts.md` | Diagnosis and fix for laptop WireGuard MTU blackholes causing Kubernetes API and `*.home` TLS timeouts. |
+| `runbooks/networking/wifiman-teleport-stuck-connection.md` | Scoped cleanup of stale WiFiman Teleport state with visible app, IPv6 health-probe, and sustained connectivity verification. |
 | `runbooks/networking/unifi-netbox-drift-reconciliation.md` | Infrastructure-only UniFi API drift detection and reviewed NetBox MCP reconciliation; Network client data is excluded. |
 | `runbooks/storage/anime-library-relocation-and-shoko-recovery.md` | Safe anime library relocation and Shoko unrecognized-file recovery. |
 | `runbooks/storage/ryokan-batch-import-corruption-recovery.md` | Break-glass quarantine, download, manual import, and end-to-end verification for corrupt Ryokan batches. |

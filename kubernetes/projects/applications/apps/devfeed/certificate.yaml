@@ -1,0 +1,48 @@
+---
+apiVersion: cert-manager.io/v1
+kind: Certificate
+metadata:
+  name: devfeed-admin-tls
+  namespace: devfeed
+  labels:
+    app.kubernetes.io/part-of: devfeed
+spec:
+  secretName: devfeed-admin-tls
+  dnsNames:
+    - admin.devfeed.home
+  privateKey:
+    algorithm: ECDSA
+    size: 256
+  usages:
+    - digital signature
+    - key encipherment
+    - server auth
+  issuerRef:
+    name: home-local-ca
+    kind: ClusterIssuer
+    group: cert-manager.io
+---
+apiVersion: cert-manager.io/v1
+kind: Certificate
+metadata:
+  name: devfeed-codex-tls
+  namespace: devfeed
+  labels:
+    app.kubernetes.io/part-of: devfeed
+spec:
+  secretName: devfeed-codex-tls
+  dnsNames:
+    - devfeed-codex
+    - devfeed-codex.devfeed.svc
+    - devfeed-codex.devfeed.svc.cluster.local
+  privateKey:
+    algorithm: ECDSA
+    size: 256
+  usages:
+    - digital signature
+    - key encipherment
+    - server auth
+  issuerRef:
+    name: home-local-ca
+    kind: ClusterIssuer
+    group: cert-manager.io

@@ -1,0 +1,174 @@
+---
+evaluation_interval: 30s
+tests:
+- name: no traffic is not an SLO burn
+  interval: 1m
+  input_series:
+  - series: devfeed_http_requests_total{namespace="devfeed",service="api",status="200"}
+    values: 0+0x400
+  alert_rule_test:
+  - eval_time: 7h
+    alertname: DevFeedAvailabilityFastBurn
+    exp_alerts: []
+  - eval_time: 7h
+    alertname: DevFeedAvailabilitySlowBurn
+    exp_alerts: []
+- name: sustained 5xx burns budget
+  interval: 1m
+  input_series:
+  - series: devfeed_http_requests_total{namespace="devfeed",service="api",status="200"}
+    values: 0+95x400
+  - series: devfeed_http_requests_total{namespace="devfeed",service="api",status="503"}
+    values: 0+5x400
+  alert_rule_test:
+  - eval_time: 6h
+    alertname: DevFeedAvailabilityFastBurn
+    exp_alerts:
+    - exp_labels:
+        severity: critical
+        namespace: devfeed
+        app: devfeed
+        service: api
+      exp_annotations:
+        summary: DevFeed availability is burning its error budget quickly
+        description: Both the 1h and 5m windows exceed the 99.9% SLO fast-burn threshold, with at least 100 requests
+          in 1h. Inspect 5xx routes, recent releases, readiness, database and dependency panels.
+        runbook_url: https://github.com/abhi1693/devfeed.tech/blob/v0.0.8/docs/observability.md#availability
+        dashboard_url: http://grafana.home/d/devfeed-operations
+  - eval_time: 6h
+    alertname: DevFeedAvailabilitySlowBurn
+    exp_alerts:
+    - exp_labels:
+        severity: warning
+        namespace: devfeed
+        app: devfeed
+        service: api
+      exp_annotations:
+        summary: DevFeed availability has sustained error-budget burn
+        description: Both 6h and 30m exceed the slower burn threshold. Low traffic alone does not trigger a burn
+          alert; deployment and synthetic availability checks cover total outages.
+        runbook_url: https://github.com/abhi1693/devfeed.tech/blob/v0.0.8/docs/observability.md#availability
+        dashboard_url: http://grafana.home/d/devfeed-operations
+- name: short error burst does not trigger long-window burn
+  interval: 1m
+  input_series:
+  - series: devfeed_http_requests_total{namespace="devfeed",service="api",status="200"}
+    values: 0+100x358 35900 36000
+  - series: devfeed_http_requests_total{namespace="devfeed",service="api",status="503"}
+    values: 0+0x358 100 100
+  alert_rule_test:
+  - eval_time: 6h
+    alertname: DevFeedAvailabilityFastBurn
+    exp_alerts: []
+  - eval_time: 6h
+    alertname: DevFeedAvailabilitySlowBurn
+    exp_alerts: []
+- name: queued work without a worker
+  interval: 1m
+  input_series:
+  - series: devfeed_jobs_due{namespace="devfeed",queue="article-analysis",kind="article-analysis"}
+    values: 10+0x30
+  - series: devfeed_queue_workers{namespace="devfeed",queue="article-analysis",state="idle"}
+    values: 0+0x30
+  alert_rule_test:
+  - eval_time: 20m
+    alertname: DevFeedQueueWithoutWorkers
+    exp_alerts:
+    - exp_labels:
+        severity: critical
+        namespace: devfeed
+        app: devfeed
+        queue: article-analysis
+      exp_annotations:
+        summary: Eligible DevFeed jobs have no live workers
+        description: Use the queue-specific Deployment. Inspect worker heartbeats, Codex readiness/cooldown and
+          Redis. Do not restart unrelated queues.
+        runbook_url: https://github.com/abhi1693/devfeed.tech/blob/v0.0.8/docs/observability.md#queues-and-retries
+        dashboard_url: http://grafana.home/d/devfeed-operations
+- name: idle queue without workers is not an outage
+  interval: 1m
+  input_series:
+  - series: devfeed_jobs_due{namespace="devfeed",queue="article-analysis",kind="article-analysis"}
+    values: 0+0x30
+  - series: devfeed_queue_workers{namespace="devfeed",queue="article-analysis",state="idle"}
+    values: 0+0x30
+  alert_rule_test:
+  - eval_time: 20m
+    alertname: DevFeedQueueWithoutWorkers
+    exp_alerts: []
+- name: stale exporter data is visible
+  interval: 1m
+  input_series:
+  - series: devfeed_exporter_last_success_timestamp_seconds{namespace="devfeed",dependency="database"}
+    values: 0+0x30
+  - series: devfeed_exporter_dependency_up{namespace="devfeed",dependency="database"}
+    values: 1+0x30
+  alert_rule_test:
+  - eval_time: 20m
+    alertname: DevFeedExporterStale
+    exp_alerts:
+    - exp_labels:
+        severity: warning
+        namespace: devfeed
+        app: devfeed
+        dependency: database
+      exp_annotations:
+        summary: DevFeed product telemetry is stale or failing
+        description: Cached snapshots deliberately retain last good values. Check dependency health and exporter
+          duration before interpreting queue/product panels. SQL is read-only and bounded.
+        runbook_url: https://github.com/abhi1693/devfeed.tech/blob/v0.0.8/docs/observability.md#telemetry
+        dashboard_url: http://grafana.home/d/devfeed-operations
+- name: probe outage is detected independently of traffic
+  interval: 1m
+  input_series:
+  - series: probe_success{namespace="devfeed",job="devfeed-http-probes",instance="https://devfeed.tech/"}
+    values: 0+0x30
+  alert_rule_test:
+  - eval_time: 20m
+    alertname: DevFeedHTTPProbeFailed
+    exp_alerts:
+    - exp_labels:
+        severity: critical
+        namespace: devfeed
+        app: devfeed
+        job: devfeed-http-probes
+        instance: https://devfeed.tech/
+      exp_annotations:
+        summary: A DevFeed HTTP availability probe is failing
+        description: Public reader HTTPS or an internal service readiness/login probe failed. Inspect the instance
+          URL, probe HTTP status/TLS/DNS and corresponding deployment. No authenticated account action is performed.
+        runbook_url: https://github.com/abhi1693/devfeed.tech/blob/v0.0.8/docs/observability.md#availability
+        dashboard_url: http://grafana.home/d/devfeed-operations
+- name: low-volume job failures do not page
+  interval: 1m
+  input_series:
+  - series: devfeed_jobs_completed_window{namespace="devfeed",kind="article-analysis",window="1h",status="failed"}
+    values: 1+0x30
+  - series: devfeed_jobs_completed_window{namespace="devfeed",kind="article-analysis",window="1h",status="succeeded"}
+    values: 0+0x30
+  alert_rule_test:
+  - eval_time: 20m
+    alertname: DevFeedJobFailureRatio
+    exp_alerts: []
+- name: failed jobs are measured from durable outcomes
+  interval: 1m
+  input_series:
+  - series: devfeed_jobs_completed_window{namespace="devfeed",kind="article-analysis",window="1h",status="failed"}
+    values: 8+0x30
+  - series: devfeed_jobs_completed_window{namespace="devfeed",kind="article-analysis",window="1h",status="succeeded"}
+    values: 2+0x30
+  alert_rule_test:
+  - eval_time: 20m
+    alertname: DevFeedJobFailureRatio
+    exp_alerts:
+    - exp_labels:
+        severity: warning
+        namespace: devfeed
+        app: devfeed
+        kind: article-analysis
+      exp_annotations:
+        summary: More than 20% of a DevFeed job kind failed in the last hour
+        description: At least 10 terminal completions. Inspect bounded failure families and admin job logs. RQ success
+          does not imply durable business success.
+        runbook_url: https://github.com/abhi1693/devfeed.tech/blob/v0.0.8/docs/observability.md#queues-and-retries
+        dashboard_url: http://grafana.home/d/devfeed-operations

@@ -19,7 +19,7 @@ spec:
   template:
     metadata:
       annotations:
-        home-lab.io/policy-revision: "2026-08-28-thanos-query"
+        home-lab.io/policy-revision: "2026-09-11-restore-on-mains"
       labels:
         app.kubernetes.io/name: rack-ops
         app.kubernetes.io/part-of: rack-ops
@@ -113,7 +113,7 @@ spec:
           resources:
             requests:
               cpu: 10m
-              memory: 118Mi
+              memory: 108Mi
             limits:
               memory: 160Mi
           securityContext:

@@ -9,7 +9,8 @@ metadata:
     app.kubernetes.io/part-of: wardn-hub
 spec:
   revisionHistoryLimit: 2
-  replicas: 1
+  # Temporarily paused; retain the Deployment and persistent data.
+  replicas: 0
   selector:
     matchLabels:
       app.kubernetes.io/name: wardn-hub-codex-app-server

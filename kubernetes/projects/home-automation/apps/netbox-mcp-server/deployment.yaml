@@ -42,7 +42,7 @@ spec:
       containers:
         - name: server
           # renovate: datasource=docker depName=registry.home/home/netbox-mcp-server
-          image: registry.home/home/netbox-mcp-server:0.0.2@sha256:c3ae736d7bf68967c25f7db32792bc8d1aadeb3fdc1225582cac51bd110c63a5
+          image: registry.home/home/netbox-mcp-server:0.0.3@sha256:cb8b1a4c453fb241cd5415c837da0764d6d50540faeb32f3258dd5076bce12f5
           imagePullPolicy: IfNotPresent
           env:
             - name: ALLOWED_NETBOX_URLS

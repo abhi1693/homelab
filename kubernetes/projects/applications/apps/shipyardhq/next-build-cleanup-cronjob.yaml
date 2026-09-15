@@ -38,7 +38,7 @@ spec:
           containers:
             - name: cleanup-next-build-cache
               # renovate: datasource=docker depName=ghcr.io/abhi1693/shipyardhq
-              image: registry.home/ghcr.io/abhi1693/shipyardhq:1.5.18
+              image: registry.home/ghcr.io/abhi1693/shipyardhq:1.5.32
               imagePullPolicy: IfNotPresent
               command:
                 - /bin/sh
@@ -47,7 +47,7 @@ spec:
                 - |
                   set -eu
 
-                  cache_version=next-build-v10
+                  cache_version=next-build-v11
                   cache_root=/app/.next-build-cache
                   artifact_root="$cache_root/artifacts"
 
@@ -129,7 +129,7 @@ spec:
                   )"
                   env_key="$(
                     env | LC_ALL=C sort \
-                      | grep -E '^(CACHE_ENV_PREFIX|CLERK_|CLOUDFLARE_|DODO_|GA_|GOOGLE_|IMGPROXY_|MONTHLY_WINNER_|NEXT_PUBLIC_|NEXT_STATIC_GENERATION_MAX_CONCURRENCY|NEXT_STATIC_GENERATION_RETRY_COUNT|NEXT_STATIC_PAGE_GENERATION_TIMEOUT|POSTGRES_DB|PRODUCT_PRERENDER_LIMIT|R2_|USE_CASE_PRERENDER_LIMIT)=' \
+                      | grep -E '^(APP_VERSION|NODE_VERSION|CACHE_ENV_PREFIX|CLERK_|CLOUDFLARE_|DODO_|GA_|GOOGLE_|IMGPROXY_|MONTHLY_WINNER_|NEXT_PUBLIC_|NEXT_STATIC_GENERATION_MAX_CONCURRENCY|NEXT_STATIC_GENERATION_RETRY_COUNT|NEXT_STATIC_PAGE_GENERATION_TIMEOUT|POSTGRES_DB|PRODUCT_PRERENDER_LIMIT|R2_|USE_CASE_PRERENDER_LIMIT)=' \
                       | sha256sum | awk '{print $1}'
                   )"
                   build_key="$(printf '%s\n%s\n%s\n' "$cache_version" "$source_key" "$env_key" | sha256sum | awk '{print $1}')"

@@ -15,6 +15,7 @@ Ansible role or Kubernetes app bundle.
 | `run-pre-commit-validation.sh` | Runs the Ansible, YAML, Kubernetes, Terraform, shell, and Dockerfile checks used by the repository's pre-commit hooks. |
 | `safe-node-shutdown.sh` | Helper for guarded node shutdown workflows. |
 | `sync-readme-versions.py` | Reads pinned platform versions from Git-managed source files and checks or updates the static root README badge values. |
+| `validate-tempo.py` | Verifies the pinned Tempo image and ConfigMap in local Docker, then checks readiness and an OTLP trace round trip. |
 
 ## How These Fit The Lab
 

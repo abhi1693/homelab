@@ -121,9 +121,9 @@ replica:
   resources:
     requests:
       cpu: 50m
-      memory: 374Mi
+      memory: 1536Mi
     limits:
-      memory: 768Mi
+      memory: 4Gi
 metrics:
   enabled: true
   image:

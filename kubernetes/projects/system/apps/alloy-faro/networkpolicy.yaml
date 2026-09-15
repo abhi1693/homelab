@@ -39,6 +39,16 @@ spec:
       ports:
         - protocol: TCP
           port: 12345
+    - from:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: devfeed
+          podSelector:
+            matchLabels:
+              devfeed-faro: 'true'
+      ports:
+        - protocol: TCP
+          port: 12347
   egress:
     - to:
         - namespaceSelector:
@@ -100,3 +110,13 @@ spec:
       ports:
         - protocol: TCP
           port: 3000
+    - to:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: devfeed
+          podSelector:
+            matchLabels:
+              devfeed-faro: 'true'
+      ports:
+        - protocol: TCP
+          port: 9100

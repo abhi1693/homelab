@@ -14,6 +14,7 @@ spec:
   clientSecretName: home-lab-apps-github
   pollingInterval: 1h0m0s
   paths:
+    - kubernetes/projects/database/apps/postgresql-devfeed-prerequisites
     - kubernetes/projects/database/apps/cnpg-operator
     - kubernetes/projects/database/apps/cnpg-operator-registry-secrets
     - kubernetes/projects/database/apps/database-helm-repositories

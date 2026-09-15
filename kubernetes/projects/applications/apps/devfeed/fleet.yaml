@@ -1,0 +1,46 @@
+---
+name: devfeed
+defaultNamespace: devfeed
+labels:
+  app.kubernetes.io/part-of: devfeed
+  home-lab.io/project-slug: applications
+dependsOn:
+  - name: rancher-project-applications
+  - name: postgresql
+  - name: postgresql-devfeed-prerequisites
+  - name: csi-driver-nfs-helmop
+helm:
+  takeOwnership: true
+  timeoutSeconds: 900
+diff:
+  comparePatches:
+    - apiVersion: v1
+      kind: PersistentVolumeClaim
+      namespace: devfeed
+      name: devfeed-codex-home
+      jsonPointers:
+        - /spec/volumeName
+    - apiVersion: v1
+      kind: PersistentVolumeClaim
+      namespace: devfeed
+      name: devfeed-inbox-worker
+      jsonPointers:
+        - /spec/volumeName
+    - apiVersion: v1
+      kind: PersistentVolumeClaim
+      namespace: devfeed
+      name: devfeed-inbox-admin
+      jsonPointers:
+        - /spec/volumeName
+    - apiVersion: v1
+      kind: PersistentVolumeClaim
+      namespace: devfeed
+      name: devfeed-inbox-user
+      jsonPointers:
+        - /spec/volumeName
+    - apiVersion: v1
+      kind: PersistentVolumeClaim
+      namespace: devfeed
+      name: devfeed-search-data
+      jsonPointers:
+        - /spec/volumeName

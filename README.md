@@ -651,7 +651,7 @@ These services are not just "apps"; they are the platform other apps depend on.
 | Rancher Monitoring | System | HA Prometheus scraping, Thanos Query, Grafana, Alertmanager, dashboards, and alert rules. |
 | Loki | System | Log aggregation. |
 | Tempo | System | Trace storage for OpenTelemetry traces. |
-| Pyroscope | System | Continuous profiling backend. |
+| Pyroscope | System | Continuous profiling backend; ephemeral 24-hour storage with Raft logs and snapshots colocated for container restart recovery. |
 | OpenTelemetry Collector | System | Two-replica OTLP gateway and affinity-routed processing tiers for metrics and traces. |
 | ExternalDNS for UniFi | System | Reconciles internal DNS records from Kubernetes Ingress hosts. |
 
@@ -661,15 +661,16 @@ These services are not just "apps"; they are the platform other apps depend on.
 
 | App | What it does | Notable dependencies |
 | --- | --- | --- |
+| [DevFeed](kubernetes/projects/applications/apps/devfeed/README.md) | Developer news, redundant web/APIs and full automation with fourteen workers: three article-analysis, four other dedicated AI workers, one pooled AI worker and six background workers, plus a search indexer; bounded Luna-first AI decisions and usage/outcome charts, with worker names grouped under `devfeed-worker-`; private metrics, product dashboards, probes, logs, traces and profiles; automatic pre-upgrade [migration hooks](kubernetes/projects/applications/apps/devfeed/migrations.md). | PostgreSQL, Typesense, shared Valkey Sentinel, Chimely, dedicated Codex, Zitadel, public Cloudflare Tunnel and internal Traefik. |
 | Firefly III | Personal finance application. | PostgreSQL pooler, NFS upload PVC, internal Traefik ingress, scoped Home Assistant API access. |
 | Harbor | Local registry and proxy/cache registry. | PostgreSQL, Valkey, NFS storage, monitoring. |
 | OpenBao | Lightweight secret-management experiment for the Wardn namespace. | Longhorn PVC, Traefik ingress. |
 | Personal Blog | Public blog deployment. | Harbor image, Cloudflare Tunnel, Sanity revalidation secret. |
 | Portfolio | Public portfolio deployment. | Harbor image, Cloudflare Tunnel. |
 | ShipyardHQ | Public commerce/content application with web, worker, image proxy, and build jobs. | PostgreSQL, Valkey, R2, Harbor, NFS build cache, Cloudflare Tunnel. |
-| Wardn AI | Agent platform with API, frontend, worker, WhatsApp bridge, and on-demand MCP runtimes. | PostgreSQL, Wardn Hub, NFS and Longhorn storage, internal Traefik ingress. |
+| Wardn AI | Paused agent platform: API, frontend, worker, WhatsApp bridge, and dedicated PostgreSQL pooler at zero replicas. | PostgreSQL, Wardn Hub, NFS and Longhorn storage, internal Traefik ingress. |
 | Wardn AI Website | Public product website for Wardn AI. | Harbor image, Cloudflare Tunnel. |
-| Wardn Hub | Public AI/review platform with backend, frontend, workers, webhooks, and Codex login state. | PostgreSQL, OpenTelemetry, Harbor, Cloudflare Tunnel, NFS build cache, Longhorn Codex state. |
+| Wardn Hub | Public registry with API, frontend, and scoring online; consolidated worker and Codex temporarily paused at zero replicas, with refresh hook skipped and login state retained. | PostgreSQL, OpenTelemetry, Harbor, Cloudflare Tunnel, NFS build cache, Longhorn Codex state. |
 | Wardn License Server | Private entitlement issuer, Dodo webhook worker, and administration console. | PostgreSQL, Zitadel, Harbor, Dodo, Cloudflare Tunnel. |
 
 ### Database Project
@@ -698,7 +699,7 @@ These services are not just "apps"; they are the platform other apps depend on.
 | Shoko | Anime metadata and library management for Jellyfin/Shokofin. |
 | Jellyfin | Media server using custom image work and PostgreSQL-oriented experiments. |
 | Jellyseerr / Seerr | Media request portal backed by Jellyfin. |
-| FlareSolverr | Browser-challenge helper for selected indexers. |
+| FlareSolverr | Browser-challenge helper for selected indexers and the DevFeed solver worker (1536Mi memory cap). |
 | media-storage | Shared NFS CSI declarations for the completed library and downloads. |
 
 The media stack is intentionally split between download storage and completed
@@ -727,7 +728,7 @@ callback and Music Assistant's player-stream port.
 | NetBox | Source of truth for IPAM, infrastructure inventory, cabling, DNS, lifecycle documentation, and the Git-backed catalog of durable K3s applications and controllers; every project app directory is cataloged or explicitly classified, while UniFi Network clients and transient or operator-generated Kubernetes objects remain excluded. |
 | NetBox MCP Server | Authenticated per-user MCP access to NetBox through an ARM64, TLS-proxied, network-isolated service. |
 | Cloudflare Tunnel ingress controller | Maps Kubernetes ingress intent to Cloudflare Tunnel routes. |
-| Rack Ops controllers | Rack/node automation, policy, monitoring, and guarded actions. |
+| Rack Ops controllers | Rack/node automation, policy, monitoring, and guarded actions; shed workloads restore when mains returns, without waiting for battery recharge. |
 | UPS Monitoring | Network UPS Tools, PeaNUT dashboard, exporter, Grafana dashboard, and alerts. |
 
 ### System Project
@@ -771,7 +772,10 @@ and validation matter.
 Valkey is shared for app queues and cache-like workloads. Logical DB indexes
 separate apps where needed. This avoids running a separate Redis/Valkey instance
 for every app on small hardware, but it means noisy queue users need limits and
-monitoring.
+monitoring. Valkey data containers request 1536Mi and allow 4Gi each so full
+replica synchronization can hold the persisted and incoming datasets together.
+Capacity repairs use a sequential Fleet rollout and return to `OnDelete` after
+replication and Sentinel quorum are verified.
 
 ### Registry coupling
 
@@ -947,10 +951,15 @@ The workspace design uses the same platform primitives as the rest of the lab:
 
 ## Operational Workflow
 
-Standalone DBS, HDFC, OneCard, and ICICI statement conversion and Firefly API
+Standalone DBS, HDFC, SBI, OneCard, and ICICI statement conversion and Firefly API
 workflows live in the
 [`abhi1693/firefly-importer`](https://github.com/abhi1693/firefly-importer)
 repository. This repository continues to own the Firefly III GitOps deployment.
+
+Shared CI and container builds use the current contracts in
+[`abhi1693/actions`](https://github.com/abhi1693/actions), with one native
+runner/platform matrix for ARM64 and multi-platform builds. See
+[repository automation](.github/README.md).
 
 Typical change flow:
 
@@ -966,6 +975,9 @@ still be needed for break-glass repair or initial secret creation, but they
 should not become the normal deployment mechanism.
 
 ## Validation
+
+Container publication uses centrally maintained security gates for SBOMs, provenance
+and runtime scanning. See [repository automation](.github/README.md).
 
 Pre-commit is the repository-wide validation runner. On Linux, bootstrap its
 Python and native tooling, install the hook, and run the complete suite with:
@@ -985,6 +997,19 @@ Ansible, Renovate policy, and Terraform validation run when their subsystem
 changes.
 
 Subsystem-specific checks remain useful during development.
+
+Tempo configuration and image changes also run an ARM64 `Tempo validation`
+workflow on pull requests. It starts the pinned image with the repository
+configuration and checks an OTLP trace round trip before Fleet deployment.
+Run the same check locally with Docker:
+
+```sh
+python3 -m pip install --requirement .github/requirements/tempo.txt
+python3 scripts/validate-tempo.py
+```
+
+See the [Tempo runbook](kubernetes/projects/system/apps/tempo/README.md) for
+configuration migration and rollout verification.
 
 Ansible:
 
@@ -1184,6 +1209,7 @@ Runbooks and architecture decisions:
 | [docs/runbooks/node-saturation-and-zombie-processes.md](docs/runbooks/node-saturation-and-zombie-processes.md) | Node load, I/O, CPU, and zombie-process diagnosis with targeted recovery. |
 | [docs/runbooks/statefulset-ondelete-rollout-recovery.md](docs/runbooks/statefulset-ondelete-rollout-recovery.md) | Safe sequential Valkey OnDelete rollout and Sentinel failover procedure. |
 | [docs/runbooks/networking/laptop-wireguard-mtu-tls-handshake-timeouts.md](docs/runbooks/networking/laptop-wireguard-mtu-tls-handshake-timeouts.md) | WireGuard MTU diagnosis for Kubernetes API and `*.home` TLS timeouts. |
+| [docs/runbooks/networking/wifiman-teleport-stuck-connection.md](docs/runbooks/networking/wifiman-teleport-stuck-connection.md) | Recover stuck WiFiman Teleport sessions with scoped local tunnel cleanup and sustained app/connection verification. |
 | [docs/runbooks/storage/anime-library-relocation-and-shoko-recovery.md](docs/runbooks/storage/anime-library-relocation-and-shoko-recovery.md) | Move misplaced anime into the NAS anime library and recover unrecognized Shoko files. |
 | [docs/runbooks/storage/ryokan-batch-import-corruption-recovery.md](docs/runbooks/storage/ryokan-batch-import-corruption-recovery.md) | Quarantine and manually recover corrupt Ryokan batch imports without repeating destructive remaps. |
 | [docs/runbooks/storage/nas-rebuild-maintenance.md](docs/runbooks/storage/nas-rebuild-maintenance.md) | Stop all Kubernetes access to the NAS-backed media library during a NAS rebuild. |

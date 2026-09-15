@@ -15,6 +15,12 @@ resolution work.
 This is a client-side laptop VPN issue, not a Kubernetes workload or Fleet
 reconciliation issue.
 
+If WiFiman is stuck **Connecting/Disconnecting**, or logs
+`TELEPORT_UDP_ECHO_FAILED` and repeatedly tears down the tunnel, start with the
+[WiFiman Teleport recovery runbook](wifiman-teleport-stuck-connection.md).
+Those symptoms require checking app state, IPv6 health probes, and leftover
+interfaces/firewall tables before changing MTU.
+
 Known affected paths:
 
 - Kubernetes API: `https://192.168.3.2:6443`

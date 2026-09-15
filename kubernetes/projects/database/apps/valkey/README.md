@@ -15,7 +15,7 @@ through a Fleet `HelmOp`.
   StatefulSet claims while the chart's immutable claim template remains the
   bootstrap default
 - Metrics: chart exporter and `ServiceMonitor` are enabled
-- Replica data-container memory: operator-managed `374Mi` request and `768Mi`
+- Replica data-container memory: operator-managed `1536Mi` request and `4Gi`
   limit covering startup loading, full synchronization, and AOF rewrite
   overhead; the recommendation profile remains observe-only
 
@@ -25,10 +25,15 @@ cluster network boundary in the separate `valkey-networkpolicy` bundle.
 Valkey maintains one primary and two application-level replicas on separate
 nodes. `k8s-rpi1` is excluded after its Sentinel repeatedly wedged in DNS-driven
 tilt while the colocated Valkey data process remained healthy. The StatefulSet
-uses `OnDelete` so placement changes never roll the healthy primary and quorum
-automatically; an operator must recreate only the affected ordinal after
-verifying the primary, replica, Sentinel quorum, and retained PVC health. Each
-backing volume also uses three Longhorn replicas, resulting in 36Gi of nominal
+uses `OnDelete` so placement changes do not automatically roll the healthy
+primary and quorum. Capacity recovery must proceed one replica at a time,
+verifying replication and Sentinel quorum between ordinals. With explicit
+break-glass authorization, recreate failed replicas against the expanded
+Fleet-managed template, fail over to a healthy expanded replica, then recreate
+the former primary. Otherwise use temporary Fleet-managed recovery resources
+and partitions, removing those resources and restoring `OnDelete` afterward.
+
+Each backing volume also uses three Longhorn replicas, resulting in 36Gi of nominal
 scheduled block capacity and allowing each PVC to tolerate replica loss at the
 block layer. Sentinel still provides application-level failover.
 This service is not an independent backup, so durable producers must remain
@@ -73,6 +78,11 @@ label.
 
 ## Operating Notes
 
+The September 13, 2026 capacity recovery verified all three expanded pods with
+zero restarts, two synchronized replicas, Sentinel quorum, and an application
+write acknowledged by both replicas. Temporary recovery resources were removed
+and the guarded `OnDelete` strategy was restored.
+
 - Change chart behavior in `values.yaml`, not by patching live workloads.
 - The chart pin in `helmop.yaml` is excluded from Renovate. Chart updates can
   change the pod revision even when digest-pinned containers stay identical;
@@ -96,3 +106,14 @@ label.
 - Follow
   [`docs/runbooks/statefulset-ondelete-rollout-recovery.md`](../../../../../docs/runbooks/statefulset-ondelete-rollout-recovery.md)
   when revisions differ; never recreate multiple ordinals together.
+
+## Logical database allocation
+
+DevFeed reserves logical database **10** for its sessions, RQ queues, job logs,
+caches and rate limits. Its migration must preserve values and expiration times;
+Redis 8 DUMP payloads are not directly compatible with this Valkey release.
+The original migration began with approximately 119MiB. By September 13 the
+shared dataset had grown beyond 1GiB, while replicas retained approximately
+1.4GiB startup datasets. The 4Gi limit provides room for both datasets during
+`swapdb` full synchronization, allocator overhead, and AOF rewrite activity.
+Existing clients' databases and keys remain unchanged.

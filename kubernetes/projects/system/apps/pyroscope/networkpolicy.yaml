@@ -51,6 +51,16 @@ spec:
       ports:
         - protocol: TCP
           port: 4040
+    - from:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: devfeed
+          podSelector:
+            matchLabels:
+              devfeed-telemetry: 'true'
+      ports:
+        - protocol: TCP
+          port: 4040
   egress:
     - to:
         - namespaceSelector:
