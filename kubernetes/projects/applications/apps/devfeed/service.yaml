@@ -1,0 +1,119 @@
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: chimely
+  namespace: devfeed
+  labels:
+    app.kubernetes.io/name: chimely
+    app.kubernetes.io/part-of: devfeed
+spec:
+  selector:
+    app.kubernetes.io/name: chimely
+    app.kubernetes.io/part-of: devfeed
+  ports:
+    - name: http
+      port: 8080
+      targetPort: 8080
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: devfeed-codex
+  namespace: devfeed
+  labels:
+    app.kubernetes.io/name: devfeed-codex
+    app.kubernetes.io/part-of: devfeed
+spec:
+  selector:
+    app.kubernetes.io/name: devfeed-codex
+    app.kubernetes.io/part-of: devfeed
+  ports:
+    - name: wss
+      port: 4501
+      targetPort: 4501
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: devfeed-api
+  namespace: devfeed
+  labels:
+    app.kubernetes.io/name: devfeed-api
+    app.kubernetes.io/part-of: devfeed
+spec:
+  selector:
+    app.kubernetes.io/name: devfeed-api
+    app.kubernetes.io/part-of: devfeed
+  ports:
+    - name: http
+      port: 8000
+      targetPort: 8000
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: devfeed-user-api
+  namespace: devfeed
+  labels:
+    app.kubernetes.io/name: devfeed-user-api
+    app.kubernetes.io/part-of: devfeed
+spec:
+  selector:
+    app.kubernetes.io/name: devfeed-user-api
+    app.kubernetes.io/part-of: devfeed
+  ports:
+    - name: http
+      port: 8002
+      targetPort: 8002
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: devfeed-admin-api
+  namespace: devfeed
+  labels:
+    app.kubernetes.io/name: devfeed-admin-api
+    app.kubernetes.io/part-of: devfeed
+spec:
+  selector:
+    app.kubernetes.io/name: devfeed-admin-api
+    app.kubernetes.io/part-of: devfeed
+  ports:
+    - name: http
+      port: 8001
+      targetPort: 8001
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: devfeed-web
+  namespace: devfeed
+  labels:
+    app.kubernetes.io/name: devfeed-web
+    app.kubernetes.io/part-of: devfeed
+spec:
+  selector:
+    app.kubernetes.io/name: devfeed-web
+    app.kubernetes.io/part-of: devfeed
+  ports:
+    - name: http
+      port: 3000
+      targetPort: 3000
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: devfeed-admin
+  namespace: devfeed
+  labels:
+    app.kubernetes.io/name: devfeed-admin
+    app.kubernetes.io/part-of: devfeed
+spec:
+  selector:
+    app.kubernetes.io/name: devfeed-admin
+    app.kubernetes.io/part-of: devfeed
+  ports:
+    - name: http
+      port: 3000
+      targetPort: 3000

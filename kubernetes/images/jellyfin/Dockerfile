@@ -33,7 +33,7 @@ RUN set -eux; \
     find /opt/jellyfin/plugins -name meta.json -print0 \
       | xargs -0 -I '{}' sh -c 'tmp="${1}.tmp"; jq ".autoUpdate = false" "$1" > "${tmp}"; mv "${tmp}" "$1"' sh '{}'
 
-FROM --platform=$BUILDPLATFORM mcr.microsoft.com/dotnet/sdk:10.0 AS postgres-provider-build
+FROM --platform=$BUILDPLATFORM mcr.microsoft.com/dotnet/sdk:11.0 AS postgres-provider-build
 ARG POSTGRES_PROVIDER_REF
 
 COPY patches/ /tmp/jellyfin-patches/

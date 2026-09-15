@@ -91,7 +91,20 @@ alloy:
 
       loki.source.kubernetes "pods" {
         targets    = discovery.relabel.pods.output
+        forward_to = [loki.process.devfeed.receiver]
+      }
+
+      loki.process "devfeed" {
         forward_to = [loki.write.local.receiver]
+        stage.match {
+          selector = "{namespace=\"devfeed\"}"
+          stage.json {
+            expressions = { severity = "level", service = "service" }
+          }
+          stage.labels {
+            values = { severity = "", service = "" }
+          }
+        }
       }
 
       loki.write "local" {

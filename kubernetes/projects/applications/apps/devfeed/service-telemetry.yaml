@@ -1,0 +1,32 @@
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: devfeed-web-telemetry
+  namespace: devfeed
+  labels:
+    app.kubernetes.io/part-of: devfeed
+spec:
+  type: ClusterIP
+  selector:
+    app.kubernetes.io/name: devfeed-web
+  ports:
+  - name: metrics
+    port: 9100
+    targetPort: metrics
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: devfeed-admin-telemetry
+  namespace: devfeed
+  labels:
+    app.kubernetes.io/part-of: devfeed
+spec:
+  type: ClusterIP
+  selector:
+    app.kubernetes.io/name: devfeed-admin
+  ports:
+  - name: metrics
+    port: 9100
+    targetPort: metrics

@@ -263,7 +263,10 @@ supported by Music Assistant upstream.
   similar-track controller. It merges results from metadata and plugin
   providers so the occasional sparse Last.fm match does not short-circuit the
   local Sonic result set. The overlay generation fails closed when an upstream
-  upgrade changes the expected controller block.
+  upgrade changes the expected controller block. The 2.10.3 overlay uses the
+  upstream provider-request helper and preserves its error propagation and
+  empty-response handling while merging and deduplicating results. Generated
+  controller code is syntax-checked before replacing the retained overlay.
 - The init container also keeps the Alexa player's regional Amazon domain
   (`amazon.in`), `en-IN` locale, authenticated prototype API URL, and API
   credentials declarative. Its provider overlay adds the missing `en-IN`

@@ -1,0 +1,90 @@
+---
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: devfeed-api
+  namespace: devfeed
+  labels:
+    app.kubernetes.io/name: devfeed-api
+    app.kubernetes.io/part-of: devfeed
+spec:
+  minAvailable: 1
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: devfeed-api
+      app.kubernetes.io/part-of: devfeed
+---
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: devfeed-user-api
+  namespace: devfeed
+  labels:
+    app.kubernetes.io/name: devfeed-user-api
+    app.kubernetes.io/part-of: devfeed
+spec:
+  minAvailable: 1
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: devfeed-user-api
+      app.kubernetes.io/part-of: devfeed
+---
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: devfeed-worker-background
+  namespace: devfeed
+  labels:
+    app.kubernetes.io/name: devfeed-worker-background
+    app.kubernetes.io/part-of: devfeed
+spec:
+  minAvailable: 1
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: devfeed-worker-background
+      app.kubernetes.io/part-of: devfeed
+---
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: devfeed-web
+  namespace: devfeed
+  labels:
+    app.kubernetes.io/name: devfeed-web
+    app.kubernetes.io/part-of: devfeed
+spec:
+  minAvailable: 1
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: devfeed-web
+      app.kubernetes.io/part-of: devfeed
+---
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: devfeed-admin
+  namespace: devfeed
+  labels:
+    app.kubernetes.io/name: devfeed-admin
+    app.kubernetes.io/part-of: devfeed
+spec:
+  minAvailable: 1
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: devfeed-admin
+      app.kubernetes.io/part-of: devfeed
+---
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: devfeed-admin-api
+  namespace: devfeed
+  labels:
+    app.kubernetes.io/name: devfeed-admin-api
+    app.kubernetes.io/part-of: devfeed
+spec:
+  minAvailable: 1
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: devfeed-admin-api
+      app.kubernetes.io/part-of: devfeed

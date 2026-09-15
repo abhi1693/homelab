@@ -325,6 +325,30 @@ cluster:
       bypassrls: false
       passwordSecret:
         name: home-assistant-postgresql
+    - name: devfeed
+      ensure: present
+      login: true
+      connectionLimit: 24
+      superuser: false
+      createdb: false
+      createrole: false
+      inherit: true
+      replication: false
+      bypassrls: false
+      passwordSecret:
+        name: devfeed-postgresql
+    - name: devfeed_chimely
+      ensure: present
+      login: true
+      connectionLimit: 24
+      superuser: false
+      createdb: false
+      createrole: false
+      inherit: true
+      replication: false
+      bypassrls: false
+      passwordSecret:
+        name: devfeed-chimely-postgresql
 backups:
   enabled: true
   endpointURL: https://492e25f5f18ef59e38763f58a78362f7.r2.cloudflarestorage.com
@@ -395,6 +419,12 @@ databases:
     databaseReclaimPolicy: retain
   - name: home_assistant
     owner: home_assistant
+    databaseReclaimPolicy: retain
+  - name: devfeed
+    owner: devfeed
+    databaseReclaimPolicy: retain
+  - name: devfeed_chimely
+    owner: devfeed_chimely
     databaseReclaimPolicy: retain
 poolers:
   - name: jellyfin-rw
@@ -635,7 +665,7 @@ poolers:
   - name: wardn-ai-rw
     type: rw
     poolMode: session
-    instances: 1
+    instances: 0
     monitoring:
       enabled: true
       podMonitor:
@@ -864,6 +894,53 @@ poolers:
             resources:
               requests:
                 cpu: 10m
+                memory: 56Mi
+              limits:
+                memory: 192Mi
+  - name: devfeed-rw
+    type: rw
+    poolMode: session
+    instances: 2
+    monitoring:
+      enabled: true
+      podMonitor:
+        enabled: true
+    parameters:
+      max_client_conn: '60'
+      default_pool_size: '10'
+    template:
+      metadata:
+        labels:
+          app.kubernetes.io/part-of: postgresql
+          home-lab.io/client: devfeed
+      spec:
+        nodeSelector:
+          kubernetes.io/arch: arm64
+        topologySpreadConstraints:
+          - maxSkew: 1
+            topologyKey: kubernetes.io/hostname
+            whenUnsatisfiable: DoNotSchedule
+            labelSelector:
+              matchLabels:
+                cnpg.io/poolerName: postgresql-pooler-devfeed-rw
+            matchLabelKeys:
+              - pod-template-hash
+        affinity:
+          podAntiAffinity:
+            requiredDuringSchedulingIgnoredDuringExecution:
+              - labelSelector:
+                  matchLabels:
+                    cnpg.io/poolerName: postgresql-pooler-devfeed-rw
+                matchLabelKeys:
+                  - pod-template-hash
+                topologyKey: kubernetes.io/hostname
+        containers:
+          - name: pgbouncer
+            # renovate: datasource=docker depName=ghcr.io/cloudnative-pg/pgbouncer
+            image: registry.home/ghcr.io/cloudnative-pg/pgbouncer:1.25.2
+            resources:
+              requests:
+                cpu: 50m
                 memory: 56Mi
               limits:
                 memory: 192Mi

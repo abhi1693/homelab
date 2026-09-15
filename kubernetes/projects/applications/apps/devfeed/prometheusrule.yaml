@@ -1,0 +1,328 @@
+---
+apiVersion: monitoring.coreos.com/v1
+kind: PrometheusRule
+metadata:
+  name: devfeed
+  namespace: devfeed
+  labels:
+    app.kubernetes.io/part-of: rancher-monitoring
+spec:
+  groups:
+  - name: devfeed.http
+    interval: 30s
+    rules:
+    - record: devfeed:http_requests:rate5m
+      expr: sum by(service)(rate(devfeed_http_requests_total{namespace="devfeed"}[5m]))
+    - record: devfeed:http_error_ratio:rate5m
+      expr: (sum by(service)(rate(devfeed_http_requests_total{namespace="devfeed",status=~"5.."}[5m])) or on(service)
+        (0 * (sum by(service)(rate(devfeed_http_requests_total{namespace="devfeed"}[5m]))))) / sum by(service)(rate(devfeed_http_requests_total{namespace="devfeed"}[5m]))
+    - record: devfeed:http_requests:rate30m
+      expr: sum by(service)(rate(devfeed_http_requests_total{namespace="devfeed"}[30m]))
+    - record: devfeed:http_error_ratio:rate30m
+      expr: (sum by(service)(rate(devfeed_http_requests_total{namespace="devfeed",status=~"5.."}[30m])) or on(service)
+        (0 * (sum by(service)(rate(devfeed_http_requests_total{namespace="devfeed"}[30m]))))) / sum by(service)(rate(devfeed_http_requests_total{namespace="devfeed"}[30m]))
+    - record: devfeed:http_requests:rate1h
+      expr: sum by(service)(rate(devfeed_http_requests_total{namespace="devfeed"}[1h]))
+    - record: devfeed:http_error_ratio:rate1h
+      expr: (sum by(service)(rate(devfeed_http_requests_total{namespace="devfeed",status=~"5.."}[1h])) or on(service)
+        (0 * (sum by(service)(rate(devfeed_http_requests_total{namespace="devfeed"}[1h]))))) / sum by(service)(rate(devfeed_http_requests_total{namespace="devfeed"}[1h]))
+    - record: devfeed:http_requests:rate6h
+      expr: sum by(service)(rate(devfeed_http_requests_total{namespace="devfeed"}[6h]))
+    - record: devfeed:http_error_ratio:rate6h
+      expr: (sum by(service)(rate(devfeed_http_requests_total{namespace="devfeed",status=~"5.."}[6h])) or on(service)
+        (0 * (sum by(service)(rate(devfeed_http_requests_total{namespace="devfeed"}[6h]))))) / sum by(service)(rate(devfeed_http_requests_total{namespace="devfeed"}[6h]))
+  - name: devfeed.operations
+    interval: 30s
+    rules:
+    - alert: DevFeedAvailabilityFastBurn
+      expr: (devfeed:http_error_ratio:rate1h > 14.4 * 0.001) and on(service) (devfeed:http_error_ratio:rate5m >
+        14.4 * 0.001) and on(service) (devfeed:http_requests:rate1h * 3600 >= 100)
+      for: 2m
+      labels:
+        severity: critical
+        namespace: devfeed
+        app: devfeed
+      annotations:
+        summary: DevFeed availability is burning its error budget quickly
+        description: Both the 1h and 5m windows exceed the 99.9% SLO fast-burn threshold, with at least 100 requests
+          in 1h. Inspect 5xx routes, recent releases, readiness, database and dependency panels.
+        runbook_url: https://github.com/abhi1693/devfeed.tech/blob/v0.0.8/docs/observability.md#availability
+        dashboard_url: http://grafana.home/d/devfeed-operations
+    - alert: DevFeedAvailabilitySlowBurn
+      expr: (devfeed:http_error_ratio:rate6h > 6 * 0.001) and on(service) (devfeed:http_error_ratio:rate30m > 6
+        * 0.001) and on(service) (devfeed:http_requests:rate6h * 21600 >= 100)
+      for: 15m
+      labels:
+        severity: warning
+        namespace: devfeed
+        app: devfeed
+      annotations:
+        summary: DevFeed availability has sustained error-budget burn
+        description: Both 6h and 30m exceed the slower burn threshold. Low traffic alone does not trigger a burn
+          alert; deployment and synthetic availability checks cover total outages.
+        runbook_url: https://github.com/abhi1693/devfeed.tech/blob/v0.0.8/docs/observability.md#availability
+        dashboard_url: http://grafana.home/d/devfeed-operations
+    - alert: DevFeedHighLatency
+      expr: histogram_quantile(0.95,sum by(service,le)(rate(devfeed_http_request_duration_seconds_bucket{namespace="devfeed"}[10m])))
+        > 2 and on(service) (devfeed:http_requests:rate5m * 300 >= 50)
+      for: 15m
+      labels:
+        severity: warning
+        namespace: devfeed
+        app: devfeed
+      annotations:
+        summary: DevFeed p95 HTTP latency exceeds two seconds
+        description: At least 50 requests occurred in 5m. Inspect route latency, database spans, checked-out connections,
+          CPU and event-loop lag.
+        runbook_url: https://github.com/abhi1693/devfeed.tech/blob/v0.0.8/docs/observability.md#latency-and-hotspots
+        dashboard_url: http://grafana.home/d/devfeed-operations
+    - alert: DevFeedDeploymentUnavailable
+      expr: kube_deployment_status_replicas_available{namespace="devfeed"} < 1
+      for: 3m
+      labels:
+        severity: critical
+        namespace: devfeed
+        app: devfeed
+      annotations:
+        summary: A DevFeed deployment has no available replicas
+        description: Inspect Deployment conditions, init schema checks, image pulls, readiness and pod events. Preserve
+          three replicas per dedicated AI queue in GitOps.
+        runbook_url: https://github.com/abhi1693/devfeed.tech/blob/v0.0.8/docs/observability.md#workloads
+        dashboard_url: http://grafana.home/d/devfeed-operations
+    - alert: DevFeedReplicasDegraded
+      expr: kube_deployment_status_replicas_available{namespace="devfeed"} < kube_deployment_spec_replicas{namespace="devfeed"}
+      for: 15m
+      labels:
+        severity: warning
+        namespace: devfeed
+        app: devfeed
+      annotations:
+        summary: A DevFeed deployment has fewer ready replicas than desired
+        description: Sustained capacity loss after the normal rollout window; inspect pending, crashing and unready
+          pods.
+        runbook_url: https://github.com/abhi1693/devfeed.tech/blob/v0.0.8/docs/observability.md#workloads
+        dashboard_url: http://grafana.home/d/devfeed-operations
+    - alert: DevFeedPodCrashLoop
+      expr: increase(kube_pod_container_status_restarts_total{namespace="devfeed"}[15m]) >= 3
+      for: 2m
+      labels:
+        severity: warning
+        namespace: devfeed
+        app: devfeed
+      annotations:
+        summary: A DevFeed container is repeatedly restarting
+        description: Check previous container logs, last termination reason, OOM and readiness/liveness failures
+          before changing resource limits.
+        runbook_url: https://github.com/abhi1693/devfeed.tech/blob/v0.0.8/docs/observability.md#workloads
+        dashboard_url: http://grafana.home/d/devfeed-operations
+    - alert: DevFeedMemoryPressure
+      expr: sum by(pod)(container_memory_working_set_bytes{namespace="devfeed",container!="",container!="POD",image!=""})
+        / sum by(pod)(kube_pod_container_resource_limits{namespace="devfeed",resource="memory"}) > 0.9
+      for: 15m
+      labels:
+        severity: warning
+        namespace: devfeed
+        app: devfeed
+      annotations:
+        summary: A DevFeed pod exceeds 90% of its memory limit
+        description: Use pod memory and heap profiles; worker pod memory includes its forked child. CPU requests
+          are scheduling reservations, not throughput limits.
+        runbook_url: https://github.com/abhi1693/devfeed.tech/blob/v0.0.8/docs/observability.md#latency-and-hotspots
+        dashboard_url: http://grafana.home/d/devfeed-operations
+    - alert: DevFeedMetricsUnavailable
+      expr: up{namespace="devfeed",telemetry="devfeed-application"} == 0
+      for: 3m
+      labels:
+        severity: warning
+        namespace: devfeed
+        app: devfeed
+      annotations:
+        summary: A private DevFeed metrics target cannot be scraped
+        description: Check the listener on port 9100, PodMonitor target errors and both NetworkPolicy directions.
+          Application ports must still return 404 for /metrics.
+        runbook_url: https://github.com/abhi1693/devfeed.tech/blob/v0.0.8/docs/observability.md#telemetry
+        dashboard_url: http://grafana.home/d/devfeed-operations
+    - alert: DevFeedMetricsMissing
+      expr: absent(up{namespace="devfeed",telemetry="devfeed-application"})
+      for: 5m
+      labels:
+        severity: critical
+        namespace: devfeed
+        app: devfeed
+      annotations:
+        summary: All DevFeed application metrics targets are missing
+        description: Check PodMonitor discovery, selectors, Prometheus and Fleet. A missing series is not healthy.
+        runbook_url: https://github.com/abhi1693/devfeed.tech/blob/v0.0.8/docs/observability.md#telemetry
+        dashboard_url: http://grafana.home/d/devfeed-operations
+    - alert: DevFeedExporterStale
+      expr: (time() - devfeed_exporter_last_success_timestamp_seconds{namespace="devfeed"} > 180) or (devfeed_exporter_dependency_up{namespace="devfeed"}
+        == 0)
+      for: 3m
+      labels:
+        severity: warning
+        namespace: devfeed
+        app: devfeed
+      annotations:
+        summary: DevFeed product telemetry is stale or failing
+        description: Cached snapshots deliberately retain last good values. Check dependency health and exporter
+          duration before interpreting queue/product panels. SQL is read-only and bounded.
+        runbook_url: https://github.com/abhi1693/devfeed.tech/blob/v0.0.8/docs/observability.md#telemetry
+        dashboard_url: http://grafana.home/d/devfeed-operations
+    - alert: DevFeedExporterMissing
+      expr: absent(devfeed_exporter_dependency_up{namespace="devfeed",dependency="database"})
+      for: 5m
+      labels:
+        severity: warning
+        namespace: devfeed
+        app: devfeed
+      annotations:
+        summary: DevFeed product exporter metrics are missing
+        description: Check exporter Deployment, metrics target and schema readiness.
+        runbook_url: https://github.com/abhi1693/devfeed.tech/blob/v0.0.8/docs/observability.md#telemetry
+        dashboard_url: http://grafana.home/d/devfeed-operations
+    - alert: DevFeedQueueWithoutWorkers
+      expr: sum by(queue)(devfeed_jobs_due{namespace="devfeed"}) > 0 and on(queue) (sum by(queue)(devfeed_queue_workers{namespace="devfeed"})
+        == 0)
+      for: 5m
+      labels:
+        severity: critical
+        namespace: devfeed
+        app: devfeed
+      annotations:
+        summary: Eligible DevFeed jobs have no live workers
+        description: Use the queue-specific Deployment. Inspect worker heartbeats, Codex readiness/cooldown and
+          Redis. Do not restart unrelated queues.
+        runbook_url: https://github.com/abhi1693/devfeed.tech/blob/v0.0.8/docs/observability.md#queues-and-retries
+        dashboard_url: http://grafana.home/d/devfeed-operations
+    - alert: DevFeedQueueDelay
+      expr: max by(queue)(devfeed_jobs_oldest_due_age_seconds{namespace="devfeed"}) > 1800
+      for: 15m
+      labels:
+        severity: warning
+        namespace: devfeed
+        app: devfeed
+      annotations:
+        summary: A DevFeed queue has work eligible for more than 30 minutes
+        description: Inspect backlog trend, completions, active workers and provider cooldown. Queue age excludes
+          deliberately delayed retries. Scale only the affected pool after checking dependency capacity.
+        runbook_url: https://github.com/abhi1693/devfeed.tech/blob/v0.0.8/docs/observability.md#queues-and-retries
+        dashboard_url: http://grafana.home/d/devfeed-operations
+    - alert: DevFeedExpiredLeases
+      expr: sum by(queue)(devfeed_jobs_expired_leases{namespace="devfeed"}) > 0
+      for: 10m
+      labels:
+        severity: warning
+        namespace: devfeed
+        app: devfeed
+      annotations:
+        summary: DevFeed running leases remain expired
+        description: Inspect worker crashes and scheduler recovery cycles. Durable lease ownership must be respected;
+          do not delete or replay running work blindly.
+        runbook_url: https://github.com/abhi1693/devfeed.tech/blob/v0.0.8/docs/observability.md#queues-and-retries
+        dashboard_url: http://grafana.home/d/devfeed-operations
+    - alert: DevFeedJobFailureRatio
+      expr: sum by(kind)(devfeed_jobs_completed_window{namespace="devfeed",window="1h",status="failed"}) / sum by(kind)(devfeed_jobs_completed_window{namespace="devfeed",window="1h"})
+        > 0.2 and on(kind) (sum by(kind)(devfeed_jobs_completed_window{namespace="devfeed",window="1h"}) >= 10)
+      for: 15m
+      labels:
+        severity: warning
+        namespace: devfeed
+        app: devfeed
+      annotations:
+        summary: More than 20% of a DevFeed job kind failed in the last hour
+        description: At least 10 terminal completions. Inspect bounded failure families and admin job logs. RQ success
+          does not imply durable business success.
+        runbook_url: https://github.com/abhi1693/devfeed.tech/blob/v0.0.8/docs/observability.md#queues-and-retries
+        dashboard_url: http://grafana.home/d/devfeed-operations
+    - alert: DevFeedJobRetryRatio
+      expr: sum by(kind)(devfeed_jobs_retried_window{namespace="devfeed",window="1h"}) / sum by(kind)(devfeed_jobs_completed_window{namespace="devfeed",window="1h"})
+        > 0.5 and on(kind) (sum by(kind)(devfeed_jobs_completed_window{namespace="devfeed",window="1h"}) >= 10)
+      for: 30m
+      labels:
+        severity: warning
+        namespace: devfeed
+        app: devfeed
+      annotations:
+        summary: Most completions of a DevFeed job kind required retries
+        description: Investigate provider capacity, citation availability and dependency timeouts. These are rolling
+          gauges, not rate counters.
+        runbook_url: https://github.com/abhi1693/devfeed.tech/blob/v0.0.8/docs/observability.md#queues-and-retries
+        dashboard_url: http://grafana.home/d/devfeed-operations
+    - alert: DevFeedBackgroundStalled
+      expr: time() - devfeed_background_last_success_timestamp_seconds{namespace="devfeed",service=~"scheduler|search-indexer"}
+        > 300
+      for: 5m
+      labels:
+        severity: critical
+        namespace: devfeed
+        app: devfeed
+      annotations:
+        summary: DevFeed scheduler or search indexer has stopped completing cycles
+        description: Inspect cycle failures, database/query latency, Typesense and process health.
+        runbook_url: https://github.com/abhi1693/devfeed.tech/blob/v0.0.8/docs/observability.md#queues-and-retries
+        dashboard_url: http://grafana.home/d/devfeed-operations
+    - alert: DevFeedSearchLag
+      expr: devfeed_search_oldest_event_age_seconds{namespace="devfeed"} > 600 and devfeed_search_pending_events{namespace="devfeed"}
+        > 0
+      for: 10m
+      labels:
+        severity: warning
+        namespace: devfeed
+        app: devfeed
+      annotations:
+        summary: DevFeed search index is more than ten minutes behind
+        description: Inspect search-indexer cycle health and Typesense request errors.
+        runbook_url: https://github.com/abhi1693/devfeed.tech/blob/v0.0.8/docs/observability.md#queues-and-retries
+        dashboard_url: http://grafana.home/d/devfeed-operations
+    - alert: DevFeedCodexUnavailable
+      expr: devfeed_ai_ready{namespace="devfeed"} == 0
+      for: 10m
+      labels:
+        severity: warning
+        namespace: devfeed
+        app: devfeed
+      annotations:
+        summary: DevFeed Codex account RPC is unavailable
+        description: AI workers preserve queued work during account/RPC outages. Inspect Codex pod readiness, TLS,
+          account state and shared provider cooldown.
+        runbook_url: https://github.com/abhi1693/devfeed.tech/blob/v0.0.8/docs/observability.md#queues-and-retries
+        dashboard_url: http://grafana.home/d/devfeed-operations
+    - alert: DevFeedTelemetrySDKFailed
+      expr: devfeed_telemetry_component_up{namespace="devfeed",service=~"api|admin-api|user-api|web|admin|scheduler|search-indexer|exporter"}
+        == 0
+      for: 5m
+      labels:
+        severity: warning
+        namespace: devfeed
+        app: devfeed
+      annotations:
+        summary: A DevFeed trace or profile SDK failed to initialize
+        description: Inspect safe telemetry initialization logs and architecture/native library compatibility. Application
+          health is independent of collector availability.
+        runbook_url: https://github.com/abhi1693/devfeed.tech/blob/v0.0.8/docs/observability.md#telemetry
+        dashboard_url: http://grafana.home/d/devfeed-operations
+    - alert: DevFeedHTTPProbeFailed
+      expr: probe_success{namespace="devfeed",job="devfeed-http-probes"} == 0
+      for: 2m
+      labels:
+        severity: critical
+        namespace: devfeed
+        app: devfeed
+      annotations:
+        summary: A DevFeed HTTP availability probe is failing
+        description: Public reader HTTPS or an internal service readiness/login probe failed. Inspect the instance
+          URL, probe HTTP status/TLS/DNS and corresponding deployment. No authenticated account action is performed.
+        runbook_url: https://github.com/abhi1693/devfeed.tech/blob/v0.0.8/docs/observability.md#availability
+        dashboard_url: http://grafana.home/d/devfeed-operations
+    - alert: DevFeedHTTPProbesMissing
+      expr: absent(probe_success{namespace="devfeed",job="devfeed-http-probes"})
+      for: 5m
+      labels:
+        severity: critical
+        namespace: devfeed
+        app: devfeed
+      annotations:
+        summary: DevFeed HTTP probes are missing
+        description: Check Probe discovery and the redundant blackbox exporter pods; missing telemetry is not success.
+        runbook_url: https://github.com/abhi1693/devfeed.tech/blob/v0.0.8/docs/observability.md#availability
+        dashboard_url: http://grafana.home/d/devfeed-operations

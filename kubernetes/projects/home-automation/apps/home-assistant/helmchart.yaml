@@ -20,7 +20,7 @@ spec:
       repository: registry.home/ghcr.io/home-assistant/home-assistant
       pullPolicy: IfNotPresent
       # renovate: datasource=github-releases depName=home-assistant/core
-      tag: "2026.9.1"
+      tag: "2026.9.2"
     env:
       - name: TZ
         value: Asia/Kolkata
@@ -79,7 +79,7 @@ spec:
     initContainers:
       - name: wait-for-go2rtc
         # renovate: datasource=github-releases depName=home-assistant/core
-        image: registry.home/ghcr.io/home-assistant/home-assistant:2026.9.1
+        image: registry.home/ghcr.io/home-assistant/home-assistant:2026.9.2
         imagePullPolicy: IfNotPresent
         env:
           - name: GO2RTC_USERNAME
@@ -128,7 +128,7 @@ spec:
             memory: 64Mi
       - name: archive-sqlite-recorder
         # renovate: datasource=github-releases depName=home-assistant/core
-        image: registry.home/ghcr.io/home-assistant/home-assistant:2026.9.1
+        image: registry.home/ghcr.io/home-assistant/home-assistant:2026.9.2
         imagePullPolicy: IfNotPresent
         securityContext:
           runAsUser: 0
@@ -164,7 +164,7 @@ spec:
             mountPath: /config
       - name: build-home-lab-ca-bundle
         # renovate: datasource=github-releases depName=home-assistant/core
-        image: registry.home/ghcr.io/home-assistant/home-assistant:2026.9.1
+        image: registry.home/ghcr.io/home-assistant/home-assistant:2026.9.2
         imagePullPolicy: IfNotPresent
         securityContext:
           runAsUser: 0
@@ -193,7 +193,7 @@ spec:
             mountPath: /trust
       - name: install-home-assistant-source
         # renovate: datasource=github-releases depName=home-assistant/core
-        image: registry.home/ghcr.io/home-assistant/home-assistant:2026.9.1
+        image: registry.home/ghcr.io/home-assistant/home-assistant:2026.9.2
         imagePullPolicy: IfNotPresent
         securityContext:
           runAsUser: 0

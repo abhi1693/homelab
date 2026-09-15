@@ -3,6 +3,7 @@
 
 from __future__ import annotations
 
+import json
 from pathlib import Path
 import re
 import sys
@@ -63,6 +64,34 @@ def main() -> int:
     failures: list[str] = []
     config = (REPOSITORY_ROOT / CONFIG_PATH).read_text(encoding="utf-8")
 
+    # Exercise the configured matcher: a greedy repository capture once let
+    # Renovate replace an image digest with a GitHub release tag.
+    image_matchers = [
+        json.loads(line.strip().rstrip(","))
+        for line in config.splitlines()
+        if "(?:image|imageName)" in line and "(?<currentDigest>sha256:" in line
+    ]
+    if len(image_matchers) != 1:
+        failures.append("expected exactly one tag-and-digest image matcher")
+    else:
+        matcher = re.compile(re.sub(r"\(\?<([A-Za-z]+)>", r"(?P<\1>", image_matchers[0]))
+        digest = "sha256:" + "a" * 64
+        for repository in ("registry.home/ghcr.io/example/app", "registry.home:5000/example/app"):
+            for key in ("image", "imageName"):
+                for quote in ("", '"', "'"):
+                    for suffix in ("", "@" + digest):
+                        sample = (
+                            "# renovate: datasource=github-releases depName=example/app\n"
+                            f"  {key}: {quote}{repository}:0.0.8{suffix}{quote}\n"
+                        )
+                        match = matcher.search(sample)
+                        if (
+                            match is None
+                            or match.group("currentValue") != "0.0.8"
+                            or match.group("currentDigest") != (digest if suffix else None)
+                        ):
+                            failures.append(f"Renovate image matcher misreads {sample!r}")
+
     required_merge_policy = {
         "automerge": "true",
         "automergeType": '"branch"',
@@ -114,6 +143,12 @@ def main() -> int:
 
         lines = path.read_text(encoding="utf-8").splitlines()
         for index, line in enumerate(lines):
+            if image_pattern.match(line) and "@sha256:" in line:
+                pin = line.split("@sha256:", 1)[1].split()[0].rstrip("\"'")
+                if not re.fullmatch(r"[a-f0-9]{64}", pin):
+                    failures.append(
+                        f"invalid SHA-256 image pin: {path.relative_to(REPOSITORY_ROOT)}:{index + 1}"
+                    )
             requires_marker = image_pattern.match(line) or tag_pattern.match(line)
             if path.name.startswith("helmop") or path.name == "fleet.yaml":
                 requires_marker = requires_marker or version_pattern.match(line)

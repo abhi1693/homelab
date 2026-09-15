@@ -1,0 +1,127 @@
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: postgresql-devfeed-pooler-access
+  namespace: postgresql
+  labels:
+    app.kubernetes.io/name: postgresql-pooler
+    app.kubernetes.io/part-of: postgresql
+    home-lab.io/client: devfeed
+spec:
+  podSelector:
+    matchLabels:
+      cnpg.io/poolerName: postgresql-pooler-devfeed-rw
+  policyTypes:
+    - Ingress
+    - Egress
+  ingress:
+    - from:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: devfeed
+          podSelector:
+            matchLabels:
+              devfeed-database-client: 'true'
+      ports:
+        - protocol: TCP
+          port: 5432
+  egress:
+    - to:
+        - ipBlock:
+            cidr: 10.43.0.1/32
+      ports:
+        - protocol: TCP
+          port: 443
+    - to:
+        - ipBlock:
+            cidr: 192.168.3.108/32
+        - ipBlock:
+            cidr: 192.168.3.191/32
+        - ipBlock:
+            cidr: 192.168.3.243/32
+      ports:
+        - protocol: TCP
+          port: 6443
+    - to:
+        - podSelector:
+            matchLabels:
+              cnpg.io/cluster: postgresql
+              cnpg.io/podRole: instance
+      ports:
+        - protocol: TCP
+          port: 5432
+    - to:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: kube-system
+          podSelector:
+            matchLabels:
+              k8s-app: kube-dns
+      ports:
+        - protocol: UDP
+          port: 53
+        - protocol: TCP
+          port: 53
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: postgresql-devfeed-migration
+  namespace: postgresql
+  labels:
+    app.kubernetes.io/part-of: devfeed
+spec:
+  podSelector:
+    matchLabels:
+      cnpg.io/cluster: postgresql
+      cnpg.io/podRole: instance
+  policyTypes:
+    - Ingress
+  ingress:
+    - from:
+        - podSelector:
+            matchExpressions:
+              - key: app.kubernetes.io/name
+                operator: In
+                values:
+                  - devfeed-migrate
+          namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: devfeed
+      ports:
+        - protocol: TCP
+          port: 5432
+---
+apiVersion: cilium.io/v2
+kind: CiliumNetworkPolicy
+metadata:
+  name: postgresql-devfeed-pooler-apiserver-access
+  namespace: postgresql
+  labels:
+    app.kubernetes.io/name: postgresql-pooler
+    app.kubernetes.io/part-of: postgresql
+    home-lab.io/client: devfeed
+spec:
+  endpointSelector:
+    matchLabels:
+      cnpg.io/poolerName: postgresql-pooler-devfeed-rw
+  egress:
+    - toEntities:
+        - kube-apiserver
+      toPorts:
+        - ports:
+            - port: '443'
+              protocol: TCP
+            - port: '6443'
+              protocol: TCP
+    - toEndpoints:
+        - matchLabels:
+            k8s:io.kubernetes.pod.namespace: kube-system
+            k8s:k8s-app: kube-dns
+      toPorts:
+        - ports:
+            - port: '53'
+              protocol: UDP
+            - port: '53'
+              protocol: TCP

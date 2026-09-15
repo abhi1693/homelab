@@ -93,9 +93,10 @@ login:
   enabled: true
   replicaCount: 2
   image:
-    repository: registry.home/ghcr.io/zitadel/zitadel-login
-    # renovate: datasource=docker depName=ghcr.io/zitadel/zitadel-login
-    tag: v4.15.3
+    repository: registry.home/ghcr.io/abhi1693/home-lab-zitadel-login
+    # Bounded GitHub registration session retry; core stays on upstream v4.15.3.
+    # renovate: datasource=docker depName=ghcr.io/abhi1693/home-lab-zitadel-login
+    tag: 4.15.3-idp-retry1@sha256:9e53cf6e009ca506f6e8015e1bf82ffa959276cc36ba5af72d507ef7e4c81e6c
     pullPolicy: IfNotPresent
   service:
     type: ClusterIP
@@ -134,7 +135,7 @@ login:
   resources:
     requests:
       cpu: 20m
-      memory: 147Mi
+      memory: 138Mi
     limits:
       memory: 256Mi
   nodeSelector:
@@ -149,7 +150,7 @@ login:
 resources:
   requests:
     cpu: 30m
-    memory: 179Mi
+    memory: 191Mi
   limits:
     memory: 768Mi
 nodeSelector:

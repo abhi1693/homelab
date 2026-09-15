@@ -38,6 +38,12 @@ Wardn AI image pins are the exception: they use the `git-refs` datasource with
 `currentValue=master` so Renovate can update full commit-SHA image tags that
 Docker tag versioning ignores.
 
+For `image: repository:tag@sha256:digest`, the custom image matcher excludes `@`
+from the repository portion so it captures the tag as `currentValue` and the
+SHA-256 pin as `currentDigest`. This prevents release updates from replacing the
+digest with a release tag. `python scripts/check-renovate-policy.py` checks these
+captures and rejects malformed SHA-256 image pins in project manifests.
+
 ```mermaid
 flowchart TD
   manifest["Manifest image value<br/>registry.home/ghcr.io/abhi1693/app:1.2.3"]

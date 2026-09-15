@@ -1,0 +1,104 @@
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: devfeed-admin
+  namespace: devfeed
+  labels:
+    app.kubernetes.io/name: devfeed-admin
+    app.kubernetes.io/part-of: devfeed
+spec:
+  replicas: 2
+  revisionHistoryLimit: 2
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: devfeed-admin
+      app.kubernetes.io/part-of: devfeed
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxSurge: 1
+      maxUnavailable: 0
+  template:
+    metadata:
+      labels:
+        devfeed-telemetry: 'true'
+        devfeed-faro: 'true'
+        app.kubernetes.io/name: devfeed-admin
+        app.kubernetes.io/part-of: devfeed
+    spec:
+      serviceAccountName: devfeed
+      automountServiceAccountToken: false
+      imagePullSecrets:
+        - name: harbor-registry
+      nodeSelector:
+        kubernetes.io/arch: arm64
+      affinity:
+        podAntiAffinity:
+          requiredDuringSchedulingIgnoredDuringExecution:
+            - labelSelector:
+                matchLabels:
+                  app.kubernetes.io/name: devfeed-admin
+              topologyKey: kubernetes.io/hostname
+      securityContext:
+        fsGroup: 1000
+        fsGroupChangePolicy: OnRootMismatch
+        seccompProfile:
+          type: RuntimeDefault
+      terminationGracePeriodSeconds: 180
+      containers:
+        - name: admin
+          # renovate: datasource=github-releases depName=abhi1693/devfeed.tech
+          image: registry.home/ghcr.io/abhi1693/devfeed.tech/admin:0.0.20@sha256:be4db3d52ad1c55bab9e7019ebf494c2b6443fa2a89b4676676e5229e3f39d9a
+          imagePullPolicy: IfNotPresent
+          envFrom:
+            - configMapRef:
+                name: devfeed-telemetry
+            - secretRef:
+                name: devfeed-faro
+          resources:
+            requests:
+              cpu: 100m
+              memory: 128Mi
+            limits:
+              memory: 512Mi
+          securityContext:
+            runAsNonRoot: true
+            runAsUser: 1000
+            runAsGroup: 1000
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities:
+              drop:
+                - ALL
+          env:
+            - name: DEVFEED_FARO_ENABLED
+              value: 'true'
+            - name: DEVFEED_ADMIN_API_URL
+              value: http://devfeed-admin-api:8001
+            - name: DEVFEED_ADMIN_BASE_URL
+              value: https://admin.devfeed.home
+          ports:
+            - name: metrics
+              containerPort: 9100
+            - containerPort: 3000
+          readinessProbe:
+            tcpSocket:
+              port: 3000
+            periodSeconds: 10
+          livenessProbe:
+            tcpSocket:
+              port: 3000
+            periodSeconds: 30
+          volumeMounts:
+            - name: next-cache
+              mountPath: /app/apps/admin/.next/cache
+            - name: tmp
+              mountPath: /tmp
+      volumes:
+        - name: tmp
+          emptyDir:
+            sizeLimit: 256Mi
+        - name: next-cache
+          emptyDir:
+            sizeLimit: 256Mi

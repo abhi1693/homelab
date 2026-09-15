@@ -75,18 +75,13 @@ spec:
           # renovate: datasource=github-releases depName=abhi1693/wardn-hub
           image: registry.home/ghcr.io/abhi1693/wardn-hub-backend:0.2.181
           imagePullPolicy: IfNotPresent
+          # Keep the hook successful without importing or starting AI processing.
+          # Resume with: python -m app.manage skills import-github --repo
+          # abhi1693/wardn-hub --subfolder skills/find-skills --output text
           command:
             - python
-            - -m
-            - app.manage
-            - skills
-            - import-github
-            - --repo
-            - abhi1693/wardn-hub
-            - --subfolder
-            - skills/find-skills
-            - --output
-            - text
+            - -c
+            - 'print("Wardn Hub AI processing is temporarily paused; refresh skipped.")'
           envFrom:
             - configMapRef:
                 name: wardn-hub

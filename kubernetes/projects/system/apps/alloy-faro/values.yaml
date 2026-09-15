@@ -57,6 +57,8 @@ alloy:
             "https://shipyardhq.dev",
             "https://www.shipyardhq.dev",
             "https://hub.wardnai.dev",
+            "https://devfeed.tech",
+            "https://admin.devfeed.home",
           ]
           include_metadata         = true
           max_allowed_payload_size = "2MiB"
@@ -100,6 +102,16 @@ alloy:
           location {
             minified_path_prefix = "https://hub.wardnai.dev/_next/static/"
             path                 = "http://wardn-hub-frontend.wardn.svc.cluster.local:3000/faro-sourcemaps/_next/static/"
+          }
+
+          location {
+            minified_path_prefix = "https://devfeed.tech/_next/static/"
+            path                 = "http://devfeed-web-telemetry.devfeed.svc.cluster.local:9100/sourcemaps/"
+          }
+
+          location {
+            minified_path_prefix = "https://admin.devfeed.home/_next/static/"
+            path                 = "http://devfeed-admin-telemetry.devfeed.svc.cluster.local:9100/sourcemaps/"
           }
 
           cache {

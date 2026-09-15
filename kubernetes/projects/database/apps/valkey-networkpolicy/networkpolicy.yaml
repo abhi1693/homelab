@@ -50,6 +50,12 @@ spec:
                   - worker
         - namespaceSelector:
             matchLabels:
+              kubernetes.io/metadata.name: devfeed
+          podSelector:
+            matchLabels:
+              devfeed-redis-client: 'true'
+        - namespaceSelector:
+            matchLabels:
               kubernetes.io/metadata.name: harbor
           podSelector:
             matchLabels:

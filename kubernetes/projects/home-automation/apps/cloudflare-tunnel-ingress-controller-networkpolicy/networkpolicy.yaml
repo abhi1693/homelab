@@ -277,3 +277,29 @@ spec:
         - ports:
             - port: "8097"
               protocol: TCP
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: cloudflare-devfeed-egress
+  namespace: cloudflare
+  labels:
+    app.kubernetes.io/part-of: devfeed
+spec:
+  podSelector:
+    matchLabels:
+      app: controlled-cloudflared-connector
+      strrl.dev/cloudflare-tunnel-ingress-controller: controlled-cloudflared-connector
+  policyTypes:
+    - Egress
+  egress:
+    - to:
+        - podSelector:
+            matchLabels:
+              app.kubernetes.io/name: devfeed-web
+          namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: devfeed
+      ports:
+        - protocol: TCP
+          port: 3000

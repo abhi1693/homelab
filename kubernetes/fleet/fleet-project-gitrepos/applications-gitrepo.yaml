@@ -14,6 +14,7 @@ spec:
   clientSecretName: home-lab-apps-github
   pollingInterval: 1h0m0s
   paths:
+    - kubernetes/projects/applications/apps/devfeed
     - kubernetes/projects/applications/apps/applications-helm-repositories
     - kubernetes/projects/applications/apps/firefly-iii-storage
     - kubernetes/projects/applications/apps/firefly-iii

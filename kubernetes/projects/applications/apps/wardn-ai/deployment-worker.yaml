@@ -9,7 +9,7 @@ metadata:
     app.kubernetes.io/part-of: wardn-ai
 spec:
   revisionHistoryLimit: 2
-  replicas: 1
+  replicas: 0
   selector:
     matchLabels:
       app.kubernetes.io/name: wardn-ai-worker
@@ -38,7 +38,7 @@ spec:
       containers:
         - name: worker
           # renovate: datasource=git-refs depName=https://github.com/abhi1693/wardn-ai currentValue=master
-          image: registry.home/ghcr.io/abhi1693/wardn-ai-worker:360fa3738d2f607dc82e4f51dde5f55035a29693
+          image: registry.home/ghcr.io/abhi1693/wardn-ai-worker:5d2efe3ced9a4413035c1c0de9228150ba9b8bbb
           imagePullPolicy: IfNotPresent
           envFrom:
             - configMapRef:

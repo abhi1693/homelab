@@ -13,8 +13,8 @@ The chart's `wait-for-zitadel` init container is bounded through
 Setup and cleanup jobs use the ARM64 `alpine/k8s:1.35.6` image through the local
 registry cache. The Alpine shell is required by the chart's helper commands; review client
 compatibility when the cluster or helper image changes.
-Each ZITADEL server requests `25m` CPU and each Login UI replica requests
-`15m`; the combined `80m` reservation stays well above the observed 7-day
+Each ZITADEL server requests `30m` CPU and each Login UI replica requests
+`20m`; the combined `100m` reservation stays well above the observed 7-day
 aggregate p99 while both workloads remain CPU-burstable.
 
 Each of the two ZITADEL servers is capped at eight open and four idle database
@@ -50,3 +50,10 @@ SOPS-managed `zitadel-env` secret and must be changed at first login.
 
 The ZITADEL master key is intentionally stored in `zitadel-masterkey`. Losing
 that key makes encrypted ZITADEL data unrecoverable.
+
+The Login UI runs the digest-pinned `home-lab-zitadel-login:4.15.3-idp-retry1`
+image. It retries only session lookup after successful GitHub account creation
+and linking, covering transient user projection delay. See
+[the image source](../../../../images/zitadel-login/README.md) for regression
+tests, dependency pins, and rollback. The core server remains upstream v4.15.3;
+this change requires no database migration.

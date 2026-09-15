@@ -15,7 +15,7 @@ spec:
   repository: https://github.com/abhi1693/home-lab
   gitPath: kubernetes/projects/applications/apps/wardn-ai
   workloads:
-    - {key: home-k3s/wardn/apps/deployment/wardn-ai-api, namespace: wardn, apiGroup: apps, kind: Deployment, name: wardn-ai-api, desiredReplicas: 2, sourcePath: kubernetes/projects/applications/apps/wardn-ai/deployment-api.yaml}
-    - {key: home-k3s/wardn/apps/deployment/wardn-ai-frontend, namespace: wardn, apiGroup: apps, kind: Deployment, name: wardn-ai-frontend, desiredReplicas: 1, sourcePath: kubernetes/projects/applications/apps/wardn-ai/deployment-frontend.yaml}
-    - {key: home-k3s/wardn/apps/deployment/wardn-ai-worker, namespace: wardn, apiGroup: apps, kind: Deployment, name: wardn-ai-worker, desiredReplicas: 1, sourcePath: kubernetes/projects/applications/apps/wardn-ai/deployment-worker.yaml}
-    - {key: home-k3s/wardn/apps/deployment/wardn-ai-whatsapp-bridge, namespace: wardn, apiGroup: apps, kind: Deployment, name: wardn-ai-whatsapp-bridge, desiredReplicas: 1, sourcePath: kubernetes/projects/applications/apps/wardn-ai/deployment-whatsapp-bridge.yaml}
+    - {key: home-k3s/wardn/apps/deployment/wardn-ai-api, namespace: wardn, apiGroup: apps, kind: Deployment, name: wardn-ai-api, desiredReplicas: 0, sourcePath: kubernetes/projects/applications/apps/wardn-ai/deployment-api.yaml}
+    - {key: home-k3s/wardn/apps/deployment/wardn-ai-frontend, namespace: wardn, apiGroup: apps, kind: Deployment, name: wardn-ai-frontend, desiredReplicas: 0, sourcePath: kubernetes/projects/applications/apps/wardn-ai/deployment-frontend.yaml}
+    - {key: home-k3s/wardn/apps/deployment/wardn-ai-worker, namespace: wardn, apiGroup: apps, kind: Deployment, name: wardn-ai-worker, desiredReplicas: 0, sourcePath: kubernetes/projects/applications/apps/wardn-ai/deployment-worker.yaml}
+    - {key: home-k3s/wardn/apps/deployment/wardn-ai-whatsapp-bridge, namespace: wardn, apiGroup: apps, kind: Deployment, name: wardn-ai-whatsapp-bridge, desiredReplicas: 0, sourcePath: kubernetes/projects/applications/apps/wardn-ai/deployment-whatsapp-bridge.yaml}

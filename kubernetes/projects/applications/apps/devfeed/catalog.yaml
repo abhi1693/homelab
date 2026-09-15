@@ -1,0 +1,192 @@
+---
+apiVersion: home-lab.io/v1alpha1
+kind: WorkloadCatalog
+metadata:
+  name: devfeed
+spec:
+  displayName: DevFeed
+  purpose: Aggregate developer news, run reviewed full automation, and serve separate reader and administration apps.
+  owner: home-lab
+  project: applications
+  cluster: home-k3s
+  lifecycle: active
+  criticality: medium
+  dataClassification: internal
+  repository: https://github.com/abhi1693/devfeed.tech
+  gitPath: kubernetes/projects/applications/apps/devfeed
+  workloads:
+    - key: home-k3s/devfeed/apps/deployment/devfeed-observability-exporter
+      namespace: devfeed
+      apiGroup: apps
+      kind: Deployment
+      name: devfeed-observability-exporter
+      desiredReplicas: 1
+      sourcePath: kubernetes/projects/applications/apps/devfeed/deployment-observability-exporter.yaml
+    - key: home-k3s/devfeed/apps/deployment/devfeed-probes
+      namespace: devfeed
+      apiGroup: apps
+      kind: Deployment
+      name: devfeed-probes
+      desiredReplicas: 2
+      sourcePath: kubernetes/projects/applications/apps/devfeed/probes.yaml
+    - key: home-k3s/devfeed/apps/deployment/chimely
+      namespace: devfeed
+      apiGroup: apps
+      kind: Deployment
+      name: chimely
+      desiredReplicas: 1
+      sourcePath: kubernetes/projects/applications/apps/devfeed/deployment-chimely.yaml
+    - key: home-k3s/devfeed/apps/deployment/devfeed-codex
+      namespace: devfeed
+      apiGroup: apps
+      kind: Deployment
+      name: devfeed-codex
+      desiredReplicas: 1
+      sourcePath: kubernetes/projects/applications/apps/devfeed/deployment-codex.yaml
+    - key: home-k3s/devfeed/apps/deployment/devfeed-api
+      namespace: devfeed
+      apiGroup: apps
+      kind: Deployment
+      name: devfeed-api
+      desiredReplicas: 2
+      sourcePath: kubernetes/projects/applications/apps/devfeed/deployment-api.yaml
+    - key: home-k3s/devfeed/apps/deployment/devfeed-user-api
+      namespace: devfeed
+      apiGroup: apps
+      kind: Deployment
+      name: devfeed-user-api
+      desiredReplicas: 2
+      sourcePath: kubernetes/projects/applications/apps/devfeed/deployment-user-api.yaml
+    - key: home-k3s/devfeed/apps/deployment/devfeed-admin-api
+      namespace: devfeed
+      apiGroup: apps
+      kind: Deployment
+      name: devfeed-admin-api
+      desiredReplicas: 2
+      sourcePath: kubernetes/projects/applications/apps/devfeed/deployment-admin-api.yaml
+    - key: home-k3s/devfeed/apps/deployment/devfeed-worker-background
+      namespace: devfeed
+      apiGroup: apps
+      kind: Deployment
+      name: devfeed-worker-background
+      desiredReplicas: 0
+      sourcePath: kubernetes/projects/applications/apps/devfeed/deployment-worker-background.yaml
+    - key: home-k3s/devfeed/apps/deployment/devfeed-worker-notification
+      namespace: devfeed
+      apiGroup: apps
+      kind: Deployment
+      name: devfeed-worker-notification
+      desiredReplicas: 1
+      sourcePath: kubernetes/projects/applications/apps/devfeed/deployment-worker-notification.yaml
+    - key: home-k3s/devfeed/apps/deployment/devfeed-scheduler
+      namespace: devfeed
+      apiGroup: apps
+      kind: Deployment
+      name: devfeed-scheduler
+      desiredReplicas: 1
+      sourcePath: kubernetes/projects/applications/apps/devfeed/deployment-scheduler.yaml
+    - key: home-k3s/devfeed/apps/deployment/devfeed-web
+      namespace: devfeed
+      apiGroup: apps
+      kind: Deployment
+      name: devfeed-web
+      desiredReplicas: 2
+      sourcePath: kubernetes/projects/applications/apps/devfeed/deployment-web.yaml
+    - key: home-k3s/devfeed/apps/deployment/devfeed-admin
+      namespace: devfeed
+      apiGroup: apps
+      kind: Deployment
+      name: devfeed-admin
+      desiredReplicas: 2
+      sourcePath: kubernetes/projects/applications/apps/devfeed/deployment-admin.yaml
+    - key: home-k3s/devfeed/apps/deployment/devfeed-typesense
+      namespace: devfeed
+      apiGroup: apps
+      kind: Deployment
+      name: devfeed-typesense
+      desiredReplicas: 1
+      sourcePath: kubernetes/projects/applications/apps/devfeed/deployment-typesense.yaml
+    - key: home-k3s/devfeed/apps/deployment/devfeed-search-indexer
+      namespace: devfeed
+      apiGroup: apps
+      kind: Deployment
+      name: devfeed-search-indexer
+      desiredReplicas: 1
+      sourcePath: kubernetes/projects/applications/apps/devfeed/deployment-search-indexer.yaml
+    - key: home-k3s/devfeed/apps/deployment/devfeed-worker-solver
+      namespace: devfeed
+      apiGroup: apps
+      kind: Deployment
+      name: devfeed-worker-solver
+      desiredReplicas: 1
+      sourcePath: kubernetes/projects/applications/apps/devfeed/deployment-worker-solver.yaml
+    - key: home-k3s/devfeed/apps/deployment/devfeed-worker-article-analysis
+      namespace: devfeed
+      apiGroup: apps
+      kind: Deployment
+      name: devfeed-worker-article-analysis
+      desiredReplicas: 3
+      sourcePath: kubernetes/projects/applications/apps/devfeed/deployment-worker-article-analysis.yaml
+    - key: home-k3s/devfeed/apps/deployment/devfeed-worker-topic-analysis
+      namespace: devfeed
+      apiGroup: apps
+      kind: Deployment
+      name: devfeed-worker-topic-analysis
+      desiredReplicas: 1
+      sourcePath: kubernetes/projects/applications/apps/devfeed/deployment-worker-topic-analysis.yaml
+    - key: home-k3s/devfeed/apps/deployment/devfeed-worker-research-verification
+      namespace: devfeed
+      apiGroup: apps
+      kind: Deployment
+      name: devfeed-worker-research-verification
+      desiredReplicas: 1
+      sourcePath: kubernetes/projects/applications/apps/devfeed/deployment-worker-research-verification.yaml
+    - key: home-k3s/devfeed/apps/deployment/devfeed-worker-source-analysis
+      namespace: devfeed
+      apiGroup: apps
+      kind: Deployment
+      name: devfeed-worker-source-analysis
+      desiredReplicas: 1
+      sourcePath: kubernetes/projects/applications/apps/devfeed/deployment-worker-source-analysis.yaml
+    - key: home-k3s/devfeed/apps/deployment/devfeed-worker-relationships
+      namespace: devfeed
+      apiGroup: apps
+      kind: Deployment
+      name: devfeed-worker-relationships
+      desiredReplicas: 1
+      sourcePath: kubernetes/projects/applications/apps/devfeed/deployment-worker-relationships.yaml
+    - key: home-k3s/devfeed/apps/deployment/devfeed-worker-ai
+      namespace: devfeed
+      apiGroup: apps
+      kind: Deployment
+      name: devfeed-worker-ai
+      desiredReplicas: 1
+      sourcePath: kubernetes/projects/applications/apps/devfeed/deployment-worker-ai.yaml
+    - key: home-k3s/devfeed/apps/deployment/devfeed-worker-article-enrichment
+      namespace: devfeed
+      apiGroup: apps
+      kind: Deployment
+      name: devfeed-worker-article-enrichment
+      desiredReplicas: 1
+      sourcePath: kubernetes/projects/applications/apps/devfeed/deployment-worker-article-enrichment.yaml
+    - key: home-k3s/devfeed/apps/deployment/devfeed-worker-ingestion
+      namespace: devfeed
+      apiGroup: apps
+      kind: Deployment
+      name: devfeed-worker-ingestion
+      desiredReplicas: 1
+      sourcePath: kubernetes/projects/applications/apps/devfeed/deployment-worker-ingestion.yaml
+    - key: home-k3s/devfeed/apps/deployment/devfeed-worker-images
+      namespace: devfeed
+      apiGroup: apps
+      kind: Deployment
+      name: devfeed-worker-images
+      desiredReplicas: 1
+      sourcePath: kubernetes/projects/applications/apps/devfeed/deployment-worker-images.yaml
+    - key: home-k3s/devfeed/apps/deployment/devfeed-worker-source-enrichment
+      namespace: devfeed
+      apiGroup: apps
+      kind: Deployment
+      name: devfeed-worker-source-enrichment
+      desiredReplicas: 1
+      sourcePath: kubernetes/projects/applications/apps/devfeed/deployment-worker-source-enrichment.yaml

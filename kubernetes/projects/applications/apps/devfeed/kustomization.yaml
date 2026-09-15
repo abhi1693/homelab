@@ -1,0 +1,57 @@
+---
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+resources:
+  - certificate.yaml
+  - configmap.yaml
+  - deployment-admin-api.yaml
+  - deployment-admin.yaml
+  - deployment-worker-article-analysis.yaml
+  - deployment-worker-topic-analysis.yaml
+  - deployment-worker-research-verification.yaml
+  - deployment-worker-source-analysis.yaml
+  - deployment-worker-ai.yaml
+  - deployment-worker-relationships.yaml
+  - deployment-api.yaml
+  - deployment-chimely.yaml
+  - deployment-codex.yaml
+  - deployment-worker-notification.yaml
+  - deployment-scheduler.yaml
+  - deployment-user-api.yaml
+  - deployment-web.yaml
+  - deployment-worker-background.yaml
+  - deployment-worker-ingestion.yaml
+  - deployment-worker-article-enrichment.yaml
+  - deployment-worker-source-enrichment.yaml
+  - deployment-worker-images.yaml
+  - inbox-scripts.yaml
+  - ingress.yaml
+  - namespace.yaml
+  - migration-hook.yaml
+  - networkpolicy.yaml
+  - pdb.yaml
+  - pvc.yaml
+  - registry-secrets.sops.yaml
+  - secrets.sops.yaml
+  - service.yaml
+  - serviceaccount.yaml
+  - configmap-search.yaml
+  - deployment-search-indexer.yaml
+  - deployment-typesense.yaml
+  - deployment-worker-solver.yaml
+  - service-search.yaml
+  - pvc-search.yaml
+  - search-secrets.sops.yaml
+  - networkpolicy-search.yaml
+  - networkpolicy-solver.yaml
+  - configmap-telemetry.yaml
+  - deployment-observability-exporter.yaml
+  - podmonitor.yaml
+  - networkpolicy-telemetry.yaml
+  - service-telemetry.yaml
+  - devfeed-operations.yaml
+  - devfeed-pipeline.yaml
+  - devfeed-diagnostics.yaml
+  - prometheusrule.yaml
+  - probes.yaml
+  - faro-secrets.sops.yaml

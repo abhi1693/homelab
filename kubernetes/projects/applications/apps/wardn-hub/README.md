@@ -3,7 +3,21 @@
 Wardn Hub is deployed in the `wardn` namespace with separate
 `ghcr.io/abhi1693/wardn-hub-backend` and
 `ghcr.io/abhi1693/wardn-hub-frontend` images. Application background work is
-processed by the `wardn-hub-worker` Deployment from the backend image.
+normally processed by the `wardn-hub-worker` Deployment from the backend image.
+
+AI processing is temporarily paused: the consolidated worker and Codex
+app-server Deployments have zero replicas, and the find-skills refresh hook
+completes without running an import. This pauses submission review and repair,
+skill auditing and categorization, scheduled imports and refreshes, registry
+sync, and event delivery. The API, frontend, and scoring service remain online.
+Existing audit results, queued database work, Secrets, Services, and PVCs are
+retained. Audit feature flags remain enabled to preserve access to stored results.
+
+To resume through GitOps, restore both Deployments and their catalog entries to
+one replica, restore their recommendation-profile scaling flags and replica
+bounds to one, and restore the import command documented in
+`find-skills-refresh-job.yaml`. Commit and push, then verify Fleet convergence,
+worker health, and Codex readiness before expecting queued work to complete.
 
 All custom Wardn Hub Deployments retain two ReplicaSet revisions; Git and Fleet
 history remain the primary rollback path as automated recommendations and image
@@ -34,9 +48,10 @@ The worker runs the application-owned `events`, `submission-review`,
 `submission-repair`, `mcp-registry-sync`, `skill-maintenance`, and
 `skill-import` job lanes.
 Each lane holds a session-level PostgreSQL advisory lock for its lifetime.
-Production declares one worker replica, and the recommendation profile caps the
-worker at one replica. Running more than one worker replica remains safe if the
-manifest and profile bounds are intentionally raised: only one replica owns a
+When active, production uses one worker replica. During the temporary pause,
+the manifest and recommendation profile hold the worker at zero replicas.
+Running more than one worker replica remains safe if the manifest and profile
+bounds are intentionally raised: only one replica owns a
 given lane at a time, and PostgreSQL releases the lock automatically if its
 worker exits or loses the connection. Review and repair remain DB-driven,
 execute one submission per child process, and use Codex app-server without
@@ -66,7 +81,7 @@ Sunday in the `Asia/Kolkata` time zone. Each run executes
 `python -m app.manage skills refresh`, reads active GitHub skill sources,
 stores changed bundles in PostgreSQL, and audits changed snapshots through the
 pending-audit queue in the same command.
-Every Wardn Hub Helm install or upgrade also runs the
+When AI processing is active, every Wardn Hub Helm install or upgrade runs the
 `wardn-hub-find-skills-refresh` hook after the API rollout is ready. That hook
 uses the rollout backend image to re-import `skills/find-skills` from
 `abhi1693/wardn-hub`, so the published bootstrap skill tracks the source that

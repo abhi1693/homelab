@@ -1,0 +1,10 @@
+---
+name: postgresql-devfeed-prerequisites
+defaultNamespace: postgresql
+dependsOn:
+  - name: rancher-project-database
+labels:
+  app.kubernetes.io/part-of: devfeed
+  home-lab.io/project-slug: database
+helm:
+  takeOwnership: true

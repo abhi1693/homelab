@@ -51,9 +51,10 @@ for every profile:
 - Shipyard profile: `shipyard-profile.yaml`; the background worker is capped at
   three replicas because each Node.js worker has meaningful fixed memory
   overhead and its resource-only metric profile has no queue-demand signal
-- Wardn Hub profile: `wardn-hub-profile.yaml`; all five live production
-  Deployments, including the consolidated application worker, run with scaling
-  enabled
+- Wardn Hub profile: `wardn-hub-profile.yaml`; API, frontend, and scoring
+  Deployments run with scaling enabled. The consolidated worker and Codex
+  app-server are temporarily paused with all scaling dimensions disabled and
+  replica bounds fixed at zero
 - Finance profile: `finance-profile.yaml` manages the Firefly III and data
   importer workloads with normal resource metrics and single-replica bounds.
 - shared state manifest: `controller-state-pvc.yaml`

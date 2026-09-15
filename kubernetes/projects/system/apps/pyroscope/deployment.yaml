@@ -41,7 +41,7 @@ spec:
       containers:
         - name: pyroscope
           # renovate: datasource=docker depName=docker.io/grafana/pyroscope
-          image: docker.io/grafana/pyroscope:2.3.0
+          image: docker.io/grafana/pyroscope:2.3.1
           imagePullPolicy: IfNotPresent
           args:
             - -target=all
@@ -52,8 +52,10 @@ spec:
             - -storage.filesystem.dir=/var/pyroscope/v2/shared
             - -metastore.data-dir=/var/pyroscope/v2/metastore/data
             - -metastore.raft.dir=/var/pyroscope/v2/metastore/raft
-            - -compactor.data-dir=/var/pyroscope/compactor
-            - -compactor.blocks-retention-period=24h
+            # Snapshots have an independent default in the container filesystem.
+            # Keep them with the WAL so container restarts can restore Raft state.
+            - -metastore.raft.snapshots-dir=/var/pyroscope/v2/metastore/raft
+            - -retention-period=24h
             - -querier.max-query-lookback=24h
             - -querier.max-query-length=24h
             - -validation.reject-older-than=2h
@@ -62,7 +64,7 @@ spec:
             - -log.level=info
           env:
             - name: GOMEMLIMIT
-              value: 320MiB
+              value: 120MiB
             - name: GOGC
               value: "50"
           ports:

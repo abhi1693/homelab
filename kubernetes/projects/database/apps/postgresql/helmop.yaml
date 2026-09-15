@@ -15,6 +15,7 @@ spec:
     - name: postgresql-zitadel-secrets
     - name: postgresql-launchboard-prerequisites
     - name: postgresql-wardn-license-prerequisites
+    - name: postgresql-devfeed-prerequisites
   labels:
     app.kubernetes.io/part-of: postgresql
     home-lab.io/project-slug: database

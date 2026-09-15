@@ -7,6 +7,18 @@ remain the primary rollback path.
 
 The public hostname is `blog.abhimanyu-saharan.com`.
 
+The deployment pins release `0.3.17` from
+`registry.home/ghcr.io/abhi1693/personal-blog` (Linux/ARM64).
+It serves the RFC 4287 Atom feed at `/posts/atom.xml` and preserves the RSS 2.0
+feed at `/posts/rss.xml`, including existing RSS GUIDs and publication dates.
+Both feeds are advertised by page metadata and revalidated on Sanity changes.
+
+Release images are built by the source repository's Container workflow and
+pulled through the `registry.home` GHCR cache. After updating the image pin,
+verify matching ARM64 digests, Fleet desired/applied deployment IDs, workload
+readiness, and both public feed responses. Roll back this release by reverting
+the image pin to `0.3.16` in Git and allowing Fleet to reconcile it.
+
 The app-owned Cloudflare Tunnel ingress and service are both named
 `personal-blog` in the `personal-blog` namespace. Cloudflare serves public HTTPS,
 the tunnel transport is encrypted, and the final in-cluster hop to the app pods

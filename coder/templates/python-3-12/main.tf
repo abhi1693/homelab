@@ -10,7 +10,7 @@ terraform {
     }
     random = {
       source  = "hashicorp/random"
-      version = "3.9.0"
+      version = "3.9.1"
     }
   }
 }
@@ -453,7 +453,7 @@ module "filebrowser" {
   count = data.coder_workspace.me.start_count
 
   source  = "registry.coder.com/coder/filebrowser/coder"
-  version = "1.1.5"
+  version = "1.1.6"
 
   agent_id      = coder_agent.main.id
   agent_name    = "main"

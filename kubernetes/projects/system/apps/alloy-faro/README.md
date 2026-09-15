@@ -44,3 +44,9 @@ specific frontend services used for sourcemaps.
 - Review sourcemap paths whenever a frontend framework or asset prefix changes.
 - Keep at least two eligible control-plane nodes while the two-replica
   anti-affinity rule is enabled.
+
+DevFeed reader/admin use a same-origin server receiver with an encrypted server-only
+key. CORS includes `https://devfeed.tech` and `https://admin.devfeed.home`; policies
+admit only `devfeed-faro=true` frontend pods on 12347. DevFeed source maps are fetched
+from their private telemetry Services on 9100 under `/sourcemaps/`, outside Next's
+public static tree. Public source-map fallback remains disabled.

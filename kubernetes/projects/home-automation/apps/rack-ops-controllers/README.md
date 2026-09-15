@@ -24,9 +24,10 @@ the longer bound only tolerates temporary monitoring-storage latency.
 
 The policy stages suspend low-priority CronJobs first, then scale selected
 media and public-app workloads down as UPS runtime drops. Restore is gated on
-the UPS being online, not on battery, and reporting at least 300 seconds of
-runtime. The five-minute reserve remains reachable under the rack's normal load
-and avoids leaving shed workloads down indefinitely while the battery recharges.
+the UPS being online and not on battery. On the next successful poll after
+mains returns, workloads restore without waiting for battery runtime or charge
+to recover; `restoreHoldSeconds: 0` adds no extra delay. Battery-mode shedding
+thresholds still apply if the UPS switches back to battery.
 
 RBAC is intentionally resource-scoped. The controller can only patch named
 Fleet bundles, HelmOps, Deployments, and CronJobs listed in

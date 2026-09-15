@@ -41,3 +41,8 @@ access for discovery, and writes to Loki on port `8080`.
 - Validate with Loki when changing the write endpoint or relabeling pipeline.
 - Remove or relax the PodDisruptionBudget deliberately before a voluntary node
   drain that must move the singleton collector.
+
+DevFeed JSON logs add bounded `service` and `severity` stream labels through the
+namespace-specific processing stage. Request, job and trace identifiers remain in
+the JSON body for investigation and Tempo links; they are not promoted to labels.
+Other namespaces retain their existing processing.

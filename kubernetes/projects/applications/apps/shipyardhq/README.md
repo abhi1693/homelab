@@ -2,6 +2,47 @@
 
 Fleet-managed deployment for ShipyardHQ.
 
+Application release `1.5.32` gives historical leaderboard payloads a fixed
+24-hour cache lifetime. Reads do not extend it, so version invalidation no
+longer leaves obsolete generations in Valkey indefinitely. The active version
+marker remains persistent.
+
+The image uses Node.js 22.23.2 on Alpine 3.24 with npm 11.19.1 and Alpine
+security updates. This replaces the vulnerable Debian base and bundled npm tools.
+GNU tar preserves Fleet artifact compatibility. The native ARM64 CI smoke check
+loads Sharp, the profiler, Next.js SWC, and Tailwind, generates Prisma, tests
+cache retention, and round-trips an artifact using Fleet's exact tar options.
+High/critical vulnerability and secret checks remain mandatory, including
+findings without available fixes; no scan exception is enabled.
+
+Before release, all 463 unit tests, ESLint, both TypeScript checks, scoped
+formatting, and the production build passed. A read-only production Prisma
+profile of a populated historical month's cache-miss queries completed in
+473 ms.
+
+On upgrade, apply a one-time `EXPIRE 86400 NX` to existing payload keys in
+`production:leaderboard:periodic:historical:v1:*` and
+`production:leaderboard:periodic:historical:v2:*` in Valkey DB 20, using bounded
+`SCAN` batches. This preserves values and existing expirations. Do not expire
+the `production:leaderboard:periodic:historical:version` marker. Verify a newly
+written payload has a positive TTL no greater than 86400 seconds before the
+migration, then verify no payload keys remain without expiration afterward.
+
+`npm run build` packages public and static assets into the standalone output
+after removing public source maps. Both the Docker entrypoint and Fleet builder
+use this shared step. The builder verifies the standalone server, public assets,
+and CSS exist before marking an artifact ready. Production verification must
+check stylesheet HTTP responses and desktop/mobile rendering after rollout.
+
+The web, worker, builder, ingestion, and cache-cleanup images share the same
+release. There are no database schema changes. To roll back, revert this release
+change through Git, restoring all four image-pin manifests to `1.5.29`, and let
+Fleet build or reuse the matching artifact before rolling the pods. The previous
+OCI image index digest is
+`sha256:89a1a287236aa719de901b985d5f358f7cc61130d14ea2d3099783b6f6cb20a3`.
+Existing payload TTLs survive a rollback; older code can write new permanent
+entries, so monitor cache growth until a fixed release is restored.
+
 The custom web, worker, and image-proxy Deployments retain two ReplicaSet
 revisions; Git and Fleet history remain the primary rollback path.
 
@@ -93,7 +134,8 @@ release. Running web pods keep using their local extracted bundle if a newer
 artifact is later written to the PVC; new artifacts are consumed through normal
 Deployment rollouts.
 
-The cache key includes source files, build-time environment, and a cache-format
+The cache key includes source files, application and Node.js versions, build-time
+environment, and a cache-format
 version. The `shipyardhq-next-build-cache-cleanup` CronJob recomputes the
 current cache key every three days, verifies that the matching `.tar.gz` and
 `.ready` files exist, and then removes only non-current cached build artifacts.
