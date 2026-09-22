@@ -10,6 +10,7 @@ metadata:
 spec:
   revisionHistoryLimit: 2
   replicas: 3
+  minReadySeconds: 15
   progressDeadlineSeconds: 4200
   selector:
     matchLabels:
@@ -64,7 +65,7 @@ spec:
       initContainers:
         - name: restore-next-build
           # renovate: datasource=docker depName=ghcr.io/abhi1693/shipyardhq
-          image: registry.home/ghcr.io/abhi1693/shipyardhq:1.5.32
+          image: registry.home/ghcr.io/abhi1693/shipyardhq:1.5.33@sha256:0b857f474b838b3adce541eb1505c7ade190dabb64e332c55f4757de975ecaa5
           imagePullPolicy: IfNotPresent
           command:
             - /bin/sh
@@ -228,7 +229,7 @@ spec:
       containers:
         - name: web
           # renovate: datasource=docker depName=ghcr.io/abhi1693/shipyardhq
-          image: registry.home/ghcr.io/abhi1693/shipyardhq:1.5.32
+          image: registry.home/ghcr.io/abhi1693/shipyardhq:1.5.33@sha256:0b857f474b838b3adce541eb1505c7ade190dabb64e332c55f4757de975ecaa5
           imagePullPolicy: IfNotPresent
           command:
             - node
@@ -328,6 +329,7 @@ spec:
             periodSeconds: 10
             timeoutSeconds: 3
             failureThreshold: 6
+            successThreshold: 2
           livenessProbe:
             httpGet:
               path: /robots.txt
@@ -335,6 +337,13 @@ spec:
             periodSeconds: 30
             timeoutSeconds: 5
             failureThreshold: 4
+          lifecycle:
+            preStop:
+              exec:
+                command:
+                  - /bin/sh
+                  - -c
+                  - sleep 15
           securityContext:
             allowPrivilegeEscalation: false
             capabilities:
@@ -426,7 +435,7 @@ spec:
       containers:
         - name: worker
           # renovate: datasource=docker depName=ghcr.io/abhi1693/shipyardhq
-          image: registry.home/ghcr.io/abhi1693/shipyardhq:1.5.32
+          image: registry.home/ghcr.io/abhi1693/shipyardhq:1.5.33@sha256:0b857f474b838b3adce541eb1505c7ade190dabb64e332c55f4757de975ecaa5
           imagePullPolicy: IfNotPresent
           command:
             - npm
@@ -498,7 +507,7 @@ spec:
           resources:
             requests:
               cpu: 50m
-              memory: 661Mi
+              memory: 459Mi
             limits:
               memory: 896Mi
           securityContext:

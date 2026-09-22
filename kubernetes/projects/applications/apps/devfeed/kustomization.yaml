@@ -1,6 +1,15 @@
 ---
 apiVersion: kustomize.config.k8s.io/v1beta1
 kind: Kustomization
+configMapGenerator:
+  - name: devfeed-codex-runtime
+    namespace: devfeed
+    files:
+      - retention.cjs=codex-log-retention.cjs
+    options:
+      labels:
+        app.kubernetes.io/name: devfeed-codex-runtime
+        app.kubernetes.io/part-of: devfeed
 resources:
   - certificate.yaml
   - configmap.yaml
@@ -19,7 +28,6 @@ resources:
   - deployment-scheduler.yaml
   - deployment-user-api.yaml
   - deployment-web.yaml
-  - deployment-worker-background.yaml
   - deployment-worker-ingestion.yaml
   - deployment-worker-article-enrichment.yaml
   - deployment-worker-source-enrichment.yaml
@@ -55,3 +63,10 @@ resources:
   - prometheusrule.yaml
   - probes.yaml
   - faro-secrets.sops.yaml
+  - analytics-secrets.sops.yaml
+  - configmap-images.yaml
+  - deployment-imgproxy.yaml
+  - service-imgproxy.yaml
+  - networkpolicy-images.yaml
+  - image-storage-secrets.sops.yaml
+  - imgproxy-secrets.sops.yaml

@@ -21,7 +21,7 @@ spec:
   template:
     metadata:
       annotations:
-        home-lab.io/tempo-config-revision: "2026-09-08-tempo-3-monolithic"
+        home-lab.io/tempo-config-revision: "2026-09-18-http-query-streaming"
       labels:
         app.kubernetes.io/name: tempo
         app.kubernetes.io/component: tracing-backend

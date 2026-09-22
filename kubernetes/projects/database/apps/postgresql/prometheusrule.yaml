@@ -73,3 +73,31 @@ spec:
           annotations:
             summary: PgBouncer client wait time is critical
             description: PgBouncer pool {{ $labels.database }}/{{ $labels.user }} on {{ $labels.pod }} has max client wait above 60 seconds for more than 5 minutes.
+    - name: postgresql.autovacuum
+      rules:
+        - alert: PostgreSQLDeadTupleRatioHigh
+          expr: |
+            max by (datname, schemaname, relname) (
+              cnpg_pg_stat_user_tables_autovacuum_dead_tuple_ratio{namespace="postgresql"}
+              * on (namespace, pod) group_left()
+                (1 - cnpg_pg_replication_in_recovery{namespace="postgresql"})
+            ) > 0.08
+          for: 15m
+          labels:
+            severity: warning
+          annotations:
+            summary: PostgreSQL table is nearing its autovacuum threshold
+            description: '{{ $labels.datname }}.{{ $labels.schemaname }}.{{ $labels.relname }} has an estimated dead-tuple ratio above 8% for 15 minutes.'
+        - alert: PostgreSQLDeadTupleRatioCritical
+          expr: |
+            max by (datname, schemaname, relname) (
+              cnpg_pg_stat_user_tables_autovacuum_dead_tuple_ratio{namespace="postgresql"}
+              * on (namespace, pod) group_left()
+                (1 - cnpg_pg_replication_in_recovery{namespace="postgresql"})
+            ) > 0.15
+          for: 30m
+          labels:
+            severity: critical
+          annotations:
+            summary: PostgreSQL table has excessive dead tuples
+            description: '{{ $labels.datname }}.{{ $labels.schemaname }}.{{ $labels.relname }} has an estimated dead-tuple ratio above 15% for 30 minutes; inspect autovacuum progress and table churn.'

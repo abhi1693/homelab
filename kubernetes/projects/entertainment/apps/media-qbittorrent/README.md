@@ -7,8 +7,10 @@ This bundle runs the qBittorrent client used by the media stack. qBittorrent
 and the Smart Queues controller each run with one replica, and the maintenance
 CronJobs are active. Fleet reconciles their desired state from this bundle.
 
-qBittorrent requests `360m` CPU. Set TrueCharts `resources.limits.cpu: 0` to remove its
+qBittorrent requests `125m` CPU. Set TrueCharts `resources.limits.cpu: 0` to remove its
 inherited CPU cap and allow hashing/transfer bursts. Let Fleet roll this singleton only in a quiet transfer window.
+The [September 19 resource review](../../../../../docs/runbooks/kubernetes-resource-policy.md#2026-09-19-cpu-sizing-review)
+records the usage evidence and retained storage checks.
 
 The smart queues controller code lives in
 `https://github.com/abhi1693/qbittorrent-smart-queues` and runs from the

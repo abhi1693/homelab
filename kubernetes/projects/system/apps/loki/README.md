@@ -10,10 +10,10 @@ through a Fleet `HelmOp`.
 - Release: `loki`
 - Mode: single-binary Loki
 - Storage: filesystem TSDB on a retained 20Gi NFS PVC
-- Retention: 168 hours
+- Retention: 336 hours (14 days)
 - Gateway: enabled
 - ServiceMonitor enabled at 60s; unused chart recording rules disabled
-- Single-binary requests: 25m CPU and 448Mi memory
+- Single-binary requests: 250m CPU and 768Mi memory; 2Gi memory limit
 - Gateway requests: 5m CPU and 32Mi memory
 
 Read, write, and backend microservice replicas are disabled. This is a compact
@@ -48,3 +48,27 @@ entity to allow only the 443/6443 API path required by the rules sidecar.
   rules are disabled because their one-minute rate windows require 15-second
   samples, and no live dashboard consumes their output series.
 - Validate alongside `alloy-logs` when changing gateway or service naming.
+
+## Delivery headroom and alerts
+
+The tenant budget is 8MiB/s with a 16MiB burst, increased from the implicit 4MiB/s
+limit after measured replay bursts caused 429s. Alloy retries 429/5xx responses
+with 1s–1m backoff for up to 20 retries. This mitigates transient loss, but does
+not provide durable end-to-end delivery across collector pod replacement.
+The monitoring rules alert on permanent Alloy drops, Loki rejections and Grafana
+restarts. Validate log delivery and memory after rollout; revert rate/resource
+settings through Git if write latency or memory pressure increases. Retention
+and retained storage are unchanged.
+
+Log retention, query lookback, and the maximum accepted entry age are 14 days. Alloy filters
+expired Kubernetes entries before batching and counts them separately as
+`loki_process_dropped_lines_total{reason="expired_retention"}`. Loki compaction
+and asynchronous chunk deletion enforce retention; deletion is not instantaneous
+at the 14-day boundary. Prometheus metric retention is independent.
+
+The gateway resolves IPv4 service addresses only, refreshes DNS after 10 seconds,
+and bounds DNS lookup/backend connection waits to five seconds. This matches the
+IPv4-only cluster and lets Alloy retry backend unavailability before its request
+deadline. Query read/send timeouts remain at the chart defaults. These settings
+address the gateway path where local proxied requests stalled while direct Loki
+queries from the same pod completed in 4–20ms; validate both paths after rollout.

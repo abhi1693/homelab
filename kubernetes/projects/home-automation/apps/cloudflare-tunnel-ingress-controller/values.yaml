@@ -19,7 +19,7 @@ image:
 imagePullSecrets:
   - name: harbor-registry
 cloudflared:
-  replicaCount: 2
+  replicaCount: 3
   protocol: http2
   podAntiAffinity: true
   nodeSelector:
@@ -60,7 +60,7 @@ cloudflared:
       failureThreshold: 3
   pdb:
     enabled: true
-    minAvailable: 1
+    minAvailable: 2
   resources:
     requests:
       cpu: 40m

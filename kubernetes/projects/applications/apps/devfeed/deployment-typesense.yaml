@@ -41,6 +41,9 @@ spec:
           imagePullPolicy: IfNotPresent
           args:
             - --data-dir=/data
+            - --enable-search-analytics=true
+            - --analytics-dir=/data/analytics
+            - --analytics-flush-interval=60
           env:
             - name: TYPESENSE_API_KEY
               valueFrom:
@@ -49,7 +52,7 @@ spec:
                   key: DEVFEED_SEARCH_ADMIN_KEY
           resources:
             requests:
-              cpu: 250m
+              cpu: 100m
               memory: 512Mi
             limits:
               memory: 2Gi

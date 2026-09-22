@@ -27,12 +27,12 @@ podOptions:
     kubernetes.io/arch: arm64
 resources:
   requests:
-    cpu: 360m
+    cpu: 125m
     # qBittorrent restores roughly 800 torrents at startup and needs room for
     # peer-reconnect bursts; lower limits repeatedly OOM-killed the client.
-    memory: 1572Mi
+    memory: 1379Mi
   limits:
-    # Keep the measured request, but allow hashing and transfers to burst.
+    # Reserve sustained demand with headroom; allow hashing/transfers to burst.
     cpu: 0
     memory: 2Gi
 service:

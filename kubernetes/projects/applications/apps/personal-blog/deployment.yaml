@@ -10,6 +10,7 @@ metadata:
 spec:
   revisionHistoryLimit: 2
   replicas: 1
+  minReadySeconds: 15
   selector:
     matchLabels:
       app.kubernetes.io/name: personal-blog
@@ -76,8 +77,8 @@ spec:
               protocol: TCP
           resources:
             requests:
-              cpu: 100m
-              memory: 853Mi
+              cpu: 90m
+              memory: 1038Mi
             limits:
               memory: 1152Mi
           startupProbe:
@@ -94,6 +95,7 @@ spec:
             periodSeconds: 10
             timeoutSeconds: 3
             failureThreshold: 6
+            successThreshold: 2
           livenessProbe:
             httpGet:
               path: /api/health
@@ -101,6 +103,13 @@ spec:
             periodSeconds: 30
             timeoutSeconds: 5
             failureThreshold: 4
+          lifecycle:
+            preStop:
+              exec:
+                command:
+                  - /bin/sh
+                  - -c
+                  - sleep 15
           securityContext:
             allowPrivilegeEscalation: false
             capabilities:

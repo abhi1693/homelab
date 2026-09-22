@@ -17,8 +17,8 @@ source and terminates TLS before forwarding traffic to the pod.
 
 ## Runtime
 
-- image: `registry.home/home/netbox-mcp-server:0.0.2`
-- image digest: `sha256:c3ae736d7bf68967c25f7db32792bc8d1aadeb3fdc1225582cac51bd110c63a5`
+- image: `registry.home/home/netbox-mcp-server:0.0.3`
+- image digest: `sha256:cb8b1a4c453fb241cd5415c837da0764d6d50540faeb32f3258dd5076bce12f5`
 - architecture: ARM64
 - namespace: `netbox`
 - replicas: `1`
@@ -44,6 +44,15 @@ For K3s inventory and IPAM, use the
 [K3s-to-NetBox drift runbook](../../../../../docs/runbooks/k3s-netbox-drift-reconciliation.md).
 It keeps Git, live Kubernetes, physical identity, and NetBox authority separate
 and excludes ephemeral Pods, workload IPs, and ClusterIPs.
+
+## Health probes
+
+Startup, readiness and liveness use native HTTP GET probes on /, with
+Host: netbox-mcp-server for the host allowlist and Accept: text/html for
+the browser guide. This avoids starting a Python process on every probe.
+The three-second timeout and failure thresholds are unchanged. Verify fresh
+probe events and restart counts after Fleet rolls out the change; rollback
+is a Git revert of the probe change.
 
 ## Validation
 

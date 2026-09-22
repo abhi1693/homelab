@@ -21,6 +21,8 @@ spec:
       maxUnavailable: 0
   template:
     metadata:
+      annotations:
+        devfeed.tech/telemetry-config-sha256: 698b964592a0f7572d09d4cec58d46bb29ebdedc3f7f20eb8a18b1b4b944b41b
       labels:
         devfeed-telemetry: 'true'
         devfeed-faro: 'true'
@@ -48,8 +50,8 @@ spec:
       terminationGracePeriodSeconds: 180
       containers:
         - name: admin
-          # renovate: datasource=github-releases depName=abhi1693/devfeed.tech
-          image: registry.home/ghcr.io/abhi1693/devfeed.tech/admin:0.0.20@sha256:be4db3d52ad1c55bab9e7019ebf494c2b6443fa2a89b4676676e5229e3f39d9a
+          # renovate: datasource=docker depName=ghcr.io/abhi1693/devfeed.tech/admin
+          image: registry.home/ghcr.io/abhi1693/devfeed.tech/admin:0.0.40@sha256:4ab7d15725bb55d0abccd986636817a04b7795b97f218258a0f49a3b5d0d3a91
           imagePullPolicy: IfNotPresent
           envFrom:
             - configMapRef:

@@ -7,5 +7,4 @@ labels:
   home-lab.io/project-slug: entertainment
 dependsOn:
   - name: rancher-project-entertainment
-  - name: media-helm-repositories
   - name: media-storage

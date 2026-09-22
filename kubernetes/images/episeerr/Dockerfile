@@ -1,6 +1,6 @@
 # syntax=docker/dockerfile:1.27
 
-ARG EPISEERR_IMAGE=docker.io/vansmak/episeerr:3.9.0@sha256:af76729e423011d25421a63821c2769018ad2a109e63ebd8053370cb7fe7202a
+ARG EPISEERR_IMAGE=docker.io/vansmak/episeerr:3.9.3@sha256:03645296483663ff77aea2488625df09522d3e4db7c13a1fedded4b774b7df16
 
 # hadolint ignore=DL3006
 FROM ${EPISEERR_IMAGE} AS patched

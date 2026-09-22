@@ -15,5 +15,6 @@ resources:
   - namespace.yaml
   - pvc-expansion.yaml
   - grafana-dashboard.yaml
+  - prometheusrule.yaml
   - registry-secrets.sops.yaml
   - helmop.yaml

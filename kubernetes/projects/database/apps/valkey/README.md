@@ -15,12 +15,22 @@ through a Fleet `HelmOp`.
   StatefulSet claims while the chart's immutable claim template remains the
   bootstrap default
 - Metrics: chart exporter and `ServiceMonitor` are enabled
+- Memory guardrail: replicas use `maxmemory 3gb` with `maxmemory-policy
+  noeviction`, leaving approximately 1Gi below the 4Gi container limit for
+  allocator, replication, and AOF overhead. The `ValkeyMemoryDatasetHigh`
+  alert fires above 2.5Gi, with a critical alert above 2.75Gi; policy drift and
+  any evictions are also critical alerts.
 - Replica data-container memory: operator-managed `1536Mi` request and `4Gi`
   limit covering startup loading, full synchronization, and AOF rewrite
   overhead; the recommendation profile remains observe-only
 
 The chart runs with authentication disabled. Access control is provided by the
 cluster network boundary in the separate `valkey-networkpolicy` bundle.
+
+`noeviction` is intentional: reaching the configured ceiling returns write
+errors instead of silently evicting shared queue or cache keys. Treat the
+2.5Gi warning as the point to reduce key retention or expand capacity through
+GitOps; do not raise the live setting manually.
 
 Valkey maintains one primary and two application-level replicas on separate
 nodes. `k8s-rpi1` is excluded after its Sentinel repeatedly wedged in DNS-driven

@@ -91,7 +91,7 @@ spec:
               protocol: TCP
           resources:
             requests:
-              cpu: 100m
+              cpu: 50m
               ephemeral-storage: 1Gi
               memory: 512Mi
             limits:

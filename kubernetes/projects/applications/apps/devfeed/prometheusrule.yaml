@@ -31,6 +31,18 @@ spec:
     - record: devfeed:http_error_ratio:rate6h
       expr: (sum by(service)(rate(devfeed_http_requests_total{namespace="devfeed",status=~"5.."}[6h])) or on(service)
         (0 * (sum by(service)(rate(devfeed_http_requests_total{namespace="devfeed"}[6h]))))) / sum by(service)(rate(devfeed_http_requests_total{namespace="devfeed"}[6h]))
+  - name: devfeed.database-pool
+    rules:
+    - alert: DevFeedDatabasePoolTimeout
+      expr: sum by (service) (increase(devfeed_database_connection_acquisition_seconds_count{namespace="devfeed",result="timeout"}[5m])) > 0
+      labels:
+        severity: warning
+        namespace: devfeed
+        app: devfeed
+      annotations:
+        summary: DevFeed exhausted an application database pool
+        description: Check pool checkout and hold time before increasing connections. PgBouncer readiness does not prove local pool capacity.
+        dashboard_url: http://grafana.home/d/devfeed-diagnostics
   - name: devfeed.operations
     interval: 30s
     rules:
@@ -77,7 +89,7 @@ spec:
         runbook_url: https://github.com/abhi1693/devfeed.tech/blob/v0.0.8/docs/observability.md#latency-and-hotspots
         dashboard_url: http://grafana.home/d/devfeed-operations
     - alert: DevFeedDeploymentUnavailable
-      expr: kube_deployment_status_replicas_available{namespace="devfeed"} < 1
+      expr: (kube_deployment_status_replicas_available{namespace="devfeed"} < 1) and on (namespace, deployment) (kube_deployment_spec_replicas{namespace="devfeed"} > 0)
       for: 3m
       labels:
         severity: critical
@@ -86,7 +98,7 @@ spec:
       annotations:
         summary: A DevFeed deployment has no available replicas
         description: Inspect Deployment conditions, init schema checks, image pulls, readiness and pod events. Preserve
-          three replicas per dedicated AI queue in GitOps.
+          each workload's declared replica count in GitOps.
         runbook_url: https://github.com/abhi1693/devfeed.tech/blob/v0.0.8/docs/observability.md#workloads
         dashboard_url: http://grafana.home/d/devfeed-operations
     - alert: DevFeedReplicasDegraded

@@ -204,3 +204,45 @@ previous values. Do not delete or patch live Pods manually. If a new limit
 causes restart loops or throttling, raise or remove that component-specific
 limit in Git; keep CPU/memory requests and a memory limit unless the Longhorn
 exception above applies.
+
+### 2026-09-19 CPU sizing review
+
+The initial live snapshot reserved 23.647 cores in regular containers on 32
+physical cores, with no Pending pods. Three workers reserved 3.84–3.862 of
+four cores each; unused capacity on the tainted control plane cannot accept
+ordinary application pods. Global utilization alone is not a placement test.
+
+A seven-day Thanos review selected five narrow reductions, totaling **510m** at
+the observed one-replica counts. These are the maximum per-series p95 and peak
+across historical pod revisions from
+`node_namespace_pod_container:container_cpu_usage_seconds_total:sum_irate`,
+queried separately by namespace and container to bound query memory.
+
+| Workload | Request before → after | Seven-day p95 / peak (millicores) |
+| --- | --- | --- |
+| qBittorrent | 360m → 125m | 15.6 / 343.4 |
+| DevFeed Typesense | 250m → 100m | 10.2 / 81.9 |
+| DevFeed Chimely | 100m → 75m | 9.0 / 51.5 |
+| Launchboard web | 100m → 50m | 2.5 / 1303 |
+| Personal Blog web | 100m → 50m | 31.1 / 1031 |
+
+Rare startup/render/transfer peaks remain permitted by the existing CPU burst
+policy; memory requests, limits, replicas, and PVCs are unchanged. PostgreSQL,
+Longhorn instance managers, Prometheus, and busy DevFeed workers have substantial
+measured demand and retain their reservations. The recommendation controller
+may subsequently adjust its managed applications as demand changes.
+
+Typesense and qBittorrent use singleton Recreate rollouts. Before deployment,
+Typesense's retained data PVC was Bound and qBittorrent had zero transfer traffic
+with only stopped/stalled torrents. Its config and state PVC identities were
+recorded for comparison after rollout. Other selected deployments use their
+existing rolling strategy. No PostgreSQL or PgBouncer rollout is required.
+
+Validate changed manifests with server-side dry runs, render the pinned
+qBittorrent chart with its values and validate the resulting Deployment, then
+push through Fleet. Verify child BundleDeployments have desired deployment IDs
+applied, replacement pods are Ready, service health responds, PVC identities are
+unchanged, and effective requests leave useful worker-node headroom. Revert only
+these request changes through Git if readiness, latency, or burst throughput
+regresses; retained data must not be removed. A lower aggregate reservation does
+not guarantee that every future pod or node-failure placement will fit.

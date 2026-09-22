@@ -1,0 +1,35 @@
+---
+apiVersion: monitoring.coreos.com/v1
+kind: PrometheusRule
+metadata:
+  name: telemetry-delivery-health
+  namespace: cattle-monitoring-system
+  labels:
+    app.kubernetes.io/part-of: rancher-monitoring
+    home-lab.io/project-slug: system
+spec:
+  groups:
+    - name: telemetry.delivery
+      rules:
+        - alert: AlloyLogEntriesDropped
+          expr: sum by (pod, reason) (increase(loki_write_dropped_entries_total{namespace="cattle-monitoring-system"}[10m])) > 0
+          labels:
+            severity: warning
+          annotations:
+            summary: Alloy permanently discarded log entries
+            description: '{{ $labels.pod }} discarded {{ printf "%.0f" $value }} entries after retries. Inspect Loki write latency and rejections; incident logs may be incomplete.'
+        - alert: LokiLogEntriesRejected
+          expr: sum by (reason) (increase(loki_discarded_samples_total{namespace="cattle-monitoring-system"}[10m])) > 0
+          for: 5m
+          labels:
+            severity: warning
+          annotations:
+            summary: Loki is rejecting log entries
+            description: 'Loki rejected entries for {{ $labels.reason }}. Check ingestion budgets and producer timestamps; retries and permanent drops are separate counters.'
+        - alert: GrafanaRestarted
+          expr: sum(increase(kube_pod_container_status_restarts_total{namespace="cattle-monitoring-system",container="grafana"}[15m])) > 0
+          labels:
+            severity: warning
+          annotations:
+            summary: Grafana restarted
+            description: Check container termination state, probe failures and database/storage latency before attributing the restart to memory pressure.

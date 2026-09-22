@@ -62,6 +62,23 @@ kubectl -n postgresql exec <primary-pod> -c postgres -- psql -X -d postgres -c \
 Check active query wait events and application logs. Do not infer database
 pressure from queueing alone.
 
+For a high PostgreSQL connection count, distinguish client-attached `sv_active`
+backends from reusable `sv_idle` and `sv_used` backends in `SHOW POOLS`.
+PostgreSQL's `idle` state alone does not distinguish these cases. Include the
+`postgres` / `cnpg_pooler_pgbouncer` authentication pools in the total.
+
+All poolers use `min_pool_size: 1` and `server_idle_timeout: 120` to retain
+one warm backend per database/user pool and reclaim excess unused backends.
+Check
+`SHOW CONFIG` on every instance after Fleet reconciles. This is not a client or
+query timeout: long-running and idle client-attached sessions stay connected.
+Do not use `client_idle_timeout`, PostgreSQL session timeouts, or backend
+termination to reduce the count. Existing statement and idle-in-transaction
+policies still apply independently. Observe new server connection rates and
+connection-acquisition latency after a change: a lower count alone does not prove
+better pooling. Preserve the normal one-hour server lifetime and demand-based
+server reuse.
+
 ## Mitigation
 
 Keep the repair GitOps-owned. For a session-mode pool:

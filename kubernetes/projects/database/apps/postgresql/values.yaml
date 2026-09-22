@@ -10,8 +10,10 @@ cluster:
   imagePullSecrets:
     - name: harbor-registry
   initdb:
-    database: postgres
-    owner: postgres
+    # Keep the bootstrap owner aligned with CNPG's existing postgresql-app secret.
+    # The managed role/database below also repair an already-bootstrapped cluster.
+    database: app
+    owner: app
   annotations:
     home-lab.io/firefly-role-reconcile: "20260614T085757Z"
     home-lab.io/harbor-postgresql-secret: external
@@ -25,7 +27,7 @@ cluster:
   stopDelay: 300
   storage:
     storageClass: longhorn
-    size: 8Gi
+    size: 20Gi
   walStorage:
     enabled: true
     storageClass: longhorn
@@ -33,9 +35,9 @@ cluster:
   resources:
     requests:
       cpu: 250m
-      memory: 1Gi
+      memory: 3Gi
     limits:
-      memory: 1536Mi
+      memory: 3Gi
   affinity:
     nodeSelector:
       kubernetes.io/arch: arm64
@@ -155,6 +157,58 @@ cluster:
           - shared_blk_write_time_seconds:
               usage: COUNTER
               description: Time spent writing shared data file blocks by the statement
+      - name: pg_stat_user_tables_autovacuum
+        target_databases:
+          - devfeed
+          - harbor
+        query: |
+          SELECT
+            current_database() AS datname,
+            schemaname,
+            relname,
+            n_live_tup::double precision AS live_tuples,
+            n_dead_tup::double precision AS dead_tuples,
+            CASE
+              WHEN n_live_tup > 0 THEN n_dead_tup::double precision / n_live_tup
+              ELSE 0
+            END AS dead_tuple_ratio,
+            n_mod_since_analyze::double precision AS modifications_since_analyze
+          FROM pg_stat_user_tables
+          WHERE relname IN (
+            'articles',
+            'article_analysis_jobs',
+            'research_verification_jobs',
+            'topic_analysis_jobs',
+            'topic_relation_proposals',
+            'artifact',
+            'artifact_blob',
+            'artifact_reference',
+            'blob',
+            'tag',
+            'task'
+          )
+        metrics:
+          - datname:
+              usage: LABEL
+              description: Database name
+          - schemaname:
+              usage: LABEL
+              description: Schema name
+          - relname:
+              usage: LABEL
+              description: Table name
+          - live_tuples:
+              usage: GAUGE
+              description: Estimated live tuples
+          - dead_tuples:
+              usage: GAUGE
+              description: Estimated dead tuples
+          - dead_tuple_ratio:
+              usage: GAUGE
+              description: Estimated dead tuples divided by live tuples
+          - modifications_since_analyze:
+              usage: GAUGE
+              description: Estimated row modifications since the last analyze
   postgresql:
     parameters:
       autovacuum_analyze_scale_factor: "0.02"
@@ -177,6 +231,18 @@ cluster:
       dataDurability: required
       failoverQuorum: true
   roles:
+    - name: app
+      ensure: present
+      login: true
+      connectionLimit: 4
+      superuser: false
+      createdb: false
+      createrole: false
+      inherit: true
+      replication: false
+      bypassrls: false
+      passwordSecret:
+        name: postgresql-app
     - name: coder
       ensure: absent
     - name: netbox
@@ -374,8 +440,12 @@ backups:
       schedule: "0 0 0 * * *"
       backupOwnerReference: self
       method: barmanObjectStore
-  retentionPolicy: 30d
+  retentionPolicy: 7d
 databases:
+  - name: app
+    ensure: present
+    owner: app
+    databaseReclaimPolicy: retain
   - name: coder
     ensure: absent
     owner: coder
@@ -438,6 +508,9 @@ poolers:
     parameters:
       max_client_conn: "100"
       default_pool_size: "15"
+      # Keep one warm backend per pool; retire only excess unused connections.
+      min_pool_size: "1"
+      server_idle_timeout: "120"
     template:
       metadata:
         labels:
@@ -485,6 +558,9 @@ poolers:
     parameters:
       max_client_conn: "50"
       default_pool_size: "14"
+      # Keep one warm backend per pool; retire only excess unused connections.
+      min_pool_size: "1"
+      server_idle_timeout: "120"
     template:
       metadata:
         labels:
@@ -532,6 +608,9 @@ poolers:
     parameters:
       max_client_conn: "30"
       default_pool_size: "4"
+      # Keep one warm backend per pool; retire only excess unused connections.
+      min_pool_size: "1"
+      server_idle_timeout: "120"
     template:
       metadata:
         labels:
@@ -579,6 +658,9 @@ poolers:
     parameters:
       max_client_conn: "120"
       default_pool_size: "12"
+      # Keep one warm backend per pool; retire only excess unused connections.
+      min_pool_size: "1"
+      server_idle_timeout: "120"
     template:
       metadata:
         labels:
@@ -626,6 +708,9 @@ poolers:
     parameters:
       max_client_conn: "50"
       default_pool_size: "6"
+      # Keep one warm backend per pool; retire only excess unused connections.
+      min_pool_size: "1"
+      server_idle_timeout: "120"
     template:
       metadata:
         labels:
@@ -673,6 +758,9 @@ poolers:
     parameters:
       max_client_conn: "50"
       default_pool_size: "6"
+      # Keep one warm backend per pool; retire only excess unused connections.
+      min_pool_size: "1"
+      server_idle_timeout: "120"
     template:
       metadata:
         labels:
@@ -720,6 +808,9 @@ poolers:
     parameters:
       max_client_conn: "30"
       default_pool_size: "4"
+      # Keep one warm backend per pool; retire only excess unused connections.
+      min_pool_size: "1"
+      server_idle_timeout: "120"
     template:
       metadata:
         labels:
@@ -767,6 +858,9 @@ poolers:
     parameters:
       max_client_conn: "50"
       default_pool_size: "4"
+      # Keep one warm backend per pool; retire only excess unused connections.
+      min_pool_size: "1"
+      server_idle_timeout: "120"
     template:
       metadata:
         labels:
@@ -814,6 +908,9 @@ poolers:
     parameters:
       max_client_conn: "80"
       default_pool_size: "16"
+      # Keep one warm backend per pool; retire only excess unused connections.
+      min_pool_size: "1"
+      server_idle_timeout: "120"
     template:
       metadata:
         labels:
@@ -861,6 +958,9 @@ poolers:
     parameters:
       max_client_conn: "30"
       default_pool_size: "5"
+      # Keep one warm backend per pool; retire only excess unused connections.
+      min_pool_size: "1"
+      server_idle_timeout: "120"
     template:
       metadata:
         labels:
@@ -908,6 +1008,9 @@ poolers:
     parameters:
       max_client_conn: '60'
       default_pool_size: '10'
+      # Keep one warm backend per pool; retire only excess unused connections.
+      min_pool_size: "1"
+      server_idle_timeout: "120"
     template:
       metadata:
         labels:

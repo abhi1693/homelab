@@ -135,7 +135,7 @@ login:
   resources:
     requests:
       cpu: 20m
-      memory: 138Mi
+      memory: 161Mi
     limits:
       memory: 256Mi
   nodeSelector:
@@ -149,8 +149,8 @@ login:
           app.kubernetes.io/instance: zitadel
 resources:
   requests:
-    cpu: 30m
-    memory: 191Mi
+    cpu: 40m
+    memory: 143Mi
   limits:
     memory: 768Mi
 nodeSelector:

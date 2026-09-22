@@ -59,3 +59,9 @@ with pre-commit and server-side dry runs, require the PR's Tempo validation to
 pass, then merge to `master` for Fleet deployment. After reconciliation, confirm
 the Tempo endpoint is ready, OpenTelemetry exports succeed, fresh traces are
 queryable, and Tempo-related alerts and Fleet dependency errors clear.
+
+Grafana query streaming uses the Tempo HTTP endpoint on port 3200. Enable
+`stream_over_http_enabled` in the server configuration so datasource streaming
+does not attempt plain gRPC against an HTTP-only listener. Keep the datasource
+HTTP URL; OTLP receiver ports are ingestion endpoints, not query endpoints.
+Validate both trace-by-ID reads and streaming search after configuration changes.

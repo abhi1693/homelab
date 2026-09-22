@@ -46,3 +46,13 @@ DevFeed JSON logs add bounded `service` and `severity` stream labels through the
 namespace-specific processing stage. Request, job and trace identifiers remain in
 the JSON body for investigation and Tempo links; they are not promoted to labels.
 Other namespaces retain their existing processing.
+
+Loki writes explicitly retry HTTP 429 and transient server failures with 1s–1m
+backoff and 20 retries. Monitor `loki_write_dropped_entries_total` alongside Loki
+rejections; successful HTTP readiness alone does not prove complete delivery.
+
+Entries older than 336 hours are filtered before Loki batching, matching its
+14-day retention/acceptance window. This prevents expired replay entries from
+causing HTTP 400 batches. Monitor `loki_process_dropped_lines_total` with reason
+`expired_retention` separately from permanent delivery failures. Keep this age
+aligned with Loki when changing retention.

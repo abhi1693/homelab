@@ -2,7 +2,17 @@
 
 Fleet-managed deployment for ShipyardHQ.
 
-Application release `1.5.32` gives historical leaderboard payloads a fixed
+Application release `1.5.33` upgrades Next.js from 16.3.4 to 16.3.5, which fixes
+`use cache` prerender signal retention. The web pods previously exhausted
+their 3 GiB JavaScript heap despite disabling the in-process cache. The heap
+and container limits remain unchanged; verify the bundled Next.js version,
+restart counts and sustained memory trend under traffic after rollout.
+See [the upstream patch](https://github.com/vercel/next.js/pull/98448).
+[Release CI](https://github.com/abhi1693/shipyardhq/actions/runs/35194201338)
+passed the ARM64 build, vulnerability scan and runtime smoke checks. All image
+references pin index digest `sha256:0b857f474b838b3adce541eb1505c7ade190dabb64e332c55f4757de975ecaa5`.
+
+The preceding 1.5.32 release gives historical leaderboard payloads a fixed
 24-hour cache lifetime. Reads do not extend it, so version invalidation no
 longer leaves obsolete generations in Valkey indefinitely. The active version
 marker remains persistent.
@@ -36,12 +46,10 @@ check stylesheet HTTP responses and desktop/mobile rendering after rollout.
 
 The web, worker, builder, ingestion, and cache-cleanup images share the same
 release. There are no database schema changes. To roll back, revert this release
-change through Git, restoring all four image-pin manifests to `1.5.29`, and let
-Fleet build or reuse the matching artifact before rolling the pods. The previous
-OCI image index digest is
-`sha256:89a1a287236aa719de901b985d5f358f7cc61130d14ea2d3099783b6f6cb20a3`.
-Existing payload TTLs survive a rollback; older code can write new permanent
-entries, so monitor cache growth until a fixed release is restored.
+change through Git, restoring all four image-pin manifests to 1.5.32, and let
+Fleet build or reuse the matching artifact before rolling the pods. Rollback
+restores the known Next.js memory-growth risk. Historical leaderboard TTL
+behavior is unchanged by 1.5.33.
 
 The custom web, worker, and image-proxy Deployments retain two ReplicaSet
 revisions; Git and Fleet history remain the primary rollback path.
