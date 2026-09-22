@@ -44,15 +44,15 @@ spec:
       terminationGracePeriodSeconds: 180
       containers:
         - name: scheduler
-          # renovate: datasource=github-releases depName=abhi1693/devfeed.tech
-          image: registry.home/ghcr.io/abhi1693/devfeed.tech/backend:0.0.20@sha256:da51e7c9655314b792610832c65b99c092e8014c083c0368da9e4d4c04c7b2fe
+          # renovate: datasource=docker depName=ghcr.io/abhi1693/devfeed.tech/backend
+          image: registry.home/ghcr.io/abhi1693/devfeed.tech/backend:0.0.40@sha256:42b8ba3a03a95d0e5f1e7cf4a74b0a29863b87f16aade5e69d742f0a018b2111
           imagePullPolicy: IfNotPresent
           ports:
             - name: metrics
               containerPort: 9100
           resources:
             requests:
-              cpu: 100m
+              cpu: 500m
               memory: 256Mi
             limits:
               memory: 1Gi
@@ -97,7 +97,7 @@ spec:
                 - import os; from devfeed_core.config import get_settings; from devfeed_core.redis import create_redis;
                   assert create_redis(get_settings()).exists('devfeed:scheduler:heartbeat')
             periodSeconds: 30
-            timeoutSeconds: 5
+            timeoutSeconds: 15
             failureThreshold: 3
             initialDelaySeconds: 90
           command:
@@ -117,8 +117,8 @@ spec:
           emptyDir: {}
       initContainers:
         - name: trust-codex-ca
-          # renovate: datasource=github-releases depName=abhi1693/devfeed.tech
-          image: registry.home/ghcr.io/abhi1693/devfeed.tech/backend:0.0.20@sha256:da51e7c9655314b792610832c65b99c092e8014c083c0368da9e4d4c04c7b2fe
+          # renovate: datasource=docker depName=ghcr.io/abhi1693/devfeed.tech/backend
+          image: registry.home/ghcr.io/abhi1693/devfeed.tech/backend:0.0.40@sha256:42b8ba3a03a95d0e5f1e7cf4a74b0a29863b87f16aade5e69d742f0a018b2111
           imagePullPolicy: IfNotPresent
           resources:
             requests:
@@ -146,8 +146,8 @@ spec:
             - -c
             - from pathlib import Path; Path('/run/ca/ca-bundle.crt').write_bytes(Path('/etc/ssl/certs/ca-certificates.crt').read_bytes()+b'\n'+Path('/run/codex-ca/ca.crt').read_bytes())
         - name: wait-for-schema
-          # renovate: datasource=github-releases depName=abhi1693/devfeed.tech
-          image: registry.home/ghcr.io/abhi1693/devfeed.tech/backend:0.0.20@sha256:da51e7c9655314b792610832c65b99c092e8014c083c0368da9e4d4c04c7b2fe
+          # renovate: datasource=docker depName=ghcr.io/abhi1693/devfeed.tech/backend
+          image: registry.home/ghcr.io/abhi1693/devfeed.tech/backend:0.0.40@sha256:42b8ba3a03a95d0e5f1e7cf4a74b0a29863b87f16aade5e69d742f0a018b2111
           imagePullPolicy: IfNotPresent
           securityContext:
             runAsNonRoot: true

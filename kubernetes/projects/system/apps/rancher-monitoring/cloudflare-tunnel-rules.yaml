@@ -12,6 +12,44 @@ spec:
   groups:
     - name: cloudflare-tunnel.health
       rules:
+        - alert: CloudflarePublicEndpointDown
+          expr: |
+            probe_success{
+              job="cloudflare-public-http",
+              monitoring_scope="cloudflare-public"
+            } == 0
+          for: 3m
+          labels:
+            severity: critical
+          annotations:
+            summary: Public Cloudflare endpoint is unreachable
+            description: The public synthetic probe for {{ $labels.instance }} has failed for more than 3 minutes. Check tunnel edge connections first, then the origin service and endpoints.
+        - alert: CloudflarePublicEndpointSlow
+          expr: |
+            probe_duration_seconds{
+              job="cloudflare-public-http",
+              monitoring_scope="cloudflare-public"
+            } > 5
+          for: 5m
+          labels:
+            severity: warning
+          annotations:
+            summary: Public Cloudflare endpoint is slow
+            description: The public synthetic probe for {{ $labels.instance }} has exceeded 5 seconds for more than 5 minutes.
+        - alert: CloudflarePublicProbeMissing
+          expr: |
+            absent(
+              probe_success{
+                job="cloudflare-public-http",
+                monitoring_scope="cloudflare-public"
+              }
+            )
+          for: 5m
+          labels:
+            severity: critical
+          annotations:
+            summary: Public Cloudflare synthetic probe is missing
+            description: Prometheus has no results from the public Cloudflare probe for more than 5 minutes; availability monitoring is blind.
         - alert: CloudflareTunnelConnectorTargetsLow
           expr: |-
             sum(

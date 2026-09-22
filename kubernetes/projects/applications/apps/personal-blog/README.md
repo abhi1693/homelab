@@ -87,3 +87,7 @@ Recommended webhook filter:
 ```groq
 _type in ["blog.post", "blog.category", "page"]
 ```
+
+The web container requests 50m CPU, with its existing burst capacity retained.
+The [September 19 resource review](../../../../../docs/runbooks/kubernetes-resource-policy.md#2026-09-19-cpu-sizing-review)
+records the seven-day usage and rollout checks.

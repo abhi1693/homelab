@@ -15,6 +15,13 @@ spec:
   repository: https://github.com/abhi1693/devfeed.tech
   gitPath: kubernetes/projects/applications/apps/devfeed
   workloads:
+    - key: home-k3s/devfeed/apps/deployment/devfeed-imgproxy
+      namespace: devfeed
+      apiGroup: apps
+      kind: Deployment
+      name: devfeed-imgproxy
+      desiredReplicas: 1
+      sourcePath: kubernetes/projects/applications/apps/devfeed/deployment-imgproxy.yaml
     - key: home-k3s/devfeed/apps/deployment/devfeed-observability-exporter
       namespace: devfeed
       apiGroup: apps
@@ -64,19 +71,12 @@ spec:
       name: devfeed-admin-api
       desiredReplicas: 2
       sourcePath: kubernetes/projects/applications/apps/devfeed/deployment-admin-api.yaml
-    - key: home-k3s/devfeed/apps/deployment/devfeed-worker-background
-      namespace: devfeed
-      apiGroup: apps
-      kind: Deployment
-      name: devfeed-worker-background
-      desiredReplicas: 0
-      sourcePath: kubernetes/projects/applications/apps/devfeed/deployment-worker-background.yaml
     - key: home-k3s/devfeed/apps/deployment/devfeed-worker-notification
       namespace: devfeed
       apiGroup: apps
       kind: Deployment
       name: devfeed-worker-notification
-      desiredReplicas: 1
+      desiredReplicas: 2
       sourcePath: kubernetes/projects/applications/apps/devfeed/deployment-worker-notification.yaml
     - key: home-k3s/devfeed/apps/deployment/devfeed-scheduler
       namespace: devfeed
@@ -125,7 +125,7 @@ spec:
       apiGroup: apps
       kind: Deployment
       name: devfeed-worker-article-analysis
-      desiredReplicas: 3
+      desiredReplicas: 5
       sourcePath: kubernetes/projects/applications/apps/devfeed/deployment-worker-article-analysis.yaml
     - key: home-k3s/devfeed/apps/deployment/devfeed-worker-topic-analysis
       namespace: devfeed
@@ -181,7 +181,7 @@ spec:
       apiGroup: apps
       kind: Deployment
       name: devfeed-worker-images
-      desiredReplicas: 1
+      desiredReplicas: 2
       sourcePath: kubernetes/projects/applications/apps/devfeed/deployment-worker-images.yaml
     - key: home-k3s/devfeed/apps/deployment/devfeed-worker-source-enrichment
       namespace: devfeed

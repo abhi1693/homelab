@@ -36,9 +36,15 @@ spec:
       terminationGracePeriodSeconds: 180
       containers:
         - name: codex
-          # renovate: datasource=github-releases depName=abhi1693/devfeed.tech
-          image: registry.home/ghcr.io/abhi1693/devfeed.tech/codex:0.0.20@sha256:af5774360fe5e925c355b6d999780fcf349df377deadad6baa0da172a9dd51f3
+          # renovate: datasource=docker depName=ghcr.io/abhi1693/devfeed.tech/codex
+          image: registry.home/ghcr.io/abhi1693/devfeed.tech/codex:0.0.40@sha256:843e5df8b8829b997f3500c7384c134cf188b28e58e4085b107661ba973379b2
           imagePullPolicy: IfNotPresent
+          args:
+            - app-server
+            - --listen
+            - ws://127.0.0.1:4500
+            - -c
+            - history.persistence="none"
           resources:
             requests:
               cpu: 100m
@@ -58,6 +64,10 @@ spec:
             - secretRef:
                 name: devfeed-codex
           env:
+            - name: CODEX_SQLITE_HOME
+              value: /var/lib/codex-runtime
+            - name: RUST_LOG
+              value: codex_app_server=info,codex_core=warn,codex_api=warn,codex_models_manager=warn,rmcp=warn,warn
             - name: DEVFEED_CODEX_TLS_CERT
               value: /run/tls/tls.crt
             - name: DEVFEED_CODEX_TLS_KEY
@@ -67,6 +77,8 @@ spec:
           volumeMounts:
             - name: devfeed-codex-home
               mountPath: /var/lib/codex
+            - name: codex-runtime
+              mountPath: /var/lib/codex-runtime
             - name: tls
               mountPath: /run/tls
               readOnly: true
@@ -96,7 +108,59 @@ spec:
             periodSeconds: 10
             timeoutSeconds: 5
             failureThreshold: 60
+        - name: log-retention
+          # renovate: datasource=docker depName=ghcr.io/abhi1693/devfeed.tech/codex
+          image: registry.home/ghcr.io/abhi1693/devfeed.tech/codex:0.0.40@sha256:843e5df8b8829b997f3500c7384c134cf188b28e58e4085b107661ba973379b2
+          imagePullPolicy: IfNotPresent
+          command:
+            - node
+            - /opt/codex-runtime/retention.cjs
+            - /var/lib/codex-runtime
+          resources:
+            requests:
+              cpu: 25m
+              memory: 64Mi
+            limits:
+              memory: 128Mi
+          securityContext:
+            runAsNonRoot: true
+            runAsUser: 10001
+            runAsGroup: 10001
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities:
+              drop:
+                - ALL
+          volumeMounts:
+            - name: codex-runtime
+              mountPath: /var/lib/codex-runtime
+            - name: codex-runtime-scripts
+              mountPath: /opt/codex-runtime
+              readOnly: true
+          readinessProbe:
+            exec:
+              command:
+                - node
+                - -e
+                - "process.exit(Date.now() - Number(require('node:fs').readFileSync('/var/lib/codex-runtime/.retention-health', 'utf8')) < 90000 ? 0 : 1)"
+            periodSeconds: 30
+            timeoutSeconds: 5
+          livenessProbe:
+            exec:
+              command:
+                - node
+                - -e
+                - "process.exit(Date.now() - Number(require('node:fs').readFileSync('/var/lib/codex-runtime/.retention-health', 'utf8')) < 90000 ? 0 : 1)"
+            initialDelaySeconds: 90
+            periodSeconds: 30
+            timeoutSeconds: 5
       volumes:
+        - name: codex-runtime
+          emptyDir:
+            sizeLimit: 512Mi
+        - name: codex-runtime-scripts
+          configMap:
+            name: devfeed-codex-runtime
         - name: tmp
           emptyDir:
             sizeLimit: 256Mi
@@ -110,10 +174,45 @@ spec:
         - name: codex-socket
           emptyDir: {}
       initContainers:
-        - name: chatgpt-login
-          # renovate: datasource=github-releases depName=abhi1693/devfeed.tech
-          image: registry.home/ghcr.io/abhi1693/devfeed.tech/codex:0.0.20@sha256:af5774360fe5e925c355b6d999780fcf349df377deadad6baa0da172a9dd51f3
+        - name: remove-legacy-logs
+          # renovate: datasource=docker depName=ghcr.io/abhi1693/devfeed.tech/codex
+          image: registry.home/ghcr.io/abhi1693/devfeed.tech/codex:0.0.40@sha256:843e5df8b8829b997f3500c7384c134cf188b28e58e4085b107661ba973379b2
           imagePullPolicy: IfNotPresent
+          command:
+            - node
+            - /opt/codex-runtime/retention.cjs
+            - --cleanup-legacy
+            - /var/lib/codex
+          resources:
+            requests:
+              cpu: 25m
+              memory: 32Mi
+            limits:
+              memory: 128Mi
+          securityContext:
+            runAsNonRoot: true
+            runAsUser: 10001
+            runAsGroup: 10001
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities:
+              drop:
+                - ALL
+          volumeMounts:
+            - name: devfeed-codex-home
+              mountPath: /var/lib/codex
+            - name: codex-runtime-scripts
+              mountPath: /opt/codex-runtime
+              readOnly: true
+        - name: chatgpt-login
+          # renovate: datasource=docker depName=ghcr.io/abhi1693/devfeed.tech/codex
+          image: registry.home/ghcr.io/abhi1693/devfeed.tech/codex:0.0.40@sha256:843e5df8b8829b997f3500c7384c134cf188b28e58e4085b107661ba973379b2
+          imagePullPolicy: IfNotPresent
+          env:
+            - name: CODEX_SQLITE_HOME
+              value: /var/lib/codex-runtime
+            - name: RUST_LOG
+              value: warn
           resources:
             requests:
               cpu: 100m
@@ -132,6 +231,8 @@ spec:
           volumeMounts:
             - name: devfeed-codex-home
               mountPath: /var/lib/codex
+            - name: codex-runtime
+              mountPath: /var/lib/codex-runtime
             - name: tmp
               mountPath: /tmp
           command:

@@ -16,7 +16,43 @@ controller:
   podDisruptionBudget:
     enabled: true
     minAvailable: 1
+  volumes:
+    extra:
+      - name: sourcemap-resolver
+        configMap:
+          name: alloy-faro-sourcemap-resolver
+  extraContainers:
+    - name: sourcemap-resolver
+      # renovate: datasource=docker depName=docker.io/library/python
+      image: registry.home/docker.io/python:3.14.7-alpine3.23
+      command: [python3, /opt/resolver/sourcemap-resolver.py]
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 473
+        runAsGroup: 473
+        readOnlyRootFilesystem: true
+        allowPrivilegeEscalation: false
+        capabilities:
+          drop: [ALL]
+        seccompProfile:
+          type: RuntimeDefault
+      resources:
+        requests:
+          cpu: 10m
+          memory: 32Mi
+        limits:
+          memory: 192Mi
+      volumeMounts:
+        - name: sourcemap-resolver
+          mountPath: /opt/resolver
+          readOnly: true
+      readinessProbe:
+        exec:
+          command: [python3, -c, "import urllib.request; urllib.request.urlopen('http://127.0.0.1:12348/healthz', timeout=2)"]
+        periodSeconds: 30
+        timeoutSeconds: 5
   podAnnotations:
+    home-lab.io/sourcemap-resolver-revision: "2026-09-18-v1"
     home-lab.io/faro-secret-revision: "2026-07-01-browser-key"
   nodeSelector:
     kubernetes.io/arch: arm64
@@ -73,35 +109,36 @@ alloy:
 
         sourcemaps {
           download = false
+          download_timeout = "10s"
 
           location {
             minified_path_prefix = "https://abhimanyu-saharan.com/_next/static/"
-            path                 = "http://portfolio.portfolio.svc.cluster.local:3000/faro-sourcemaps/_next/static/"
+            path                 = "http://127.0.0.1:12348/portfolio/_next/static/"
           }
 
           location {
             minified_path_prefix = "https://www.abhimanyu-saharan.com/_next/static/"
-            path                 = "http://portfolio.portfolio.svc.cluster.local:3000/faro-sourcemaps/_next/static/"
+            path                 = "http://127.0.0.1:12348/portfolio/_next/static/"
           }
 
           location {
             minified_path_prefix = "https://blog.abhimanyu-saharan.com/_next/static/"
-            path                 = "http://personal-blog.personal-blog.svc.cluster.local:3000/faro-sourcemaps/_next/static/"
+            path                 = "http://127.0.0.1:12348/personal-blog/_next/static/"
           }
 
           location {
             minified_path_prefix = "https://shipyardhq.dev/_next/static/"
-            path                 = "http://shipyardhq.shipyardhq.svc.cluster.local:3000/faro-sourcemaps/_next/static/"
+            path                 = "http://127.0.0.1:12348/shipyardhq/_next/static/"
           }
 
           location {
             minified_path_prefix = "https://www.shipyardhq.dev/_next/static/"
-            path                 = "http://shipyardhq.shipyardhq.svc.cluster.local:3000/faro-sourcemaps/_next/static/"
+            path                 = "http://127.0.0.1:12348/shipyardhq/_next/static/"
           }
 
           location {
             minified_path_prefix = "https://hub.wardnai.dev/_next/static/"
-            path                 = "http://wardn-hub-frontend.wardn.svc.cluster.local:3000/faro-sourcemaps/_next/static/"
+            path                 = "http://127.0.0.1:12348/wardn-hub/_next/static/"
           }
 
           location {
@@ -150,6 +187,10 @@ alloy:
       loki.write "local" {
         endpoint {
           url = "http://loki-gateway.cattle-monitoring-system.svc.cluster.local/loki/api/v1/push"
+          retry_on_http_429    = true
+          min_backoff_period  = "1s"
+          max_backoff_period  = "1m"
+          max_backoff_retries = 20
         }
       }
 

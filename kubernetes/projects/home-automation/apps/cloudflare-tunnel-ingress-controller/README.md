@@ -61,18 +61,21 @@ and adds alerts for lost connector scrape redundancy, fewer than four edge
 connections per connector, readiness failures, connector configuration-version
 drift, origin proxy errors, a sustained high 5xx rate, insufficient controller
 metrics targets, a missing controller leader, and controller reconciliation
-failures. Metrics availability and leadership are separate signals so a scrape
-outage cannot be misreported as a controller leadership failure.
+failures. A public Blackbox Probe also checks the public tunnel hostnames every
+30 seconds and alerts on endpoint failure, slowness, or missing probe data.
+Metrics availability and leadership are separate signals so a scrape outage
+cannot be misreported as a controller leadership failure.
 
 Connector transport is pinned to HTTP/2 over TCP port `7844`. Both protocols
 pass the `cloudflared` startup precheck, but the home network's QUIC path has
 experienced repeated periods where all edge connections timed out. The
 companion egress NetworkPolicy permits TCP `7844` for this fallback.
 
-Both control-plane and data-plane workloads run with two replicas and required
-pod anti-affinity on `kubernetes.io/hostname`, so Kubernetes cannot place both
-replicas of either workload on the same node. A `PodDisruptionBudget` with
-`minAvailable: 1` protects each workload during voluntary disruptions. The
+The controller runs with two replicas and the tunnel data plane runs with
+three replicas. Both are constrained to ARM64 control-plane nodes and use
+required pod anti-affinity on `kubernetes.io/hostname`, so Kubernetes cannot
+place replicas on the same node. The connector `PodDisruptionBudget` requires
+two available connectors during voluntary disruptions. The
 chart owns the connector budget, while the companion
 `cloudflare-tunnel-ingress-controller-networkpolicy` raw Fleet bundle owns the
 controller budget because chart `0.1.0` does not expose a controller PDB

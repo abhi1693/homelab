@@ -29,7 +29,7 @@ capacity or depending on the shared NAS.
 
 ## Network Boundary
 
-Ingress is limited to Prowlarr and `devfeed/devfeed-solver-worker` on port `8191`.
+Ingress is limited to Prowlarr and `devfeed/devfeed-worker-solver` on port `8191`.
 Egress permits cluster DNS and public IPv4 HTTP(S) only, excluding private,
 loopback, link-local, reserved, multicast and cluster ranges. IPv6 has no allow rule.
 This boundary is required because a remote browser follows subresources and
@@ -41,3 +41,7 @@ browser behavior and upstream TLS checking are provider-specific.
 - Keep this service internal; expose indexer workflows through Prowlarr.
 - Watch CPU and memory when increasing browser-concurrency behavior.
 - Change chart configuration in `values.yaml` and let Fleet reconcile.
+
+The Fleet bundle and HelmOp fetch the pinned chart directly from its OCI repository.
+They do not depend on the optional Rancher chart-catalog bundle, whose index refresh
+failures must not block solver configuration repairs.

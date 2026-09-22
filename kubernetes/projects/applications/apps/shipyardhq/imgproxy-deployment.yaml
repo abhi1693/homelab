@@ -10,6 +10,7 @@ metadata:
 spec:
   revisionHistoryLimit: 2
   replicas: 4
+  minReadySeconds: 15
   selector:
     matchLabels:
       app.kubernetes.io/name: shipyardhq-imgproxy
@@ -78,7 +79,7 @@ spec:
           resources:
             requests:
               cpu: 10m
-              memory: 170Mi
+              memory: 147Mi
             limits:
               cpu: 200m
               memory: 192Mi
@@ -96,6 +97,7 @@ spec:
             periodSeconds: 10
             timeoutSeconds: 3
             failureThreshold: 3
+            successThreshold: 2
           livenessProbe:
             httpGet:
               path: /health
@@ -103,6 +105,13 @@ spec:
             periodSeconds: 30
             timeoutSeconds: 5
             failureThreshold: 4
+          lifecycle:
+            preStop:
+              exec:
+                command:
+                  - /bin/sh
+                  - -c
+                  - sleep 15
           securityContext:
             allowPrivilegeEscalation: false
             capabilities:

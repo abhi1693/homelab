@@ -72,3 +72,37 @@ before replacing services. Article-analysis capacity increases to three dedicate
 workers. Shared weekly-quota pacing is enabled with a 20% reserve; the scheduler
 must refresh quota before AI admission resumes. Verify a fresh quota snapshot,
 worker readiness and completed work after Fleet convergence.
+
+## v0.0.21
+
+Schema `0011` adds the nullable `articles.ai_title` column while preserving source
+titles and existing editorial decisions. The matching backend migration hook runs
+before workload replacement. Older APIs require `0010`, so a brief readiness
+interruption is possible. Verify hook success, schema `0011`, Fleet convergence,
+all release images and reader behavior. Do not reanalyze existing articles as part
+of this rollout; selective reanalysis is a separate operator action. Keep the new
+schema and use a compatible forward fix if recovery is needed.
+
+## v0.0.22
+
+Apply `0012` (recommendation candidate rebuild tracking) and `0013` (managed article
+image metadata and durable Images storage progress) with the matching backend hook.
+Existing content and preferences are retained. Redis holds expiring shuffled feed
+generations; a Redis outage falls back to the database without shuffling.
+Older services reject schema `0013`, so readiness can briefly drop before their
+replacement. Verify migration, Fleet convergence, release digests, reader behavior
+and an image storage operation. Recover with schema-compatible images rather than
+an image-only rollback to v0.0.21. R2 backfill is independent of the schema migration.
+
+## Release 0.0.24: schema 0014
+
+The pre-upgrade hook adds nullable `inputs_pruned_at` markers to article and topic
+analysis jobs, then creates active-topic and successful-job retention indexes
+concurrently. The migration preserves current payloads and publication decisions.
+Before retrying an interrupted migration, inspect `pg_index.indisvalid`; invalid
+release indexes require an explicitly authorized repair.
+
+Verify schema 0014, successful hook completion, matching Fleet deployment IDs and
+all new application images before declaring the rollout complete. Older 0.0.23
+services require schema 0013, so a readiness gap is possible. Keep schema 0014 and
+recover with compatible images; an image-only rollback is insufficient.

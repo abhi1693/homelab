@@ -96,6 +96,11 @@ alloy:
 
       loki.process "devfeed" {
         forward_to = [loki.write.local.receiver]
+        // Match Loki's 14-day acceptance window before entries share a batch.
+        stage.drop {
+          older_than          = "336h"
+          drop_counter_reason = "expired_retention"
+        }
         stage.match {
           selector = "{namespace=\"devfeed\"}"
           stage.json {
@@ -110,6 +115,10 @@ alloy:
       loki.write "local" {
         endpoint {
           url = "http://loki-gateway.cattle-monitoring-system.svc.cluster.local/loki/api/v1/push"
+          retry_on_http_429    = true
+          min_backoff_period  = "1s"
+          max_backoff_period  = "1m"
+          max_backoff_retries = 20
         }
       }
   resources:

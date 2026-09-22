@@ -36,3 +36,7 @@ The application webhook is
 Verified payment and refund events are also sent to the Launchboard GA4 stream
 when the encrypted application secret contains `GOOGLE_ANALYTICS_API_SECRET`;
 the application safely skips those server-side events while it is absent.
+
+The web container requests 50m CPU, with its existing burst capacity retained.
+The [September 19 resource review](../../../../../docs/runbooks/kubernetes-resource-policy.md#2026-09-19-cpu-sizing-review)
+records the seven-day usage and rollout checks.

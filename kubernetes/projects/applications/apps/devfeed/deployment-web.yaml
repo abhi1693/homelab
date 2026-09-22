@@ -10,6 +10,7 @@ metadata:
 spec:
   replicas: 2
   revisionHistoryLimit: 2
+  minReadySeconds: 15
   selector:
     matchLabels:
       app.kubernetes.io/name: devfeed-web
@@ -21,6 +22,8 @@ spec:
       maxUnavailable: 0
   template:
     metadata:
+      annotations:
+        devfeed.tech/telemetry-config-sha256: 698b964592a0f7572d09d4cec58d46bb29ebdedc3f7f20eb8a18b1b4b944b41b
       labels:
         devfeed-telemetry: 'true'
         devfeed-faro: 'true'
@@ -48,8 +51,8 @@ spec:
       terminationGracePeriodSeconds: 180
       containers:
         - name: web
-          # renovate: datasource=github-releases depName=abhi1693/devfeed.tech
-          image: registry.home/ghcr.io/abhi1693/devfeed.tech/web:0.0.20@sha256:65a0d3abb8be8306e8ba6d695309bbc491f27594931ec6df834c2e5e6b1613cb
+          # renovate: datasource=docker depName=ghcr.io/abhi1693/devfeed.tech/web
+          image: registry.home/ghcr.io/abhi1693/devfeed.tech/web:0.0.40@sha256:35acc07ed0ad26ce4e071396e250b32aea33c8b1d0be2e751f142bc2da74437d
           imagePullPolicy: IfNotPresent
           envFrom:
             - configMapRef:
@@ -86,6 +89,15 @@ spec:
               value: http://devfeed-api:8000
             - name: GOOGLE_ANALYTICS_ID
               value: G-N4V5CW5C0M
+            - name: MICROSOFT_CLARITY_PROJECT_ID
+              value: ykttxt8lvd
+            - name: DEVFEED_EXTENSION_ANALYTICS_ENABLED
+              value: 'true'
+            - name: DEVFEED_EXTENSION_GA_API_SECRET
+              valueFrom:
+                secretKeyRef:
+                  name: devfeed-extension-analytics
+                  key: DEVFEED_EXTENSION_GA_API_SECRET
           ports:
             - name: metrics
               containerPort: 9100
@@ -94,10 +106,18 @@ spec:
             tcpSocket:
               port: 3000
             periodSeconds: 10
+            successThreshold: 2
           livenessProbe:
             tcpSocket:
               port: 3000
             periodSeconds: 30
+          lifecycle:
+            preStop:
+              exec:
+                command:
+                  - /bin/sh
+                  - -c
+                  - sleep 15
           volumeMounts:
             - name: next-cache
               mountPath: /app/apps/web/.next/cache

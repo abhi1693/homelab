@@ -21,10 +21,14 @@ loki:
           prefix: index_
           period: 24h
   limits_config:
-    retention_period: 168h
+    # Permit short replay bursts while retaining an explicit tenant budget.
+    ingestion_rate_mb: 8
+    ingestion_burst_size_mb: 16
+    retention_period: 336h
+    max_query_lookback: 336h
     volume_enabled: true
     reject_old_samples: true
-    reject_old_samples_max_age: 168h
+    reject_old_samples_max_age: 336h
 
 singleBinary:
   replicas: 1
@@ -36,10 +40,10 @@ singleBinary:
     whenScaled: Retain
   resources:
     requests:
-      cpu: 25m
-      memory: 448Mi
+      cpu: 250m
+      memory: 768Mi
     limits:
-      memory: 1Gi
+      memory: 2Gi
   nodeSelector:
     kubernetes.io/arch: arm64
     node-role.kubernetes.io/control-plane: "true"
@@ -67,6 +71,13 @@ gateway:
       value: "true"
       effect: NoExecute
   verboseLogging: false
+  nginxConfig:
+    # This cluster has IPv4-only Services. Bound DNS/backend connection stalls
+    # below Alloy and Grafana request timeouts so clients can retry promptly.
+    resolver: "kube-dns.kube-system.svc.cluster.local. valid=10s ipv6=off"
+    serverSnippet: |
+      resolver_timeout 5s;
+      proxy_connect_timeout 5s;
   resources:
     requests:
       cpu: 5m

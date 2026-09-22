@@ -1,0 +1,57 @@
+---
+apiVersion: monitoring.coreos.com/v1
+kind: PrometheusRule
+metadata:
+  name: valkey-memory
+  namespace: valkey
+  labels:
+    app.kubernetes.io/name: valkey-memory
+    app.kubernetes.io/component: alerts
+    app.kubernetes.io/part-of: valkey
+    home-lab.io/project-slug: database
+spec:
+  groups:
+    - name: valkey.memory
+      rules:
+        - alert: ValkeyMemoryDatasetHigh
+          expr: |
+            max by (namespace) (
+              redis_memory_used_bytes{namespace="valkey", app="valkey"}
+            ) > 2684354560
+          for: 10m
+          labels:
+            severity: warning
+          annotations:
+            summary: Valkey dataset is above 2.5 GiB
+            description: Valkey memory usage has stayed above 2.5 GiB for 10 minutes; investigate key growth before the 3 GiB maxmemory ceiling is reached.
+        - alert: ValkeyMemoryDatasetCritical
+          expr: |
+            max by (namespace) (
+              redis_memory_used_bytes{namespace="valkey", app="valkey"}
+            ) > 2952790016
+          for: 5m
+          labels:
+            severity: critical
+          annotations:
+            summary: Valkey dataset is near its maxmemory ceiling
+            description: Valkey memory usage has stayed above 2.75 GiB for 5 minutes; writes may soon fail because maxmemory-policy is noeviction.
+        - alert: ValkeyEvictionsDetected
+          expr: |
+            sum by (namespace) (
+              increase(redis_evicted_keys_total{namespace="valkey", app="valkey"}[10m])
+            ) > 0
+          for: 5m
+          labels:
+            severity: critical
+          annotations:
+            summary: Valkey evicted keys
+            description: Valkey has evicted keys despite the expected noeviction policy; verify the active configuration and client behavior.
+        - alert: ValkeyMaxmemoryPolicyMismatch
+          expr: |
+            redis_instance_info{namespace="valkey", app="valkey", maxmemory_policy!="noeviction"} == 1
+          for: 10m
+          labels:
+            severity: critical
+          annotations:
+            summary: Valkey maxmemory policy is not noeviction
+            description: Valkey is using {{ $labels.maxmemory_policy }} instead of the Git-managed noeviction policy; writes may silently evict shared queue or cache data.

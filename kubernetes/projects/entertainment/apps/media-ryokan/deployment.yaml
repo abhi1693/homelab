@@ -228,7 +228,7 @@ spec:
       containers:
         - name: ryokan
           # renovate: datasource=docker depName=ghcr.io/abhi1693/ryokan
-          image: registry.home/ghcr.io/abhi1693/ryokan:1.9.11
+          image: registry.home/ghcr.io/abhi1693/ryokan:1.9.12@sha256:fb402dc4054a5ccd2146475d6b7fba550c4a27cba4247753432b27b4148ed6d3
           imagePullPolicy: IfNotPresent
           envFrom:
             - configMapRef:

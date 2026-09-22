@@ -1,0 +1,18 @@
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: devfeed-imgproxy
+  namespace: devfeed
+  labels:
+    app.kubernetes.io/name: devfeed-imgproxy
+    app.kubernetes.io/part-of: devfeed
+spec:
+  type: ClusterIP
+  selector:
+    app.kubernetes.io/name: devfeed-imgproxy
+  ports:
+    - name: http
+      port: 8080
+      targetPort: http
+      protocol: TCP

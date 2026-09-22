@@ -61,7 +61,7 @@ The web UI is available at `http://requests.anime.media.home`.
 Ryokan mounts `/downloads` so it can read qBittorrent's reported anime torrent
 paths, and `/media/anime` as the NAS-backed anime library.
 
-Ryokan 1.9.11 stores a durable checkpoint after each file reaches its final
+Ryokan 1.9.12 stores a durable checkpoint after each file reaches its final
 library path. If the process restarts while a multi-file grab is still pending,
 the next pass verifies and resumes completed files instead of copying or
 recycling them again. It also finishes deferred replacement bookkeeping after

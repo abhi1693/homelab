@@ -10,10 +10,23 @@ PgBouncer poolers used by home-lab apps.
 
 ## Monitoring collector database
 
-The cluster explicitly uses the required `postgres` database as its
-`cluster.initdb.database` and owner. CloudNativePG runs monitoring queries
-without an explicit `target_databases` list against that bootstrap database,
-so it must remain present for the default SQL-derived metric families.
+The cluster uses `app` as its `cluster.initdb.database` and owner, matching
+CNPG's existing generated `postgresql-app` secret. The role is explicitly
+managed without superuser privileges, and the database has a `retain` reclaim
+policy. Keep both present: CloudNativePG runs monitoring queries without an
+explicit `target_databases` list against the bootstrap database. The custom
+`pg_stat_statements_top` query continues to target `postgres` explicitly.
+
+Changing the bootstrap owner to `postgres` does not update an existing
+generated secret. It causes repeated `wrong username 'app' in secret, expected
+'postgres'` reconciliation errors. Do not rename the secret's user to
+`postgres`: bootstrap-owner password reconciliation is separate from
+`enableSuperuserAccess: false`.
+
+For an existing cluster where `app` was removed, follow the staged
+[bootstrap owner repair](../../../../../docs/runbooks/postgresql-bootstrap-owner-repair.md).
+Adding the managed role and retained database repairs the existing cluster;
+changing `initdb` alone does not run bootstrap again.
 
 The custom Prometheus rules alert when `cnpg_last_error` remains non-zero and
 when fewer ready PostgreSQL instances expose
@@ -23,9 +36,9 @@ failure even when the metrics endpoint and Prometheus target remain up.
 ## Storage redundancy
 
 The three PostgreSQL instances are hard-spread across nodes and synchronously
-replicate database state. Each instance has a separate 8Gi data PVC and 4Gi WAL
+replicate database state. Each instance has a separate 20Gi data PVC and 4Gi WAL
 PVC.
-Those six Longhorn volumes each use three storage replicas, for 108Gi of
+Those six Longhorn volumes each use three storage replicas, for 216Gi of
 nominal scheduled block capacity beneath the three application-level database
 copies. This intentionally accepts compounded storage and write amplification
 so every individual PVC can tolerate replica loss at the block layer.
@@ -34,7 +47,41 @@ Continuous WAL archiving and daily object-store backups remain the independent
 recovery path. New or replacement PVCs inherit the same three-replica policy
 from the Longhorn StorageClass.
 
+Remote backups in Cloudflare R2 use `backups.retentionPolicy: 7d`, providing a
+seven-day recovery window. CloudNativePG removes obsolete backups after a
+successful backup completes. A base backup older than seven days and the WAL
+needed to recover from it may remain to cover the start of that window.
+
+`backup-20260916.yaml` requests a one-off full physical backup through Fleet
+after reducing retention to seven days. Its fixed resource name prevents
+ordinary reconciliations from requesting another backup. Check the Backup's
+`status.phase` and instance logs for completion and retention cleanup; old
+Kubernetes Backup records alone do not prove that their remote objects remain.
+The `-retry` request prefers a standby after a primary OOM and failover aborted
+the original attempt's PostgreSQL backup session.
+
 ## PgBouncer connection budgets
+
+Every pooler sets `min_pool_size: 1` and `server_idle_timeout: 120` to preserve
+a warm backend per database/user pool while retiring excess unused connections
+after two minutes instead of the ten-minute default. The minimum is a retention
+floor, not an eagerly allocated reservation for every possible database; PgBouncer
+only replenishes it for pools with a connected client or forced database user. A September 2026
+sample showed 135 of 160 PostgreSQL connections while PgBouncer held 94 unused
+backends and only 33 client-attached backends. Authentication pools also retain
+connections and must be counted alongside application pools.
+
+This timeout applies only after a backend is returned to the unused pool. It
+does not kill running queries, long transactions, or idle sessions still attached
+to a client in session mode. `client_idle_timeout` remains disabled and existing
+SQL statement/transaction timeout policies are unchanged. CNPG reloads these
+PgBouncer parameters without restarting pods. Keep the default 3600-second
+server lifetime; do not use `server_lifetime: 0`, which disables backend reuse.
+Validate the effective value with
+`SHOW CONFIG`, then confirm lower backend counts, no queued clients, no new
+restarts, and successful application access. Keep a client connected for longer
+than 120 seconds and verify its backend PID survives both a running query and a
+client-idle interval. Revert the parameter through Git if a rollback is needed.
 
 Keep each pooler's backend capacity at or below the matching PostgreSQL role
 `connectionLimit`:
@@ -111,9 +158,15 @@ Poolers rely on CloudNativePG's generated TCP readiness probe against the
 local PgBouncer port 5432 and intentionally have no backend-coupled liveness
 probe. A backend DNS, connection, or PostgreSQL availability interruption must
 not restart an otherwise healthy proxy.
-Each PostgreSQL instance requests `250m` CPU and `1Gi` memory, with a
-`1536Mi` memory limit. CPU is uncapped. Preserve memory headroom for startup,
-replication, and maintenance rather than sizing the limit to idle usage.
+Each PostgreSQL instance requests `250m` CPU and `3Gi` memory, with a `3Gi`
+memory limit. The three instances reserve `9Gi` in total so every replica has
+capacity to become primary. CPU is uncapped, so the pods remain Burstable.
+The previous `1536Mi` limit caused primary OOMs with roughly 140 client
+connections; observed working-set peaks reached 1533Mi. Preserve the added
+headroom for connection memory, startup, replication, and maintenance.
+After a resource change, verify Fleet convergence, all three instances' live
+resources and readiness, streaming replication, application database access,
+and memory usage through a complete workload and backup cycle.
 
 ## PostgreSQL runtime tuning
 
@@ -123,8 +176,8 @@ and the 18 active PgBouncer replicas:
 | Parameter | Value | Rationale |
 | --- | ---: | --- |
 | `max_connections` | 160 | The 14-day maximum was 104 and p99 was 90. Adding Wardn License Server raises the modeled pooler, control, replication, monitoring, and direct-client ceiling to about 148. |
-| `shared_buffers` | 256MiB | Retains the 25% memory allocation; per-database cache-hit ratios remain between 98.7% and 99.99%. |
-| `effective_cache_size` | 768MiB | Gives the planner a conservative cache hint below the 1Gi request; it does not allocate memory. |
+| `shared_buffers` | 256MiB | Preserves the existing buffer allocation so the larger pod budget provides connection and maintenance headroom. |
+| `effective_cache_size` | 768MiB | Preserves the conservative planner cache hint; it does not allocate memory. |
 | `work_mem` | 4MiB | Avoids multiplying a larger allocation across concurrent sort and hash operations. Expensive maintenance queries must use statement-local overrides. |
 | `wal_buffers` | 16MiB | The previous automatic 8MiB allocation recorded about 1.27 million buffer-full events over 14 days. |
 | `checkpoint_timeout` | 15 minutes | Almost all checkpoints were time-driven while checkpoint writes totaled about 26.8GiB over 14 days. The 1GiB WAL ceiling remains unchanged. |
@@ -146,15 +199,33 @@ PostgreSQL's fixed 50-tuple thresholds. This makes maintenance respond to each
 table's change rate without increasing autovacuum frequency for the rest of the
 cluster.
 
-The overrides apply to `wardn_hub.public.event_records` and
-`shipyardhq.public."EventEnvelope"`. Use current PostgreSQL statistics to
-assess their effect; historical row counts are not a tuning baseline.
+The overrides apply to the following current high-churn tables:
+
+- `wardn_hub.public.event_records`
+- `devfeed.public.articles`, `article_analysis_jobs`,
+  `research_verification_jobs`, `topic_analysis_jobs`, and
+  `topic_relation_proposals`
+- `harbor.public.artifact`, `artifact_blob`, `artifact_reference`, `blob`,
+  `tag`, and `task`
+- `shipyardhq.public."EventEnvelope"`
+
+Use current PostgreSQL statistics to assess their effect; historical row counts
+are not a tuning baseline. The CNPG custom query
+`pg_stat_user_tables_autovacuum` exports the selected tables' live tuples, dead
+tuples, dead-tuple ratio, and modifications since analyze from every CNPG
+instance. The Prometheus alerts join those samples with
+`cnpg_pg_replication_in_recovery` and evaluate only the current primary;
+standby statistics can have small denominators and are not valid for this
+ratio. Prometheus warns at 8% dead tuples and becomes critical at 15% so a
+table can be investigated before sustained bloat becomes an application or
+storage risk.
 
 [`autovacuum-high-churn-tables.sql`](autovacuum-high-churn-tables.sql) is the
 idempotent source for the table storage parameters and the controlled vacuum.
-It uses a five-second lock timeout, ten-minute statement timeout, and a 2ms
-vacuum cost delay. Reapply it as the PostgreSQL superuser if a migration
-recreates one of the tables, then remeasure `n_live_tup`, `n_dead_tup`,
+It uses a five-second lock timeout for each table change, a ten-minute
+statement timeout for the controlled vacuum, and a 2ms vacuum cost delay.
+Reapply it as the PostgreSQL superuser if a migration recreates one of the
+tables, then remeasure `n_live_tup`, `n_dead_tup`,
 `n_mod_since_analyze`, and the last vacuum/analyze timestamps in
 `pg_stat_user_tables`.
 
@@ -194,3 +265,12 @@ storage. The setting reverts at the end of each collector query; global
 `work_mem` remains 4MiB. The slow-query table ranks the execution time added
 during the selected Grafana time range, so old cumulative-heavy query families
 drop out when they are no longer active in that window.
+
+## September 2026 data-volume headroom
+
+Increase the retained data claims from 10Gi to 20Gi through CNPG/Fleet; WAL remains
+4Gi. The latest scheduled backup completed before this change and each Longhorn
+node had over 250Gi free. Verify all three PVC capacities and in-pod filesystem
+sizes after reconciliation, then check replication and the low-disk alert.
+Volume expansion cannot be rolled back by shrinking the PVC. Retain all claims
+and database records; this change does not introduce an analysis-history deletion policy.

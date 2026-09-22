@@ -92,6 +92,53 @@ def main() -> int:
                         ):
                             failures.append(f"Renovate image matcher misreads {sample!r}")
 
+    devfeed_rules = [
+        block
+        for block in re.findall(r"\{[^{}]*\}", config)
+        if 'groupSlug: "devfeed-images"' in block
+    ]
+    if len(devfeed_rules) != 1:
+        failures.append("expected one grouped DevFeed Docker image rule")
+    else:
+        rule = devfeed_rules[0]
+        for required in (
+            'matchDatasources: ["docker"]',
+            'enabled: true',
+            'versioning: "semver"',
+            'ignoreUnstable: true',
+            'pinDigests: true',
+        ):
+            if required not in rule:
+                failures.append(f"DevFeed image rule requires {required}")
+        allowed = re.search(r'allowedVersions:\s*("[^"\n]+")', rule)
+        if allowed is None:
+            failures.append("DevFeed image rule needs a stable-tag filter")
+        else:
+            pattern = json.loads(allowed.group(1)).strip("/")
+            for tag in ("0.0.38", "1.2.3", "10.20.30"):
+                if not re.fullmatch(pattern, tag):
+                    failures.append(f"DevFeed release tag rejected: {tag}")
+            for tag in (
+                "latest", "master", "v0.0.38", "0.0.38-rc.1", "0.0.38+build.1",
+                "01.2.3", "1.2", "1.2.3.4", "a" * 40, "1" * 40,
+            ):
+                if re.fullmatch(pattern, tag):
+                    failures.append(f"DevFeed non-release tag allowed: {tag}")
+
+        devfeed_path = REPOSITORY_ROOT / "kubernetes/projects/applications/apps/devfeed"
+        for path in devfeed_path.glob("*.yaml"):
+            contents = path.read_text(encoding="utf-8")
+            for match in re.finditer(
+                r"(?m)^\s*image:\s*registry.home/(ghcr.io/abhi1693/devfeed.tech/[^:\s]+):",
+                contents,
+            ):
+                package = match.group(1)
+                preceding = contents[:match.start()].rstrip().splitlines()[-1].strip()
+                if preceding != f"# renovate: datasource=docker depName={package}":
+                    failures.append(f"DevFeed image has incorrect Docker metadata: {path.name}")
+                if f'"{package}"' not in rule:
+                    failures.append(f"DevFeed image missing from grouped rule: {package}")
+
     required_merge_policy = {
         "automerge": "true",
         "automergeType": '"branch"',

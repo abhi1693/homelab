@@ -5,7 +5,7 @@ image:
   repository: registry.home/oci.trueforge.org/containerforge/radarr
   pullPolicy: IfNotPresent
   # renovate: datasource=docker depName=oci.trueforge.org/containerforge/radarr
-  tag: "6.4.3"
+  tag: "6.4.4"
 imagePullSecret:
   harbor-registry:
     enabled: true
@@ -21,7 +21,7 @@ podOptions:
 resources:
   requests:
     cpu: 100m
-    memory: 408Mi
+    memory: 416Mi
   limits:
     # TrueCharts: omit the inherited 1500m CPU cap; imports may burst.
     cpu: 0

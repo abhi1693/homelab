@@ -10,6 +10,7 @@ metadata:
 spec:
   revisionHistoryLimit: 2
   replicas: 1
+  minReadySeconds: 15
   progressDeadlineSeconds: 900
   selector:
     matchLabels:
@@ -219,7 +220,7 @@ spec:
           resources:
             requests:
               cpu: 100m
-              memory: 304Mi
+              memory: 301Mi
             limits:
               memory: 320Mi
           startupProbe:
@@ -236,6 +237,7 @@ spec:
             periodSeconds: 10
             timeoutSeconds: 3
             failureThreshold: 6
+            successThreshold: 2
           livenessProbe:
             httpGet:
               path: /
@@ -243,6 +245,13 @@ spec:
             periodSeconds: 30
             timeoutSeconds: 5
             failureThreshold: 4
+          lifecycle:
+            preStop:
+              exec:
+                command:
+                  - /bin/sh
+                  - -c
+                  - sleep 15
           securityContext:
             allowPrivilegeEscalation: false
             capabilities:

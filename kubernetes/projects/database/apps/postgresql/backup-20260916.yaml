@@ -1,0 +1,21 @@
+---
+apiVersion: postgresql.cnpg.io/v1
+kind: Backup
+metadata:
+  name: postgresql-full-20260916
+  namespace: postgresql
+spec:
+  cluster:
+    name: postgresql
+  method: barmanObjectStore
+---
+apiVersion: postgresql.cnpg.io/v1
+kind: Backup
+metadata:
+  name: postgresql-full-20260916-retry
+  namespace: postgresql
+spec:
+  cluster:
+    name: postgresql
+  method: barmanObjectStore
+  target: prefer-standby

@@ -215,3 +215,6 @@ Operational response procedures:
 - [`docs/runbooks/kubernetes-cpu-overcommit.md`](../../../../../docs/runbooks/kubernetes-cpu-overcommit.md)
 - [`docs/runbooks/node-saturation-and-zombie-processes.md`](../../../../../docs/runbooks/node-saturation-and-zombie-processes.md)
 - [`docs/runbooks/storage/raspberry-pi-high-iowait.md`](../../../../../docs/runbooks/storage/raspberry-pi-high-iowait.md)
+
+Current Grafana NFS capacity is adequate; transient stalls require time-aligned
+evidence before changing the storage backend.

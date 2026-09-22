@@ -72,7 +72,7 @@ networkPolicy:
                 kubernetes.io/metadata.name: devfeed
             podSelector:
               matchLabels:
-                app.kubernetes.io/name: devfeed-solver-worker
+                app.kubernetes.io/name: devfeed-worker-solver
         ports:
           - protocol: TCP
             port: 8191

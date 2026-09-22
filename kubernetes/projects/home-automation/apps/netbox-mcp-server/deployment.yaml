@@ -88,29 +88,41 @@ spec:
               containerPort: 8000
               protocol: TCP
           startupProbe:
-            exec:
-              command:
-                - python
-                - -c
-                - import urllib.request; request = urllib.request.Request("http://127.0.0.1:8000/", headers={"Accept":"text/html"}); urllib.request.urlopen(request, timeout=2).read(1)
+            exec: null
+            httpGet:
+              path: /
+              port: http
+              httpHeaders:
+                - name: Host
+                  value: netbox-mcp-server
+                - name: Accept
+                  value: text/html
             periodSeconds: 3
             timeoutSeconds: 3
             failureThreshold: 40
           readinessProbe:
-            exec:
-              command:
-                - python
-                - -c
-                - import urllib.request; request = urllib.request.Request("http://127.0.0.1:8000/", headers={"Accept":"text/html"}); urllib.request.urlopen(request, timeout=2).read(1)
+            exec: null
+            httpGet:
+              path: /
+              port: http
+              httpHeaders:
+                - name: Host
+                  value: netbox-mcp-server
+                - name: Accept
+                  value: text/html
             periodSeconds: 10
             timeoutSeconds: 3
             failureThreshold: 3
           livenessProbe:
-            exec:
-              command:
-                - python
-                - -c
-                - import urllib.request; request = urllib.request.Request("http://127.0.0.1:8000/", headers={"Accept":"text/html"}); urllib.request.urlopen(request, timeout=2).read(1)
+            exec: null
+            httpGet:
+              path: /
+              port: http
+              httpHeaders:
+                - name: Host
+                  value: netbox-mcp-server
+                - name: Accept
+                  value: text/html
             periodSeconds: 30
             timeoutSeconds: 3
             failureThreshold: 3

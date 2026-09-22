@@ -172,3 +172,22 @@ tests:
           does not imply durable business success.
         runbook_url: https://github.com/abhi1693/devfeed.tech/blob/v0.0.8/docs/observability.md#queues-and-retries
         dashboard_url: http://grafana.home/d/devfeed-operations
+
+- name: application pool timeouts are visible independently of SQL execution errors
+  interval: 1m
+  input_series:
+  - series: devfeed_database_connection_acquisition_seconds_count{namespace="devfeed",service="api",result="timeout"}
+    values: 0 0 1 1 1 1
+  alert_rule_test:
+  - eval_time: 4m
+    alertname: DevFeedDatabasePoolTimeout
+    exp_alerts:
+    - exp_labels:
+        severity: warning
+        namespace: devfeed
+        app: devfeed
+        service: api
+      exp_annotations:
+        summary: DevFeed exhausted an application database pool
+        description: Check pool checkout and hold time before increasing connections. PgBouncer readiness does not prove local pool capacity.
+        dashboard_url: http://grafana.home/d/devfeed-diagnostics

@@ -12,6 +12,7 @@ generatorOptions:
 configurations:
   - kustomizeconfig.yaml
 resources:
+  - backup-20260916.yaml
   - namespace.yaml
   - limitrange.yaml
   - secrets.sops.yaml

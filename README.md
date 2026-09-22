@@ -61,7 +61,7 @@ applications are modeled as Git-managed bundles.
 | Data services | CloudNativePG PostgreSQL and Valkey Sentinel provide shared app data dependencies. |
 | Registry | Harbor acts as the local registry and proxy/cache for external image registries. |
 | Secrets | SOPS/age covers Git-managed secrets; selected runtime secrets stay manually created. |
-| Observability | Rancher Monitoring, two-replica Thanos Query, Grafana, Loki, Tempo, Pyroscope, two-tier HA OpenTelemetry, and hardware exporters. |
+| Observability | Rancher Monitoring, two-replica Thanos Query, Grafana, Loki with 14-day log retention, Tempo, Pyroscope, two-tier HA OpenTelemetry, and hardware exporters. |
 | Workspaces | Coder templates provide ARM64 Node.js, Python, NetBox, and Ubuntu Desktop environments. |
 
 ## Hardware Details
@@ -625,7 +625,8 @@ node outage does not pause GitOps reconciliation.
 This split has practical benefits:
 
 - drift and failures are easier to isolate;
-- image updates are handled centrally by Renovate;
+- image updates are handled centrally by Renovate; DevFeed image updates are grouped
+  and track stable `X.Y.Z` Docker tags with SHA-256 pins;
 - project directories can have different reconciliation force settings;
 - app teams or future automation can reason about one project at a time;
 - Rancher project metadata can be treated differently from application bundles.
@@ -661,7 +662,7 @@ These services are not just "apps"; they are the platform other apps depend on.
 
 | App | What it does | Notable dependencies |
 | --- | --- | --- |
-| [DevFeed](kubernetes/projects/applications/apps/devfeed/README.md) | Developer news, redundant web/APIs and full automation with fourteen workers: three article-analysis, four other dedicated AI workers, one pooled AI worker and six background workers, plus a search indexer; bounded Luna-first AI decisions and usage/outcome charts, with worker names grouped under `devfeed-worker-`; private metrics, product dashboards, probes, logs, traces and profiles; automatic pre-upgrade [migration hooks](kubernetes/projects/applications/apps/devfeed/migrations.md). | PostgreSQL, Typesense, shared Valkey Sentinel, Chimely, dedicated Codex, Zitadel, public Cloudflare Tunnel and internal Traefik. |
+| [DevFeed](kubernetes/projects/applications/apps/devfeed/README.md) | Developer news on 0.0.29 with per-user language preferences and feed sorting; PgBouncer owns connection reuse with bounded API admission; redundant web/APIs and full automation with five article-analysis workers, four other dedicated AI workers, one pooled AI worker, two image workers and other dedicated background workers, plus a search indexer; bounded Luna-first AI decisions and usage/outcome charts, with article-derived topic proposals paused while imports continue, and worker names grouped under `devfeed-worker-`; private metrics, product dashboards, probes, logs, traces and profiles; automatic pre-upgrade [migration hooks](kubernetes/projects/applications/apps/devfeed/migrations.md). | PostgreSQL, Typesense, shared Valkey Sentinel, Chimely, dedicated Codex and internal imgproxy, R2 article images, Zitadel, public Cloudflare Tunnel and internal Traefik. |
 | Firefly III | Personal finance application. | PostgreSQL pooler, NFS upload PVC, internal Traefik ingress, scoped Home Assistant API access. |
 | Harbor | Local registry and proxy/cache registry. | PostgreSQL, Valkey, NFS storage, monitoring. |
 | OpenBao | Lightweight secret-management experiment for the Wardn namespace. | Longhorn PVC, Traefik ingress. |
@@ -755,6 +756,12 @@ Most applications do not run their own database. The database project owns a
 shared PostgreSQL cluster and app-specific roles, databases, and PgBouncer-style
 poolers.
 
+Each of the three PostgreSQL instances requests and limits memory to 3Gi,
+reserving 9Gi across the cluster so any replica can become primary. CPU remains
+uncapped with a 250m request per instance.
+Each instance has a 20Gi data PVC and a separate 4Gi WAL PVC, for 72Gi of
+provisioned volumes and 216Gi of nominal capacity with three Longhorn replicas.
+
 This gives the lab one place to manage:
 
 - PostgreSQL version and storage;
@@ -795,6 +802,15 @@ K3s, Cilium, Rancher, Longhorn, MetalLB, and CSI NFS remain manually governed.
 Valkey chart upgrades also require a guarded `OnDelete` rollout, and completed
 Rack Ops bootstrap Jobs require an explicit new Job revision; Renovate excludes
 those two manifests to preserve their operational contracts.
+
+PostgreSQL retains a dedicated `app` bootstrap role and database aligned with
+CNPG's generated credentials. Existing clusters missing that role/database use
+the [staged bootstrap owner repair](docs/runbooks/postgresql-bootstrap-owner-repair.md)
+before switching the monitoring database back to `app`.
+
+PostgreSQL poolers retain one warm backend per database/user pool and release
+excess unused server connections after 120 seconds to preserve connection headroom. Long-running queries and client-attached sessions are unaffected;
+see the [PgBouncer operating notes](kubernetes/projects/database/apps/postgresql/README.md#pgbouncer-connection-budgets).
 
 ### Ingress coupling
 
@@ -1204,7 +1220,7 @@ Runbooks and architecture decisions:
 | [docs/runbooks/alertmanager-firing-alert-triage.md](docs/runbooks/alertmanager-firing-alert-triage.md) | Live alert inventory, synthetic alert interpretation, and exact failed-Job cleanup. |
 | [docs/runbooks/completed-torrent-import-recovery.md](docs/runbooks/completed-torrent-import-recovery.md) | Recover completed torrents with copy-first Arr mapping repair, exact library verification, and gated payload cleanup. |
 | [docs/runbooks/kubernetes-cpu-overcommit.md](docs/runbooks/kubernetes-cpu-overcommit.md) | N-1 scheduler capacity diagnosis and evidence-backed CPU request sizing. |
-| [docs/runbooks/kubernetes-resource-policy.md](docs/runbooks/kubernetes-resource-policy.md) | Production Kubernetes requests, limits, generated-container defaults, and Longhorn exceptions. |
+| [docs/runbooks/kubernetes-resource-policy.md](docs/runbooks/kubernetes-resource-policy.md) | Production resource policy, September 19 CPU sizing evidence, generated-container defaults, and Longhorn exceptions. |
 | [docs/runbooks/k3s-node-maintenance.md](docs/runbooks/k3s-node-maintenance.md) | Sequential Raspberry Pi node drain, clean shutdown, and recovery with kube-vip, PDB, Longhorn, Fleet, and controller gates. |
 | [docs/runbooks/node-saturation-and-zombie-processes.md](docs/runbooks/node-saturation-and-zombie-processes.md) | Node load, I/O, CPU, and zombie-process diagnosis with targeted recovery. |
 | [docs/runbooks/statefulset-ondelete-rollout-recovery.md](docs/runbooks/statefulset-ondelete-rollout-recovery.md) | Safe sequential Valkey OnDelete rollout and Sentinel failover procedure. |
@@ -1227,3 +1243,9 @@ Runbooks and architecture decisions:
 - Keep Terraform formatted with `terraform fmt`.
 - Prefer Git-managed cluster changes over live `kubectl` or `helm` mutation.
 - Do not revert unrelated local changes when working in this repository.
+
+DevFeed production telemetry now uses build-derived release labels and alerts on
+shared Alloy/Loki delivery loss. The shared PostgreSQL cluster retains three
+20Gi data and 4Gi WAL claims (216Gi nominal Longhorn replica capacity). See the
+[PostgreSQL operating notes](kubernetes/projects/database/apps/postgresql/README.md)
+and [Loki delivery notes](kubernetes/projects/system/apps/loki/README.md).
