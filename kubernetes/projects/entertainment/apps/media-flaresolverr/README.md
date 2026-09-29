@@ -16,8 +16,11 @@ There is no user-facing ingress. Only Prowlarr and the dedicated DevFeed solver 
 ## Configuration
 
 The container runs with `LOG_LEVEL=info`, HTML logging disabled, a 60-second
-browser timeout, and `https://www.google.com` as the test URL. A single real browser request exhausted the former 496Mi memory cap. The service
-now requests 512Mi and permits 1536Mi memory with a 1000m CPU limit. DevFeed
+browser timeout, and `https://www.google.com` as the test URL. The service
+requests 640Mi and permits 2Gi memory with a 1000m CPU limit. On September 21,
+2026, a browser workload was OOMKilled under the former 1536Mi cap; the sampled
+48-hour working-set peak was 1518Mi. The 2Gi cap adds headroom for browser bursts.
+Verify restarts and peak memory during real challenge traffic after rollout. DevFeed
 serializes its requests through one solver worker and a shared lease; Prowlarr
 remains an independent client, so monitor combined concurrency.
 

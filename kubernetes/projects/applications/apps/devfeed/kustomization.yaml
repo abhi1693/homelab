@@ -13,6 +13,7 @@ configMapGenerator:
 resources:
   - certificate.yaml
   - configmap.yaml
+  - topic-kind-map.yaml
   - deployment-admin-api.yaml
   - deployment-admin.yaml
   - deployment-worker-article-analysis.yaml
@@ -29,6 +30,7 @@ resources:
   - deployment-user-api.yaml
   - deployment-web.yaml
   - deployment-worker-ingestion.yaml
+  - deployment-worker-source-discovery.yaml
   - deployment-worker-article-enrichment.yaml
   - deployment-worker-source-enrichment.yaml
   - deployment-worker-images.yaml
@@ -36,6 +38,7 @@ resources:
   - ingress.yaml
   - namespace.yaml
   - migration-hook.yaml
+  - topic-logo-backfill-hook.yaml
   - networkpolicy.yaml
   - pdb.yaml
   - pvc.yaml

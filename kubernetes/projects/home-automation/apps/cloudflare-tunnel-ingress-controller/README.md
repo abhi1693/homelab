@@ -72,14 +72,37 @@ experienced repeated periods where all edge connections timed out. The
 companion egress NetworkPolicy permits TCP `7844` for this fallback.
 
 The controller runs with two replicas and the tunnel data plane runs with
-three replicas. Both are constrained to ARM64 control-plane nodes and use
-required pod anti-affinity on `kubernetes.io/hostname`, so Kubernetes cannot
-place replicas on the same node. The connector `PodDisruptionBudget` requires
+three replicas.
+Both workloads are constrained to ARM64 control-plane nodes and use required
+pod anti-affinity on `kubernetes.io/hostname`. Connector anti-affinity includes
+`matchLabelKeys: [pod-template-hash]`, separating replicas of the same revision
+while allowing an old and new connector to share a node during rolling updates.
+The chart's `podAntiAffinity` shortcut matches all revisions and deadlocks an
+update when three old connectors occupy all three eligible nodes: the default
+Deployment strategy requires a surge pod before removing an available pod.
+The connector `PodDisruptionBudget` requires
 two available connectors during voluntary disruptions. The
 chart owns the connector budget, while the companion
 `cloudflare-tunnel-ingress-controller-networkpolicy` raw Fleet bundle owns the
 controller budget because chart `0.1.0` does not expose a controller PDB
 setting.
+
+To migrate existing connectors with the old rule, first reconcile two replicas
+and the revision-scoped affinity through Fleet. Confirm the new revision is
+fully available on two different control-plane nodes, then restore three in Git
+and confirm one connector per control-plane node. Keep `minAvailable: 2`
+throughout. Do not restore the old all-revision affinity as a rollback; revert
+the image separately if necessary. This migration step is unnecessary for
+subsequent image updates once all old-rule pods have gone.
+
+Validate the chart with `helm template` and a server-side dry run, and inspect
+the generated connector Deployment after Fleet reconciliation. The connector
+is created by the controller, so it is not present in Helm's rendered output.
+Check its revision-scoped affinity, updated/available replica counts, three
+distinct hostnames at steady state, `/ready`, and public application probes.
+
+The [Kubernetes pod affinity documentation](https://kubernetes.io/docs/concepts/scheduling-eviction/assign-pod-node/#matchlabelkeys)
+describes using `pod-template-hash` to scope scheduling rules to a rollout.
 
 Each connector requests `40m` CPU and keeps CPU uncapped, preserving burst
 capacity while avoiding reservation at the connector's short-lived peak.

@@ -5,7 +5,7 @@ metadata:
   name: home-assistant
 spec:
   displayName: Home Assistant
-  purpose: Run the household automation, dashboards, integrations, recorder, and administrative code-server sidecar.
+  purpose: Run the household automation, dashboards, integrations, and recorder.
   owner: home-lab
   project: home-automation
   cluster: home-k3s
@@ -27,7 +27,6 @@ spec:
       sourcePath: kubernetes/projects/home-automation/apps/home-assistant/helmchart.yaml
       images:
         - ghcr.io/home-assistant/home-assistant
-        - ghcr.io/coder/code-server
   persistentStores:
     - key: home-k3s/home-assistant/persistentvolumeclaim/home-assistant-pvc
       namespace: home-assistant
@@ -46,15 +45,6 @@ spec:
       name: web
       url: http://ha.home
       dnsName: ha.home
-      exposure: internal
-      protocol: http
-      ports:
-        - 80
-      sourcePath: kubernetes/projects/home-automation/apps/home-assistant/helmchart.yaml
-    - key: home-assistant/code-server
-      name: code-server
-      url: http://code.ha.home
-      dnsName: code.ha.home
       exposure: internal
       protocol: http
       ports:
@@ -80,4 +70,4 @@ spec:
       name: traefik
       type: network
       criticality: required
-      failureImpact: Household users cannot reach the main UI or code-server endpoint.
+      failureImpact: Household users cannot reach the main UI.

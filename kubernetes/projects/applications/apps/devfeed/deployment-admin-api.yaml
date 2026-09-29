@@ -22,6 +22,8 @@ spec:
   template:
     metadata:
       annotations:
+        devfeed.tech/oidc-providers: '2026-09-28-shared-github-google'
+        devfeed.tech/ai-models: "2026-09-27-gpt-6-luna-astra"
         devfeed.tech/feed-max-bytes: '20000000'
         devfeed.tech/quota-pacing: "weekly-reserve-20"
         devfeed.tech/ai-content-not-before: 'disabled'
@@ -57,7 +59,7 @@ spec:
       containers:
         - name: admin-api
           # renovate: datasource=docker depName=ghcr.io/abhi1693/devfeed.tech/admin-api
-          image: registry.home/ghcr.io/abhi1693/devfeed.tech/admin-api:0.0.40@sha256:d14f6012d9ab7633c6c7a9fdb76a639c66eaf9de62221d6fba61da36f687a576
+          image: registry.home/ghcr.io/abhi1693/devfeed.tech/admin-api:0.0.44@sha256:02cd4e8c78f614ab2427469b81eac8cb80f3701705428d1d971193d71e1e1c5b
           imagePullPolicy: IfNotPresent
           resources:
             requests:
@@ -89,6 +91,8 @@ spec:
                 name: devfeed-automation
             - configMapRef:
                 name: devfeed-admin
+            - configMapRef:
+                name: devfeed-oidc-providers
             - secretRef:
                 name: devfeed-codex
           env:
@@ -166,7 +170,7 @@ spec:
       initContainers:
         - name: trust-codex-ca
           # renovate: datasource=docker depName=ghcr.io/abhi1693/devfeed.tech/admin-api
-          image: registry.home/ghcr.io/abhi1693/devfeed.tech/admin-api:0.0.40@sha256:d14f6012d9ab7633c6c7a9fdb76a639c66eaf9de62221d6fba61da36f687a576
+          image: registry.home/ghcr.io/abhi1693/devfeed.tech/admin-api:0.0.44@sha256:02cd4e8c78f614ab2427469b81eac8cb80f3701705428d1d971193d71e1e1c5b
           imagePullPolicy: IfNotPresent
           resources:
             requests:
@@ -195,7 +199,7 @@ spec:
             - from pathlib import Path; Path('/run/ca/ca-bundle.crt').write_bytes(Path('/etc/ssl/certs/ca-certificates.crt').read_bytes()+b'\n'+Path('/run/codex-ca/ca.crt').read_bytes())
         - name: wait-for-inbox
           # renovate: datasource=docker depName=ghcr.io/abhi1693/devfeed.tech/admin-api
-          image: registry.home/ghcr.io/abhi1693/devfeed.tech/admin-api:0.0.40@sha256:d14f6012d9ab7633c6c7a9fdb76a639c66eaf9de62221d6fba61da36f687a576
+          image: registry.home/ghcr.io/abhi1693/devfeed.tech/admin-api:0.0.44@sha256:02cd4e8c78f614ab2427469b81eac8cb80f3701705428d1d971193d71e1e1c5b
           imagePullPolicy: IfNotPresent
           resources:
             requests:
@@ -227,7 +231,7 @@ spec:
               else: raise SystemExit('Inbox provisioning not ready')
         - name: wait-for-schema
           # renovate: datasource=docker depName=ghcr.io/abhi1693/devfeed.tech/backend
-          image: registry.home/ghcr.io/abhi1693/devfeed.tech/backend:0.0.40@sha256:42b8ba3a03a95d0e5f1e7cf4a74b0a29863b87f16aade5e69d742f0a018b2111
+          image: registry.home/ghcr.io/abhi1693/devfeed.tech/backend:0.0.44@sha256:1c9907b72e3b0d025262e141c32b6d4421c0061a4d1a9219461d30d9544d97f7
           imagePullPolicy: IfNotPresent
           securityContext:
             runAsNonRoot: true

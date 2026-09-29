@@ -44,7 +44,7 @@ spec:
       accessModes:
         - ReadWriteOnce
       retention: retain
-      backup: Daily object-store backup with a 7-day recovery window plus WAL archiving.
+      backup: Daily object-store backup with a 3-day recovery window plus WAL archiving.
       dataClassification: restricted
       sourcePath: kubernetes/projects/database/apps/postgresql/values.yaml
     - key: home-k3s/postgresql/cloudnativepgvolume/postgresql-wal

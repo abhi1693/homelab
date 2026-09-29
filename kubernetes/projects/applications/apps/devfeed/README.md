@@ -1,10 +1,10 @@
 # DevFeed
 
-Fleet-managed developer news platform, pinned to release **0.0.30** and its verified
-ARM64 image digests. Approval and publication require an explicit article page-kind
+Fleet-managed developer news platform. All application workloads use release
+**0.0.44** and verified ARM64 image digests. Approval and publication require an explicit article page-kind
 classification; missing or uncertain classifications stay blocked.
 
-Renovate tracks stable `X.Y.Z` Docker tags for all six DevFeed images on GHCR,
+Renovate tracks stable `X.Y.Z` Docker tags for all nine DevFeed images on GHCR,
 grouping runtime, init-container, and migration-hook updates while refreshing
 their SHA-256 pins. Commit tags, moving tags, and prereleases are excluded;
 Kubernetes continues pulling the pinned images through Harbor.
@@ -12,12 +12,40 @@ Kubernetes continues pulling the pinned images through Harbor.
 Reader language preferences support one or more languages, defaulting to English.
 My feed and Latest retain source/content filters and offer Most liked sorting.
 Source/topic discovery is paginated and restricted to the selected article languages.
-Web, Chrome and Edge share the reader; extension 0.1.9 store publication is separate.
+Web, Chrome and Edge share the reader; extension 0.1.14 store publication is separate.
 Sources added by import, the admin form, or CLI share discovery and review. Imports
 remain pending until reviewed; full-auto mode uses AI review and approval enables polling.
-The pre-upgrade hook verifies schema `0017` before replacing application workloads.
-Release 0.0.30 applies migration `0017` for identity-free moderated search-query
-statistics before replacing application workloads.
+The pre-upgrade hook applies and verifies schema `0020` before replacing application workloads.
+Release 0.0.41 applied migrations `0018` and `0019`; the migration job mounts the
+operator-managed historical topic-kind map needed to canonicalize stored topic data.
+
+Release 0.0.44 uses source `fc3a546d1feb63c2fac06acbca558afe23b2dbeb` and the
+[verified release manifest](https://github.com/abhi1693/devfeed.tech/actions/runs/36350540286)
+(`image-manifest-images-36350540286-1`). All nine ARM64 image indexes match
+between GHCR and Harbor, with verified GitHub provenance attestations for the tag.
+Migration `0020` adds managed topic logos and topic-targeted Images jobs. The
+post-upgrade `devfeed-topic-logo-backfill-0044` hook queues unattempted logos in
+bounded batches; it preserves prior successes and failures. The existing Images
+worker saves normalized originals to R2 before generating 32/64/96 WebP variants.
+The import phase saved 354 of 357 originals, including Rancher. Memcached, Zorin OS
+and VxWorks SVGs were rejected by validation and use the normal topic fallback.
+All 354 saved logos now have 32/64/96 variants; no topic-logo jobs remain queued
+or running. The Images worker is restored to its normal single replica after
+temporary backfill parallelism. Readers use the saved original during future
+variant processing. Public image loading and browser canvas export were verified
+before frontend cutover.
+Public-read CORS on the image bucket is required for browser card exports. Also
+configure a Cloudflare Response Header Transform Rule matching
+`http.host eq "images.devfeed.tech"` to **Set static**
+`Access-Control-Allow-Origin: *`. R2 omits CORS headers on requests without Origin;
+the rule keeps ordinary image responses usable when Chrome reuses them for canvas
+exports. Verify both ordinary and Origin-bearing responses, then exercise export
+in a fresh browser session before reader cutover.
+
+GitHub and Google provider IDs use `DEVFEED_OIDC_GITHUB_IDP_ID` and
+`DEVFEED_OIDC_GOOGLE_IDP_ID` for both interfaces. Admin and reader retain their
+separate OIDC application client IDs. Keep schema `0020` when rolling forward or
+reverting to a compatible build; an image-only rollback to 0.0.43 is not supported.
 
 | Entry point | Routing | OIDC client |
 | --- | --- | --- |
@@ -27,6 +55,11 @@ statistics before replacing application workloads.
 Search and topic Follow actions return to the originating page after sign-in;
 search queries and filters survive the callback. Return URLs remain restricted
 to known local paths and search parameters.
+
+The reader sign-in page offers GitHub and Google through the existing Zitadel
+client. Both APIs load the `devfeed-oidc-providers` ConfigMap, selecting GitHub provider `390412503718298452`
+and Google provider `391210575599764264`. Changing these IDs requires rolling the
+reader and admin APIs via their `devfeed.tech/oidc-providers` pod-template annotations.
 
 The reader session uses a 30-day inactivity timeout and a 90-day absolute lifetime.
 Returning to a visible tab renews the local session independently of the provider's
@@ -47,21 +80,21 @@ path and query string. Its redirect middleware is scoped to this application.
 - Two replicas each of the reader frontend, admin frontend, public API, user API
   and admin API. Each pair has required hostname anti-affinity and a disruption
   budget retaining at least one available replica.
-- **One dedicated worker each** for ingestion and source enrichment, **three article-enrichment workers**,
-  plus **two image workers**. The obsolete background deployment and its disruption
+- **One dedicated worker each** for ingestion, source discovery, source enrichment,
+  article enrichment, and image processing. The obsolete background deployment and its disruption
   budget have been removed; each category has its own consumers.
-- **Five dedicated article-analysis workers** and **one each** for topic analysis, source analysis,
+- **Three dedicated article-analysis workers** and **one each** for topic analysis, source analysis,
   research verification and relationships, plus **one pooled AI worker** for legacy
-  deliveries and additional fair queue coverage. Ten AI consumers retain shared
+  deliveries and additional fair queue coverage. Eight AI consumers retain shared
   provider cooldowns; topic workers are reduced from three to one.
 - One scheduler publishes each physical queue with its own dispatch budget.
   Its health thread renews the 120-second heartbeat every 20 seconds during long
   cycles, but stops renewal after five minutes without a successful cycle. It also
   refreshes quota independently of dispatch work. The scheduler requests 500m CPU;
   its liveness probe allows 15 seconds for Python startup and Redis discovery.
-- **Two dedicated notification workers** prevent delivery starvation while
+- **One dedicated notification worker** prevents delivery starvation while
   extraction workers process article pages.
-- The 13 busiest worker pods (article analysis/enrichment, ingestion, images and
+- The busiest worker pods (article analysis/enrichment, ingestion, images and
   notifications) share a preferred hostname spread with `maxSkew: 1` across eligible
   worker nodes, plus preferred anti-affinity to the PostgreSQL primary. CPU
   reservations take precedence over equal pod counts. `nodeTaintsPolicy: Honor`
@@ -131,6 +164,66 @@ Read its logs and complete the displayed browser authorization. This is a separa
 ChatGPT sign-in, never a copy of local or Wardn Hub credentials. Restarts reuse
 existing sign-in state. If sign-in is incomplete, the pod waits before starting
 Codex; analysis workers wait for account readiness.
+
+## AI model recovery (2026-09-26)
+
+On September 26, production used `gpt-5.6-luna` for fast analysis and research,
+and `gpt-5.6-terra` for the baseline and escalation routes. The production ChatGPT
+account rejected `gpt-6-luna`; its fresh Codex model catalog also omitted
+`gpt-6-sol`. Validate all route models against the production account catalog
+and successful inference before changing these settings. Account readiness alone
+does not prove model access. The `devfeed.tech/ai-models` pod-template annotation
+rolls all automation ConfigMap consumers when the model configuration changes.
+On September 27, the production account catalog included `gpt-6-luna` and
+`gpt-6-astra`, and both completed structured-output inference through the deployed
+Codex app-server. Production now uses **GPT-6 Luna** for fast analysis (low effort)
+and research (medium effort), and **GPT-6 Astra** for baseline and escalation
+(medium effort on escalation). The model annotation rolls every automation
+ConfigMap consumer; quota pacing and provider cooldowns remain unchanged.
+Roll back the model-selection commit through Fleet if access regresses.
+
+The one-time `devfeed-requeue-articles-20260926` Job completed at 11:59:50 UTC
+on September 26: 1,187 fresh analysis jobs and 52 enrichment requests covered all
+1,239 selected pending/latest-failed unpublished articles discovered before
+11:41:46 UTC. Published articles, editorial rejections, and failure history were
+preserved. The existing scheduler controls dispatch and quota pacing; completion
+of the recovery Job means work was queued, not that every article was analyzed.
+The recovery manifest is retained in Git commit `15282ac7` and removed from the
+active Kustomization after completion. Fleet may retain the completed Job as an
+audit record. Analysis jobs carry `usage.recovery_id = models-2026-09-26`.
+
+## Article requeue (2026-09-27)
+
+The one-time `devfeed-requeue-articles-20260927` Job requeued articles discovered
+by `2026-09-26T20:53:28.753724Z` that are still unpublished and not rejected.
+It rechecks those states under each article lock, reuses active work, and sends
+articles without usable text through enrichment first. Articles without an
+approved source stay blocked. Existing editorial decisions and job history are
+preserved; normal scheduler quotas and cooldowns govern processing.
+New analysis jobs carry `usage.recovery_id = articles-2026-09-27-gpt6` so retries
+cannot create duplicate analyses. The job requires the verified GPT-6 routing
+configuration. It completed at `2026-09-26T21:13:22Z`, checking 634 articles:
+535 new analysis jobs, 52 enrichment requests, 40 active analyses reused,
+five articles skipped after becoming published/rejected, and two blocked because
+they had no approved source. Completion means the work was queued; downstream
+processing continues under normal pacing. The recovery manifest is retained in
+Git commit `dd38f6e3` and removed from the active bundle to prevent future runs.
+Fleet removed the completed Kubernetes Job during retirement; the completion
+totals above and Git history retain the audit record.
+
+## Published article image recovery (2026-09-26)
+
+The one-time `devfeed-requeue-images-20260926` Job requests image discovery for
+published articles without an `image_url` at the 12:04:38 UTC cutoff. Previous
+failures and `not_found` outcomes are eligible; active work is preserved. The Job
+uses `request_image` in batches of 100 and marks new discovery jobs with
+`storage.recovery_id = published-images-2026-09-26` for retry safety. It does not
+change publication state or overwrite existing images. The existing scheduler,
+image workers, solver, and managed-image storage process the requests normally.
+The Job completed at 12:11:15 UTC: all 8,653 selected articles received a fresh
+image-discovery job, with no skips. The manifest is retained in Git commit
+`b0a23e89` and removed from active GitOps configuration. Queueing completion does
+not imply every publisher page provides a discoverable image.
 
 ## Feed response limits
 
@@ -259,8 +352,11 @@ requires a separately reviewed recovery operation; retain all PVCs and credentia
 
 `devfeed-search-indexer` runs collection/key setup and consumes the PostgreSQL outbox
 in batches of 200. Migration `0003` queues existing records for the initial backfill.
-The indexer publishes a local heartbeat after successful batches; readiness detects
-stalls. Public search uses only `documents:search` credentials, while the indexer and
+The indexer publishes a local heartbeat after successful batches. Startup,
+readiness, and liveness check its file modification time against the 120-second
+deadline, avoiding an empty-string parse while the writer truncates and rewrites
+the file. Missing, stale, or future-dated files fail the probe. Public search uses
+only `documents:search` credentials, while the indexer and
 Typesense alone receive the management key. Both keys are independently generated
 and encrypted in `search-secrets.sops.yaml`. No search port is exposed externally.
 The index is rebuildable from PostgreSQL; preserve credentials when replacing it.
@@ -380,7 +476,7 @@ Store submission is independent of the application rollout.
 
 ## Managed article images
 
-Two dedicated Images worker replicas process jobs concurrently and download originals through the application's SSRF-safe
+The dedicated Images worker downloads originals through the application's SSRF-safe
 fetcher, stores them in one production R2 bucket, asks the internal
 `http://devfeed-imgproxy:8080` service for responsive WebP thumbnails, and uploads
 those thumbnails to the same bucket. Readers load the resulting objects from
@@ -399,7 +495,11 @@ Originals and thumbnails persist in R2; no new PVC or public proxy route is need
 
 Existing articles continue using their publisher image until the Images pipeline
 finishes storage. The normal Images worker owns steady-state processing and durable
-retries; source and topic logos are not part of this article-image pipeline.
+retries. Topic logos share this durable pipeline as of 0.0.44, using normalized PNG
+masters under `originals/topic-logos/` and WebP variants under `topic-logos/`.
+The saved original is served while variants are unavailable. Source logos remain
+outside the managed-image pipeline. Existing source URLs stay available for editing
+and provenance; readers receive only owned topic-logo URLs.
 
 Release 0.0.23 fixes source approval with minority uncertain entries and topic research
 for computing concepts and disciplines. Schema remains 0013; existing deferred
@@ -542,6 +642,21 @@ If rollback is needed, revert this release commit through Git so images and pool
 configuration return together. Preserve database contents, PVCs and schema 0016;
 completed maintenance Jobs are intentionally left at their original image pins.
 
+### 0.0.41 release verification and rollback
+
+The six application image references and migration hook come from the successful
+`v0.0.41` CI image manifest at revision `b8748c09740f7d12438d399ad7b12d25b608ad9d`.
+Revision `0018` adds profile and reading-streak data. Revision `0019` maps historical
+topic kinds using `devfeed-topic-kind-map` before enforcing canonical values; review
+that operator map against current stored kinds before each deployment. Verify Harbor
+digest parity, Fleet desired/applied equality, ready replicas, schema `0019`,
+profile pages, and reader behavior. Extension ZIPs are version `0.1.11`; browser
+store publication is separate.
+
+If rollback is needed, revert the release commit through Git so image pins and the
+migration hook move together. Preserve database contents and do not roll back below
+schema `0019` without a coordinated downgrade plan.
+
 ### 0.0.30 release verification and rollback
 
 The six application image references and migration hook come from the successful
@@ -560,3 +675,27 @@ If rollback is needed, revert this release commit through Git so application ima
 and the migration-hook pin return together. Preserve database contents, search
 credentials, aliases and PVCs; do not roll back the database below schema `0017`
 without a coordinated downgrade plan.
+
+## Topic logo restoration (2026-09-27)
+
+The one-time `devfeed-restore-topic-logos-20260927-v2` Job restores the official
+standalone color icons for Kubernetes and Rancher. It uses audited update
+proposals and the existing review service, preserving topic identity, kind and
+other metadata. It fills Rancher's missing official website as well. Existing
+logos or pending edits block replacement; retries recognize already applied URLs.
+The Job uses the immutable 0.0.42 backend and remains in Git history after retirement.
+
+Kubernetes artwork is pinned to CNCF artwork commit
+`831f27a0cf4227b1b76a28ff51a9f4127a2195ec`; Rancher uses the cow icon linked from
+<https://www.rancher.com/brand-guidelines>. Both direct SVGs returned HTTP 200 and
+`image/svg+xml` before rollout. Automatic branding enrichment for all kinds is a
+separate application change and is not enabled by this restoration.
+
+The initial Job failed validation before commit because the review payload omitted
+the full draft; its transaction rolled back. The v2 Job supplies the reviewed draft.
+
+The v2 Job completed successfully. Public API reads confirm both platform logos
+and Rancher's official website. Audit proposal IDs are
+`ea947f06-b60e-474d-865e-f8365974d919` (Kubernetes) and
+`bda360d6-42e5-4ce5-ac69-5e1bef398d0e` (Rancher). The completed Job is retired
+from desired state; its manifest and input evidence remain in Git history.

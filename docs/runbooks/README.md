@@ -73,6 +73,9 @@ sections when they help the operator apply or undo a local change safely.
 - [K3s Raspberry Pi node maintenance](k3s-node-maintenance.md): preflight,
   drain, clean shutdown, physical maintenance, and recovery gates for one node
   at a time, including kube-vip and Prometheus PDB stop conditions.
+- [Unplanned K3s node failure](k3s-unplanned-node-failure.md): confirmed
+  power-off, authorized pod/storage failover, Longhorn replica evacuation,
+  and return-to-service gates for failed hardware.
 - [Alertmanager firing alert triage](alertmanager-firing-alert-triage.md):
   inventory live alerts, interpret `Watchdog` and `InfoInhibitor`, and clean up
   only diagnosed obsolete failed Jobs.

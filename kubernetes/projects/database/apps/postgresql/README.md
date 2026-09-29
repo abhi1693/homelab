@@ -47,13 +47,13 @@ Continuous WAL archiving and daily object-store backups remain the independent
 recovery path. New or replacement PVCs inherit the same three-replica policy
 from the Longhorn StorageClass.
 
-Remote backups in Cloudflare R2 use `backups.retentionPolicy: 7d`, providing a
-seven-day recovery window. CloudNativePG removes obsolete backups after a
-successful backup completes. A base backup older than seven days and the WAL
+Remote backups in Cloudflare R2 use `backups.retentionPolicy: 3d`, providing a
+three-day recovery window. CloudNativePG removes obsolete backups after a
+successful backup completes. A base backup older than three days and the WAL
 needed to recover from it may remain to cover the start of that window.
 
 `backup-20260916.yaml` requests a one-off full physical backup through Fleet
-after reducing retention to seven days. Its fixed resource name prevents
+after the September 16 reduction to seven days. Its fixed resource name prevents
 ordinary reconciliations from requesting another backup. Check the Backup's
 `status.phase` and instance logs for completion and retention cleanup; old
 Kubernetes Backup records alone do not prove that their remote objects remain.
@@ -181,7 +181,7 @@ and the 18 active PgBouncer replicas:
 | `work_mem` | 4MiB | Avoids multiplying a larger allocation across concurrent sort and hash operations. Expensive maintenance queries must use statement-local overrides. |
 | `wal_buffers` | 16MiB | The previous automatic 8MiB allocation recorded about 1.27 million buffer-full events over 14 days. |
 | `checkpoint_timeout` | 15 minutes | Almost all checkpoints were time-driven while checkpoint writes totaled about 26.8GiB over 14 days. The 1GiB WAL ceiling remains unchanged. |
-| `autovacuum_vacuum_scale_factor` | 0.1 | Vacuums changing tables when dead tuples reach about 10% of the last analyzed row estimate. |
+| `autovacuum_vacuum_scale_factor` | 0.1 | Vacuums changing tables when dead tuples exceed 50 plus 10% of the last analyzed row estimate, unless a table overrides these settings. |
 | `autovacuum_analyze_scale_factor` | 0.02 | Refreshes stale row estimates sooner after bulk deletes so vacuum thresholds reflect current table size. |
 | `idle_in_transaction_session_timeout` | 5 minutes | Releases locks and snapshots abandoned inside transactions without terminating ordinary idle pooled sessions. |
 
@@ -199,7 +199,8 @@ PostgreSQL's fixed 50-tuple thresholds. This makes maintenance respond to each
 table's change rate without increasing autovacuum frequency for the rest of the
 cluster.
 
-The overrides apply to the following current high-churn tables:
+The SQL script targets the following high-churn tables; verify `pg_class.reloptions`
+before assuming its overrides are still present after a table recreation:
 
 - `wardn_hub.public.event_records`
 - `devfeed.public.articles`, `article_analysis_jobs`,
@@ -212,13 +213,23 @@ The overrides apply to the following current high-churn tables:
 Use current PostgreSQL statistics to assess their effect; historical row counts
 are not a tuning baseline. The CNPG custom query
 `pg_stat_user_tables_autovacuum` exports the selected tables' live tuples, dead
-tuples, dead-tuple ratio, and modifications since analyze from every CNPG
+tuples, dead-tuple ratio, modifications since analyze, and the effective dead-tuple
+vacuum trigger from every CNPG
 instance. The Prometheus alerts join those samples with
 `cnpg_pg_replication_in_recovery` and evaluate only the current primary;
 standby statistics can have small denominators and are not valid for this
-ratio. Prometheus warns at 8% dead tuples and becomes critical at 15% so a
-table can be investigated before sustained bloat becomes an application or
-storage risk.
+ratio. Both alerts require dead tuples to exceed the effective vacuum trigger:
+the table's threshold plus its scale factor times `pg_class.reltuples`, falling
+back to cluster settings when table overrides are absent. The warning additionally
+requires an 8% ratio for 15 minutes; critical requires 15% for 30 minutes. This
+avoids warning about small tables before autovacuum is due (for example, 80 dead
+rows in a 709-row table with a trigger of 120.9). The query targets PostgreSQL 17;
+review its threshold calculation when upgrading PostgreSQL.
+
+Run `python scripts/check-postgresql-observability.py` from the repository root
+with `promtool` and PyYAML installed to check rule syntax and six threshold and
+primary/standby scenarios. Execute the custom query read-only against both target
+databases before deploying query changes.
 
 [`autovacuum-high-churn-tables.sql`](autovacuum-high-churn-tables.sql) is the
 idempotent source for the table storage parameters and the controlled vacuum.

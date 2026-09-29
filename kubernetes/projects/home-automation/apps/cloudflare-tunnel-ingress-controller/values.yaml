@@ -1,3 +1,4 @@
+---
 cloudflare:
   secretRef:
     name: cloudflare-tunnel-ingress-controller
@@ -21,7 +22,16 @@ imagePullSecrets:
 cloudflared:
   replicaCount: 3
   protocol: http2
-  podAntiAffinity: true
+  podAntiAffinity: false
+  affinity:
+    podAntiAffinity:
+      requiredDuringSchedulingIgnoredDuringExecution:
+        - labelSelector:
+            matchLabels:
+              app: controlled-cloudflared-connector
+          matchLabelKeys:
+            - pod-template-hash
+          topologyKey: kubernetes.io/hostname
   nodeSelector:
     kubernetes.io/arch: arm64
     node-role.kubernetes.io/control-plane: "true"
@@ -34,7 +44,7 @@ cloudflared:
     repository: registry.home/docker.io/cloudflare/cloudflared
     pullPolicy: IfNotPresent
     # renovate: datasource=github-releases depName=cloudflare/cloudflared
-    tag: 2026.9.1
+    tag: 2026.9.3
   podSecurityContext:
     runAsGroup: 65532
     runAsNonRoot: true

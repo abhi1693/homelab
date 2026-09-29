@@ -54,7 +54,7 @@ spec:
       containers:
         - name: api
           # renovate: datasource=docker depName=ghcr.io/abhi1693/devfeed.tech/backend
-          image: registry.home/ghcr.io/abhi1693/devfeed.tech/backend:0.0.40@sha256:42b8ba3a03a95d0e5f1e7cf4a74b0a29863b87f16aade5e69d742f0a018b2111
+          image: registry.home/ghcr.io/abhi1693/devfeed.tech/backend:0.0.44@sha256:1c9907b72e3b0d025262e141c32b6d4421c0061a4d1a9219461d30d9544d97f7
           imagePullPolicy: IfNotPresent
           resources:
             requests:
@@ -137,7 +137,7 @@ spec:
       initContainers:
         - name: wait-for-schema
           # renovate: datasource=docker depName=ghcr.io/abhi1693/devfeed.tech/backend
-          image: registry.home/ghcr.io/abhi1693/devfeed.tech/backend:0.0.40@sha256:42b8ba3a03a95d0e5f1e7cf4a74b0a29863b87f16aade5e69d742f0a018b2111
+          image: registry.home/ghcr.io/abhi1693/devfeed.tech/backend:0.0.44@sha256:1c9907b72e3b0d025262e141c32b6d4421c0061a4d1a9219461d30d9544d97f7
           imagePullPolicy: IfNotPresent
           securityContext:
             runAsNonRoot: true

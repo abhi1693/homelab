@@ -2,14 +2,14 @@
 apiVersion: batch/v1
 kind: Job
 metadata:
-  name: devfeed-migrate
+  name: devfeed-topic-logo-backfill-0044
   namespace: devfeed
   annotations:
-    helm.sh/hook: pre-upgrade
-    helm.sh/hook-weight: '-10'
-    helm.sh/hook-delete-policy: before-hook-creation,hook-succeeded
+    helm.sh/hook: post-upgrade
+    helm.sh/hook-weight: '10'
+    helm.sh/hook-delete-policy: before-hook-creation
   labels:
-    app.kubernetes.io/name: devfeed-migrate
+    app.kubernetes.io/name: devfeed-topic-logo-backfill-0044
     app.kubernetes.io/part-of: devfeed
 spec:
   backoffLimit: 5
@@ -17,7 +17,7 @@ spec:
   template:
     metadata:
       labels:
-        app.kubernetes.io/name: devfeed-migrate
+        app.kubernetes.io/name: devfeed-topic-logo-backfill-0044
         app.kubernetes.io/part-of: devfeed
         devfeed-database-client: 'true'
     spec:
@@ -34,7 +34,7 @@ spec:
           type: RuntimeDefault
       terminationGracePeriodSeconds: 180
       containers:
-        - name: migrate
+        - name: backfill
           # renovate: datasource=docker depName=ghcr.io/abhi1693/devfeed.tech/backend
           image: registry.home/ghcr.io/abhi1693/devfeed.tech/backend:0.0.44@sha256:1c9907b72e3b0d025262e141c32b6d4421c0061a4d1a9219461d30d9544d97f7
           imagePullPolicy: IfNotPresent
@@ -43,7 +43,7 @@ spec:
               cpu: 100m
               memory: 128Mi
             limits:
-              memory: 512Mi
+              memory: 256Mi
           securityContext:
             runAsNonRoot: true
             runAsUser: 10001
@@ -54,32 +54,31 @@ spec:
               drop:
                 - ALL
           command:
-            - devfeed
-            - db
-            - upgrade
+            - python
+            - -c
+            - |
+              from devfeed_core.db import session_factory
+              from devfeed_core.topic_logos import backfill_topic_logos
+              total = 0
+              while True:
+                  with session_factory().begin() as session:
+                      count = len(backfill_topic_logos(session, limit=500))
+                  total += count
+                  if not count:
+                      break
+              print(f"Queued {total} topic logo imports; Images workers own processing", flush=True)
           envFrom:
             - configMapRef:
                 name: devfeed
             - secretRef:
                 name: devfeed-database
           env:
-            - name: DEVFEED_TOPIC_KIND_MAP_PATH
-              value: /etc/devfeed/topic-kind-map.json
-            - name: DEVFEED_DATABASE_URL
-              valueFrom:
-                secretKeyRef:
-                  name: devfeed-database
-                  key: DEVFEED_DIRECT_DATABASE_URL
+            - name: DEVFEED_DATABASE_POOL_ENABLED
+              value: 'false'
           volumeMounts:
             - name: tmp
               mountPath: /tmp
-            - name: topic-kind-map
-              mountPath: /etc/devfeed
-              readOnly: true
       volumes:
-        - name: topic-kind-map
-          configMap:
-            name: devfeed-topic-kind-map
         - name: tmp
           emptyDir:
             sizeLimit: 256Mi

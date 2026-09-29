@@ -1,0 +1,149 @@
+---
+rule_files:
+  - rules.yml
+evaluation_interval: 1m
+tests:
+  - name: small table below trigger
+    interval: 1m
+    input_series:
+      - series: cnpg_pg_stat_user_tables_autovacuum_dead_tuple_ratio{namespace="postgresql",pod="postgresql-1",datname="harbor",schemaname="public",relname="tag"}
+        values: 0.1128+0x40
+      - series: cnpg_pg_stat_user_tables_autovacuum_dead_tuples{namespace="postgresql",pod="postgresql-1",datname="harbor",schemaname="public",relname="tag"}
+        values: 80+0x40
+      - series: cnpg_pg_stat_user_tables_autovacuum_vacuum_trigger_tuples{namespace="postgresql",pod="postgresql-1",datname="harbor",schemaname="public",relname="tag"}
+        values: 120.9+0x40
+      - series: cnpg_pg_replication_in_recovery{namespace="postgresql",pod="postgresql-1"}
+        values: 0+0x40
+    alert_rule_test:
+      - eval_time: 40m
+        alertname: PostgreSQLDeadTupleRatioHigh
+        exp_alerts: []
+      - eval_time: 40m
+        alertname: PostgreSQLDeadTupleRatioCritical
+        exp_alerts: []
+  - name: exact trigger does not fire
+    interval: 1m
+    input_series:
+      - series: cnpg_pg_stat_user_tables_autovacuum_dead_tuple_ratio{namespace="postgresql",pod="postgresql-1",datname="harbor",schemaname="public",relname="tag"}
+        values: 0.17+0x40
+      - series: cnpg_pg_stat_user_tables_autovacuum_dead_tuples{namespace="postgresql",pod="postgresql-1",datname="harbor",schemaname="public",relname="tag"}
+        values: 121+0x40
+      - series: cnpg_pg_stat_user_tables_autovacuum_vacuum_trigger_tuples{namespace="postgresql",pod="postgresql-1",datname="harbor",schemaname="public",relname="tag"}
+        values: 121+0x40
+      - series: cnpg_pg_replication_in_recovery{namespace="postgresql",pod="postgresql-1"}
+        values: 0+0x40
+    alert_rule_test:
+      - eval_time: 40m
+        alertname: PostgreSQLDeadTupleRatioHigh
+        exp_alerts: []
+      - eval_time: 40m
+        alertname: PostgreSQLDeadTupleRatioCritical
+        exp_alerts: []
+  - name: primary above trigger warns
+    interval: 1m
+    input_series:
+      - series: cnpg_pg_stat_user_tables_autovacuum_dead_tuple_ratio{namespace="postgresql",pod="postgresql-1",datname="harbor",schemaname="public",relname="tag"}
+        values: 0.13+0x40
+      - series: cnpg_pg_stat_user_tables_autovacuum_dead_tuples{namespace="postgresql",pod="postgresql-1",datname="harbor",schemaname="public",relname="tag"}
+        values: 130+0x40
+      - series: cnpg_pg_stat_user_tables_autovacuum_vacuum_trigger_tuples{namespace="postgresql",pod="postgresql-1",datname="harbor",schemaname="public",relname="tag"}
+        values: 120.9+0x40
+      - series: cnpg_pg_replication_in_recovery{namespace="postgresql",pod="postgresql-1"}
+        values: 0+0x40
+    alert_rule_test:
+      - eval_time: 40m
+        alertname: PostgreSQLDeadTupleRatioHigh
+        exp_alerts:
+          - exp_labels:
+              datname: harbor
+              schemaname: public
+              relname: tag
+              severity: warning
+            exp_annotations:
+              summary: PostgreSQL table remains above its autovacuum threshold
+              description: harbor.public.tag has exceeded its effective autovacuum trigger and an 8% dead-tuple
+                ratio for 15 minutes; inspect autovacuum progress.
+      - eval_time: 40m
+        alertname: PostgreSQLDeadTupleRatioCritical
+        exp_alerts: []
+  - name: primary sustained excess is critical
+    interval: 1m
+    input_series:
+      - series: cnpg_pg_stat_user_tables_autovacuum_dead_tuple_ratio{namespace="postgresql",pod="postgresql-1",datname="harbor",schemaname="public",relname="tag"}
+        values: 0.2+0x40
+      - series: cnpg_pg_stat_user_tables_autovacuum_dead_tuples{namespace="postgresql",pod="postgresql-1",datname="harbor",schemaname="public",relname="tag"}
+        values: 200+0x40
+      - series: cnpg_pg_stat_user_tables_autovacuum_vacuum_trigger_tuples{namespace="postgresql",pod="postgresql-1",datname="harbor",schemaname="public",relname="tag"}
+        values: 120.9+0x40
+      - series: cnpg_pg_replication_in_recovery{namespace="postgresql",pod="postgresql-1"}
+        values: 0+0x40
+    alert_rule_test:
+      - eval_time: 40m
+        alertname: PostgreSQLDeadTupleRatioHigh
+        exp_alerts:
+          - exp_labels:
+              datname: harbor
+              schemaname: public
+              relname: tag
+              severity: warning
+            exp_annotations:
+              summary: PostgreSQL table remains above its autovacuum threshold
+              description: harbor.public.tag has exceeded its effective autovacuum trigger and an 8% dead-tuple
+                ratio for 15 minutes; inspect autovacuum progress.
+      - eval_time: 40m
+        alertname: PostgreSQLDeadTupleRatioCritical
+        exp_alerts:
+          - exp_labels:
+              datname: harbor
+              schemaname: public
+              relname: tag
+              severity: critical
+            exp_annotations:
+              summary: PostgreSQL table has excessive dead tuples
+              description: harbor.public.tag has exceeded its effective autovacuum trigger and a 15% dead-tuple
+                ratio for 30 minutes; inspect autovacuum progress and table churn.
+  - name: standby never alerts
+    interval: 1m
+    input_series:
+      - series: cnpg_pg_stat_user_tables_autovacuum_dead_tuple_ratio{namespace="postgresql",pod="postgresql-1",datname="harbor",schemaname="public",relname="tag"}
+        values: 0.2+0x40
+      - series: cnpg_pg_stat_user_tables_autovacuum_dead_tuples{namespace="postgresql",pod="postgresql-1",datname="harbor",schemaname="public",relname="tag"}
+        values: 200+0x40
+      - series: cnpg_pg_stat_user_tables_autovacuum_vacuum_trigger_tuples{namespace="postgresql",pod="postgresql-1",datname="harbor",schemaname="public",relname="tag"}
+        values: 120.9+0x40
+      - series: cnpg_pg_replication_in_recovery{namespace="postgresql",pod="postgresql-1"}
+        values: 1+0x40
+    alert_rule_test:
+      - eval_time: 40m
+        alertname: PostgreSQLDeadTupleRatioHigh
+        exp_alerts: []
+      - eval_time: 40m
+        alertname: PostgreSQLDeadTupleRatioCritical
+        exp_alerts: []
+  - name: table override controls trigger
+    interval: 1m
+    input_series:
+      - series: cnpg_pg_stat_user_tables_autovacuum_dead_tuple_ratio{namespace="postgresql",pod="postgresql-1",datname="harbor",schemaname="public",relname="tag"}
+        values: 0.1128+0x40
+      - series: cnpg_pg_stat_user_tables_autovacuum_dead_tuples{namespace="postgresql",pod="postgresql-1",datname="harbor",schemaname="public",relname="tag"}
+        values: 80+0x40
+      - series: cnpg_pg_stat_user_tables_autovacuum_vacuum_trigger_tuples{namespace="postgresql",pod="postgresql-1",datname="harbor",schemaname="public",relname="tag"}
+        values: 64.18+0x40
+      - series: cnpg_pg_replication_in_recovery{namespace="postgresql",pod="postgresql-1"}
+        values: 0+0x40
+    alert_rule_test:
+      - eval_time: 40m
+        alertname: PostgreSQLDeadTupleRatioHigh
+        exp_alerts:
+          - exp_labels:
+              datname: harbor
+              schemaname: public
+              relname: tag
+              severity: warning
+            exp_annotations:
+              summary: PostgreSQL table remains above its autovacuum threshold
+              description: harbor.public.tag has exceeded its effective autovacuum trigger and an 8% dead-tuple
+                ratio for 15 minutes; inspect autovacuum progress.
+      - eval_time: 40m
+        alertname: PostgreSQLDeadTupleRatioCritical
+        exp_alerts: []

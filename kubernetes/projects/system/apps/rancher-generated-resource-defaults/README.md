@@ -10,6 +10,13 @@ CPU limits are used in the small controller-only namespaces; the shared Fleet
 and monitoring namespaces default requests and memory limits without imposing a
 generic CPU throttle.
 
+`fleet-local` defaults to a 256Mi memory limit. Rancher's generated machineconfig
+cleanup CronJob omits resources and exceeded the former 128Mi default on two
+September 2026 runs. The 32Mi request and 250m CPU cap remain unchanged. The new
+limit applies to newly admitted containers that omit an explicit memory limit;
+existing Pods keep their original limits. Verify the next scheduled cleanup Job
+completes without OOM retries.
+
 Do not extend this pattern to `longhorn-system`. Longhorn instance managers and
 share managers are dynamically sized storage datapath workloads, and a single
 namespace default would either under-size those processes or reserve excessive

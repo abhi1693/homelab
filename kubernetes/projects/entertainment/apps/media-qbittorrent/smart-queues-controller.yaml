@@ -558,7 +558,7 @@ spec:
           resources:
             requests:
               cpu: 90m
-              memory: 73Mi
+              memory: 63Mi
             limits:
               memory: 144Mi
           securityContext:

@@ -2,31 +2,38 @@
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: devfeed-search-indexer
+  name: devfeed-worker-source-discovery
   namespace: devfeed
   labels:
-    app.kubernetes.io/name: devfeed-search-indexer
+    app.kubernetes.io/name: devfeed-worker-source-discovery
     app.kubernetes.io/part-of: devfeed
 spec:
   replicas: 1
   revisionHistoryLimit: 2
   selector:
     matchLabels:
-      app.kubernetes.io/name: devfeed-search-indexer
+      app.kubernetes.io/name: devfeed-worker-source-discovery
       app.kubernetes.io/part-of: devfeed
   strategy:
-    type: Recreate
+    type: RollingUpdate
+    rollingUpdate:
+      maxSurge: 1
+      maxUnavailable: 0
   template:
     metadata:
       annotations:
+        devfeed.tech/ai-models: "2026-09-27-gpt-6-luna-astra"
+        devfeed.tech/feed-max-bytes: '20000000'
+        devfeed.tech/quota-pacing: "weekly-reserve-20"
         devfeed.tech/ai-content-not-before: 'disabled'
       labels:
         devfeed-telemetry: 'true'
-        app.kubernetes.io/name: devfeed-search-indexer
+        app.kubernetes.io/name: devfeed-worker-source-discovery
+        devfeed.tech/cpu-worker: "true"
         app.kubernetes.io/part-of: devfeed
         devfeed-database-client: 'true'
         devfeed-redis-client: 'true'
-        devfeed-search-client: 'true'
+        devfeed-codex-client: 'true'
     spec:
       serviceAccountName: devfeed
       automountServiceAccountToken: false
@@ -39,11 +46,11 @@ spec:
         fsGroupChangePolicy: OnRootMismatch
         seccompProfile:
           type: RuntimeDefault
-      terminationGracePeriodSeconds: 180
+      terminationGracePeriodSeconds: 300
       containers:
-        - name: indexer
-          # renovate: datasource=docker depName=ghcr.io/abhi1693/devfeed.tech/backend
-          image: registry.home/ghcr.io/abhi1693/devfeed.tech/backend:0.0.44@sha256:1c9907b72e3b0d025262e141c32b6d4421c0061a4d1a9219461d30d9544d97f7
+        - name: source-discovery-worker
+          # renovate: datasource=docker depName=ghcr.io/abhi1693/devfeed.tech/source-discovery-worker
+          image: registry.home/ghcr.io/abhi1693/devfeed.tech/source-discovery-worker:0.0.44@sha256:6816df5e9b02e0410f6220fd9f49e73e6325eb1823a8e24dd4277e7a6b0ddec7
           imagePullPolicy: IfNotPresent
           ports:
             - name: metrics
@@ -71,26 +78,32 @@ spec:
             - secretRef:
                 name: devfeed-database
             - configMapRef:
-                name: devfeed-search
+                name: devfeed-automation
             - secretRef:
-                name: devfeed-search-admin
-            - secretRef:
-                name: devfeed-search-query
+                name: devfeed-codex
           env:
+            - name: DEVFEED_WORKER_HEALTH_PATH
+              value: /tmp/devfeed-worker-health.json
             - name: DEVFEED_DATABASE_POOL_ENABLED
               value: 'false'
-            - name: DEVFEED_NOTIFICATIONS_ENABLED
-              value: 'false'
+            - name: DEVFEED_WORKER_QUEUE
+              value: source-discovery
+            - name: DEVFEED_CODEX_APP_SERVER_URL
+              value: wss://devfeed-codex.devfeed.svc.cluster.local:4501
+            - name: SSL_CERT_FILE
+              value: /run/ca/ca-bundle.crt
           volumeMounts:
+            - name: ca-bundle
+              mountPath: /run/ca
+              readOnly: true
             - name: tmp
               mountPath: /tmp
           readinessProbe:
             exec:
               command:
                 - python
-                - -c
-                - import time; from pathlib import Path; stamp = Path('/tmp/devfeed-search-heartbeat').stat().st_mtime;
-                  assert 0 <= time.time()-stamp < 120
+                - -m
+                - devfeed_core.worker_health
             periodSeconds: 30
             timeoutSeconds: 5
             failureThreshold: 3
@@ -98,31 +111,56 @@ spec:
             exec:
               command:
                 - python
-                - -c
-                - import time; from pathlib import Path; stamp = Path('/tmp/devfeed-search-heartbeat').stat().st_mtime;
-                  assert 0 <= time.time()-stamp < 120
+                - -m
+                - devfeed_core.worker_health
             periodSeconds: 30
             timeoutSeconds: 5
             failureThreshold: 3
-          startupProbe:
-            exec:
-              command:
-                - python
-                - -c
-                - import time; from pathlib import Path; stamp = Path('/tmp/devfeed-search-heartbeat').stat().st_mtime;
-                  assert 0 <= time.time()-stamp < 120
-            periodSeconds: 10
-            timeoutSeconds: 5
-            failureThreshold: 90
+            initialDelaySeconds: 60
           command:
-            - sh
-            - -ec
-            - until devfeed search setup; do sleep 5; done; exec devfeed-search-indexer
+            - devfeed-source-discovery-worker
       volumes:
         - name: tmp
           emptyDir:
             sizeLimit: 256Mi
+        - name: codex-ca
+          secret:
+            secretName: devfeed-codex-tls
+            items:
+              - key: ca.crt
+                path: ca.crt
+        - name: ca-bundle
+          emptyDir: {}
       initContainers:
+        - name: trust-codex-ca
+          # renovate: datasource=docker depName=ghcr.io/abhi1693/devfeed.tech/backend
+          image: registry.home/ghcr.io/abhi1693/devfeed.tech/backend:0.0.44@sha256:1c9907b72e3b0d025262e141c32b6d4421c0061a4d1a9219461d30d9544d97f7
+          imagePullPolicy: IfNotPresent
+          resources:
+            requests:
+              cpu: 10m
+              memory: 64Mi
+            limits:
+              memory: 128Mi
+          securityContext:
+            runAsNonRoot: true
+            runAsUser: 10001
+            runAsGroup: 10001
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities:
+              drop:
+                - ALL
+          volumeMounts:
+            - name: codex-ca
+              mountPath: /run/codex-ca
+              readOnly: true
+            - name: ca-bundle
+              mountPath: /run/ca
+          command:
+            - python
+            - -c
+            - from pathlib import Path; Path('/run/ca/ca-bundle.crt').write_bytes(Path('/etc/ssl/certs/ca-certificates.crt').read_bytes()+b'\n'+Path('/run/codex-ca/ca.crt').read_bytes())
         - name: wait-for-schema
           # renovate: datasource=docker depName=ghcr.io/abhi1693/devfeed.tech/backend
           image: registry.home/ghcr.io/abhi1693/devfeed.tech/backend:0.0.44@sha256:1c9907b72e3b0d025262e141c32b6d4421c0061a4d1a9219461d30d9544d97f7
@@ -169,3 +207,23 @@ spec:
                   time.sleep(5)
               else:
                   raise SystemExit("Timed out waiting for release schema")
+      affinity:
+        podAntiAffinity:
+          preferredDuringSchedulingIgnoredDuringExecution:
+            - weight: 100
+              podAffinityTerm:
+                namespaces:
+                  - postgresql
+                labelSelector:
+                  matchLabels:
+                    cnpg.io/cluster: postgresql
+                    cnpg.io/instanceRole: primary
+                topologyKey: kubernetes.io/hostname
+      topologySpreadConstraints:
+        - maxSkew: 1
+          topologyKey: kubernetes.io/hostname
+          whenUnsatisfiable: ScheduleAnyway
+          nodeTaintsPolicy: Honor
+          labelSelector:
+            matchLabels:
+              devfeed.tech/cpu-worker: "true"
