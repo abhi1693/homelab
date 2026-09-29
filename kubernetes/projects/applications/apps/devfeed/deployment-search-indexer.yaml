@@ -43,7 +43,7 @@ spec:
       containers:
         - name: indexer
           # renovate: datasource=docker depName=ghcr.io/abhi1693/devfeed.tech/backend
-          image: registry.home/ghcr.io/abhi1693/devfeed.tech/backend:0.0.40@sha256:42b8ba3a03a95d0e5f1e7cf4a74b0a29863b87f16aade5e69d742f0a018b2111
+          image: registry.home/ghcr.io/abhi1693/devfeed.tech/backend:0.0.44@sha256:1c9907b72e3b0d025262e141c32b6d4421c0061a4d1a9219461d30d9544d97f7
           imagePullPolicy: IfNotPresent
           ports:
             - name: metrics
@@ -89,8 +89,8 @@ spec:
               command:
                 - python
                 - -c
-                - import time; from pathlib import Path; assert time.time()-float(Path('/tmp/devfeed-search-heartbeat').read_text())
-                  < 120
+                - import time; from pathlib import Path; stamp = Path('/tmp/devfeed-search-heartbeat').stat().st_mtime;
+                  assert 0 <= time.time()-stamp < 120
             periodSeconds: 30
             timeoutSeconds: 5
             failureThreshold: 3
@@ -99,8 +99,8 @@ spec:
               command:
                 - python
                 - -c
-                - import time; from pathlib import Path; assert time.time()-float(Path('/tmp/devfeed-search-heartbeat').read_text())
-                  < 120
+                - import time; from pathlib import Path; stamp = Path('/tmp/devfeed-search-heartbeat').stat().st_mtime;
+                  assert 0 <= time.time()-stamp < 120
             periodSeconds: 30
             timeoutSeconds: 5
             failureThreshold: 3
@@ -109,15 +109,15 @@ spec:
               command:
                 - python
                 - -c
-                - import time; from pathlib import Path; assert time.time()-float(Path('/tmp/devfeed-search-heartbeat').read_text())
-                  < 120
+                - import time; from pathlib import Path; stamp = Path('/tmp/devfeed-search-heartbeat').stat().st_mtime;
+                  assert 0 <= time.time()-stamp < 120
             periodSeconds: 10
             timeoutSeconds: 5
             failureThreshold: 90
           command:
             - sh
             - -ec
-            - until devfeed search setup; do sleep 5; done; exec devfeed search worker
+            - until devfeed search setup; do sleep 5; done; exec devfeed-search-indexer
       volumes:
         - name: tmp
           emptyDir:
@@ -125,7 +125,7 @@ spec:
       initContainers:
         - name: wait-for-schema
           # renovate: datasource=docker depName=ghcr.io/abhi1693/devfeed.tech/backend
-          image: registry.home/ghcr.io/abhi1693/devfeed.tech/backend:0.0.40@sha256:42b8ba3a03a95d0e5f1e7cf4a74b0a29863b87f16aade5e69d742f0a018b2111
+          image: registry.home/ghcr.io/abhi1693/devfeed.tech/backend:0.0.44@sha256:1c9907b72e3b0d025262e141c32b6d4421c0061a4d1a9219461d30d9544d97f7
           imagePullPolicy: IfNotPresent
           securityContext:
             runAsNonRoot: true

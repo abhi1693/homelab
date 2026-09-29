@@ -52,7 +52,7 @@ spec:
       containers:
         - name: web
           # renovate: datasource=docker depName=ghcr.io/abhi1693/devfeed.tech/web
-          image: registry.home/ghcr.io/abhi1693/devfeed.tech/web:0.0.40@sha256:35acc07ed0ad26ce4e071396e250b32aea33c8b1d0be2e751f142bc2da74437d
+          image: registry.home/ghcr.io/abhi1693/devfeed.tech/web:0.0.44@sha256:6e71767912daebc96c5c192dcae39670e4371d7d7a3360a64c89b503d4e1eb52
           imagePullPolicy: IfNotPresent
           envFrom:
             - configMapRef:

@@ -45,6 +45,14 @@ Namespace defaults in shared monitoring and Fleet namespaces provide CPU and
 memory requests plus a memory limit without introducing a generic CPU limit.
 Controller-only namespaces may also default a conservative CPU limit.
 
+The `fleet-local` generated-container memory limit is 256Mi after Rancher's
+machineconfig cleanup hit the former 128Mi cap on September 19 and 21, 2026.
+New Pods inherit this limit; existing Pods are not resized. The FlareSolverr
+limit is 2Gi after an OOM and a sampled 1518Mi working-set peak at its former
+1536Mi cap; its 640Mi request remains unchanged. Check subsequent scheduled
+cleanup runs and representative browser traffic before considering these
+memory repairs fully proven.
+
 ## Longhorn Exception
 
 Do not add a generic `LimitRange` to `longhorn-system`. Longhorn 1.11 exposes

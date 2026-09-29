@@ -22,6 +22,7 @@ spec:
   template:
     metadata:
       annotations:
+        devfeed.tech/ai-models: "2026-09-27-gpt-6-luna-astra"
         devfeed.tech/quota-pacing: "weekly-reserve-20"
         devfeed.tech/ai-content-not-before: 'disabled'
         devfeed.tech/topic-call-budget: "40000"
@@ -48,7 +49,7 @@ spec:
       containers:
         - name: topic-analysis-worker
           # renovate: datasource=docker depName=ghcr.io/abhi1693/devfeed.tech/backend
-          image: registry.home/ghcr.io/abhi1693/devfeed.tech/backend:0.0.40@sha256:42b8ba3a03a95d0e5f1e7cf4a74b0a29863b87f16aade5e69d742f0a018b2111
+          image: registry.home/ghcr.io/abhi1693/devfeed.tech/backend:0.0.44@sha256:1c9907b72e3b0d025262e141c32b6d4421c0061a4d1a9219461d30d9544d97f7
           imagePullPolicy: IfNotPresent
           ports:
             - name: metrics
@@ -137,7 +138,7 @@ spec:
       initContainers:
         - name: trust-codex-ca
           # renovate: datasource=docker depName=ghcr.io/abhi1693/devfeed.tech/backend
-          image: registry.home/ghcr.io/abhi1693/devfeed.tech/backend:0.0.40@sha256:42b8ba3a03a95d0e5f1e7cf4a74b0a29863b87f16aade5e69d742f0a018b2111
+          image: registry.home/ghcr.io/abhi1693/devfeed.tech/backend:0.0.44@sha256:1c9907b72e3b0d025262e141c32b6d4421c0061a4d1a9219461d30d9544d97f7
           imagePullPolicy: IfNotPresent
           resources:
             requests:
@@ -166,7 +167,7 @@ spec:
             - from pathlib import Path; Path('/run/ca/ca-bundle.crt').write_bytes(Path('/etc/ssl/certs/ca-certificates.crt').read_bytes()+b'\n'+Path('/run/codex-ca/ca.crt').read_bytes())
         - name: wait-for-schema
           # renovate: datasource=docker depName=ghcr.io/abhi1693/devfeed.tech/backend
-          image: registry.home/ghcr.io/abhi1693/devfeed.tech/backend:0.0.40@sha256:42b8ba3a03a95d0e5f1e7cf4a74b0a29863b87f16aade5e69d742f0a018b2111
+          image: registry.home/ghcr.io/abhi1693/devfeed.tech/backend:0.0.44@sha256:1c9907b72e3b0d025262e141c32b6d4421c0061a4d1a9219461d30d9544d97f7
           imagePullPolicy: IfNotPresent
           securityContext:
             runAsNonRoot: true

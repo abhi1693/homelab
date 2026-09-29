@@ -21,7 +21,7 @@ podOptions:
 resources:
   requests:
     cpu: 100m
-    memory: 388Mi
+    memory: 364Mi
   limits:
     # TrueCharts: omit the inherited 1500m CPU cap; imports may burst.
     cpu: 0

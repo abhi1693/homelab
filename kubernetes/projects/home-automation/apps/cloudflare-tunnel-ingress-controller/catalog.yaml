@@ -16,4 +16,4 @@ spec:
   gitPath: kubernetes/projects/home-automation/apps/cloudflare-tunnel-ingress-controller
   workloads:
     - {key: home-k3s/cloudflare/apps/deployment/cloudflare-tunnel-ingress-controller, namespace: cloudflare, apiGroup: apps, kind: Deployment, name: cloudflare-tunnel-ingress-controller, desiredReplicas: 2, sourcePath: kubernetes/projects/home-automation/apps/cloudflare-tunnel-ingress-controller/values.yaml}
-    - {key: home-k3s/cloudflare/apps/deployment/controlled-cloudflared-connector, namespace: cloudflare, apiGroup: apps, kind: Deployment, name: controlled-cloudflared-connector, desiredReplicas: 2, sourcePath: kubernetes/projects/home-automation/apps/cloudflare-tunnel-ingress-controller/values.yaml}
+    - {key: home-k3s/cloudflare/apps/deployment/controlled-cloudflared-connector, namespace: cloudflare, apiGroup: apps, kind: Deployment, name: controlled-cloudflared-connector, desiredReplicas: 3, sourcePath: kubernetes/projects/home-automation/apps/cloudflare-tunnel-ingress-controller/values.yaml}

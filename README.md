@@ -432,6 +432,11 @@ controller rather than by opening the home network directly. That pattern keeps
 public HTTPS termination and edge protection outside the home gateway while the
 in-cluster app still receives normal Kubernetes service traffic.
 
+Tunnel connectors use required hostname anti-affinity scoped to each rollout
+revision, preserving node separation while allowing rolling image updates.
+The [controller runbook](kubernetes/projects/home-automation/apps/cloudflare-tunnel-ingress-controller/README.md)
+documents the two-stage Fleet migration from the older scheduling rule.
+
 Examples include the portfolio, blog, ShipyardHQ, Wardn AI website, Wardn Hub,
 and Wardn License Server. The app bundle usually owns:
 
@@ -662,7 +667,7 @@ These services are not just "apps"; they are the platform other apps depend on.
 
 | App | What it does | Notable dependencies |
 | --- | --- | --- |
-| [DevFeed](kubernetes/projects/applications/apps/devfeed/README.md) | Developer news on 0.0.29 with per-user language preferences and feed sorting; PgBouncer owns connection reuse with bounded API admission; redundant web/APIs and full automation with five article-analysis workers, four other dedicated AI workers, one pooled AI worker, two image workers and other dedicated background workers, plus a search indexer; bounded Luna-first AI decisions and usage/outcome charts, with article-derived topic proposals paused while imports continue, and worker names grouped under `devfeed-worker-`; private metrics, product dashboards, probes, logs, traces and profiles; automatic pre-upgrade [migration hooks](kubernetes/projects/applications/apps/devfeed/migrations.md). | PostgreSQL, Typesense, shared Valkey Sentinel, Chimely, dedicated Codex and internal imgproxy, R2 article images, Zitadel, public Cloudflare Tunnel and internal Traefik. |
+| [DevFeed](kubernetes/projects/applications/apps/devfeed/README.md) | Developer news on 0.0.44 with per-user language preferences, feed sorting, reading streaks and shareable Dev Cards; managed topic logos with bounded SVG conversion and 32/64/96-pixel variants; PgBouncer connection reuse, redundant web/APIs, dedicated background workers and a search indexer; private metrics, dashboards, probes, logs, traces and profiles; automatic pre-upgrade [migration hooks](kubernetes/projects/applications/apps/devfeed/migrations.md). | PostgreSQL, Typesense, shared Valkey Sentinel, Chimely, dedicated Codex and internal imgproxy, R2 article images and topic logos, Zitadel, public Cloudflare Tunnel and internal Traefik. |
 | Firefly III | Personal finance application. | PostgreSQL pooler, NFS upload PVC, internal Traefik ingress, scoped Home Assistant API access. |
 | Harbor | Local registry and proxy/cache registry. | PostgreSQL, Valkey, NFS storage, monitoring. |
 | OpenBao | Lightweight secret-management experiment for the Wardn namespace. | Longhorn PVC, Traefik ingress. |
@@ -700,7 +705,7 @@ These services are not just "apps"; they are the platform other apps depend on.
 | Shoko | Anime metadata and library management for Jellyfin/Shokofin. |
 | Jellyfin | Media server using custom image work and PostgreSQL-oriented experiments. |
 | Jellyseerr / Seerr | Media request portal backed by Jellyfin. |
-| FlareSolverr | Browser-challenge helper for selected indexers and the DevFeed solver worker (1536Mi memory cap). |
+| FlareSolverr | Browser-challenge helper for selected indexers and the DevFeed solver worker (2Gi memory cap). |
 | media-storage | Shared NFS CSI declarations for the completed library and downloads. |
 
 The media stack is intentionally split between download storage and completed
@@ -1040,6 +1045,8 @@ Kubernetes:
 
 ```sh
 python scripts/check-kubernetes-resource-bounds.py
+# PostgreSQL alert scenarios (requires promtool and PyYAML):
+python scripts/check-postgresql-observability.py
 kubectl apply --dry-run=server -f kubernetes/projects/<project>/apps/<app>/
 ```
 
@@ -1222,6 +1229,7 @@ Runbooks and architecture decisions:
 | [docs/runbooks/kubernetes-cpu-overcommit.md](docs/runbooks/kubernetes-cpu-overcommit.md) | N-1 scheduler capacity diagnosis and evidence-backed CPU request sizing. |
 | [docs/runbooks/kubernetes-resource-policy.md](docs/runbooks/kubernetes-resource-policy.md) | Production resource policy, September 19 CPU sizing evidence, generated-container defaults, and Longhorn exceptions. |
 | [docs/runbooks/k3s-node-maintenance.md](docs/runbooks/k3s-node-maintenance.md) | Sequential Raspberry Pi node drain, clean shutdown, and recovery with kube-vip, PDB, Longhorn, Fleet, and controller gates. |
+| [docs/runbooks/k3s-unplanned-node-failure.md](docs/runbooks/k3s-unplanned-node-failure.md) | Authorized failover after confirmed host power loss, Longhorn replica evacuation, and hardware return-to-service gates. |
 | [docs/runbooks/node-saturation-and-zombie-processes.md](docs/runbooks/node-saturation-and-zombie-processes.md) | Node load, I/O, CPU, and zombie-process diagnosis with targeted recovery. |
 | [docs/runbooks/statefulset-ondelete-rollout-recovery.md](docs/runbooks/statefulset-ondelete-rollout-recovery.md) | Safe sequential Valkey OnDelete rollout and Sentinel failover procedure. |
 | [docs/runbooks/networking/laptop-wireguard-mtu-tls-handshake-timeouts.md](docs/runbooks/networking/laptop-wireguard-mtu-tls-handshake-timeouts.md) | WireGuard MTU diagnosis for Kubernetes API and `*.home` TLS timeouts. |

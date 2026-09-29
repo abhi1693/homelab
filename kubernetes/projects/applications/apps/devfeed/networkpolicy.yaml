@@ -352,6 +352,7 @@ spec:
         values:
           - devfeed-worker-background
           - devfeed-worker-ingestion
+          - devfeed-worker-source-discovery
           - devfeed-worker-article-enrichment
           - devfeed-worker-source-enrichment
           - devfeed-worker-images

@@ -22,6 +22,7 @@ spec:
   template:
     metadata:
       annotations:
+        devfeed.tech/oidc-providers: '2026-09-28-shared-github-google'
         devfeed.tech/feed-max-bytes: '20000000'
         devfeed.tech/ai-content-not-before: 'disabled'
       labels:
@@ -54,7 +55,7 @@ spec:
       containers:
         - name: user-api
           # renovate: datasource=docker depName=ghcr.io/abhi1693/devfeed.tech/user-api
-          image: registry.home/ghcr.io/abhi1693/devfeed.tech/user-api:0.0.40@sha256:07a877a8b06f09b47f67421d0633716949612b6563fabd96b5c427fea8f0e14d
+          image: registry.home/ghcr.io/abhi1693/devfeed.tech/user-api:0.0.44@sha256:e96f4bc4ceb46f05f9fc859c4e702613a4fe7940e61ae12741dde9f44e27c284
           imagePullPolicy: IfNotPresent
           resources:
             requests:
@@ -80,6 +81,8 @@ spec:
                 name: devfeed-database
             - configMapRef:
                 name: devfeed-user
+            - configMapRef:
+                name: devfeed-oidc-providers
           env:
             - name: DEVFEED_USER_EXTENSION_IDS
               value: '["hliakjocndflpkmfajndigbpngfcekdm","iihaipjedchahiehignbngclgpklbddo"]'
@@ -142,7 +145,7 @@ spec:
       initContainers:
         - name: wait-for-inbox
           # renovate: datasource=docker depName=ghcr.io/abhi1693/devfeed.tech/user-api
-          image: registry.home/ghcr.io/abhi1693/devfeed.tech/user-api:0.0.40@sha256:07a877a8b06f09b47f67421d0633716949612b6563fabd96b5c427fea8f0e14d
+          image: registry.home/ghcr.io/abhi1693/devfeed.tech/user-api:0.0.44@sha256:e96f4bc4ceb46f05f9fc859c4e702613a4fe7940e61ae12741dde9f44e27c284
           imagePullPolicy: IfNotPresent
           resources:
             requests:
@@ -174,7 +177,7 @@ spec:
               else: raise SystemExit('Inbox provisioning not ready')
         - name: wait-for-schema
           # renovate: datasource=docker depName=ghcr.io/abhi1693/devfeed.tech/backend
-          image: registry.home/ghcr.io/abhi1693/devfeed.tech/backend:0.0.40@sha256:42b8ba3a03a95d0e5f1e7cf4a74b0a29863b87f16aade5e69d742f0a018b2111
+          image: registry.home/ghcr.io/abhi1693/devfeed.tech/backend:0.0.44@sha256:1c9907b72e3b0d025262e141c32b6d4421c0061a4d1a9219461d30d9544d97f7
           imagePullPolicy: IfNotPresent
           securityContext:
             runAsNonRoot: true

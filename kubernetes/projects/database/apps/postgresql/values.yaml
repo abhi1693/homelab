@@ -165,16 +165,35 @@ cluster:
           SELECT
             current_database() AS datname,
             schemaname,
-            relname,
+            s.relname,
             n_live_tup::double precision AS live_tuples,
             n_dead_tup::double precision AS dead_tuples,
             CASE
               WHEN n_live_tup > 0 THEN n_dead_tup::double precision / n_live_tup
               ELSE 0
             END AS dead_tuple_ratio,
-            n_mod_since_analyze::double precision AS modifications_since_analyze
-          FROM pg_stat_user_tables
-          WHERE relname IN (
+            n_mod_since_analyze::double precision AS modifications_since_analyze,
+            COALESCE(options.vacuum_threshold,
+              current_setting('autovacuum_vacuum_threshold')::double precision)
+              + COALESCE(options.vacuum_scale_factor,
+                  current_setting('autovacuum_vacuum_scale_factor')::double precision)
+                * GREATEST(c.reltuples, 0) AS vacuum_trigger_tuples
+          FROM pg_stat_user_tables s
+          JOIN pg_class c ON c.oid = s.relid
+          LEFT JOIN LATERAL (
+            SELECT
+              MAX(option_value::double precision) FILTER (
+                WHERE option_name = 'autovacuum_vacuum_threshold'
+              ) AS vacuum_threshold,
+              MAX(option_value::double precision) FILTER (
+                WHERE option_name = 'autovacuum_vacuum_scale_factor'
+              ) AS vacuum_scale_factor
+            FROM pg_options_to_table(c.reloptions)
+            WHERE option_name IN (
+              'autovacuum_vacuum_threshold', 'autovacuum_vacuum_scale_factor'
+            )
+          ) options ON true
+          WHERE s.relname IN (
             'articles',
             'article_analysis_jobs',
             'research_verification_jobs',
@@ -209,6 +228,9 @@ cluster:
           - modifications_since_analyze:
               usage: GAUGE
               description: Estimated row modifications since the last analyze
+          - vacuum_trigger_tuples:
+              usage: GAUGE
+              description: Effective dead-tuple autovacuum threshold using table overrides and analyzed row estimate
   postgresql:
     parameters:
       autovacuum_analyze_scale_factor: "0.02"
@@ -440,7 +462,7 @@ backups:
       schedule: "0 0 0 * * *"
       backupOwnerReference: self
       method: barmanObjectStore
-  retentionPolicy: 7d
+  retentionPolicy: 3d
 databases:
   - name: app
     ensure: present
@@ -540,7 +562,7 @@ poolers:
         containers:
           - name: pgbouncer
             # renovate: datasource=docker depName=ghcr.io/cloudnative-pg/pgbouncer
-            image: registry.home/ghcr.io/cloudnative-pg/pgbouncer:1.25.2
+            image: registry.home/ghcr.io/cloudnative-pg/pgbouncer:1.26.0
             resources:
               requests:
                 cpu: 15m
@@ -590,7 +612,7 @@ poolers:
         containers:
           - name: pgbouncer
             # renovate: datasource=docker depName=ghcr.io/cloudnative-pg/pgbouncer
-            image: registry.home/ghcr.io/cloudnative-pg/pgbouncer:1.25.2
+            image: registry.home/ghcr.io/cloudnative-pg/pgbouncer:1.26.0
             resources:
               requests:
                 cpu: 10m
@@ -640,7 +662,7 @@ poolers:
         containers:
           - name: pgbouncer
             # renovate: datasource=docker depName=ghcr.io/cloudnative-pg/pgbouncer
-            image: registry.home/ghcr.io/cloudnative-pg/pgbouncer:1.25.2
+            image: registry.home/ghcr.io/cloudnative-pg/pgbouncer:1.26.0
             resources:
               requests:
                 cpu: 10m
@@ -690,7 +712,7 @@ poolers:
         containers:
           - name: pgbouncer
             # renovate: datasource=docker depName=ghcr.io/cloudnative-pg/pgbouncer
-            image: registry.home/ghcr.io/cloudnative-pg/pgbouncer:1.25.2
+            image: registry.home/ghcr.io/cloudnative-pg/pgbouncer:1.26.0
             resources:
               requests:
                 cpu: 10m
@@ -740,7 +762,7 @@ poolers:
         containers:
           - name: pgbouncer
             # renovate: datasource=docker depName=ghcr.io/cloudnative-pg/pgbouncer
-            image: registry.home/ghcr.io/cloudnative-pg/pgbouncer:1.25.2
+            image: registry.home/ghcr.io/cloudnative-pg/pgbouncer:1.26.0
             resources:
               requests:
                 cpu: 50m
@@ -790,7 +812,7 @@ poolers:
         containers:
           - name: pgbouncer
             # renovate: datasource=docker depName=ghcr.io/cloudnative-pg/pgbouncer
-            image: registry.home/ghcr.io/cloudnative-pg/pgbouncer:1.25.2
+            image: registry.home/ghcr.io/cloudnative-pg/pgbouncer:1.26.0
             resources:
               requests:
                 cpu: 10m
@@ -840,7 +862,7 @@ poolers:
         containers:
           - name: pgbouncer
             # renovate: datasource=docker depName=ghcr.io/cloudnative-pg/pgbouncer
-            image: registry.home/ghcr.io/cloudnative-pg/pgbouncer:1.25.2
+            image: registry.home/ghcr.io/cloudnative-pg/pgbouncer:1.26.0
             resources:
               requests:
                 cpu: 10m
@@ -890,7 +912,7 @@ poolers:
         containers:
           - name: pgbouncer
             # renovate: datasource=docker depName=ghcr.io/cloudnative-pg/pgbouncer
-            image: registry.home/ghcr.io/cloudnative-pg/pgbouncer:1.25.2
+            image: registry.home/ghcr.io/cloudnative-pg/pgbouncer:1.26.0
             resources:
               requests:
                 cpu: 10m
@@ -940,7 +962,7 @@ poolers:
         containers:
           - name: pgbouncer
             # renovate: datasource=docker depName=ghcr.io/cloudnative-pg/pgbouncer
-            image: registry.home/ghcr.io/cloudnative-pg/pgbouncer:1.25.2
+            image: registry.home/ghcr.io/cloudnative-pg/pgbouncer:1.26.0
             resources:
               requests:
                 cpu: 10m
@@ -990,7 +1012,7 @@ poolers:
         containers:
           - name: pgbouncer
             # renovate: datasource=docker depName=ghcr.io/cloudnative-pg/pgbouncer
-            image: registry.home/ghcr.io/cloudnative-pg/pgbouncer:1.25.2
+            image: registry.home/ghcr.io/cloudnative-pg/pgbouncer:1.26.0
             resources:
               requests:
                 cpu: 10m
@@ -1040,7 +1062,7 @@ poolers:
         containers:
           - name: pgbouncer
             # renovate: datasource=docker depName=ghcr.io/cloudnative-pg/pgbouncer
-            image: registry.home/ghcr.io/cloudnative-pg/pgbouncer:1.25.2
+            image: registry.home/ghcr.io/cloudnative-pg/pgbouncer:1.26.0
             resources:
               requests:
                 cpu: 50m

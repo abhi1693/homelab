@@ -3,7 +3,7 @@ image:
   repository: registry.home/oci.trueforge.org/containerforge/qbittorrent
   pullPolicy: IfNotPresent
   # renovate: datasource=docker depName=oci.trueforge.org/containerforge/qbittorrent
-  tag: "5.2.3"
+  tag: "5.2.4"
 imagePullSecret:
   harbor-registry:
     enabled: true
@@ -27,10 +27,10 @@ podOptions:
     kubernetes.io/arch: arm64
 resources:
   requests:
-    cpu: 125m
+    cpu: 200m
     # qBittorrent restores roughly 800 torrents at startup and needs room for
     # peer-reconnect bursts; lower limits repeatedly OOM-killed the client.
-    memory: 1379Mi
+    memory: 1305Mi
   limits:
     # Reserve sustained demand with headroom; allow hashing/transfers to burst.
     cpu: 0

@@ -81,23 +81,31 @@ spec:
               cnpg_pg_stat_user_tables_autovacuum_dead_tuple_ratio{namespace="postgresql"}
               * on (namespace, pod) group_left()
                 (1 - cnpg_pg_replication_in_recovery{namespace="postgresql"})
+              and (
+                cnpg_pg_stat_user_tables_autovacuum_dead_tuples{namespace="postgresql"}
+                > cnpg_pg_stat_user_tables_autovacuum_vacuum_trigger_tuples{namespace="postgresql"}
+              )
             ) > 0.08
           for: 15m
           labels:
             severity: warning
           annotations:
-            summary: PostgreSQL table is nearing its autovacuum threshold
-            description: '{{ $labels.datname }}.{{ $labels.schemaname }}.{{ $labels.relname }} has an estimated dead-tuple ratio above 8% for 15 minutes.'
+            summary: PostgreSQL table remains above its autovacuum threshold
+            description: '{{ $labels.datname }}.{{ $labels.schemaname }}.{{ $labels.relname }} has exceeded its effective autovacuum trigger and an 8% dead-tuple ratio for 15 minutes; inspect autovacuum progress.'
         - alert: PostgreSQLDeadTupleRatioCritical
           expr: |
             max by (datname, schemaname, relname) (
               cnpg_pg_stat_user_tables_autovacuum_dead_tuple_ratio{namespace="postgresql"}
               * on (namespace, pod) group_left()
                 (1 - cnpg_pg_replication_in_recovery{namespace="postgresql"})
+              and (
+                cnpg_pg_stat_user_tables_autovacuum_dead_tuples{namespace="postgresql"}
+                > cnpg_pg_stat_user_tables_autovacuum_vacuum_trigger_tuples{namespace="postgresql"}
+              )
             ) > 0.15
           for: 30m
           labels:
             severity: critical
           annotations:
             summary: PostgreSQL table has excessive dead tuples
-            description: '{{ $labels.datname }}.{{ $labels.schemaname }}.{{ $labels.relname }} has an estimated dead-tuple ratio above 15% for 30 minutes; inspect autovacuum progress and table churn.'
+            description: '{{ $labels.datname }}.{{ $labels.schemaname }}.{{ $labels.relname }} has exceeded its effective autovacuum trigger and a 15% dead-tuple ratio for 30 minutes; inspect autovacuum progress and table churn.'

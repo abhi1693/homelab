@@ -591,7 +591,9 @@ run the normal recovery command:
 scripts/post-node-power-on.sh "$MAINT_NODE"
 ```
 
-Do not remove the Node object or force-delete its stale pods while it is off.
+During planned maintenance, do not remove the Node object or force-delete its
+stale pods while it is off. If hardware failure prevents the host from returning,
+use the separately authorized [unplanned node failure procedure](k3s-unplanned-node-failure.md).
 
 ## Troubleshooting
 

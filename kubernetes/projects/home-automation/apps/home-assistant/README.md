@@ -12,7 +12,6 @@ the resulting `HelmChart` resource.
 - persistence: Longhorn `4Gi` RWX PVC `home-assistant-pvc`
 - Recorder: dedicated `home_assistant` PostgreSQL database through the
   two-replica `postgresql-pooler-home-assistant-rw` session pool
-- code-server: `http://code.ha.home`
 
 Home Assistant remains a singleton because two instances sharing one config
 directory can duplicate automations and contend over storage. The startup probe
@@ -37,7 +36,7 @@ Review it before cleanup; never overwrite live Recorder files during recovery.
 Portable Home Assistant source is owned by the public
 [`abhi1693/home-assistant`](https://github.com/abhi1693/home-assistant)
 repository. This deployment pins commit
-`84baef94a154e23f5a1eb71581ad1ab03bfe3f5c` and the SHA-256 of its GitHub source
+`c9c71355ed3f685c832b77ab2da8218f65fbfc8b` and the SHA-256 of its GitHub source
 archive. The `install-home-assistant-source` init container verifies the archive
 before running its standard-library-only bootstrap against `/config`.
 
@@ -58,6 +57,11 @@ The family dashboard is `http://ha.home/home-tablet/home`; Rack is admin-only.
 Family camera, calendar, location, and health-data grants are backend-enforced
 by the pinned application source, not merely hidden in dashboards. Preserve
 those policies when changing integrations or source revisions.
+
+The private Health view at `http://ha.home/home-tablet/health` includes Manisha’s
+seven-day steps, distance, and floors charts from existing iPhone history. Shared
+movement charts show dated value tooltips on hover, keyboard focus, and tap.
+Their arrow buttons open the corresponding sensor’s details and history dialog.
 
 `http://ha.home/home-tablet/finance` adds an Abhimanyu-only finance view using
 adapted MIT-licensed netwrth cards and a GET-only Firefly III adapter. It shows
