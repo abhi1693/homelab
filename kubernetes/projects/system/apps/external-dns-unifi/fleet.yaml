@@ -18,6 +18,6 @@ helm:
   chart: external-dns
   repo: https://kubernetes-sigs.github.io/external-dns/
   # renovate: datasource=helm depName=external-dns registryUrl=https://kubernetes-sigs.github.io/external-dns/
-  version: 1.22.0
+  version: 1.23.0
   valuesFiles:
     - values.yaml

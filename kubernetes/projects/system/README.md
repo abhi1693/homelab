@@ -31,7 +31,7 @@ operator lifecycle.
 | `pyroscope` | Profiling backend. | Supports continuous profiling experiments. |
 | `opentelemetry-collector` | Two OTLP gateways and two affinity-routed processing replicas. | Keeps metrics and trace ingestion available without splitting stateful conversion or sampling decisions. |
 | `alloy-faro` | Two anti-affined frontend telemetry receivers. | Keeps browser/app telemetry collection available through voluntary disruption. |
-| `external-dns-unifi` | Reconciles internal DNS records from Ingress hosts. | Keeps `*.home` DNS aligned with Traefik ingress. |
+| `external-dns-unifi` | Reconciles internal DNS records from Ingress hosts and annotated Services. | Keeps `*.home` DNS aligned with Traefik ingress and direct LoadBalancer IPs. |
 | `external-dns-unifi-networkpolicy` | Network boundary for ExternalDNS. | Limits provider and Kubernetes access paths. |
 | `sops-secrets-operator` | Converts SOPS encrypted resources into native Secrets. | Lets Fleet apply encrypted secret manifests safely. |
 | `cert-manager-secrets` | Secret bundle for DNS01 credentials. | Supplies cert-manager provider credentials. |
@@ -56,7 +56,9 @@ contribute observability resources without editing the base monitoring install.
 ## DNS Coupling
 
 Internal HTTP apps declare Traefik `Ingress` hosts. ExternalDNS watches those
-Ingress objects and writes matching UniFi DNS records for the internal domain.
+Ingress objects and annotated LoadBalancer Services, then writes matching UniFi
+DNS records for the internal domain. CUPS uses a Service annotation for
+`printer.home`, pointing directly to its MetalLB address `192.168.3.19`.
 That keeps app hostnames Git-driven while the router remains the DNS authority.
 
 ## Backup Coupling

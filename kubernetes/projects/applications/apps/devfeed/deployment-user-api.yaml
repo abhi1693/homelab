@@ -55,7 +55,7 @@ spec:
       containers:
         - name: user-api
           # renovate: datasource=docker depName=ghcr.io/abhi1693/devfeed.tech/user-api
-          image: registry.home/ghcr.io/abhi1693/devfeed.tech/user-api:0.0.44@sha256:e96f4bc4ceb46f05f9fc859c4e702613a4fe7940e61ae12741dde9f44e27c284
+          image: registry.home/ghcr.io/abhi1693/devfeed.tech/user-api:0.0.45@sha256:120ab0f88baaaeff79b357b8e45ccca7ced1cc9d9544966090c5196491eda13c
           imagePullPolicy: IfNotPresent
           resources:
             requests:
@@ -84,6 +84,10 @@ spec:
             - configMapRef:
                 name: devfeed-oidc-providers
           env:
+            - name: DEVFEED_USER_MCP_RESOURCE_URL
+              value: https://mcp.devfeed.tech/mcp
+            - name: DEVFEED_USER_MCP_ISSUER_URL
+              value: https://mcp.devfeed.tech
             - name: DEVFEED_USER_EXTENSION_IDS
               value: '["hliakjocndflpkmfajndigbpngfcekdm","iihaipjedchahiehignbngclgpklbddo"]'
           volumeMounts:
@@ -145,7 +149,7 @@ spec:
       initContainers:
         - name: wait-for-inbox
           # renovate: datasource=docker depName=ghcr.io/abhi1693/devfeed.tech/user-api
-          image: registry.home/ghcr.io/abhi1693/devfeed.tech/user-api:0.0.44@sha256:e96f4bc4ceb46f05f9fc859c4e702613a4fe7940e61ae12741dde9f44e27c284
+          image: registry.home/ghcr.io/abhi1693/devfeed.tech/user-api:0.0.45@sha256:120ab0f88baaaeff79b357b8e45ccca7ced1cc9d9544966090c5196491eda13c
           imagePullPolicy: IfNotPresent
           resources:
             requests:
@@ -177,7 +181,7 @@ spec:
               else: raise SystemExit('Inbox provisioning not ready')
         - name: wait-for-schema
           # renovate: datasource=docker depName=ghcr.io/abhi1693/devfeed.tech/backend
-          image: registry.home/ghcr.io/abhi1693/devfeed.tech/backend:0.0.44@sha256:1c9907b72e3b0d025262e141c32b6d4421c0061a4d1a9219461d30d9544d97f7
+          image: registry.home/ghcr.io/abhi1693/devfeed.tech/backend:0.0.45@sha256:60e3cf4fa8368b808c1cf2fc2fbc70ef8a042f69913e7f5367fa9a476d370b1e
           imagePullPolicy: IfNotPresent
           securityContext:
             runAsNonRoot: true

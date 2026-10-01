@@ -36,7 +36,7 @@ spec:
       containers:
         - name: migrate
           # renovate: datasource=docker depName=ghcr.io/abhi1693/devfeed.tech/backend
-          image: registry.home/ghcr.io/abhi1693/devfeed.tech/backend:0.0.44@sha256:1c9907b72e3b0d025262e141c32b6d4421c0061a4d1a9219461d30d9544d97f7
+          image: registry.home/ghcr.io/abhi1693/devfeed.tech/backend:0.0.45@sha256:60e3cf4fa8368b808c1cf2fc2fbc70ef8a042f69913e7f5367fa9a476d370b1e
           imagePullPolicy: IfNotPresent
           resources:
             requests:

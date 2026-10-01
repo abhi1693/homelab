@@ -52,7 +52,7 @@ spec:
       containers:
         - name: web
           # renovate: datasource=docker depName=ghcr.io/abhi1693/devfeed.tech/web
-          image: registry.home/ghcr.io/abhi1693/devfeed.tech/web:0.0.44@sha256:6e71767912daebc96c5c192dcae39670e4371d7d7a3360a64c89b503d4e1eb52
+          image: registry.home/ghcr.io/abhi1693/devfeed.tech/web:0.0.45@sha256:37df3ba4188413d70a79cf29cf6906bc300f2da162b95f4f90229314f9264113
           imagePullPolicy: IfNotPresent
           envFrom:
             - configMapRef:
@@ -75,6 +75,8 @@ spec:
               drop:
                 - ALL
           env:
+            - name: DEVFEED_MCP_PUBLIC_URL
+              value: https://mcp.devfeed.tech/mcp
             - name: DEVFEED_USER_EXTENSION_IDS
               value: '["hliakjocndflpkmfajndigbpngfcekdm","iihaipjedchahiehignbngclgpklbddo"]'
             - name: DEVFEED_FARO_ENABLED

@@ -1,0 +1,31 @@
+---
+name: cups
+defaultNamespace: cups
+labels:
+  app.kubernetes.io/name: cups
+  app.kubernetes.io/part-of: home-automation
+  home-lab.io/project-slug: home-automation
+correctDrift:
+  enabled: true
+  force: false
+  keepFailHistory: true
+targetCustomizations:
+  - name: local-preserve-volume-binding
+    clusterName: local
+    correctDrift:
+      enabled: true
+      force: false
+      keepFailHistory: true
+dependsOn:
+  - name: rancher-project-home-automation
+  - name: metallb-config
+diff:
+  comparePatches:
+    - apiVersion: v1
+      kind: PersistentVolumeClaim
+      name: cups-state
+      namespace: cups
+      jsonPointers:
+        - /spec/volumeName
+helm:
+  takeOwnership: true

@@ -28,6 +28,8 @@ resources:
   - deployment-worker-notification.yaml
   - deployment-scheduler.yaml
   - deployment-user-api.yaml
+  - deployment-mcp.yaml
+  - service-mcp.yaml
   - deployment-web.yaml
   - deployment-worker-ingestion.yaml
   - deployment-worker-source-discovery.yaml
@@ -38,7 +40,6 @@ resources:
   - ingress.yaml
   - namespace.yaml
   - migration-hook.yaml
-  - topic-logo-backfill-hook.yaml
   - networkpolicy.yaml
   - pdb.yaml
   - pvc.yaml
@@ -56,7 +57,6 @@ resources:
   - networkpolicy-search.yaml
   - networkpolicy-solver.yaml
   - configmap-telemetry.yaml
-  - deployment-observability-exporter.yaml
   - podmonitor.yaml
   - networkpolicy-telemetry.yaml
   - service-telemetry.yaml

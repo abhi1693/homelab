@@ -15,7 +15,8 @@ spec:
   ports:
     - name: http
       port: 9090
-      targetPort: nginx-http
+      # Address Prometheus directly so OTLP survives removal of Rancher's proxy.
+      targetPort: http-web
       protocol: TCP
 ---
 apiVersion: v1
@@ -34,5 +35,5 @@ spec:
   ports:
     - name: http
       port: 9090
-      targetPort: nginx-http
+      targetPort: http-web
       protocol: TCP

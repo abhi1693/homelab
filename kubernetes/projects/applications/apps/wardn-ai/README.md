@@ -18,6 +18,10 @@ To resume through Fleet, restore two API replicas, one replica each of the
 frontend, worker, and WhatsApp bridge, and one `wardn-ai-rw` pooler instance.
 Update the corresponding workload catalogs and bump `forceSyncGeneration`.
 
+The retired OpenBao integration has no configured authentication profile, private
+host exception, or dedicated network-policy rules. Outbound HTTP tooling allows
+only port 443.
+
 The Fleet force-sync generation is bumped when the app's desired state changes
 because automatic drift correction remains disabled for this bundle.
 

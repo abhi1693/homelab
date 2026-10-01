@@ -21,4 +21,9 @@ spec:
     relabelings:
     - targetLabel: telemetry
       replacement: devfeed-application
+    - sourceLabels:
+      - __meta_kubernetes_pod_label_app_kubernetes_io_name
+      regex: devfeed-(.*)
+      targetLabel: service
+      replacement: $1
   sampleLimit: 15000

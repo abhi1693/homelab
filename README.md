@@ -61,7 +61,7 @@ applications are modeled as Git-managed bundles.
 | Data services | CloudNativePG PostgreSQL and Valkey Sentinel provide shared app data dependencies. |
 | Registry | Harbor acts as the local registry and proxy/cache for external image registries. |
 | Secrets | SOPS/age covers Git-managed secrets; selected runtime secrets stay manually created. |
-| Observability | Rancher Monitoring, two-replica Thanos Query, Grafana, Loki with 14-day log retention, Tempo, Pyroscope, two-tier HA OpenTelemetry, and hardware exporters. |
+| Observability | Upstream kube-prometheus-stack with Rancher dashboard integration, two-replica Thanos Query, Grafana, Loki with 14-day log retention, Tempo, Pyroscope, two-tier HA OpenTelemetry, and hardware exporters. |
 | Workspaces | Coder templates provide ARM64 Node.js, Python, NetBox, and Ubuntu Desktop environments. |
 
 ## Hardware Details
@@ -274,7 +274,7 @@ flowchart TD
     postgres["CloudNativePG PostgreSQL"]
     valkey["Valkey Sentinel"]
     harbor["Harbor registry"]
-    monitoring["Rancher Monitoring<br/>Prometheus, Thanos Query, Grafana, Alertmanager"]
+    monitoring["Upstream kube-prometheus-stack<br/>Prometheus, Thanos Query, Grafana, Alertmanager"]
     telemetry["Loki, Tempo, Pyroscope<br/>HA OpenTelemetry gateways and processors"]
     secrets["SOPS Secrets Operator"]
   end
@@ -458,6 +458,17 @@ are advertised to the LAN by ARP. qBittorrent's static-IP WAN exposure is a
 router port forward for TCP/UDP `53181` to `192.168.3.16` only; the WebUI/API
 stays on LAN/VPN paths.
 
+[CUPS](kubernetes/projects/home-automation/apps/cups/README.md) shares the USB
+HP Deskjet 2510 on `k8s-rpi1` through LAN-only IPP at
+`ipp://printer.home:631/printers/hp-deskjet-2510`, with the CUPS page at
+`http://printer.home`. ExternalDNS maps the Service to `192.168.3.19`.
+Administration at `https://printer.home:631/admin/` requires the dedicated
+`printadmin` login, supplied by a SOPS-encrypted Secret, from a trusted LAN.
+Its Longhorn state and fixed
+Service address survive a planned move to another Pi; update the hostname
+selector in Git when moving the cable. Clients are added manually; automatic
+AirPrint discovery is not included.
+
 ### Egress
 
 Application egress is deliberately app-specific:
@@ -625,7 +636,7 @@ node outage does not pause GitOps reconciliation.
 | `home-lab-database` | PostgreSQL, Valkey, database operators, and database network policy. |
 | `home-lab-applications` | Public and personal application workloads. |
 | `home-lab-entertainment` | Media stack and supporting automation. |
-| `home-lab-home-automation` | Home Assistant, NetBox and its MCP server, rack automation, UPS monitoring, and Cloudflare tunnel controller. |
+| `home-lab-home-automation` | Home Assistant, NetBox and its MCP server, rack automation, USB printing, UPS monitoring, and Cloudflare tunnel controller. |
 
 This split has practical benefits:
 
@@ -654,12 +665,12 @@ These services are not just "apps"; they are the platform other apps depend on.
 | Valkey | Database | Shared cache/queue service with Sentinel. |
 | Harbor | Applications | Local registry and proxy/cache layer for images. |
 | SOPS Secrets Operator | System | Converts encrypted SOPS resources into native Kubernetes Secrets. |
-| Rancher Monitoring | System | HA Prometheus scraping, Thanos Query, Grafana, Alertmanager, dashboards, and alert rules. |
+| Upstream monitoring + Rancher dashboards | System | HA Prometheus scraping, Thanos Query, Grafana, Alertmanager, dashboards, and alert rules. |
 | Loki | System | Log aggregation. |
 | Tempo | System | Trace storage for OpenTelemetry traces. |
 | Pyroscope | System | Continuous profiling backend; ephemeral 24-hour storage with Raft logs and snapshots colocated for container restart recovery. |
 | OpenTelemetry Collector | System | Two-replica OTLP gateway and affinity-routed processing tiers for metrics and traces. |
-| ExternalDNS for UniFi | System | Reconciles internal DNS records from Kubernetes Ingress hosts. |
+| ExternalDNS for UniFi | System | Reconciles internal DNS records from Kubernetes Ingress hosts and annotated Services. |
 
 ## Self-Hosted Applications
 
@@ -667,10 +678,9 @@ These services are not just "apps"; they are the platform other apps depend on.
 
 | App | What it does | Notable dependencies |
 | --- | --- | --- |
-| [DevFeed](kubernetes/projects/applications/apps/devfeed/README.md) | Developer news on 0.0.44 with per-user language preferences, feed sorting, reading streaks and shareable Dev Cards; managed topic logos with bounded SVG conversion and 32/64/96-pixel variants; PgBouncer connection reuse, redundant web/APIs, dedicated background workers and a search indexer; private metrics, dashboards, probes, logs, traces and profiles; automatic pre-upgrade [migration hooks](kubernetes/projects/applications/apps/devfeed/migrations.md). | PostgreSQL, Typesense, shared Valkey Sentinel, Chimely, dedicated Codex and internal imgproxy, R2 article images and topic logos, Zitadel, public Cloudflare Tunnel and internal Traefik. |
+| [DevFeed](kubernetes/projects/applications/apps/devfeed/README.md) | Developer news on 0.0.45 with per-user language preferences, feed sorting, reading streaks and shareable Dev Cards; managed topic logos with bounded SVG conversion and 32/64/96-pixel variants; PgBouncer connection reuse, redundant web/APIs, dedicated background workers and a search indexer; OAuth MCP agent connections, native OpenTelemetry metrics and refreshed Grafana dashboards, probes, logs, traces and profiles; automatic pre-upgrade [migration hooks](kubernetes/projects/applications/apps/devfeed/migrations.md). | PostgreSQL, Typesense, shared Valkey Sentinel, Chimely, dedicated Codex and internal imgproxy, R2 article images and topic logos, Zitadel, public Cloudflare Tunnel and internal Traefik. |
 | Firefly III | Personal finance application. | PostgreSQL pooler, NFS upload PVC, internal Traefik ingress, scoped Home Assistant API access. |
 | Harbor | Local registry and proxy/cache registry. | PostgreSQL, Valkey, NFS storage, monitoring. |
-| OpenBao | Lightweight secret-management experiment for the Wardn namespace. | Longhorn PVC, Traefik ingress. |
 | Personal Blog | Public blog deployment. | Harbor image, Cloudflare Tunnel, Sanity revalidation secret. |
 | Portfolio | Public portfolio deployment. | Harbor image, Cloudflare Tunnel. |
 | ShipyardHQ | Public commerce/content application with web, worker, image proxy, and build jobs. | PostgreSQL, Valkey, R2, Harbor, NFS build cache, Cloudflare Tunnel. |
@@ -741,12 +751,12 @@ callback and Music Assistant's player-stream port.
 
 | App | What it does |
 | --- | --- |
-| Rancher Monitoring | Two Prometheus scrapers with Thanos sidecars, two Thanos Query replicas, Grafana, Alertmanager, dashboards, rules, and datasource provisioning. |
+| Upstream monitoring | Two Prometheus scrapers with Thanos sidecars, two Thanos Query replicas, Grafana, Alertmanager, dashboards, rules, and datasource provisioning. |
 | Loki | Log storage and query backend. |
 | Tempo | Trace backend for OpenTelemetry traces. |
 | Pyroscope | Profiling backend. |
 | OpenTelemetry Collector | Two gateways route OTLP telemetry by trace/stream identity into two processing replicas that forward to Prometheus and Tempo. |
-| ExternalDNS for UniFi | Creates internal DNS records from Traefik Ingress hosts. |
+| ExternalDNS for UniFi | Creates internal DNS records from Traefik Ingress hosts and annotated Services. |
 | Rancher Backup | Rancher backup operator and R2-backed backup configuration. |
 | SOPS Secrets Operator | Decrypts encrypted SOPS resources into Kubernetes Secrets. |
 | Longhorn recurring jobs | Filesystem trim and recurring storage maintenance hooks. |
@@ -902,9 +912,17 @@ operations become part of the platform, not an afterthought.
 
 Observability is built into the system project and then extended by app bundles.
 
+The [upstream monitoring migration](docs/runbooks/rancher-monitoring-migration.md)
+uses `kube-prometheus-stack` `80.9.1` and Rancher dashboard integration
+`110.0.1+up0.1.4`. Existing Prometheus/Alertmanager names, PVC bindings, dashboard
+UIDs and datasource UIDs remain stable. K3s scraping uses authenticated native
+kubelet endpoints. The 2026-10-01 cutover has an explicit operator exception to
+the backup gate and pins the existing stateful runtime versions.
+`scripts/monitoring-migration-state.py` captures private inventories outside Git.
+
 | Signal | System |
 | --- | --- |
-| Metrics | Two Rancher Monitoring Prometheus scrapers, Thanos Query, and ServiceMonitor resources. |
+| Metrics | Two upstream Prometheus scrapers, Thanos Query, and ServiceMonitor resources. |
 | Dashboards | Grafana dashboards from labeled ConfigMaps. |
 | Alerts | PrometheusRules and AlertmanagerConfig resources. |
 | Logs | Loki. |
@@ -920,7 +938,7 @@ local Longhorn volumes with Thanos sidecars and Query but no object store; it
 does not depend on R2 or another cloud provider. It aims to answer
 operational questions for a small cluster: node pressure, storage health,
 database performance, queue behavior, application traces, and whether a change
-made the lab worse. Rancher Monitoring scrapes the dedicated API server target
+made the lab worse. Prometheus scrapes the dedicated API server target
 for `apiserver_*` metrics; the parallel K3s server scrape retains K3s, cAdvisor,
 and probe metrics without ingesting duplicate API server series.
 
@@ -1170,7 +1188,6 @@ App and component deep dives:
 | [kubernetes/projects/applications/apps/firefly-iii/README.md](kubernetes/projects/applications/apps/firefly-iii/README.md) | Firefly III personal finance app. |
 | [kubernetes/projects/applications/apps/applications-helm-repositories/README.md](kubernetes/projects/applications/apps/applications-helm-repositories/README.md) | Application Helm repository registrations. |
 | [kubernetes/projects/applications/apps/harbor/README.md](kubernetes/projects/applications/apps/harbor/README.md) | Harbor registry. |
-| [kubernetes/projects/applications/apps/openbao/README.md](kubernetes/projects/applications/apps/openbao/README.md) | OpenBao service. |
 | [kubernetes/projects/applications/apps/personal-blog/README.md](kubernetes/projects/applications/apps/personal-blog/README.md) | Personal blog deployment. |
 | [kubernetes/projects/applications/apps/portfolio/README.md](kubernetes/projects/applications/apps/portfolio/README.md) | Portfolio deployment. |
 | [kubernetes/projects/applications/apps/shipyardhq/README.md](kubernetes/projects/applications/apps/shipyardhq/README.md) | ShipyardHQ deployment. |
@@ -1204,6 +1221,7 @@ App and component deep dives:
 | [kubernetes/projects/home-automation/apps/netbox-mcp-server/README.md](kubernetes/projects/home-automation/apps/netbox-mcp-server/README.md) | Authenticated NetBox MCP server deployment. |
 | [kubernetes/projects/home-automation/apps/rack-ops-controllers/README.md](kubernetes/projects/home-automation/apps/rack-ops-controllers/README.md) | Rack and node automation controllers. |
 | [kubernetes/projects/home-automation/apps/ups-monitoring/README.md](kubernetes/projects/home-automation/apps/ups-monitoring/README.md) | UPS monitoring. |
+| [kubernetes/projects/home-automation/apps/cups/README.md](kubernetes/projects/home-automation/apps/cups/README.md) | USB printing, LAN IPP, and moving the printer between Pi nodes. |
 | [kubernetes/projects/system/apps/alloy-faro/README.md](kubernetes/projects/system/apps/alloy-faro/README.md) | Alloy Faro frontend telemetry collector. |
 | [kubernetes/projects/system/apps/alloy-logs/README.md](kubernetes/projects/system/apps/alloy-logs/README.md) | Alloy application log collector. |
 | [kubernetes/projects/system/apps/csi-driver-nfs/README.md](kubernetes/projects/system/apps/csi-driver-nfs/README.md) | Upstream NFS CSI driver for static exports and retained per-PVC NAS directories. |

@@ -1,0 +1,710 @@
+---
+# Match the legacy chart base; pin stateful versions for this cutover.
+nameOverride: rancher-monitoring
+namespaceOverride: cattle-monitoring-system
+defaultRules:
+  disabled:
+    KubeJobFailed: true
+crds:
+  enabled: false
+windowsMonitoring:
+  enabled: false
+prometheusOperator:
+  nodeSelector:
+    kubernetes.io/arch: arm64
+    node-role.kubernetes.io/control-plane: 'true'
+  tolerations:
+  - key: CriticalAddonsOnly
+    operator: Equal
+    value: 'true'
+    effect: NoExecute
+  resources:
+    requests:
+      cpu: 10m
+      memory: 64Mi
+    limits:
+      memory: 144Mi
+  prometheusConfigReloader:
+    resources:
+      requests:
+        cpu: 10m
+        memory: 32Mi
+      limits:
+        memory: 128Mi
+  admissionWebhooks:
+    patch:
+      nodeSelector:
+        kubernetes.io/arch: arm64
+        node-role.kubernetes.io/control-plane: 'true'
+      tolerations:
+      - key: CriticalAddonsOnly
+        operator: Equal
+        value: 'true'
+        effect: NoExecute
+  strategy:
+    type: Recreate
+  serviceMonitor:
+    metricRelabelings:
+    - targetLabel: cluster_id
+      replacement: local
+    - targetLabel: cluster_name
+      replacement: local
+prometheus:
+  service:
+    enabled: false
+  annotations:
+    helm.sh/resource-policy: keep
+  thanosService:
+    enabled: true
+  thanosServiceMonitor:
+    enabled: true
+    metricRelabelings:
+    - targetLabel: cluster_id
+      replacement: local
+    - targetLabel: cluster_name
+      replacement: local
+  additionalServiceMonitors:
+  - name: rancher-monitoring-prometheus
+    namespaceSelector:
+      matchNames:
+      - cattle-monitoring-system
+    selector:
+      matchLabels:
+        monitoring.home/backend: prometheus
+    endpoints:
+    - port: http-web
+      metricRelabelings:
+      - targetLabel: cluster_id
+        replacement: local
+      - targetLabel: cluster_name
+        replacement: local
+      relabelings:
+      - targetLabel: job
+        replacement: rancher-monitoring-prometheus
+    - port: reloader-web
+      metricRelabelings:
+      - targetLabel: cluster_id
+        replacement: local
+      - targetLabel: cluster_name
+        replacement: local
+      relabelings:
+      - targetLabel: job
+        replacement: rancher-monitoring-prometheus
+  - name: rancher-monitoring-alertmanager
+    namespaceSelector:
+      matchNames:
+      - cattle-monitoring-system
+    selector:
+      matchLabels:
+        monitoring.home/backend: alertmanager
+    endpoints:
+    - port: http-web
+      metricRelabelings:
+      - targetLabel: cluster_id
+        replacement: local
+      - targetLabel: cluster_name
+        replacement: local
+      relabelings:
+      - targetLabel: job
+        replacement: rancher-monitoring-alertmanager
+    - port: reloader-web
+      metricRelabelings:
+      - targetLabel: cluster_id
+        replacement: local
+      - targetLabel: cluster_name
+        replacement: local
+      relabelings:
+      - targetLabel: job
+        replacement: rancher-monitoring-alertmanager
+  - name: rancher-monitoring-grafana
+    namespaceSelector:
+      matchNames:
+      - cattle-monitoring-system
+    selector:
+      matchLabels:
+        monitoring.home/backend: grafana
+    endpoints:
+    - port: http-web
+      metricRelabelings:
+      - targetLabel: cluster_id
+        replacement: local
+      - targetLabel: cluster_name
+        replacement: local
+      relabelings:
+      - targetLabel: job
+        replacement: rancher-monitoring-grafana
+  podDisruptionBudget:
+    enabled: true
+    minAvailable: 1
+  prometheusSpec:
+    nodeSelector:
+      kubernetes.io/arch: arm64
+      node-role.kubernetes.io/control-plane: 'true'
+      kubernetes.io/os: linux
+    tolerations:
+    - key: cattle.io/os
+      value: linux
+      effect: NoSchedule
+      operator: Equal
+    - key: CriticalAddonsOnly
+      operator: Equal
+      value: 'true'
+      effect: NoExecute
+    externalUrl: http://prometheus.home
+    routePrefix: /
+    paused: false
+    replicas: 2
+    shards: 1
+    retention: 30d
+    retentionSize: 52GiB
+    scrapeInterval: 60s
+    enableOTLPReceiver: true
+    tsdb:
+      outOfOrderTimeWindow: 30m
+    podAntiAffinity: hard
+    thanos:
+      image: docker.io/rancher/appco-thanos:0.40.1-8.1
+      additionalArgs:
+      - name: enable-auto-gomemlimit
+      - name: auto-gomemlimit.ratio
+        value: '0.75'
+      - name: store.limits.request-series
+        value: '10000'
+      - name: store.limits.request-samples
+        value: '1200000'
+      resources:
+        requests:
+          cpu: 25m
+          memory: 512Mi
+        limits:
+          memory: 2Gi
+    persistentVolumeClaimRetentionPolicy:
+      whenDeleted: Retain
+      whenScaled: Retain
+    ruleSelector: {}
+    ruleNamespaceSelector: {}
+    serviceMonitorSelector: {}
+    serviceMonitorNamespaceSelector: {}
+    podMonitorSelector: {}
+    podMonitorNamespaceSelector: {}
+    probeSelectorNilUsesHelmValues: false
+    probeSelector: {}
+    probeNamespaceSelector: {}
+    scrapeConfigSelectorNilUsesHelmValues: false
+    scrapeConfigSelector: {}
+    scrapeConfigNamespaceSelector: {}
+    otlp:
+      keepIdentifyingResourceAttributes: true
+      promoteResourceAttributes:
+      - service.instance.id
+      - service.name
+      - service.namespace
+      - deployment.environment.name
+      - service.version
+      - cloud.availability_zone
+      - cloud.region
+      - container.name
+      - deployment.environment
+      - k8s.cluster.name
+      - k8s.container.name
+      - k8s.cronjob.name
+      - k8s.daemonset.name
+      - k8s.deployment.name
+      - k8s.job.name
+      - k8s.namespace.name
+      - k8s.pod.name
+      - k8s.replicaset.name
+      - k8s.statefulset.name
+    resources:
+      requests:
+        cpu: 400m
+        memory: 4Gi
+      limits:
+        memory: 5Gi
+        cpu: 1000m
+    containers:
+    - name: prometheus
+      livenessProbe:
+        httpGet:
+          path: /-/healthy
+          port: http-web
+        failureThreshold: 20
+        periodSeconds: 15
+        timeoutSeconds: 10
+      readinessProbe:
+        httpGet:
+          path: /-/ready
+          port: http-web
+        failureThreshold: 3
+        periodSeconds: 10
+        timeoutSeconds: 10
+      startupProbe:
+        httpGet:
+          path: /-/ready
+          port: http-web
+        failureThreshold: 60
+        periodSeconds: 15
+        timeoutSeconds: 10
+    storageSpec:
+      volumeClaimTemplate:
+        metadata:
+          name: prometheus-data-longhorn
+        spec:
+          storageClassName: longhorn
+          accessModes:
+          - ReadWriteOnce
+          resources:
+            requests:
+              storage: 64Gi
+    image:
+      registry: docker.io
+      repository: rancher/prom-prometheus
+      tag: v3.8.1
+    version: v3.8.1
+    ruleSelectorNilUsesHelmValues: false
+    serviceMonitorSelectorNilUsesHelmValues: false
+    podMonitorSelectorNilUsesHelmValues: false
+    alertingEndpoints:
+    - namespace: cattle-monitoring-system
+      name: monitoring-alertmanager
+      port: http-web
+      pathPrefix: /
+      apiVersion: v2
+    evaluationInterval: 30s
+  serviceMonitor:
+    selfMonitor: false
+alertmanager:
+  service:
+    enabled: false
+  annotations:
+    helm.sh/resource-policy: keep
+  podDisruptionBudget:
+    enabled: true
+    minAvailable: 1
+  alertmanagerSpec:
+    nodeSelector:
+      kubernetes.io/arch: arm64
+      node-role.kubernetes.io/control-plane: 'true'
+      kubernetes.io/os: linux
+    tolerations:
+    - key: cattle.io/os
+      value: linux
+      effect: NoSchedule
+      operator: Equal
+    - key: CriticalAddonsOnly
+      operator: Equal
+      value: 'true'
+      effect: NoExecute
+    externalUrl: http://alertmanager.home
+    routePrefix: /
+    alertmanagerConfigMatcherStrategy:
+      type: None
+    paused: false
+    replicas: 2
+    retention: 120h
+    podAntiAffinity: hard
+    persistentVolumeClaimRetentionPolicy:
+      whenDeleted: Retain
+      whenScaled: Retain
+    resources:
+      requests:
+        cpu: 10m
+        memory: 64Mi
+      limits:
+        memory: 128Mi
+    storage:
+      volumeClaimTemplate:
+        metadata:
+          name: am-data-nfs
+        spec:
+          storageClassName: nfs-shared-retain
+          accessModes:
+          - ReadWriteOnce
+          resources:
+            requests:
+              storage: 2Gi
+    image:
+      registry: docker.io
+      repository: rancher/appco-alertmanager
+      tag: 0.30.0-12.16
+    version: 0.30.0-12.16
+    alertmanagerConfigSelector: {}
+    alertmanagerConfigNamespaceSelector: {}
+  serviceMonitor:
+    selfMonitor: false
+grafana:
+  service:
+    enabled: false
+  livenessProbe:
+    initialDelaySeconds: 600
+    timeoutSeconds: 30
+    failureThreshold: 10
+  readinessProbe:
+    timeoutSeconds: 5
+  nodeSelector:
+    kubernetes.io/arch: arm64
+    node-role.kubernetes.io/control-plane: 'true'
+  tolerations:
+  - key: CriticalAddonsOnly
+    operator: Equal
+    value: 'true'
+    effect: NoExecute
+  affinity:
+    podAntiAffinity:
+      requiredDuringSchedulingIgnoredDuringExecution:
+      - labelSelector:
+          matchLabels:
+            app.kubernetes.io/name: loki
+            app.kubernetes.io/instance: loki
+            app.kubernetes.io/component: single-binary
+        topologyKey: kubernetes.io/hostname
+  replicas: 1
+  deploymentStrategy:
+    type: Recreate
+  grafana.ini:
+    auth.basic:
+      enabled: true
+    database:
+      high_availability: false
+      query_retries: 10
+      transaction_retries: 10
+    users:
+      auto_assign_org_role: Viewer
+    auth.anonymous:
+      enabled: true
+      org_role: Viewer
+    security:
+      allow_embedding: true
+    dashboards:
+      default_home_dashboard_path: /tmp/dashboards/rancher-default-home.json
+  env:
+    HOME_LAB_DATASOURCE_REVISION: 2026-06-30-loki
+  envFromSecret: rancher-monitoring-grafana-llm
+  ingress:
+    enabled: false
+    ingressClassName: traefik
+    path: /
+    pathType: Prefix
+    hosts:
+    - grafana.home
+    tls: []
+  plugins:
+  - grafana-llm-app
+  extraConfigmapMounts:
+  - name: grafana-llm-provisioning
+    mountPath: /etc/grafana/provisioning/plugins/grafana-llm.yaml
+    subPath: grafana-llm.yaml
+    configMap: rancher-monitoring-grafana-llm-provisioning
+    readOnly: true
+  - name: sc-datasources-volume
+    mountPath: /etc/grafana/provisioning/datasources
+    configMap: rancher-monitoring-grafana-datasource
+    readOnly: true
+  additionalDataSources:
+  - name: Tempo
+    type: tempo
+    uid: tempo
+    access: proxy
+    url: http://tempo.cattle-monitoring-system.svc.cluster.local:3200
+    editable: false
+    jsonData:
+      httpMethod: GET
+      tracesToMetrics:
+        datasourceUid: prometheus
+  - name: Loki
+    type: loki
+    uid: loki
+    access: proxy
+    url: http://loki-gateway.cattle-monitoring-system.svc.cluster.local
+    editable: false
+    jsonData:
+      derivedFields:
+      - datasourceUid: tempo
+        matcherRegex: '(?:trace_id|traceId|traceID)[=": ]+([a-fA-F0-9]{16,32})'
+        name: TraceID
+        url: $${__value.raw}
+  - name: Pyroscope
+    type: grafana-pyroscope-datasource
+    uid: pyroscope
+    access: proxy
+    url: http://pyroscope.cattle-monitoring-system.svc.cluster.local:4040
+    editable: false
+    jsonData:
+      minStep: 15s
+  persistence:
+    enabled: true
+    type: pvc
+    existingClaim: rancher-monitoring-grafana-nfs
+    storageClassName: nfs-shared-retain
+    accessModes:
+    - ReadWriteOnce
+    size: 2Gi
+    finalizers:
+    - kubernetes.io/pvc-protection
+  resources:
+    requests:
+      cpu: 25m
+      memory: 320Mi
+    limits:
+      memory: 416Mi
+  initChownData:
+    enabled: false
+    resources:
+      requests:
+        cpu: 5m
+        memory: 16Mi
+      limits:
+        cpu: 100m
+        memory: 64Mi
+  sidecar:
+    dashboards:
+      annotations:
+        helm.sh/resource-policy: keep
+      searchNamespace: ALL
+      provider:
+        allowUiUpdates: true
+    datasources:
+      url: http://thanos-query.cattle-monitoring-system.svc.cluster.local:9090
+      customQueryParameters: partial_response=true
+      alertmanager:
+        url: http://monitoring-alertmanager.cattle-monitoring-system.svc:9093
+        uid: alertmanager
+      enabled: false
+    resources:
+      requests:
+        cpu: 10m
+        memory: 192Mi
+      limits:
+        memory: 272Mi
+    image:
+      registry: docker.io
+      repository: rancher/appco-k8s-sidecar
+      tag: 2.1.2-1.10
+  serviceMonitor:
+    enabled: false
+  image:
+    registry: docker.io
+    repository: rancher/appco-grafana
+    tag: 12.3.1-1.12
+  forceDeployDatasources: true
+  defaultDashboardsEnabled: false
+  testFramework:
+    enabled: false
+prometheus-node-exporter:
+  extraArgs:
+  - --collector.filesystem.mount-points-exclude=^/(dev|proc|sys|run/containerd/.+|var/lib/docker/.+|var/lib/kubelet/.+)($|/)
+  - --collector.filesystem.fs-types-exclude=^(autofs|binfmt_misc|bpf|cgroup2?|configfs|debugfs|devpts|devtmpfs|fusectl|hugetlbfs|iso9660|mqueue|nsfs|overlay|proc|procfs|pstore|rpc_pipefs|securityfs|selinuxfs|squashfs|sysfs|tracefs|erofs)$
+  - --collector.textfile.directory=/host/root/var/lib/node_exporter/textfile_collector
+  resources:
+    requests:
+      cpu: 5m
+      memory: 48Mi
+    limits:
+      memory: 192Mi
+  prometheus:
+    monitor:
+      metricRelabelings:
+      - targetLabel: cluster_id
+        replacement: local
+      - targetLabel: cluster_name
+        replacement: local
+  service:
+    port: 9796
+    targetPort: 9796
+  tolerations:
+  - effect: NoSchedule
+    operator: Exists
+  - effect: NoExecute
+    operator: Exists
+kube-state-metrics:
+  nodeSelector:
+    kubernetes.io/arch: arm64
+    node-role.kubernetes.io/control-plane: 'true'
+  tolerations:
+  - key: CriticalAddonsOnly
+    operator: Equal
+    value: 'true'
+    effect: NoExecute
+  metricLabelsAllowlist:
+  - namespaces=[home-lab.io/project-slug,field.cattle.io/projectId,app.kubernetes.io/part-of]
+  volumeMounts:
+  - name: zoneinfo
+    mountPath: /usr/share/zoneinfo
+    readOnly: true
+  volumes:
+  - name: zoneinfo
+    hostPath:
+      path: /usr/share/zoneinfo
+      type: Directory
+  resources:
+    requests:
+      cpu: 10m
+      memory: 192Mi
+    limits:
+      memory: 384Mi
+  prometheus:
+    monitor:
+      metricRelabelings:
+      - targetLabel: cluster_id
+        replacement: local
+      - targetLabel: cluster_name
+        replacement: local
+fullnameOverride: rancher-monitoring
+kubeApiServer:
+  enabled: true
+  serviceMonitor:
+    metricRelabelings:
+    - targetLabel: cluster_id
+      replacement: local
+    - targetLabel: cluster_name
+      replacement: local
+coreDns:
+  enabled: true
+  serviceMonitor:
+    metricRelabelings:
+    - targetLabel: cluster_id
+      replacement: local
+    - targetLabel: cluster_name
+      replacement: local
+kubeControllerManager:
+  enabled: false
+  jobNameOverride: k3s-server
+kubeScheduler:
+  enabled: false
+  jobNameOverride: k3s-server
+kubeProxy:
+  enabled: false
+  jobNameOverride: k3s-server
+kubeEtcd:
+  enabled: false
+kubelet:
+  enabled: true
+  jobNameOverride: k3s-server
+  serviceMonitor:
+    cAdvisorInterval: 60s
+    metricRelabelings:
+    - sourceLabels:
+      - __name__
+      regex: apiserver_.*
+      action: drop
+    - targetLabel: cluster_id
+      replacement: local
+    - targetLabel: cluster_name
+      replacement: local
+    cAdvisorMetricRelabelings:
+    - targetLabel: cluster_id
+      replacement: local
+    - targetLabel: cluster_name
+      replacement: local
+    probesMetricRelabelings:
+    - targetLabel: cluster_id
+      replacement: local
+    - targetLabel: cluster_name
+      replacement: local
+    relabelings:
+    - sourceLabels:
+      - __metrics_path__
+      targetLabel: metrics_path
+    - targetLabel: job
+      replacement: k3s-server
+    cAdvisorRelabelings:
+    - sourceLabels:
+      - __metrics_path__
+      targetLabel: metrics_path
+    - targetLabel: job
+      replacement: k3s-server
+    probesRelabelings:
+    - sourceLabels:
+      - __metrics_path__
+      targetLabel: metrics_path
+    - targetLabel: job
+      replacement: k3s-server
+extraManifests:
+  backend-0:
+    apiVersion: v1
+    kind: Service
+    metadata:
+      name: monitoring-prometheus
+      namespace: cattle-monitoring-system
+      labels:
+        monitoring.home/backend: prometheus
+    spec:
+      selector:
+        prometheus: rancher-monitoring-prometheus
+      ports:
+      - name: http-web
+        port: 9090
+        targetPort: http-web
+      - name: reloader-web
+        port: 8080
+        targetPort: reloader-web
+  backend-1:
+    apiVersion: v1
+    kind: Service
+    metadata:
+      name: monitoring-alertmanager
+      namespace: cattle-monitoring-system
+      labels:
+        monitoring.home/backend: alertmanager
+    spec:
+      selector:
+        alertmanager: rancher-monitoring-alertmanager
+      ports:
+      - name: http-web
+        port: 9093
+        targetPort: http-web
+      - name: reloader-web
+        port: 8080
+        targetPort: reloader-web
+  backend-2:
+    apiVersion: v1
+    kind: Service
+    metadata:
+      name: monitoring-grafana
+      namespace: cattle-monitoring-system
+      labels:
+        monitoring.home/backend: grafana
+    spec:
+      selector:
+        app.kubernetes.io/name: grafana
+        app.kubernetes.io/instance: rancher-monitoring
+      ports:
+      - name: http-web
+        port: 80
+        targetPort: 3000
+  backend-3:
+    apiVersion: networking.k8s.io/v1
+    kind: Ingress
+    metadata:
+      name: rancher-monitoring-grafana
+      namespace: cattle-monitoring-system
+    spec:
+      ingressClassName: traefik
+      rules:
+      - host: grafana.home
+        http:
+          paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: monitoring-grafana
+                port:
+                  number: 80
+  coredns-network-policy:
+    apiVersion: networking.k8s.io/v1
+    kind: NetworkPolicy
+    metadata:
+      name: rancher-monitoring-coredns-allow-all
+      namespace: kube-system
+    spec:
+      ingress:
+      - {}
+      egress:
+      - {}
+      policyTypes:
+      - Ingress
+      - Egress
+      podSelector:
+        matchLabels:
+          k8s-app: kube-dns

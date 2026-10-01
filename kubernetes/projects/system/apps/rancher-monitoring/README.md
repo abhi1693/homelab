@@ -1,5 +1,37 @@
 # Rancher Monitoring
 
+The monitoring runtime uses upstream `prometheus-community/kube-prometheus-stack`
+`80.9.1`, matching the base of the retired Rancher chart. The initial handoff
+pins Prometheus 3.8.1, Grafana 12.3.1, Alertmanager 0.30.0 and their existing
+storage identities. The operator authorized this cutover without new backups.
+
+The upstream chart is fetched from its official GHCR OCI repository, avoiding
+large HTTP chart-index parsing in the memory-bounded HelmOps controller.
+HelmOp resources put the complete OCI reference in `helm.repo` and omit
+`helm.chart`, as required by Fleet's HelmOps resolver.
+
+Three Fleet HelmOps reconcile in order: upstream CRDs, upstream runtime, then
+`rancher-monitoring-dashboards` `110.0.1+up0.1.4`. The existing CRD release is
+upgraded in place to remove its legacy destructive uninstall hook. Its upstream
+CRD upgrade Job applies schemas before the runtime updates. Namespaces remain
+owned by the wrapper manifests; HelmOps do not set namespace metadata.
+
+`upstream-values.yaml` and `upstream-crd-values.yaml` are active runtime values;
+`values.yaml` and `crd-values.yaml` retain the legacy configuration for a reviewed
+rollback. `preserved-dashboards-values.yaml` carries 25 public chart dashboard
+ConfigMaps with unchanged names, namespace and UIDs. Stock dashboard generation
+is disabled to prevent duplicate provisioning. Review these definitions when
+upgrading the upstream chart; Rancher integration dashboards are independently
+maintained by the dashboard chart. Custom dashboards and UI-created dashboards
+retain their existing ConfigMaps and Grafana database.
+
+Native `monitoring-prometheus`, `monitoring-alertmanager` and
+`monitoring-grafana` Services back the maintained Rancher UI proxies. Grafana's
+Ingress connects directly to its native Service. Replica-specific OTLP write
+Services and Thanos discovery names remain unchanged. Follow the
+[migration runbook](../../../../../docs/runbooks/rancher-monitoring-migration.md)
+for recovery limits and acceptance evidence.
+
 Longhorn 1.12.1 isolates manager ingress by default. The colocated
 `longhorn-networkpolicy.yaml` permits TCP/9500 only from this stack's Prometheus
 pods in `cattle-monitoring-system`, preserving the existing Longhorn metrics
@@ -7,27 +39,22 @@ scrape without disabling upstream network policies. After an upgrade, verify
 all eight manager targets are up and `longhorn_volume_robustness` is present;
 the Home Assistant status bridge intentionally rejects missing storage metrics.
 
-Prometheus, Alertmanager, Grafana, the monitoring operator, adapter,
-kube-state-metrics, and the K3s PushProx proxy select control-plane nodes and
-tolerate `CriticalAddonsOnly=true:NoExecute`. Thanos Query prefers worker nodes,
-and its two replicas have required pod anti-affinity. Node exporter and PushProx
-clients remain node-local across servers and workers.
+Prometheus, Alertmanager, Grafana, the monitoring operator and kube-state-metrics
+select control-plane nodes and tolerate `CriticalAddonsOnly=true:NoExecute`.
+Thanos Query prefers worker nodes, and its two replicas have required pod
+anti-affinity. Node exporter remains node-local across servers and workers,
+retaining port `9796`, its host textfile collector, and both `NoSchedule` and
+`NoExecute` tolerations so all eight nodes remain covered.
 
-The Linux-only cluster disables the chart's `windowsExporter` dependency so it
+The Linux-only cluster disables the chart's Windows exporter dependency so it
 does not render an unschedulable Windows DaemonSet. Grafana's `init-chown-data`
 container is explicitly bounded at `5m`/`16Mi` requests and `100m`/`64Mi`
 limits; namespace defaults cover other chart-generated hook or init containers
 that omit resource keys without adding a generic CPU limit.
 
-Fleet wrapper for the Rancher Monitoring charts in `cattle-monitoring-system`.
-
-It owns two HelmOps:
-
-- `rancher-monitoring-crd`, which installs the Prometheus Operator CRDs.
-- `rancher-monitoring-stack`, which installs Rancher's monitoring stack.
-
-The stack is pinned to chart version `109.0.5+up80.9.1-rancher.19` and starts as
-cluster-infrastructure monitoring for Rancher and K3s. Prometheus runs two
+Fleet wrapper for upstream monitoring and Rancher dashboard integration in
+`cattle-monitoring-system`. It owns three HelmOps: `rancher-monitoring-crd`,
+`rancher-monitoring-stack`, and `rancher-monitoring-dashboards`. Prometheus runs two
 replicas with hard pod anti-affinity and one retained `64Gi` Longhorn PVC per
 replica. Each replica has `30d` retention, a `52GiB` retention-size
 cap, a 4Gi memory request, and a 5Gi memory limit. The size cap keeps Prometheus
@@ -47,7 +74,7 @@ the same 75-percent Go memory target. Prometheus therefore keeps normal local
 TSDB compaction without allowing oversized reads to take down the query plane.
 
 Retained former NFS Prometheus claims are rollback data, not active TSDB storage.
-Review retention before deleting them. Grafana, Prometheus Adapter, automation
+Review retention before deleting them. Grafana, automation
 controllers, and `prometheus.home` query Thanos Query. Grafana explicitly
 allows partial responses for interactive dashboards; automation retains Query's
 fail-closed default. The OpenTelemetry Collector writes every metrics batch to
@@ -62,7 +89,13 @@ its logs can remain available for diagnosis without turning an old, superseded
 run into a permanent alert.
 
 The Prometheus OTLP metrics receiver is enabled for application OpenTelemetry
-metrics and promotes common service resource attributes. Grafana also provisions
+metrics and promotes common service resource attributes. Its TSDB accepts
+samples up to 30 minutes out of order to accommodate collector batching; each
+producer still needs a unique service instance identity. The runtime handoff
+retains dashboard ConfigMaps and Rancher bridge Services through Helm keep
+annotations. The operator authorized the 2026-10-01 cutover without new storage
+backups; existing PVCs and stateful runtime versions must remain unchanged.
+Grafana also provisions
 a `Tempo` datasource for the lightweight Tempo app in this project.
 Alertmanager runs two replicas with retained `2Gi` NFS PVCs. Grafana is exposed internally at
 `grafana.home`, Prometheus at `prometheus.home`, and Alertmanager at
@@ -114,15 +147,14 @@ configuration versions disagree, origin proxy connections fail, the tunnel's
 metrics targets are healthy, available controller metrics report no leader, or
 controller reconciliation reports errors.
 
-K3s control-plane metric collection is deliberately split between the chart's
-dedicated API server target and its K3s server target. The chart-generated K3s
-`/metrics` endpoint is target-dropped and replaced by an additional
-chart-managed ServiceMonitor that drops duplicate `apiserver_*` samples at
-ingestion; the original cAdvisor and probe endpoints remain active. This
-workaround is necessary because the pinned PushProx subchart replaces custom
-endpoint metric relabeling whenever Rancher cluster labels are enabled. The
-dedicated API server target retains the SLI histogram used by Rancher's API
-availability rules.
+K3s metrics use native authenticated kubelet HTTPS endpoints on port 10250.
+The `k3s-server` job and `metrics_path` labels are retained for `/metrics`,
+`/metrics/cadvisor` and `/metrics/probes`. The first drops duplicate
+`apiserver_*` samples; the dedicated API server target retains its SLI histogram.
+Cluster identity labels remain `local`. Separate scheduler/controller/proxy
+scrapes are disabled because K3s shares a registry. PushProx is removed.
+The unused Prometheus Adapter is removed: no HPAs were present and its only
+custom rule intentionally matched a nonexistent metric.
 
 The Ansible-managed K3s configuration also disables unused, high-cardinality API
 request, response, watch, and etcd histogram families at the source. After
@@ -138,9 +170,8 @@ series ingestion, and API SLO rules afterward.
 ## Resource request baseline
 
 Review requests against sustained CPU and memory use with burst headroom.
-Prometheus requests `400m` CPU and `4Gi` memory per replica. Grafana's main,
-dashboard-sidecar, and proxy containers request `40m` CPU and `528Mi` memory
-in total. The chart-wide `grafana.sidecar.resources` key applies to its
+Prometheus requests `400m` CPU and `4Gi` memory per replica. Grafana's main and dashboard-sidecar containers request `35m` CPU and
+`512Mi` memory in total. Rancher's separate UI proxy has two replicas. The chart-wide `grafana.sidecar.resources` key applies to its
 sidecars. Node exporter requests `5m` CPU on each node and remains burstable.
 `kube-state-metrics` requests `192Mi` and is capped at `384Mi`; preserve
 startup headroom when resizing it.

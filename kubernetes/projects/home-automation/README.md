@@ -2,7 +2,7 @@
 
 The Home Automation project owns services that model and operate the physical
 environment around the cluster: Home Assistant, NetBox and its MCP server,
-rack operations, Cloudflare tunnel ingress control, and UPS monitoring.
+rack operations, Cloudflare tunnel ingress control, USB printing, and UPS monitoring.
 
 Fleet tracks this project through the `home-lab-home-automation` GitRepo.
 
@@ -23,6 +23,7 @@ Keeping these services in one project makes the boundary clear.
 | `cloudflare-tunnel-ingress-controller` | Runs the Cloudflare Tunnel ingress controller. | Public app ingress, Cloudflare credentials. |
 | `cloudflare-tunnel-ingress-controller-networkpolicy` | Applies network boundaries for tunnel connector traffic. | Public ingress to explicitly allowlisted app services, including the Wardn AI website. |
 | `cluster-ops` | Runs worker-hosted cluster operation controllers, including K8s Recommendation Engine profile runners. | Kubernetes API, Prometheus, Fleet-managed app state. |
+| `cups` | Shares the HP Deskjet 2510 over LAN IPP at `printer.home:631`. | USB printer on `k8s-rpi1`, Longhorn state, explicit node placement; manual client setup. |
 | `home-assistant` | Home automation runtime with commit-pinned source from `abhi1693/home-assistant` and a code-server sidecar. | Family desktop dashboard, UniFi Protect camera wall, Atomberg fans, media integrations, Longhorn config PVC, PostgreSQL Recorder. |
 | `home-assistant-go2rtc` | Runs the authenticated WebRTC relay used by Home Assistant camera entities. | Cluster-only signaling API, fixed MetalLB LAN media candidate, and exact Protect RTSPS egress. |
 | `home-assistant-mobile-webhook` | Deploys the released [`ha-sensors-gateway`](https://github.com/abhi1693/ha-sensors-gateway) image for native Companion App sensor and location webhooks through Cloudflare Tunnel. | Capability-scoped phone updates without public Home Assistant UI or API access. |

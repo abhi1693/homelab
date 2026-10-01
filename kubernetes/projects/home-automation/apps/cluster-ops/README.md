@@ -23,7 +23,7 @@ for every profile:
   `portfolio-profile.yaml`,
   `qbittorrent-smart-queues-profile.yaml`, and `rack-ops-profile.yaml`
 - Helm-values production profiles: `cnpg-system-profile.yaml`,
-  `harbor-profile.yaml`, `media-helm-profile.yaml`, `openbao-profile.yaml`,
+  `harbor-profile.yaml`, `media-helm-profile.yaml`,
   and `zitadel-profile.yaml`;
   their chart-specific replica and resource keys are declared with
   `helmValues.paths`

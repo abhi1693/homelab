@@ -506,8 +506,8 @@ spec:
               value: postgresql://$(POSTGRES_USER):$(POSTGRES_PASSWORD)@postgresql-pooler-shipyardhq-rw.postgresql.svc.cluster.local:5432/$(POSTGRES_DB)?sslmode=disable
           resources:
             requests:
-              cpu: 80m
-              memory: 442Mi
+              cpu: 40m
+              memory: 335Mi
             limits:
               memory: 896Mi
           securityContext:

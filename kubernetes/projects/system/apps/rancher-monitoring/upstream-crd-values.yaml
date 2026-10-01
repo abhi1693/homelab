@@ -1,0 +1,48 @@
+---
+# Upgrade the existing CRD release in place; never invoke the legacy uninstall hook.
+nameOverride: rancher-monitoring-crd
+crds:
+  enabled: true
+  upgradeJob:
+    enabled: true
+    forceConflicts: true
+    image:
+      busybox:
+        registry: docker.io
+        repository: library/busybox
+        tag: 1.37.0
+      kubectl:
+        registry: docker.io
+        repository: rancher/kuberlr-kubectl
+        tag: v7.0.1
+    resources:
+      requests:
+        cpu: 10m
+        memory: 64Mi
+      limits:
+        cpu: 200m
+        memory: 256Mi
+    nodeSelector:
+      kubernetes.io/arch: arm64
+      node-role.kubernetes.io/control-plane: 'true'
+    tolerations:
+    - key: CriticalAddonsOnly
+      operator: Equal
+      value: 'true'
+      effect: NoExecute
+defaultRules:
+  create: false
+prometheus:
+  enabled: false
+alertmanager:
+  enabled: false
+grafana:
+  enabled: false
+prometheusOperator:
+  enabled: false
+kubeStateMetrics:
+  enabled: false
+nodeExporter:
+  enabled: false
+kubernetesServiceMonitors:
+  enabled: false

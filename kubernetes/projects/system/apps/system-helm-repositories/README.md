@@ -9,5 +9,6 @@ It owns:
 - `https://kubernetes-sigs.github.io/external-dns/`
 - `https://charts.jetstack.io`
 - `https://metallb.github.io/metallb`
+- `https://prometheus-community.github.io/helm-charts` (upstream monitoring migration)
 - `https://charts.rancher.io`
 - `https://releases.rancher.com/server-charts/stable`

@@ -51,7 +51,7 @@ spec:
       containers:
         - name: admin
           # renovate: datasource=docker depName=ghcr.io/abhi1693/devfeed.tech/admin
-          image: registry.home/ghcr.io/abhi1693/devfeed.tech/admin:0.0.44@sha256:6e0ba7bbe52650731b44ec9b609b9a24c27b2733ed4bf83d85afbbed8b38e2f8
+          image: registry.home/ghcr.io/abhi1693/devfeed.tech/admin:0.0.45@sha256:e9df76e364ee96be006570f60ac215d427bd82a1880bcf17848689b6882f4b0e
           imagePullPolicy: IfNotPresent
           envFrom:
             - configMapRef:

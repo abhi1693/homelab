@@ -1,10 +1,10 @@
 # DevFeed
 
 Fleet-managed developer news platform. All application workloads use release
-**0.0.44** and verified ARM64 image digests. Approval and publication require an explicit article page-kind
+**0.0.45** and verified ARM64 image digests. Approval and publication require an explicit article page-kind
 classification; missing or uncertain classifications stay blocked.
 
-Renovate tracks stable `X.Y.Z` Docker tags for all nine DevFeed images on GHCR,
+Renovate tracks stable `X.Y.Z` Docker tags for all ten DevFeed images on GHCR,
 grouping runtime, init-container, and migration-hook updates while refreshing
 their SHA-256 pins. Commit tags, moving tags, and prereleases are excluded;
 Kubernetes continues pulling the pinned images through Harbor.
@@ -12,21 +12,21 @@ Kubernetes continues pulling the pinned images through Harbor.
 Reader language preferences support one or more languages, defaulting to English.
 My feed and Latest retain source/content filters and offer Most liked sorting.
 Source/topic discovery is paginated and restricted to the selected article languages.
-Web, Chrome and Edge share the reader; extension 0.1.14 store publication is separate.
+Web, Chrome and Edge share the reader; extension 0.1.15 store publication is separate.
 Sources added by import, the admin form, or CLI share discovery and review. Imports
 remain pending until reviewed; full-auto mode uses AI review and approval enables polling.
 The pre-upgrade hook applies and verifies schema `0020` before replacing application workloads.
 Release 0.0.41 applied migrations `0018` and `0019`; the migration job mounts the
 operator-managed historical topic-kind map needed to canonicalize stored topic data.
 
-Release 0.0.44 uses source `fc3a546d1feb63c2fac06acbca558afe23b2dbeb` and the
-[verified release manifest](https://github.com/abhi1693/devfeed.tech/actions/runs/36350540286)
-(`image-manifest-images-36350540286-1`). All nine ARM64 image indexes match
+Release 0.0.45 uses source `a206a06566bb272364f016a6a6f8ee19894ed105` and the
+[verified release manifest](https://github.com/abhi1693/devfeed.tech/actions/runs/36775240970)
+(`image-manifest-images-36775240970-1`). All ten ARM64 image indexes match
 between GHCR and Harbor, with verified GitHub provenance attestations for the tag.
 Migration `0020` adds managed topic logos and topic-targeted Images jobs. The
-post-upgrade `devfeed-topic-logo-backfill-0044` hook queues unattempted logos in
-bounded batches; it preserves prior successes and failures. The existing Images
-worker saves normalized originals to R2 before generating 32/64/96 WebP variants.
+one-time topic-logo backfill hook has been removed from GitOps; future upgrades
+do not enqueue a bulk backfill. The existing Images worker continues normal logo
+processing, saving originals to R2 before generating 32/64/96 WebP variants.
 The import phase saved 354 of 357 originals, including Rancher. Memcached, Zorin OS
 and VxWorks SVGs were rejected by validation and use the normal topic fallback.
 All 354 saved logos now have 32/64/96 variants; no topic-logo jobs remain queued
@@ -399,32 +399,30 @@ schema-compatible application; prefer a forward fix over a schema downgrade.
 
 ## Observability
 
-DevFeed has private port-9100 metrics on every application API, frontend, worker,
-scheduler, indexer and the cached product exporter. A PodMonitor admits only
-Prometheus; no application Service/Ingress exposes metrics. Alloy Faro additionally
-reaches frontend port 9100 for private source maps. Faro ingestion is an intentional
-same-origin public POST endpoint that filters telemetry and forwards with a
-server-only encrypted key. Frontends alone consume `devfeed-faro`.
+DevFeed 0.0.45 replaces the retired aggregate exporter with native OpenTelemetry
+in-process metrics on APIs, workers, scheduler and indexer. Frontends retain their
+Node metrics. The PodMonitor sets a consistent `service` label from each workload;
+HTTP recording rules normalize Node and Python histograms and exclude long-lived
+notification streams. Metrics stay private on port 9100, with no public ingress.
 
-The existing Alloy/Loki, OTel/Tempo and Pyroscope stacks collect sanitized logs,
-traces and CPU/heap profiles. Grafana's **DevFeed** folder contains availability,
-queue/worker/product and diagnostics dashboards. Two private blackbox exporter
-pods probe the public reader at `https://devfeed.tech/latest` and internal
-service readiness/login every 30 seconds. They also probe the public
-Cloudflare endpoints for the blog, portfolio, ShipyardHQ, imgproxy,
-Launchboard, Wardn AI, and Wardn Hub; the monitoring bundle alerts on endpoint
-failure, slowness, or missing probe data.
-The reader probe requires HTTP 200 without redirects; `/` redirects to `/latest`.
-Article enrichment has three consumers to drain eligible article-page extraction work;
-this pool does not increase AI-provider concurrency. Revert the replica change through Git
-if database or fetch capacity regresses.
-PrometheusRules include multiwindow 99.9% availability burn, missing telemetry,
-workload/restart/memory, queue delay/capacity/leases, failures/retries and search lag.
+The **DevFeed** Grafana folder replaces all three dashboards in place, retaining
+stable URLs: availability/capacity, workers/search progress, and request/cache/
+database/log diagnostics. Retired queue/product aggregate panels and their alerts
+are removed. Use the admin UI for durable job outcomes, retries and editorial
+inventory; worker delivery counts do not imply editorial success. Current alerts
+cover traffic-gated availability burn, latency, workload readiness, scrape health,
+database acquisition timeouts, background freshness and search lag.
 
-Run `python scripts/check-devfeed-observability.py` from the repository root to
-validate dashboard PromQL and alert scenarios, then the standard manifest checks
-and server dry run. Follow the application's
-[metric definitions and runbooks](https://github.com/abhi1693/devfeed.tech/blob/v0.0.9/docs/observability.md).
+Alloy/Loki, OTel/Tempo and Pyroscope continue collecting logs, traces and profiles.
+Logs and Faro browser telemetry preserve original values without automatic
+redaction. Frontends alone consume the encrypted Faro collector key. Private
+blackbox probes continue checking public HTTPS and internal service readiness.
+
+Run `python3 scripts/check-devfeed-observability.py` to validate dashboard PromQL
+and alert scenarios, followed by manifest checks and server-side dry runs. Metric
+names and migration details are documented in the application's
+[Observability guide](https://github.com/abhi1693/devfeed.tech/blob/v0.0.45/packages/core/OBSERVABILITY.md).
+
 Deployment must verify actual scrape targets, HTTP probes, logs, traces, profiles,
 browser ingestion and public port/source-map isolation. SDK initialization alone
 is not proof of delivery. Pyroscope retains its existing 24-hour ephemeral storage;
@@ -699,3 +697,11 @@ and Rancher's official website. Audit proposal IDs are
 `ea947f06-b60e-474d-865e-f8365974d919` (Kubernetes) and
 `bda360d6-42e5-4ce5-ac69-5e1bef398d0e` (Rancher). The completed Job is retired
 from desired state; its manifest and input evidence remain in Git history.
+
+## Agent connections
+
+Two ARM64 MCP replicas serve `https://mcp.devfeed.tech/mcp` through the Cloudflare
+tunnel. Public discovery calls only the public API. OAuth account tools call the
+user API through the private `user-api` Service alias and share its Redis database 10; MCP has no database or admin credentials.
+The reader advertises this endpoint, offers read-only/read-write consent and lists
+revocable connections. MCP egress is restricted to DNS, Redis and the two APIs.

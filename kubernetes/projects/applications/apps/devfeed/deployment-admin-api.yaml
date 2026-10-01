@@ -59,7 +59,7 @@ spec:
       containers:
         - name: admin-api
           # renovate: datasource=docker depName=ghcr.io/abhi1693/devfeed.tech/admin-api
-          image: registry.home/ghcr.io/abhi1693/devfeed.tech/admin-api:0.0.44@sha256:02cd4e8c78f614ab2427469b81eac8cb80f3701705428d1d971193d71e1e1c5b
+          image: registry.home/ghcr.io/abhi1693/devfeed.tech/admin-api:0.0.45@sha256:fe4b1f85c49f4379589729e4ca4a9351c09db771d0df823f6c56b44ddaf5ae23
           imagePullPolicy: IfNotPresent
           resources:
             requests:
@@ -170,7 +170,7 @@ spec:
       initContainers:
         - name: trust-codex-ca
           # renovate: datasource=docker depName=ghcr.io/abhi1693/devfeed.tech/admin-api
-          image: registry.home/ghcr.io/abhi1693/devfeed.tech/admin-api:0.0.44@sha256:02cd4e8c78f614ab2427469b81eac8cb80f3701705428d1d971193d71e1e1c5b
+          image: registry.home/ghcr.io/abhi1693/devfeed.tech/admin-api:0.0.45@sha256:fe4b1f85c49f4379589729e4ca4a9351c09db771d0df823f6c56b44ddaf5ae23
           imagePullPolicy: IfNotPresent
           resources:
             requests:
@@ -199,7 +199,7 @@ spec:
             - from pathlib import Path; Path('/run/ca/ca-bundle.crt').write_bytes(Path('/etc/ssl/certs/ca-certificates.crt').read_bytes()+b'\n'+Path('/run/codex-ca/ca.crt').read_bytes())
         - name: wait-for-inbox
           # renovate: datasource=docker depName=ghcr.io/abhi1693/devfeed.tech/admin-api
-          image: registry.home/ghcr.io/abhi1693/devfeed.tech/admin-api:0.0.44@sha256:02cd4e8c78f614ab2427469b81eac8cb80f3701705428d1d971193d71e1e1c5b
+          image: registry.home/ghcr.io/abhi1693/devfeed.tech/admin-api:0.0.45@sha256:fe4b1f85c49f4379589729e4ca4a9351c09db771d0df823f6c56b44ddaf5ae23
           imagePullPolicy: IfNotPresent
           resources:
             requests:
@@ -231,7 +231,7 @@ spec:
               else: raise SystemExit('Inbox provisioning not ready')
         - name: wait-for-schema
           # renovate: datasource=docker depName=ghcr.io/abhi1693/devfeed.tech/backend
-          image: registry.home/ghcr.io/abhi1693/devfeed.tech/backend:0.0.44@sha256:1c9907b72e3b0d025262e141c32b6d4421c0061a4d1a9219461d30d9544d97f7
+          image: registry.home/ghcr.io/abhi1693/devfeed.tech/backend:0.0.45@sha256:60e3cf4fa8368b808c1cf2fc2fbc70ef8a042f69913e7f5367fa9a476d370b1e
           imagePullPolicy: IfNotPresent
           securityContext:
             runAsNonRoot: true

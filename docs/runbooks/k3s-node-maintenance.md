@@ -659,7 +659,7 @@ server gate requires authenticated `/readyz` success on every server and the VIP
 - `scripts/README.md`
 - `infrastructure/ansible/inventories/home/group_vars/k3s_servers.yml`
 - `infrastructure/ansible/roles/kube_vip/templates/kube-vip.yaml.j2`
-- `kubernetes/projects/system/apps/rancher-monitoring/values.yaml`
+- `kubernetes/projects/system/apps/rancher-monitoring/upstream-values.yaml`
 - `kubernetes/projects/entertainment/apps/media-jellyfin/values.yaml`
 - `kubernetes/projects/system/apps/rancher-monitoring/README.md`
 - `kubernetes/projects/home-automation/apps/ups-monitoring/README.md`

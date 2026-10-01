@@ -1,0 +1,180 @@
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: devfeed-mcp
+  namespace: devfeed
+  labels:
+    app.kubernetes.io/name: devfeed-mcp
+    app.kubernetes.io/part-of: devfeed
+spec:
+  selector:
+    app.kubernetes.io/name: devfeed-mcp
+    app.kubernetes.io/part-of: devfeed
+  ports:
+  - name: http
+    port: 8003
+    targetPort: http
+---
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: devfeed-mcp
+  namespace: devfeed
+  labels:
+    app.kubernetes.io/name: devfeed-mcp
+    app.kubernetes.io/part-of: devfeed
+spec:
+  ingressClassName: cloudflare-tunnel
+  rules:
+  - host: mcp.devfeed.tech
+    http:
+      paths:
+      - path: /
+        pathType: Prefix
+        backend:
+          service:
+            name: devfeed-mcp
+            port:
+              number: 8003
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: devfeed-mcp-ingress
+  namespace: devfeed
+  labels:
+    app.kubernetes.io/part-of: devfeed
+spec:
+  podSelector:
+    matchLabels:
+      app.kubernetes.io/name: devfeed-mcp
+  policyTypes:
+  - Ingress
+  ingress:
+  - from:
+    - namespaceSelector:
+        matchLabels:
+          kubernetes.io/metadata.name: cloudflare
+      podSelector:
+        matchLabels:
+          app: controlled-cloudflared-connector
+          strrl.dev/cloudflare-tunnel-ingress-controller: controlled-cloudflared-connector
+    ports:
+    - protocol: TCP
+      port: 8003
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: devfeed-mcp-api-egress
+  namespace: devfeed
+  labels:
+    app.kubernetes.io/part-of: devfeed
+spec:
+  podSelector:
+    matchLabels:
+      app.kubernetes.io/name: devfeed-mcp
+  policyTypes:
+  - Egress
+  egress:
+  - to:
+    - podSelector:
+        matchLabels:
+          app.kubernetes.io/name: devfeed-api
+    ports:
+    - protocol: TCP
+      port: 8000
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: devfeed-mcp-api-ingress
+  namespace: devfeed
+  labels:
+    app.kubernetes.io/part-of: devfeed
+spec:
+  podSelector:
+    matchLabels:
+      app.kubernetes.io/name: devfeed-api
+  policyTypes:
+  - Ingress
+  ingress:
+  - from:
+    - podSelector:
+        matchLabels:
+          app.kubernetes.io/name: devfeed-mcp
+    ports:
+    - protocol: TCP
+      port: 8000
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: devfeed-mcp-user-api-egress
+  namespace: devfeed
+  labels:
+    app.kubernetes.io/part-of: devfeed
+spec:
+  podSelector:
+    matchLabels:
+      app.kubernetes.io/name: devfeed-mcp
+  policyTypes:
+  - Egress
+  egress:
+  - to:
+    - podSelector:
+        matchLabels:
+          app.kubernetes.io/name: devfeed-user-api
+    ports:
+    - protocol: TCP
+      port: 8002
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: devfeed-mcp-user-api-ingress
+  namespace: devfeed
+  labels:
+    app.kubernetes.io/part-of: devfeed
+spec:
+  podSelector:
+    matchLabels:
+      app.kubernetes.io/name: devfeed-user-api
+  policyTypes:
+  - Ingress
+  ingress:
+  - from:
+    - podSelector:
+        matchLabels:
+          app.kubernetes.io/name: devfeed-mcp
+    ports:
+    - protocol: TCP
+      port: 8002
+---
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: devfeed-mcp
+  namespace: devfeed
+spec:
+  minAvailable: 1
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: devfeed-mcp
+      app.kubernetes.io/part-of: devfeed
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: user-api
+  namespace: devfeed
+  labels:
+    app.kubernetes.io/part-of: devfeed
+spec:
+  selector:
+    app.kubernetes.io/name: devfeed-user-api
+  ports:
+  - name: http
+    port: 8002
+    targetPort: 8002

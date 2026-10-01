@@ -24,7 +24,6 @@ secret contract each app expects.
 | `firefly-iii-storage` | Persistent storage support for Firefly III. | None | NFS CSI upload PVC. |
 | `firefly-iii` | Personal finance app. | Internal Traefik at `finance.home`. | PostgreSQL pooler, NFS upload PVC, SOPS Secret. |
 | `harbor` | Local registry and proxy/cache registry. | Internal Traefik at `registry.home`. | PostgreSQL, Valkey, retained NFS storage, monitoring. |
-| `openbao` | Lightweight OpenBao deployment for Wardn-related secret workflows. | Internal Traefik at `secrets.wardn.home`. | Longhorn PVC, SOPS-managed static auto-unseal key. |
 | `personal-blog` | Public personal blog. | Cloudflare Tunnel at `blog.abhimanyu-saharan.com`. | Harbor image, Sanity webhook secret, ConfigMap. |
 | `portfolio` | Public portfolio site. | Cloudflare Tunnel at `abhimanyu-saharan.com`. | Harbor image, runtime config. |
 | `shipyardhq` | Public app with web, worker, image proxy, build job, and media storage. | Cloudflare Tunnel at `shipyardhq.dev` and image hostnames. | PostgreSQL, Valkey, R2, NFS build cache, Harbor image. |
@@ -60,3 +59,13 @@ state, what services it consumes, and what secrets must exist.
 - Keep app-owned runtime secrets out of Git unless they are SOPS encrypted.
 - Add app-specific README files when the app has non-obvious storage, jobs,
   migrations, workers, or webhook behavior.
+
+## Retired services
+
+OpenBao has been removed from Fleet and the live cluster, including its Helm
+repository, Cluster Ops profile, Wardn AI integration, seal and initialization
+secrets, and retained `data-openbao-0` PVC. The PV and backing Longhorn volume,
+replicas, engine, and snapshot were also removed. A temporary Fleet-managed Job
+performed the PVC deletion; its bundle and permissions were removed afterward.
+The shared `wardn` namespace remains in use. Encrypted secret copies remain in
+Git history, and historical storage-recovery runbooks remain as evidence.

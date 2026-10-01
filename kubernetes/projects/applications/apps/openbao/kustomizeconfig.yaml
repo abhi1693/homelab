@@ -1,8 +1,0 @@
----
-nameReference:
-  - kind: ConfigMap
-    fieldSpecs:
-      - kind: HelmOp
-        path: spec/downstreamResources/name
-      - kind: HelmOp
-        path: spec/helm/valuesFrom/configMapKeyRef/name

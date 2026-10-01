@@ -160,15 +160,6 @@ spec:
         - protocol: TCP
           port: 5432
     - to:
-        - podSelector:
-            matchLabels:
-              app.kubernetes.io/name: openbao
-              app.kubernetes.io/instance: openbao
-              component: server
-      ports:
-        - protocol: TCP
-          port: 8200
-    - to:
         - namespaceSelector:
             matchLabels:
               app.kubernetes.io/part-of: wardn
@@ -224,15 +215,6 @@ spec:
         - protocol: TCP
           port: 5432
     - to:
-        - podSelector:
-            matchLabels:
-              app.kubernetes.io/name: openbao
-              app.kubernetes.io/instance: openbao
-              component: server
-      ports:
-        - protocol: TCP
-          port: 8200
-    - to:
         - namespaceSelector:
             matchLabels:
               app.kubernetes.io/part-of: wardn
@@ -260,36 +242,6 @@ spec:
           port: 80
         - protocol: TCP
           port: 443
----
-apiVersion: networking.k8s.io/v1
-kind: NetworkPolicy
-metadata:
-  name: wardn-ai-openbao-ingress
-  namespace: wardn
-  labels:
-    app.kubernetes.io/name: wardn-ai-api
-    app.kubernetes.io/part-of: wardn-ai
-spec:
-  podSelector:
-    matchLabels:
-      app.kubernetes.io/name: openbao
-      app.kubernetes.io/instance: openbao
-      component: server
-  policyTypes:
-    - Ingress
-  ingress:
-    - from:
-        - podSelector:
-            matchLabels:
-              app.kubernetes.io/name: wardn-ai-api
-              app.kubernetes.io/component: api
-        - podSelector:
-            matchLabels:
-              app.kubernetes.io/name: wardn-ai-worker
-              app.kubernetes.io/component: worker
-      ports:
-        - protocol: TCP
-          port: 8200
 ---
 apiVersion: cilium.io/v2
 kind: CiliumNetworkPolicy
@@ -327,30 +279,6 @@ spec:
     matchLabels:
       app.kubernetes.io/name: wardn-ai-worker
       app.kubernetes.io/component: worker
-  egress:
-    - toEntities:
-        - kube-apiserver
-      toPorts:
-        - ports:
-            - protocol: TCP
-              port: "443"
-            - protocol: TCP
-              port: "6443"
----
-apiVersion: cilium.io/v2
-kind: CiliumNetworkPolicy
-metadata:
-  name: wardn-ai-openbao-kube-api-egress
-  namespace: wardn
-  labels:
-    app.kubernetes.io/name: wardn-ai-api
-    app.kubernetes.io/part-of: wardn-ai
-spec:
-  endpointSelector:
-    matchLabels:
-      app.kubernetes.io/name: openbao
-      app.kubernetes.io/instance: openbao
-      component: server
   egress:
     - toEntities:
         - kube-apiserver

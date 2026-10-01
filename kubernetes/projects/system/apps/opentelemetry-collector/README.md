@@ -1,5 +1,13 @@
 # OpenTelemetry Collector
 
+The monitoring migration routes both `prometheus-write-*` Services directly to
+Prometheus's native HTTP port 9090. The processor NetworkPolicy permits 9090
+and retains the legacy proxy port 8081 during the staged handoff and rollback
+window. See the [monitoring migration runbook](../../../../../docs/runbooks/rancher-monitoring-migration.md)
+for rollout ordering and exporter/queue verification.
+The monitoring bundle also carries an additive `prometheus-native-write` policy
+so port 9090 is admitted while this dependent bundle waits for monitoring readiness.
+
 Highly available, local-only OpenTelemetry ingestion and processing for
 application metrics and traces. Logs are intentionally not configured yet.
 

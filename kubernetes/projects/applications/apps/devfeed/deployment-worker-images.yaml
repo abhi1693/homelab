@@ -49,7 +49,7 @@ spec:
       containers:
         - name: images-worker
           # renovate: datasource=docker depName=ghcr.io/abhi1693/devfeed.tech/images-worker
-          image: registry.home/ghcr.io/abhi1693/devfeed.tech/images-worker:0.0.44@sha256:dbc2d5b57d337dbab5b106a794e8c171ddfe91ca53b539fb131da356272fe457
+          image: registry.home/ghcr.io/abhi1693/devfeed.tech/images-worker:0.0.45@sha256:e3494e697b090c80e008089c899ea65be72a7d75171426a73b3a34985e046910
           imagePullPolicy: IfNotPresent
           ports:
             - name: metrics
@@ -147,7 +147,7 @@ spec:
       initContainers:
         - name: trust-codex-ca
           # renovate: datasource=docker depName=ghcr.io/abhi1693/devfeed.tech/backend
-          image: registry.home/ghcr.io/abhi1693/devfeed.tech/backend:0.0.44@sha256:1c9907b72e3b0d025262e141c32b6d4421c0061a4d1a9219461d30d9544d97f7
+          image: registry.home/ghcr.io/abhi1693/devfeed.tech/backend:0.0.45@sha256:60e3cf4fa8368b808c1cf2fc2fbc70ef8a042f69913e7f5367fa9a476d370b1e
           imagePullPolicy: IfNotPresent
           resources:
             requests:
@@ -176,7 +176,7 @@ spec:
             - from pathlib import Path; Path('/run/ca/ca-bundle.crt').write_bytes(Path('/etc/ssl/certs/ca-certificates.crt').read_bytes()+b'\n'+Path('/run/codex-ca/ca.crt').read_bytes())
         - name: wait-for-schema
           # renovate: datasource=docker depName=ghcr.io/abhi1693/devfeed.tech/backend
-          image: registry.home/ghcr.io/abhi1693/devfeed.tech/backend:0.0.44@sha256:1c9907b72e3b0d025262e141c32b6d4421c0061a4d1a9219461d30d9544d97f7
+          image: registry.home/ghcr.io/abhi1693/devfeed.tech/backend:0.0.45@sha256:60e3cf4fa8368b808c1cf2fc2fbc70ef8a042f69913e7f5367fa9a476d370b1e
           imagePullPolicy: IfNotPresent
           securityContext:
             runAsNonRoot: true
