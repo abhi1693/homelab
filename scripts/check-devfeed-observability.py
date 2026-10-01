@@ -11,6 +11,10 @@ APP = ROOT / 'kubernetes/projects/applications/apps/devfeed'
 with tempfile.TemporaryDirectory(prefix='devfeed-observability-') as directory:
     temp = Path(directory)
     rule = yaml.safe_load((APP / 'prometheusrule.yaml').read_text())['spec']
+    for group in rule['groups']:
+        for item in group['rules']:
+            if 'record' in item:
+                assert item['record'] not in item['expr'], 'Recording rules must not read themselves'
     (temp / 'rules.yml').write_text(yaml.safe_dump(rule))
     tests = yaml.safe_load((ROOT / 'scripts/tests/fixtures/devfeed-prometheus-tests.yaml').read_text())
     tests['rule_files'] = [str(temp / 'rules.yml')]

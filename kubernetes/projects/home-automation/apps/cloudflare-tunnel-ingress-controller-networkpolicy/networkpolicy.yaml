@@ -294,6 +294,16 @@ spec:
     - Egress
   egress:
     - to:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: devfeed
+          podSelector:
+            matchLabels:
+              app.kubernetes.io/name: devfeed-mcp
+      ports:
+        - protocol: TCP
+          port: 8003
+    - to:
         - podSelector:
             matchLabels:
               app.kubernetes.io/name: devfeed-web

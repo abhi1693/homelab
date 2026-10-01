@@ -19,6 +19,7 @@ spec:
     - kubernetes/projects/home-automation/apps/cloudflare-tunnel-ingress-controller-secrets
     - kubernetes/projects/home-automation/apps/cluster-ops-crds
     - kubernetes/projects/home-automation/apps/cluster-ops
+    - kubernetes/projects/home-automation/apps/cups
     - kubernetes/projects/home-automation/apps/home-assistant
     - kubernetes/projects/home-automation/apps/home-assistant-go2rtc
     - kubernetes/projects/home-automation/apps/home-assistant-mobile-webhook

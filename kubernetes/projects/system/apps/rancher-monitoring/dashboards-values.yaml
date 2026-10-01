@@ -1,0 +1,40 @@
+---
+global:
+  cattle:
+    clusterId: local
+    clusterName: local
+dashboardArtifacts:
+  namespace: cattle-dashboards
+  useExistingNamespace: true
+  cleanupOnUninstall: false
+  annotations:
+    helm.sh/resource-policy: keep
+  groups:
+    logging:
+      fluentd: false
+      fluentbit: false
+    ingressNginx: false
+    backupRestore: false
+grafanaProxy:
+  upstreamService: monitoring-grafana
+prometheusProxy:
+  upstreamService: monitoring-prometheus
+alertmanagerProxy:
+  upstreamService: monitoring-alertmanager
+monitoringProxy:
+  replicas: 2
+  nodeSelector:
+    kubernetes.io/arch: arm64
+    node-role.kubernetes.io/control-plane: 'true'
+  tolerations:
+  - key: CriticalAddonsOnly
+    operator: Equal
+    value: 'true'
+    effect: NoExecute
+rancherMonitoring:
+  enabled: true
+  selector:
+    matchLabels:
+      app: rancher
+      release: rancher
+  prometheusServiceAccount: rancher-monitoring-prometheus

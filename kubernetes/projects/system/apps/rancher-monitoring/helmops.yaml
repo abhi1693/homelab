@@ -9,43 +9,36 @@ metadata:
     home-lab.io/project-slug: system
 spec:
   defaultNamespace: cattle-monitoring-system
-  namespaceLabels:
-    app.kubernetes.io/name: rancher-monitoring
-    app.kubernetes.io/part-of: rancher-monitoring
-    field.cattle.io/projectId: p-zl69x
-  namespaceAnnotations:
-    field.cattle.io/projectId: local:p-zl69x
   dependsOn:
-    - name: system-helm-repositories
+  - name: system-helm-repositories
   labels:
     app.kubernetes.io/name: rancher-monitoring-crd
     app.kubernetes.io/part-of: rancher-monitoring
     home-lab.io/project-slug: system
   targets:
-    - name: default
-      clusterGroup: default
+  - name: default
+    clusterGroup: default
   targetRestrictions:
-    - name: default
-      clusterGroup: default
+  - name: default
+    clusterGroup: default
   correctDrift:
     enabled: true
     force: true
     keepFailHistory: true
   downstreamResources:
-    - kind: ConfigMap
-      name: rancher-monitoring-crd-values
+  - kind: ConfigMap
+    name: rancher-monitoring-crd-values
   helm:
     releaseName: rancher-monitoring-crd
-    repo: https://charts.rancher.io
-    chart: rancher-monitoring-crd
-    version: 109.0.5+up80.9.1-rancher.19
+    repo: oci://ghcr.io/prometheus-community/charts/kube-prometheus-stack
+    version: 80.9.1
     timeoutSeconds: 1200
     takeOwnership: true
     valuesFrom:
-      - configMapKeyRef:
-          name: rancher-monitoring-crd-values
-          namespace: fleet-local
-          key: crd-values.yaml
+    - configMapKeyRef:
+        name: rancher-monitoring-crd-values
+        namespace: fleet-local
+        key: crd-values.yaml
     waitForJobs: true
 ---
 apiVersion: fleet.cattle.io/v1alpha1
@@ -58,53 +51,98 @@ metadata:
     home-lab.io/project-slug: system
 spec:
   defaultNamespace: cattle-monitoring-system
-  namespaceLabels:
-    app.kubernetes.io/name: rancher-monitoring
-    app.kubernetes.io/part-of: rancher-monitoring
-    field.cattle.io/projectId: p-zl69x
-  namespaceAnnotations:
-    field.cattle.io/projectId: local:p-zl69x
   dependsOn:
-    - name: system-helm-repositories
+  - name: system-helm-repositories
+  - name: rancher-monitoring-crd
   diff:
     comparePatches:
-      - apiVersion: admissionregistration.k8s.io/v1
-        kind: MutatingWebhookConfiguration
-        name: rancher-monitoring-admission
-        operations:
-          - {"op": "remove", "path": "/webhooks"}
-      - apiVersion: admissionregistration.k8s.io/v1
-        kind: ValidatingWebhookConfiguration
-        name: rancher-monitoring-admission
-        operations:
-          - {"op": "remove", "path": "/webhooks"}
+    - apiVersion: admissionregistration.k8s.io/v1
+      kind: MutatingWebhookConfiguration
+      name: rancher-monitoring-admission
+      operations:
+      - op: remove
+        path: /webhooks
+    - apiVersion: admissionregistration.k8s.io/v1
+      kind: ValidatingWebhookConfiguration
+      name: rancher-monitoring-admission
+      operations:
+      - op: remove
+        path: /webhooks
   labels:
     app.kubernetes.io/name: rancher-monitoring
     app.kubernetes.io/part-of: rancher-monitoring
     home-lab.io/project-slug: system
   targets:
-    - name: default
-      clusterGroup: default
+  - name: default
+    clusterGroup: default
   targetRestrictions:
-    - name: default
-      clusterGroup: default
+  - name: default
+    clusterGroup: default
   correctDrift:
     enabled: true
     force: true
     keepFailHistory: true
   downstreamResources:
-    - kind: ConfigMap
-      name: rancher-monitoring-values
+  - kind: ConfigMap
+    name: rancher-monitoring-values
+  - kind: ConfigMap
+    name: monitoring-preserved-dashboards-values
   helm:
     releaseName: rancher-monitoring
-    repo: https://charts.rancher.io
-    chart: rancher-monitoring
-    version: 109.0.5+up80.9.1-rancher.19
+    repo: oci://ghcr.io/prometheus-community/charts/kube-prometheus-stack
+    version: 80.9.1
     timeoutSeconds: 1200
     takeOwnership: true
     valuesFrom:
-      - configMapKeyRef:
-          name: rancher-monitoring-values
-          namespace: fleet-local
-          key: values.yaml
+    - configMapKeyRef:
+        name: rancher-monitoring-values
+        namespace: fleet-local
+        key: values.yaml
+    - configMapKeyRef:
+        name: monitoring-preserved-dashboards-values
+        namespace: fleet-local
+        key: preserved-dashboards-values.yaml
+    waitForJobs: true
+---
+apiVersion: fleet.cattle.io/v1alpha1
+kind: HelmOp
+metadata:
+  name: rancher-monitoring-dashboards
+  labels:
+    app.kubernetes.io/name: rancher-monitoring
+    app.kubernetes.io/part-of: rancher-monitoring
+    home-lab.io/project-slug: system
+spec:
+  defaultNamespace: cattle-monitoring-system
+  dependsOn:
+  - name: rancher-monitoring-stack
+  labels:
+    app.kubernetes.io/name: rancher-monitoring
+    app.kubernetes.io/part-of: rancher-monitoring
+    home-lab.io/project-slug: system
+  targets:
+  - name: default
+    clusterGroup: default
+  targetRestrictions:
+  - name: default
+    clusterGroup: default
+  correctDrift:
+    enabled: true
+    force: true
+    keepFailHistory: true
+  downstreamResources:
+  - kind: ConfigMap
+    name: rancher-monitoring-dashboards-values
+  helm:
+    releaseName: rancher-monitoring-dashboards
+    repo: https://charts.rancher.io
+    chart: rancher-monitoring-dashboards
+    version: 110.0.1+up0.1.4
+    timeoutSeconds: 1200
+    takeOwnership: true
+    valuesFrom:
+    - configMapKeyRef:
+        name: rancher-monitoring-dashboards-values
+        namespace: fleet-local
+        key: dashboards-values.yaml
     waitForJobs: true

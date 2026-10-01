@@ -38,7 +38,7 @@ Wardn AI image pins are the exception: they use the `git-refs` datasource with
 `currentValue=master` so Renovate can update full commit-SHA image tags that
 Docker tag versioning ignores.
 
-DevFeed tracks its nine upstream GHCR images through the `docker` datasource.
+DevFeed tracks its ten upstream GHCR images, including the MCP server, through the `docker` datasource.
 Only stable `X.Y.Z` tags are eligible; commit SHAs, moving tags, prereleases,
 `v` prefixes, and build suffixes are excluded. Runtime, init-container, and
 migration-hook updates share the `DevFeed images` group and retain digest pins.

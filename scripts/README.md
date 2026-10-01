@@ -7,6 +7,7 @@ Ansible role or Kubernetes app bundle.
 
 | Script | Purpose |
 | --- | --- |
+| `monitoring-migration-state.py` | Captures private monitoring/dashboard inventories using read-only APIs and compares resource identities, scrape/rule coverage, and preparation gates. See the [migration runbook](../docs/runbooks/rancher-monitoring-migration.md). |
 | `k8s-secret-to-sops-secret.py` | Converts an existing Kubernetes Secret shape into a SOPS Secrets Operator style resource. |
 | `check-kubernetes-resource-bounds.py` | Requires CPU/memory requests and memory limits on directly authored Kubernetes workloads, and rejects recommendation profiles whose minimum-change threshold can block their maximum decrease step. |
 | `check-renovate-policy.py` | Verifies non-critical GitOps dependency coverage and keeps cluster-foundational dependencies under manual upgrade control. |

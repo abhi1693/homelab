@@ -1,0 +1,103 @@
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: cups
+  namespace: cups
+  labels:
+    app.kubernetes.io/name: cups
+    app.kubernetes.io/part-of: home-automation
+spec:
+  replicas: 1
+  revisionHistoryLimit: 2
+  strategy:
+    type: Recreate
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: cups
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: cups
+        app.kubernetes.io/part-of: home-automation
+      annotations:
+        home-lab.io/config-revision: "7"
+    spec:
+      automountServiceAccountToken: false
+      terminationGracePeriodSeconds: 60
+      nodeSelector:
+        kubernetes.io/arch: arm64
+        # Change this hostname in Git when moving the printer's USB cable.
+        kubernetes.io/hostname: k8s-rpi1
+      tolerations:
+        - key: CriticalAddonsOnly
+          operator: Equal
+          value: "true"
+          effect: NoExecute
+      containers:
+        - name: cups
+          # renovate: datasource=docker depName=docker.io/olbat/cupsd
+          image: registry.home/docker.io/olbat/cupsd:stable@sha256:ea6af2250e0172aff7c87eac729b4ef9255855745249c5171a8a32d961f8e932
+          imagePullPolicy: IfNotPresent
+          command: [/bin/sh, /bootstrap/start-cups.sh]
+          env:
+            - name: PRINTER_NAME
+              value: hp-deskjet-2510
+            - name: PRINTER_URI
+              value: usb://HP/Deskjet%202510%20series?serial=CN31T3HGYM05TX&interface=1
+            - name: PRINTER_MODEL
+              value: hplip:0/ppd/hplip/HP/hp-deskjet_2510_series.ppd
+          ports:
+            - name: ipp
+              containerPort: 631
+          startupProbe:
+            exec:
+              command: [/bin/sh, -ec, 'test -f /run/cups/queue-ready && lpstat -h /run/cups/cups.sock -p "$PRINTER_NAME"']
+            periodSeconds: 5
+            timeoutSeconds: 5
+            failureThreshold: 60
+          readinessProbe:
+            exec:
+              command: [/bin/sh, -ec, 'test -f /run/cups/queue-ready && lpstat -h /run/cups/cups.sock -p "$PRINTER_NAME"']
+            periodSeconds: 15
+            timeoutSeconds: 5
+          livenessProbe:
+            exec:
+              command: [/bin/sh, -ec, 'lpstat -h /run/cups/cups.sock -p "$PRINTER_NAME"']
+            periodSeconds: 30
+            timeoutSeconds: 5
+          resources:
+            requests:
+              cpu: 25m
+              memory: 128Mi
+            limits:
+              memory: 512Mi
+          securityContext:
+            privileged: true
+            runAsUser: 0
+          volumeMounts:
+            - name: usb-bus
+              mountPath: /dev/bus/usb
+            - name: state
+              mountPath: /var/lib/cups-state
+            - name: bootstrap
+              mountPath: /bootstrap
+              readOnly: true
+            - name: admin-credentials
+              mountPath: /run/cups-admin
+              readOnly: true
+      volumes:
+        - name: usb-bus
+          hostPath:
+            path: /dev/bus/usb
+            type: Directory
+        - name: state
+          persistentVolumeClaim:
+            claimName: cups-state
+        - name: bootstrap
+          configMap:
+            name: cups-bootstrap
+        - name: admin-credentials
+          secret:
+            secretName: cups-admin
+            defaultMode: 0400

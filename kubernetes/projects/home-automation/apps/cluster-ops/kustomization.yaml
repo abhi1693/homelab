@@ -17,7 +17,6 @@ resources:
   - harbor-profile.yaml
   - media-anime-profile.yaml
   - media-helm-profile.yaml
-  - openbao-profile.yaml
   - personal-blog-profile.yaml
   - portfolio-profile.yaml
   - qbittorrent-smart-queues-profile.yaml

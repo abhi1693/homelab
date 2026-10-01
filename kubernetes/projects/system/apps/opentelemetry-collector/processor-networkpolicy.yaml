@@ -56,6 +56,10 @@ spec:
       ports:
         - protocol: TCP
           port: 8081
+        # Retain the old proxy port during the staged monitoring migration.
+        # The replica-specific write Services now use native Prometheus HTTP.
+        - protocol: TCP
+          port: 9090
     - to:
         - podSelector:
             matchLabels:

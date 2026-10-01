@@ -119,7 +119,7 @@ core:
   resources:
     requests:
       cpu: 100m
-      memory: 127Mi
+      memory: 121Mi
     limits:
       memory: 208Mi
   nodeSelector:

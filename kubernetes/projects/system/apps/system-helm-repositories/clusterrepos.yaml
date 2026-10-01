@@ -62,6 +62,18 @@ spec:
 apiVersion: catalog.cattle.io/v1
 kind: ClusterRepo
 metadata:
+  name: prometheus-community
+  labels:
+    app.kubernetes.io/part-of: system
+    app.kubernetes.io/component: helm-repository
+    home-lab.io/project-slug: system
+spec:
+  enabled: true
+  url: https://prometheus-community.github.io/helm-charts
+---
+apiVersion: catalog.cattle.io/v1
+kind: ClusterRepo
+metadata:
   name: rancher-charts-http
   labels:
     app.kubernetes.io/part-of: system

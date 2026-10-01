@@ -22,13 +22,13 @@ spec:
       name: devfeed-imgproxy
       desiredReplicas: 1
       sourcePath: kubernetes/projects/applications/apps/devfeed/deployment-imgproxy.yaml
-    - key: home-k3s/devfeed/apps/deployment/devfeed-observability-exporter
+    - key: home-k3s/devfeed/apps/deployment/devfeed-mcp
       namespace: devfeed
       apiGroup: apps
       kind: Deployment
-      name: devfeed-observability-exporter
-      desiredReplicas: 1
-      sourcePath: kubernetes/projects/applications/apps/devfeed/deployment-observability-exporter.yaml
+      name: devfeed-mcp
+      desiredReplicas: 2
+      sourcePath: kubernetes/projects/applications/apps/devfeed/deployment-mcp.yaml
     - key: home-k3s/devfeed/apps/deployment/devfeed-probes
       namespace: devfeed
       apiGroup: apps

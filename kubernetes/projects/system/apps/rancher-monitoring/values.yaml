@@ -150,6 +150,13 @@ prometheusOperator:
           value: "true"
           effect: NoExecute
 prometheus:
+  service:
+    annotations:
+      helm.sh/resource-policy: keep
+  # Persist the CR (and its StatefulSet) across the later Helm ownership handoff.
+  # This must reconcile in a separate release before replacing the runtime chart.
+  annotations:
+    helm.sh/resource-policy: keep
   # Expose every Prometheus sidecar through a headless discovery Service so
   # both Thanos Query replicas can discover every HA source independently.
   thanosService:
@@ -222,6 +229,8 @@ prometheus:
     retentionSize: 52GiB
     scrapeInterval: 60s
     enableOTLPReceiver: true
+    tsdb:
+      outOfOrderTimeWindow: 30m
     podAntiAffinity: hard
     # Object storage is intentionally absent. The sidecar only exposes the
     # Prometheus StoreAPI, so Prometheus retains normal local compaction.
@@ -356,6 +365,11 @@ prometheus:
             requests:
               storage: 64Gi
 alertmanager:
+  service:
+    annotations:
+      helm.sh/resource-policy: keep
+  annotations:
+    helm.sh/resource-policy: keep
   podDisruptionBudget:
     enabled: true
     minAvailable: 1
@@ -397,6 +411,9 @@ alertmanager:
             requests:
               storage: 2Gi
 grafana:
+  service:
+    annotations:
+      helm.sh/resource-policy: keep
   # Grafana can spend several minutes replaying migrations and loading plugins
   # when the retained NFS database is slow. Keep readiness strict, but do not
   # let liveness terminate that bounded startup work.
@@ -515,6 +532,9 @@ grafana:
         cpu: 100m
         memory: 64Mi
   sidecar:
+    dashboards:
+      annotations:
+        helm.sh/resource-policy: keep
     datasources:
       url: http://thanos-query.cattle-monitoring-system.svc.cluster.local:9090
       # Dashboards remain useful during a transient StoreAPI error. Automation

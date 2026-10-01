@@ -1,0 +1,31 @@
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: cups
+  namespace: cups
+  labels:
+    app.kubernetes.io/name: cups
+    app.kubernetes.io/part-of: home-automation
+  annotations:
+    external-dns.kubernetes.io/hostname: printer.home
+    metallb.io/address-pool: app-services
+    metallb.io/loadBalancerIPs: 192.168.3.19
+spec:
+  type: LoadBalancer
+  externalTrafficPolicy: Local
+  loadBalancerSourceRanges:
+    - 192.168.1.0/24
+    - 192.168.3.0/24
+    - 192.168.4.0/24
+  selector:
+    app.kubernetes.io/name: cups
+  ports:
+    - name: http
+      port: 80
+      targetPort: ipp
+      protocol: TCP
+    - name: ipp
+      port: 631
+      targetPort: ipp
+      protocol: TCP

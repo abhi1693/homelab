@@ -1,0 +1,18 @@
+---
+apiVersion: home-lab.io/v1alpha1
+kind: WorkloadCatalog
+metadata:
+  name: cups
+spec:
+  displayName: CUPS Print Server
+  purpose: Share the USB HP Deskjet 2510 over LAN IPP with durable queue configuration and spool storage.
+  owner: home-lab
+  project: home-automation
+  cluster: home-k3s
+  lifecycle: active
+  criticality: low
+  dataClassification: restricted
+  repository: https://github.com/abhi1693/home-lab
+  gitPath: kubernetes/projects/home-automation/apps/cups
+  workloads:
+    - {key: home-k3s/cups/apps/deployment/cups, namespace: cups, apiGroup: apps, kind: Deployment, name: cups, desiredReplicas: 1, sourcePath: kubernetes/projects/home-automation/apps/cups/deployment.yaml}
