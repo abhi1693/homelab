@@ -43,7 +43,7 @@ spec:
       containers:
         - name: indexer
           # renovate: datasource=docker depName=ghcr.io/abhi1693/devfeed.tech/backend
-          image: registry.home/ghcr.io/abhi1693/devfeed.tech/backend:0.0.45@sha256:60e3cf4fa8368b808c1cf2fc2fbc70ef8a042f69913e7f5367fa9a476d370b1e
+          image: registry.home/ghcr.io/abhi1693/devfeed.tech/backend:0.0.52@sha256:5217dc6e52f196c1f9d6f7bfb121f2736f53bcac3e2965d5dc4563f82961ce60
           imagePullPolicy: IfNotPresent
           ports:
             - name: metrics
@@ -89,7 +89,7 @@ spec:
               command:
                 - python
                 - -c
-                - import time; from pathlib import Path; stamp = Path('/tmp/devfeed-search-heartbeat').stat().st_mtime;
+                - import time; from devfeed_core.runtime_files import runtime_marker; stamp = runtime_marker('search-heartbeat').stat().st_mtime;
                   assert 0 <= time.time()-stamp < 120
             periodSeconds: 30
             timeoutSeconds: 5
@@ -99,7 +99,7 @@ spec:
               command:
                 - python
                 - -c
-                - import time; from pathlib import Path; stamp = Path('/tmp/devfeed-search-heartbeat').stat().st_mtime;
+                - import time; from devfeed_core.runtime_files import runtime_marker; stamp = runtime_marker('search-heartbeat').stat().st_mtime;
                   assert 0 <= time.time()-stamp < 120
             periodSeconds: 30
             timeoutSeconds: 5
@@ -109,7 +109,7 @@ spec:
               command:
                 - python
                 - -c
-                - import time; from pathlib import Path; stamp = Path('/tmp/devfeed-search-heartbeat').stat().st_mtime;
+                - import time; from devfeed_core.runtime_files import runtime_marker; stamp = runtime_marker('search-heartbeat').stat().st_mtime;
                   assert 0 <= time.time()-stamp < 120
             periodSeconds: 10
             timeoutSeconds: 5
@@ -125,7 +125,7 @@ spec:
       initContainers:
         - name: wait-for-schema
           # renovate: datasource=docker depName=ghcr.io/abhi1693/devfeed.tech/backend
-          image: registry.home/ghcr.io/abhi1693/devfeed.tech/backend:0.0.45@sha256:60e3cf4fa8368b808c1cf2fc2fbc70ef8a042f69913e7f5367fa9a476d370b1e
+          image: registry.home/ghcr.io/abhi1693/devfeed.tech/backend:0.0.52@sha256:5217dc6e52f196c1f9d6f7bfb121f2736f53bcac3e2965d5dc4563f82961ce60
           imagePullPolicy: IfNotPresent
           securityContext:
             runAsNonRoot: true

@@ -1,0 +1,26 @@
+---
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: sonarqube-mcp-server
+  namespace: devfeed
+  annotations:
+    traefik.ingress.kubernetes.io/router.entrypoints: websecure
+    traefik.ingress.kubernetes.io/router.tls: "true"
+spec:
+  ingressClassName: traefik
+  rules:
+    - host: sonar.mcp.home
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: sonarqube-mcp-server
+                port:
+                  name: http
+  tls:
+    - hosts:
+        - sonar.mcp.home
+      secretName: sonarqube-mcp-server-home-tls

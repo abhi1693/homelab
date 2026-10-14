@@ -1,8 +1,8 @@
 # DevFeed
 
 Fleet-managed developer news platform. All application workloads use release
-**0.0.45** and verified ARM64 image digests. Approval and publication require an explicit article page-kind
-classification; missing or uncertain classifications stay blocked.
+**0.0.52** with verified ARM64 image digests. Approval and publication require an
+explicit article page-kind classification; missing or uncertain classifications stay blocked.
 
 Renovate tracks stable `X.Y.Z` Docker tags for all ten DevFeed images on GHCR,
 grouping runtime, init-container, and migration-hook updates while refreshing
@@ -12,17 +12,82 @@ Kubernetes continues pulling the pinned images through Harbor.
 Reader language preferences support one or more languages, defaulting to English.
 My feed and Latest retain source/content filters and offer Most liked sorting.
 Source/topic discovery is paginated and restricted to the selected article languages.
-Web, Chrome and Edge share the reader; extension 0.1.15 store publication is separate.
+Web, Chrome and Edge share the reader. Chrome and Edge 0.1.20 packages are attached
+to the DevFeed 0.0.52 GitHub release. Browser-store publication is tracked separately
+from the website deployment.
 Sources added by import, the admin form, or CLI share discovery and review. Imports
 remain pending until reviewed; full-auto mode uses AI review and approval enables polling.
-The pre-upgrade hook applies and verifies schema `0020` before replacing application workloads.
+The pre-upgrade hook applies and verifies schema `0023` before replacing application workloads.
 Release 0.0.41 applied migrations `0018` and `0019`; the migration job mounts the
 operator-managed historical topic-kind map needed to canonicalize stored topic data.
 
-Release 0.0.45 uses source `a206a06566bb272364f016a6a6f8ee19894ed105` and the
-[verified release manifest](https://github.com/abhi1693/devfeed.tech/actions/runs/36775240970)
-(`image-manifest-images-36775240970-1`). All ten ARM64 image indexes match
-between GHCR and Harbor, with verified GitHub provenance attestations for the tag.
+Release 0.0.52 uses source `af3220ca445f474e9d82f0363229b82d8d5812fb` and the
+[release image build workflow](https://github.com/abhi1693/devfeed.tech/actions/runs/38139276936).
+All ten ARM64 images have verified source attestations and matching GHCR/Harbor digests.
+Readers can filter search by individual content types, retain their place when returning
+from previews, and load public pages with less initial image and JavaScript traffic.
+Publisher logos use managed image storage; sitemap inventories refresh in the scheduler
+while requests serve the last completed snapshot. Migration `0023` adds managed source
+logos and source-targeted image jobs while preserving existing content and accounts.
+Older 0.0.51 services require schema `0022`, so readiness can briefly drop between the
+pre-upgrade hook and workload replacement. Preserve schema `0023` and recover with
+compatible images through Fleet; do not downgrade the database for an image rollback.
+
+Release 0.0.51 uses source `b302fc8849b2ccdc5b29efe9bb82718bb28e2380` and the
+[release image build workflow](https://github.com/abhi1693/devfeed.tech/actions/runs/37489614710).
+All ten ARM64 images have verified source attestations and matching GHCR/Harbor digests.
+Readers get daily Must Reads, weekly streak progress, compact list views, clearer
+mobile navigation and less initial image/JavaScript downloading. Migrations `0021`
+and `0022` add saved daily picks and invalidate topic ranking snapshots when
+description vocabulary changes. Older 0.0.50 services reject schema `0022`, so
+readiness can briefly drop during replacement. Keep the upgraded schema and use
+schema-compatible images for recovery; an image-only rollback to 0.0.50 is insufficient.
+The search indexer's startup/readiness/liveness probes resolve its heartbeat through
+`devfeed_core.runtime_files.runtime_marker`, matching the runtime's private marker directory.
+
+Release 0.0.50 uses source `dcf4dec4c51b02238b74af6bb9d4b171cfe88d47` and the
+[release image build workflow](https://github.com/abhi1693/devfeed.tech/actions/runs/37130514655).
+All ten ARM64 images have verified source attestations and matching GHCR/Harbor digests.
+Readers can upload or remove avatars, compare reading leaderboards and reach their
+Dev Card editor and public profile from the account menu. The user API now receives
+the existing encrypted R2 storage secret for managed avatar writes. Schema remains
+at `0020`; rollback uses the preceding 0.0.49 image pins through Fleet.
+
+Release 0.0.49 uses source `567fb7fceed7c04ca42224651d8b47c798e42960` and the
+[release image build workflow](https://github.com/abhi1693/devfeed.tech/actions/runs/37058740316).
+All ten ARM64 images use verified release digests. Administrators can inspect reader
+profiles, Dev Card choices, saved articles, reading counts and original-article clicks.
+Schema remains at `0020`; rollback uses the preceding 0.0.48 image pins through Fleet.
+
+Production enables X pixel `pc5f8` and completed sign-up event `tw-pc5f8-rgbo7` with
+`DEVFEED_X_PIXEL_ENABLED=true` on the reader and user API. Application defaults remain
+false. The reader loads the base pixel once through its shared layout; only the user API
+sends confirmed new-account conversions using a normalized SHA-256 email identifier and
+stable `signup-<account-id>` conversion ID. Returning logins do not send sign-up events.
+The `devfeed-x-conversions-secrets` SopsSecret supplies `X_PIXEL_TOKEN` through the
+operator-managed `devfeed-x-conversions` Secret, referenced only by the user API.
+To rotate the token, re-encrypt `x-conversion-secrets.sops.yaml` and update the user API's
+`devfeed.tech/x-pixel-token-revision` annotation through Git. To disable tracking, set
+`DEVFEED_X_PIXEL_ENABLED=false` in both deployments and let Fleet reconcile.
+
+Release 0.0.48 uses source `d77072025dbf2551a8604e2bc7487f8ecf782c1d` and the
+[successful image build workflow](https://github.com/abhi1693/devfeed.tech/actions/runs/36994612006).
+All ten ARM64 images use the verified release digests. The reader redirects HTTP
+requests on `devfeed.tech` to HTTPS, and reader and admin pages send stronger
+content security policies. The admin frontend also sends HSTS and a restricted
+Permissions Policy. Browser tests cover the web reader, admin, Chrome, Edge,
+and animated Dev Cards. Schema remains at `0020`; rollback uses the 0.0.47
+image pins through Fleet.
+
+Release 0.0.47 uses source `9f3b7628f29ee74c1f59ce395a252dc7a99dde0d` and the
+[successful image build workflow](https://github.com/abhi1693/devfeed.tech/actions/runs/36897056418).
+All ten ARM64 image digests are pinned and match between GHCR and Harbor.
+Feed-filter queries use early-exit lookups for broad browsing and retain the
+materialized matching set for selective topic, tag and text searches. Searchable
+topic counts also stop at the first visible assignment. Immutable candidate-term
+and description indexes reduce application work while catalog locks are held;
+classification and publication locking remains unchanged. Schema stays at `0020`.
+Rollback uses the preceding 0.0.46 image pins through Fleet.
 Migration `0020` adds managed topic logos and topic-targeted Images jobs. The
 one-time topic-logo backfill hook has been removed from GitOps; future upgrades
 do not enqueue a bulk backfill. The existing Images worker continues normal logo
@@ -405,13 +470,20 @@ Node metrics. The PodMonitor sets a consistent `service` label from each workloa
 HTTP recording rules normalize Node and Python histograms and exclude long-lived
 notification streams. Metrics stay private on port 9100, with no public ingress.
 
-The **DevFeed** Grafana folder replaces all three dashboards in place, retaining
-stable URLs: availability/capacity, workers/search progress, and request/cache/
-database/log diagnostics. Retired queue/product aggregate panels and their alerts
-are removed. Use the admin UI for durable job outcomes, retries and editorial
-inventory; worker delivery counts do not imply editorial success. Current alerts
-cover traffic-gated availability burn, latency, workload readiness, scrape health,
-database acquisition timeouts, background freshness and search lag.
+The **DevFeed / Overview** dashboard keeps the `devfeed-operations` URL and
+replaces the former availability, pipeline and diagnostics pages. Its 12 panels
+show HTTP check health, missing replicas, scrape failures, reader errors and
+latency, search lag, traffic, worker deliveries, background freshness and search
+backlog. It refreshes once per minute, matching the normal scrape cadence.
+Missing data stays unknown; worker delivery counts are explicitly not successful
+editorial outcomes. General queue depth is not exported by the current metrics.
+Use the linked admin UI for durable job results/retries, and Logs/Traces for
+investigation. Cluster resource details stay in the shared Kubernetes dashboard.
+
+Dedicated telemetry and existing alerts remain enabled: traffic-gated
+availability burn, latency, workload readiness, scrape health, database acquisition
+timeouts, background freshness and search lag. Alert dashboard links use the
+retained overview URL. The old pipeline and diagnostics URLs are retired.
 
 Alloy/Loki, OTel/Tempo and Pyroscope continue collecting logs, traces and profiles.
 Logs and Faro browser telemetry preserve original values without automatic
@@ -421,7 +493,7 @@ blackbox probes continue checking public HTTPS and internal service readiness.
 Run `python3 scripts/check-devfeed-observability.py` to validate dashboard PromQL
 and alert scenarios, followed by manifest checks and server-side dry runs. Metric
 names and migration details are documented in the application's
-[Observability guide](https://github.com/abhi1693/devfeed.tech/blob/v0.0.45/packages/core/OBSERVABILITY.md).
+[Observability guide](https://github.com/abhi1693/devfeed.tech/blob/v0.0.47/packages/core/OBSERVABILITY.md).
 
 Deployment must verify actual scrape targets, HTTP probes, logs, traces, profiles,
 browser ingestion and public port/source-map isolation. SDK initialization alone
@@ -480,15 +552,22 @@ fetcher, stores them in one production R2 bucket, asks the internal
 those thumbnails to the same bucket. Readers load the resulting objects from
 `https://images.devfeed.tech`; imgproxy has no ingress and no S3 credentials.
 The bucket custom domain must serve `originals/` and `thumbnails/` over HTTPS.
-Only the Images worker receives bucket-scoped read/write credentials from
-`image-storage-secrets.sops.yaml`. Edit that file with SOPS; the endpoint is the
+The Images worker and user API receive bucket-scoped read/write credentials from
+`image-storage-secrets.sops.yaml`. The user API stores profile avatars as five square
+WebP variants under fixed per-account `avatars/` keys; replacements overwrite those
+keys, and removal deletes them. The public bucket domain must also serve `avatars/`. Edit that file with SOPS; the endpoint is the
 account origin without a bucket suffix. The worker and proxy share signing values
 from `imgproxy-secrets.sops.yaml`, independently generated for DevFeed.
 
-Imgproxy v4.0.15 runs one ARM64 replica with two processing workers, a bounded queue,
+Imgproxy v4.0.17 runs one ARM64 replica with two processing workers, a bounded queue,
 100m CPU/256Mi memory requested, and 1 CPU/512Mi memory limits. Its source allowlist
 contains only the production bucket's `originals/` prefix. Network policies allow
 only the Images worker to reach its HTTP port; proxy downloads use public HTTPS.
+The private `metrics` port on `:9090` is scraped every 60 seconds by the dedicated
+`devfeed-imgproxy` ServiceMonitor. Only Rancher Prometheus pods can reach it.
+The shared **imgproxy / Overview** dashboard (UID `shipyardhq-imgproxy`, maintained
+in the ShipyardHQ bundle) compares both applications and supports Application and
+Instance filters; it keeps each application's metrics separate when All is selected.
 Originals and thumbnails persist in R2; no new PVC or public proxy route is needed.
 
 Existing articles continue using their publisher image until the Images pipeline

@@ -1,0 +1,122 @@
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: firefly-monthly-scaler
+  namespace: finance
+  labels:
+    app.kubernetes.io/name: firefly-iii
+    app.kubernetes.io/component: monthly-scaler
+    app.kubernetes.io/part-of: firefly-iii
+    home-lab.io/project-slug: applications
+automountServiceAccountToken: true
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: firefly-monthly-scaler
+  namespace: finance
+  labels:
+    app.kubernetes.io/name: firefly-iii
+    app.kubernetes.io/component: monthly-scaler
+    app.kubernetes.io/part-of: firefly-iii
+    home-lab.io/project-slug: applications
+rules:
+  - apiGroups:
+      - apps
+    resources:
+      - deployments
+    resourceNames:
+      - firefly-iii
+    verbs:
+      - get
+      - list
+      - watch
+  - apiGroups:
+      - apps
+    resources:
+      - deployments/scale
+    resourceNames:
+      - firefly-iii
+    verbs:
+      - get
+      - update
+      - patch
+  - apiGroups:
+      - batch
+    resources:
+      - cronjobs
+    resourceNames:
+      - firefly-iii-cron
+    verbs:
+      - get
+      - patch
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: firefly-monthly-scaler
+  namespace: finance
+  labels:
+    app.kubernetes.io/name: firefly-iii
+    app.kubernetes.io/component: monthly-scaler
+    app.kubernetes.io/part-of: firefly-iii
+    home-lab.io/project-slug: applications
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: Role
+  name: firefly-monthly-scaler
+subjects:
+  - kind: ServiceAccount
+    name: firefly-monthly-scaler
+    namespace: finance
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: firefly-monthly-scaler
+  namespace: postgresql
+  labels:
+    app.kubernetes.io/name: firefly-iii
+    app.kubernetes.io/component: monthly-scaler
+    app.kubernetes.io/part-of: firefly-iii
+    home-lab.io/project-slug: applications
+rules:
+  - apiGroups:
+      - postgresql.cnpg.io
+    resources:
+      - poolers
+    resourceNames:
+      - postgresql-pooler-firefly-iii-rw
+    verbs:
+      - get
+      - patch
+  - apiGroups:
+      - apps
+    resources:
+      - deployments
+    resourceNames:
+      - postgresql-pooler-firefly-iii-rw
+    verbs:
+      - get
+      - list
+      - watch
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: firefly-monthly-scaler
+  namespace: postgresql
+  labels:
+    app.kubernetes.io/name: firefly-iii
+    app.kubernetes.io/component: monthly-scaler
+    app.kubernetes.io/part-of: firefly-iii
+    home-lab.io/project-slug: applications
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: Role
+  name: firefly-monthly-scaler
+subjects:
+  - kind: ServiceAccount
+    name: firefly-monthly-scaler
+    namespace: finance

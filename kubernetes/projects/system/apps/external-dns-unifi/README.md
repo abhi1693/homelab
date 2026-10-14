@@ -58,3 +58,9 @@ resources. After Fleet reconciliation, verify the controller is ready, check
 its reconciliation logs, and query `dig @192.168.3.1 printer.home +short`.
 Keep the Service annotation and Service source enabled together: with `sync`,
 removing either can remove the managed printer DNS record.
+
+The UniFi API key is SOPS-encrypted under the companion SopsSecret template's
+`stringData.api-key`; `data` requires base64-encoded input. The 2026-10-01
+operator upgrade exposed a stale invalid source value. The encrypted desired
+state was reconciled to the existing working child Secret key without rotating
+the credential or recreating the Secret.

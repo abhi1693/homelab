@@ -6,7 +6,7 @@ global:
   security:
     allowInsecureImages: true
 image:
-  digest: sha256:08d2c2944533c3231952882ad2531e8109abf432a01ea9e25c4f88fa22957058
+  digest: sha256:3ab4091a7e3cb5f12184a3009cad1aefef50f424c0860d580a41675e38392ba5
 architecture: replication
 auth:
   enabled: false
@@ -21,7 +21,7 @@ commonConfiguration: |-
 sentinel:
   enabled: true
   image:
-    digest: sha256:7cd176fb3e0aeecd3febce68ca962f527c8a7da886d1294b91d787a8e79afc22
+    digest: sha256:a8f552cf341f908baeff807a02c72cc73097be3c3951ef110c14c27cb072e773
   primarySet: valkey
   quorum: 2
   service:

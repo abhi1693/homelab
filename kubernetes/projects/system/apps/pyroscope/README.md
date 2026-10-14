@@ -23,8 +23,21 @@ the WAL on the volume loses snapshots on container replacement and can cause
 `panic: log not found` when Raft replays compacted logs. Container restarts retain
 the complete state; deleting or replacing the pod still discards the `emptyDir`.
 
-`GOMEMLIMIT=120MiB` leaves headroom below the container's `160Mi` memory limit.
-It is a Go runtime target, not a hard limit; monitor actual memory consumption.
+The pod requests `128Mi` of memory and has a `256Mi` container limit, while
+`GOMEMLIMIT=120MiB` keeps the Go runtime target conservative. The runtime target
+does not bound all resident memory. On 5 October 2026 the previous `160Mi` cap
+caused repeated OOM kills during v2 compaction, including a restart killed just
+after a level-2 job began. Prometheus recorded about `160Mi` resident/container
+memory despite a Go heap peak of about `81Mi`; the working-set peak was about
+`133Mi`. The higher container cap leaves room for compaction and memory outside
+the Go runtime without increasing the runtime target.
+
+`-compaction-worker.job-concurrency=1` limits compaction to one job at a time.
+The default uses the node's CPU count, which started four workers on these
+Raspberry Pi nodes. Serial compaction reduces overlapping memory demand; monitor
+completed jobs, ingestion, memory peaks, and restarts before increasing it.
+Changing the Deployment replaces the pod and resets its ephemeral profiling
+history.
 
 ## Recovery and validation
 

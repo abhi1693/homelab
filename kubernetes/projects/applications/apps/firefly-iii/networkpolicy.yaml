@@ -174,3 +174,27 @@ spec:
           port: 80
         - protocol: TCP
           port: 443
+---
+apiVersion: cilium.io/v2
+kind: CiliumNetworkPolicy
+metadata:
+  name: firefly-iii-monthly-scaler-apiserver-access
+  namespace: finance
+  labels:
+    app.kubernetes.io/name: firefly-iii
+    app.kubernetes.io/part-of: firefly-iii
+    home-lab.io/project-slug: applications
+spec:
+  endpointSelector:
+    matchLabels:
+      app.kubernetes.io/name: firefly-iii
+      app.kubernetes.io/component: monthly-scaler
+  egress:
+    - toEntities:
+        - kube-apiserver
+      toPorts:
+        - ports:
+            - port: "443"
+              protocol: TCP
+            - port: "6443"
+              protocol: TCP

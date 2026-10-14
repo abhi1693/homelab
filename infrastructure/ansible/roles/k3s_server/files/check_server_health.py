@@ -102,6 +102,20 @@ def validate_controller(obj):
             f"{name} has not recovered desired replicas ({desired})")
 
 
+def validate_longhorn_volume(volume):
+    name = volume["metadata"]["name"]
+    spec = volume.get("spec", {})
+    status = volume.get("status", {})
+    attached_healthy = (status.get("state") == "attached" and
+                        status.get("robustness") == "healthy")
+    idle_detached = (status.get("state") == "detached" and
+                     status.get("robustness") == "unknown" and
+                     not spec.get("nodeID") and not status.get("currentNodeID") and
+                     condition(volume, "Scheduled") == "True")
+    require(attached_healthy or idle_detached,
+            f"Longhorn volume {name} is not healthy or safely detached")
+
+
 def validate_gitrepo(repo):
     name = repo["metadata"]["name"]
     status = repo.get("status", {})
@@ -229,8 +243,7 @@ class Checker:
         volumes = self.kube("get", "volumes.longhorn.io", "-n", "longhorn-system")["items"]
         require(bool(volumes), "No Longhorn volumes found")
         for volume in volumes:
-            require(volume.get("status", {}).get("robustness") == "healthy",
-                    f"Longhorn volume {volume['metadata']['name']} is not healthy")
+            validate_longhorn_volume(volume)
         clusters = self.kube("get", "clusters.postgresql.cnpg.io", "-n", "postgresql")["items"]
         require(bool(clusters), "No PostgreSQL clusters found")
         for cluster in clusters:

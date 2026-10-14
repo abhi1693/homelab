@@ -61,15 +61,15 @@ resources:
   - networkpolicy-telemetry.yaml
   - service-telemetry.yaml
   - devfeed-operations.yaml
-  - devfeed-pipeline.yaml
-  - devfeed-diagnostics.yaml
   - prometheusrule.yaml
   - probes.yaml
   - faro-secrets.sops.yaml
   - analytics-secrets.sops.yaml
+  - x-conversion-secrets.sops.yaml
   - configmap-images.yaml
   - deployment-imgproxy.yaml
   - service-imgproxy.yaml
+  - imgproxy-servicemonitor.yaml
   - networkpolicy-images.yaml
   - image-storage-secrets.sops.yaml
   - imgproxy-secrets.sops.yaml

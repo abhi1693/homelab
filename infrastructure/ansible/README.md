@@ -126,6 +126,7 @@ DaemonSets that cannot adopt a changed Longhorn setting while volumes are attach
 Roles follow a consistent variable-driven entrypoint model:
 
 - `main` applies desired state.
+- `cli` on the Cilium playbook updates only the bootstrap server's Cilium CLI.
 - `validation` checks that the expected state exists and is healthy.
 - `reset` removes or resets role-managed state when the role supports it.
 
@@ -141,3 +142,78 @@ creates the platform pieces that Fleet needs, then Fleet reconciles the
 The important handoff is the `fleet_apps` role. It creates Fleet GitRepo
 resources pointing back to this repository, after which app and platform
 bundles are reconciled by Rancher Fleet rather than by Ansible.
+
+## Infrastructure upgrade checkpoint (2026-10-02)
+
+Rancher 2.15.2, cert-manager 1.21.2, and kube-vip 1.2.4 have been deployed.
+The table records the bootstrap upgrades:
+
+| Component | Previous | Deployed | Deployment entrypoint |
+| --- | --- | --- | --- |
+| Rancher | 2.15.1 | 2.15.2 | `playbooks/rancher.yml` |
+| Cilium CLI | 0.19.4 | 0.20.1 | `playbooks/cilium.yml -e cilium_entrypoint=cli` |
+| cert-manager | 1.20.3 | 1.21.2 | `playbooks/cert_manager.yml` |
+| Cilium | 1.20.1 | 1.20.1 | `playbooks/cilium.yml` |
+| kube-vip | 1.2.1 | 1.2.4 | `playbooks/kube_vip.yml` |
+
+The platform-changing entrypoints mutate bootstrap-managed cluster resources
+outside Fleet. Under the repository cluster policy, AI execution requires
+explicit break-glass approval; changing the inventory alone does not deploy
+them. Run them individually, observe readiness after each, and retain existing
+values and scheduling constraints.
+The Cilium `cli` entrypoint changes only `/usr/local/bin/cilium` on the bootstrap
+server. It does not render chart values, run `cilium upgrade`, or restart pods.
+Use it when the CLI pin changes independently of the Cilium dataplane version.
+Keep the Cilium dataplane on 1.20.1 for the Raspberry Pi OS nodes. Cilium
+1.20.2 cannot initialize its socket load-balancing BPF programs on kernels
+without BTF, leaving new pods unable to get networking even while the Cilium
+DaemonSet reports Ready. All eight current nodes lack
+`/sys/kernel/btf/vmlinux`. Upstream tracks this as
+[cilium/cilium#48778](https://github.com/cilium/cilium/issues/48778); the
+documented workaround is to downgrade to 1.20.1. The role rejects 1.20.2
+when any cluster node lacks kernel BTF.
+Rancher owns the compatible Fleet, webhook and Turtles versions; do not
+upgrade those independently.
+Cilium's inventory pins the live cluster name, disabled BGP control plane,
+VXLAN routing, and single-node agent and Envoy rollout limits. The operator
+uses the third control-plane node for a surge replica while keeping both
+existing replicas available. The role waits for the Helm-driven rollouts and
+does not force a second Cilium restart.
+
+The upstream Rancher chart hardcodes `maxSurge: 1` and exposes no Helm value for
+the Deployment strategy. With three replicas, required hostname anti-affinity,
+and three eligible servers, this creates Pending surge pods during a chart
+upgrade. The role now refuses a future HelmChart manifest change under those
+conditions before mutating bootstrap resources. Keep required anti-affinity;
+wait for chart support for `maxSurge: 0` or add eligible server capacity before
+the next Rancher upgrade. The inventory's `maxSurge: 0` is reconciled only after
+the chart rollout, so it does not remove that upgrade risk.
+
+K3s is pinned to stable `v1.36.5+k3s1`, within Rancher 2.15.2's supported
+Kubernetes 1.36 range. Upgrade servers and then workers one at a time through
+the rolling playbooks, checking active user-facing endpoints between nodes.
+The release updates bundled Traefik to chart 40; this cluster does not configure
+the renamed ingress-nginx migration provider. CoreDNS and metrics-server image
+overrides match the release's bundled versions. Their manifest-driven rollouts
+keep both replicas available by allowing one surge pod at a time. Longhorn remains
+1.12.1, the latest chart in its configured Rancher channel. MetalLB 0.16.1,
+NFS CSI 4.13.4 and CloudNativePG 1.30.1 are current in their configured channels.
+Fleet deployed Rancher Backup chart `110.0.2+up11.0.3` (operator 11.0.3) and
+SOPS Secrets Operator chart `0.28.1` (operator 0.21.2); both operators and the
+Backup CRD HelmOp became Ready. No UNAS target is configured or used. Cilium
+remains at 1.20.1 after the 1.20.2 BTF regression. kube-vip 1.2.4 rolled
+across all three control-plane nodes with the API VIP and user-facing routes
+available; its three replacement pods have zero restarts.
+
+For cert-manager 1.21, the removed metrics path/port override values must be
+absent, and issuers using `serviceAccountRef` require a separate RBAC review.
+The current issuers use Cloudflare DNS01, the local CA and self-signed certificates.
+The cert-manager rollout retained all nine certificate Secrets with unchanged
+data and UIDs; all six new pods, three ClusterIssuers and nine Certificates
+became Ready. For Cilium and kube-vip, require
+all node agents and the API VIP to recover before proceeding.
+
+Rollback bootstrap chart versions through their original owners using the
+previous values. Rancher rollback requires its documented restore procedure;
+review available existing recovery points before execution. Do not uninstall
+CRDs or delete certificate Secrets, namespaces or storage to perform an upgrade.

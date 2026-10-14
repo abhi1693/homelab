@@ -10,5 +10,19 @@ dependsOn:
   - name: postgresql
   - name: postgresql-networkpolicy
   - name: postgresql-pooler-pdb
+diff:
+  comparePatches:
+    - apiVersion: apps/v1
+      kind: Deployment
+      name: firefly-iii
+      namespace: finance
+      jsonPointers:
+        - /spec/replicas
+    - apiVersion: batch/v1
+      kind: CronJob
+      name: firefly-iii-cron
+      namespace: finance
+      jsonPointers:
+        - /spec/suspend
 helm:
   takeOwnership: true

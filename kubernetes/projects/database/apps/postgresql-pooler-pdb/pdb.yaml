@@ -103,3 +103,18 @@ spec:
   selector:
     matchLabels:
       cnpg.io/poolerName: postgresql-pooler-zitadel-rw
+---
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: postgresql-pooler-hyperlocal-kitchen-rw
+  namespace: postgresql
+  labels:
+    app.kubernetes.io/name: postgresql-pooler
+    app.kubernetes.io/part-of: postgresql
+    home-lab.io/client: hyperlocal-kitchen
+spec:
+  minAvailable: 1
+  selector:
+    matchLabels:
+      cnpg.io/poolerName: postgresql-pooler-hyperlocal-kitchen-rw

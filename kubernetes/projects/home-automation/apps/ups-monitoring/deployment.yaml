@@ -90,7 +90,7 @@ spec:
       containers:
         - name: nut-upsd
           # renovate: datasource=docker depName=docker.io/instantlinux/nut-upsd
-          image: registry.home/docker.io/instantlinux/nut-upsd:2.8.3-r4
+          image: registry.home/docker.io/instantlinux/nut-upsd:2.8.5-r1
           imagePullPolicy: IfNotPresent
           env:
             - name: NAME

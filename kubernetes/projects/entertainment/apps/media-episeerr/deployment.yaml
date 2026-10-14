@@ -19,7 +19,7 @@ spec:
   template:
     metadata:
       annotations:
-        home-lab.io/config-revision: "2026-08-17.5"
+        home-lab.io/config-revision: "2026-10-09.1"
       labels:
         app.kubernetes.io/name: episeerr
         app.kubernetes.io/part-of: media-stack
@@ -36,7 +36,7 @@ spec:
       initContainers:
         - name: seed-config
           # renovate: datasource=docker depName=ghcr.io/abhi1693/home-lab-episeerr
-          image: registry.home/ghcr.io/abhi1693/home-lab-episeerr:3.8.9-5
+          image: registry.home/ghcr.io/abhi1693/home-lab-episeerr:3.9.6-2@sha256:ea5961a513fd660e9c7fecc07a305ef51aac355ae516da57a44f91d04e748c31
           imagePullPolicy: IfNotPresent
           command:
             - python
@@ -70,7 +70,7 @@ spec:
       containers:
         - name: episeerr
           # renovate: datasource=docker depName=ghcr.io/abhi1693/home-lab-episeerr
-          image: registry.home/ghcr.io/abhi1693/home-lab-episeerr:3.8.9-5
+          image: registry.home/ghcr.io/abhi1693/home-lab-episeerr:3.9.6-2@sha256:ea5961a513fd660e9c7fecc07a305ef51aac355ae516da57a44f91d04e748c31
           imagePullPolicy: IfNotPresent
           command:
             - python

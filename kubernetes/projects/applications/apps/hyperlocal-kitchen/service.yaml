@@ -1,0 +1,68 @@
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: hyperlocal-kitchen-api
+  namespace: hyperlocal-kitchen
+  labels:
+    app.kubernetes.io/part-of: hyperlocal-kitchen
+spec:
+  type: ClusterIP
+  selector:
+    app.kubernetes.io/part-of: hyperlocal-kitchen
+    app.kubernetes.io/name: hyperlocal-kitchen-api
+  ports:
+    - name: http
+      port: 8000
+      targetPort: http
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: hyperlocal-kitchen-admin-api
+  namespace: hyperlocal-kitchen
+  labels:
+    app.kubernetes.io/part-of: hyperlocal-kitchen
+spec:
+  type: ClusterIP
+  selector:
+    app.kubernetes.io/part-of: hyperlocal-kitchen
+    app.kubernetes.io/name: hyperlocal-kitchen-admin-api
+  ports:
+    - name: http
+      port: 8000
+      targetPort: http
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: hyperlocal-kitchen-admin
+  namespace: hyperlocal-kitchen
+  labels:
+    app.kubernetes.io/part-of: hyperlocal-kitchen
+spec:
+  type: ClusterIP
+  selector:
+    app.kubernetes.io/part-of: hyperlocal-kitchen
+    app.kubernetes.io/name: hyperlocal-kitchen-admin
+  ports:
+    - name: http
+      port: 3000
+      targetPort: http
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: hyperlocal-kitchen-redis
+  namespace: hyperlocal-kitchen
+  labels:
+    app.kubernetes.io/part-of: hyperlocal-kitchen
+spec:
+  type: ClusterIP
+  selector:
+    app.kubernetes.io/part-of: hyperlocal-kitchen
+    app.kubernetes.io/name: hyperlocal-kitchen-redis
+  ports:
+    - name: redis
+      port: 6379
+      targetPort: redis

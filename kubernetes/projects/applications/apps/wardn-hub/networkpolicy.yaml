@@ -269,44 +269,6 @@ spec:
 apiVersion: networking.k8s.io/v1
 kind: NetworkPolicy
 metadata:
-  name: wardn-hub-prometheus-metrics-ingress
-  namespace: wardn
-  labels:
-    app.kubernetes.io/name: wardn-hub
-    app.kubernetes.io/part-of: wardn-hub
-spec:
-  podSelector:
-    matchExpressions:
-      - key: app.kubernetes.io/name
-        operator: In
-        values:
-          - wardn-hub-api
-          - wardn-hub-worker
-      - key: app.kubernetes.io/component
-        operator: In
-        values:
-          - api
-          - worker
-  policyTypes:
-    - Ingress
-  ingress:
-    - from:
-        - namespaceSelector:
-            matchLabels:
-              kubernetes.io/metadata.name: cattle-monitoring-system
-          podSelector:
-            matchLabels:
-              app.kubernetes.io/name: prometheus
-              prometheus: rancher-monitoring-prometheus
-      ports:
-        - protocol: TCP
-          port: 8080
-        - protocol: TCP
-          port: 8092
----
-apiVersion: networking.k8s.io/v1
-kind: NetworkPolicy
-metadata:
   name: wardn-hub-codex-app-server-ingress
   namespace: wardn
   labels:

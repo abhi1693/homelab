@@ -23,6 +23,7 @@ secret contract each app expects.
 | `applications-helm-repositories` | Registers chart repositories used by this project. | None | Rancher ClusterRepo. |
 | `firefly-iii-storage` | Persistent storage support for Firefly III. | None | NFS CSI upload PVC. |
 | `firefly-iii` | Personal finance app. | Internal Traefik at `finance.home`. | PostgreSQL pooler, NFS upload PVC, SOPS Secret. |
+| `hyperlocal-kitchen` | Community pickup/home-delivery marketplace and admin portal. | Cloudflare Tunnel with long random admin/member API hostnames. | PostgreSQL pooler, persistent Redis, Zitadel, SOPS, Harbor images. |
 | `harbor` | Local registry and proxy/cache registry. | Internal Traefik at `registry.home`. | PostgreSQL, Valkey, retained NFS storage, monitoring. |
 | `personal-blog` | Public personal blog. | Cloudflare Tunnel at `blog.abhimanyu-saharan.com`. | Harbor image, Sanity webhook secret, ConfigMap. |
 | `portfolio` | Public portfolio site. | Cloudflare Tunnel at `abhimanyu-saharan.com`. | Harbor image, runtime config. |
@@ -31,7 +32,7 @@ secret contract each app expects.
 | `wardn-ai-website` | Public Wardn AI product website. | Cloudflare Tunnel at `wardnai.dev`. | Wardn namespace, Harbor image. |
 | `wardn-hub` | Wardn Hub API, frontend, and scoring online; consolidated worker and Codex automation temporarily paused, with resources and data retained. | Cloudflare Tunnel at `hub.wardnai.dev`. | PostgreSQL, OpenTelemetry, NFS build cache, Longhorn Codex state, Harbor image. |
 | `wardn-license-server` | Signed entitlement issuer, Dodo fulfillment worker, and administration console. | Cloudflare Tunnel at `licenses.wardnai.dev`. | PostgreSQL pooler, Zitadel, Dodo, SOPS secrets, Harbor images. |
-| `zitadel` | Central identity provider for app OIDC/SAML authentication. | Cloudflare Tunnel at `auth.abhimanyu-saharan.com`. | PostgreSQL, SOPS bootstrap secrets, monitoring. |
+| `zitadel` | Central identity provider on v4.19.4 for app OIDC/SAML authentication, with signed Login UI cookies and a bounded GitHub registration retry. | Cloudflare Tunnel at `auth.abhimanyu-saharan.com`. | PostgreSQL, SOPS bootstrap secrets, monitoring. |
 
 ## Coupling Patterns
 

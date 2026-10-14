@@ -35,7 +35,7 @@ spec:
           containers:
             - name: trigger
               # renovate: datasource=github-releases depName=curl/curl-container
-              image: registry.home/docker.io/curlimages/curl:8.22.0
+              image: registry.home/docker.io/curlimages/curl:8.23.0
               imagePullPolicy: IfNotPresent
               env:
                 - name: X_AUTOMATION_SECRET

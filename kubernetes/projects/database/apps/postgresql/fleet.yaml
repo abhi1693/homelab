@@ -6,5 +6,6 @@ labels:
   home-lab.io/project-slug: database
 dependsOn:
   - name: postgresql-launchboard-prerequisites
+  - name: postgresql-hyperlocal-kitchen-prerequisites
 helm:
   takeOwnership: true

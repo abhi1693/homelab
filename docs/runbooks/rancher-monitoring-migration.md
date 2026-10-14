@@ -6,6 +6,10 @@ title: Rancher Monitoring to Upstream Prometheus Migration
 
 ## Status and scope
 
+The chart cutover and subsequent upgrade to upstream chart `91.8.2` are deployed.
+See [modernization acceptance](#modernization-acceptance) for the current result;
+the earlier sections below record the staged migration checkpoints.
+
 The preparation stage was deployed through Fleet on 2026-10-01, in commits
 `71b48289` and `aef22f70`. All 23 system bundles became Ready, and monitoring
 Helm revision 72 records both retention annotations. The before/after inventory
@@ -19,8 +23,8 @@ repeat live observations before advancing.
 
 On 2026-10-01 the operator explicitly authorized this monitoring cutover without
 new backups because UNAS cannot provide NFSv4. This exception applies only to
-this cutover. Preserve every existing PVC/PV binding and keep Grafana 12.3.1,
-Prometheus 3.8.1, and Alertmanager 0.30.0 during the chart handoff. No data loss
+this cutover. The initial chart handoff preserved every existing PVC/PV binding
+and kept Grafana 12.3.1, Prometheus 3.8.1 and Alertmanager 0.30.0. No data loss
 is expected, but there is no current storage recovery copy if data is damaged.
 The temporary `longhorn_backups` UNAS share is not configured as a backup target.
 
@@ -38,9 +42,9 @@ The following conditions were identified during preparation:
   enabled `outOfOrderTimeWindow: 30m`; both exporters then reported zero failed
   points over five minutes and empty queues before runtime cutover. Keep
   observing ingestion after the handoff. The separate DevFeed producer identity
-  fix remains pending its application release; the ordering window does not
-  replace unique service instance identities. A passing inventory comparison
-  does not validate OTLP delivery.
+  fix was pending at that checkpoint and is now deployed in 0.0.46; the ordering
+  window does not replace unique service instance identities. A passing inventory
+  comparison does not validate OTLP delivery.
 
 The destination is upstream `prometheus-community/kube-prometheus-stack`, the
 existing two-replica Thanos query layer, and Rancher's maintained
@@ -49,11 +53,11 @@ OpenTelemetry, custom dashboards, rules, and automation remain part of the
 observability system. Preserve the `prometheus`, `alertmanager`, `loki`, `tempo`,
 and `pyroscope` datasource UIDs.
 
-The initial cutover selects upstream chart `80.9.1` (operator `v0.87.1`),
+The initial cutover selected upstream chart `80.9.1` (operator `v0.87.1`),
 matching the legacy chart's base, fetched from the official GHCR OCI repository,
 and dashboard chart `110.0.1+up0.1.4`.
-Prometheus 3.8.1, Grafana 12.3.1 and Alertmanager 0.30.0 retain their exact
-stateful images. The newer chart `91.8.2` is deferred because it combines
+Prometheus 3.8.1, Grafana 12.3.1 and Alertmanager 0.30.0 retained their exact
+stateful images. Chart `91.8.2` was deferred until the follow-up because it combines
 operator and Grafana upgrades with the ownership change. The rendered runtime,
 CRD hook and dashboard proxy images have ARM64 manifests.
 
@@ -274,13 +278,94 @@ ten-minute OTLP failure counters and queues remained zero, and both Longhorn
 volumes remained healthy. Grafana's direct ingress reported its database OK;
 all three Rancher bridge APIs responded successfully.
 
+## Upstream modernization (2026-10-01)
+
+The operator requested completing the remaining modernization and explicitly
+excluded backups, asking that `longhorn_backups` not be used. No target for that
+share was configured. The existing Longhorn `default` BackupTarget URL is empty.
+UNAS share removal requires a working management connection; SSH key
+authentication was denied during this follow-up.
+
+CRD chart `91.8.2` was applied first in commit `8ea85de7`, with upstream kubectl
+1.36.4. Only after that HelmOp became Ready was the runtime advanced to the same
+chart. The selected stable upstream runtime versions are Prometheus 3.15.0,
+Grafana 13.2.3, Alertmanager 0.34.1, operator 0.94.1 and Thanos 0.42.4.
+Every selected image has an ARM64 manifest. Existing PVC bindings, workload
+selectors, stateful security contexts and service identities remain intact.
+
+Native chart dashboard generation replaces the frozen definitions. All 25 old
+stock dashboard UIDs occur in the new chart's 26 ConfigMaps. A temporary
+pre-upgrade hook deletes exactly the 24 old stock ConfigMaps in
+`cattle-dashboards`; its namespaced Role permits only get/delete on those names.
+The AIX ConfigMap already lives in the native namespace and is updated in place.
+The hook completed successfully. Its manifests and RBAC are now removed and
+runtime drift correction is restored. This avoids retaining duplicate UIDs in
+two watched namespaces. A comparison against the old inventory will flag the
+intentional
+ConfigMap namespace moves; require all baseline Grafana UIDs and documents to
+exist in their new chart-managed locations.
+
+Controller-manager dashboard generation stays enabled while its separate
+Service and ServiceMonitor are disabled: K3s still uses the shared native
+`k3s-server` scrape. Rendering retains every old chart rule name and adds eleven.
+Grafana 13 migrates its dashboard database to unified storage. Keep single-writer
+Recreate behavior, UID/GID 472, a bounded 64 MiB migration cache, Parquet staging
+and a 1 GiB container limit. Do not downgrade the migrated database blindly.
+
+DevFeed 0.0.46 was already released and deployed by this checkpoint. Its tag
+contains `e69bc6d1`; current OTLP `target_info` exposes unique pod-based
+`service.instance.id` values for all 24 observed DevFeed resources. No additional
+application release was needed.
+
+A temporary `MonitoringMigrationDeliveryCheck` rule verified the notification
+path. It used warning severity because stock InfoInhibitor rules suppress
+standalone informational alerts, and had a 15-minute automatic expiry. The alert
+became active and unsuppressed in Alertmanager at 10:12:24 UTC. Slack notification
+count advanced from 2 to 3 after its group wait, with zero delivery failures.
+The two earlier notifications were rolling-upgrade warning groups. The temporary
+rule was then removed through Fleet. By 10:18 UTC it was absent from both
+Prometheus rule sets and Alertmanager; Slack counters reached five accepted
+notifications and zero failures as upgrade warnings resolved. This confirms
+webhook acceptance, not a human read of the Slack channel.
+
+### Modernization acceptance
+
+- Runtime chart 91.8.2 is deployed; Grafana reports 13.2.3 with a healthy database.
+  Both Prometheus and Alertmanager replicas, both Thanos replicas, the operator,
+  kube-state-metrics and all eight node exporters are Ready.
+- All 80 baseline Grafana UIDs survive; the new Nodes Overview brings the total
+  to 81. All five datasource definitions are unchanged. Non-stock dashboard
+  contents are unchanged after excluding database ID/version metadata.
+- Both namespace UIDs, both stateful CR UIDs, and all eight monitoring PVC UIDs
+  and PV bindings match the pre-modernization snapshot. Both active Prometheus
+  Longhorn volumes report healthy. No data loss was observed.
+- Both Prometheus replicas report 179 healthy targets, no rule errors and no
+  missing baseline rule names. A Thanos query at 24 hours before acceptance
+  returns historical data.
+- The strict inventory comparison reports exactly 24 old ConfigMap paths missing.
+  These are the documented namespace moves: every corresponding document and
+  dashboard UID exists under its new chart-managed ConfigMap. There are no other
+  comparison failures.
+- At 10:17 UTC, both OTLP destinations report zero failed points over ten
+  minutes, empty queues and matching sustained ingestion rates. Rack Ops reports
+  zero query failures over the same window. Prometheus has no firing alerts above
+  severity none. Collector logs since 10:07 UTC contain no export errors.
+- The Rancher proxy endpoints and direct Grafana, Prometheus and Alertmanager
+  routes all respond successfully. Grafana and Prometheus report no restarts.
+- Private inventories are stored outside Git under
+  `~/.local/state/home-lab/monitoring-migration/`, in the
+  `2026-10-01-before-modernization.json` and
+  `2026-10-01-after-modernization.json` files. The final cleanup snapshot is
+  `2026-10-01-final-modernization.json`; telemetry counters are recorded in
+  `2026-10-01-telemetry-acceptance.json`.
+
 ## Rollback
 
-For this preparation stage, revert the Git change and reconcile through Fleet.
+The preparation-stage rollback was to revert the Git change through Fleet.
 TCP/8081 remains allowed while the Services return to `nginx-http`. No data
 format, runtime image, CRD schema, or storage binding changes in this stage.
 
-For this cutover, the stateful runtime versions and volumes remain unchanged.
+The initial chart cutover kept stateful runtime versions and volumes unchanged.
 Keep `values.yaml` and `crd-values.yaml` as the legacy configuration reference.
 A rollback must first disable the dashboard chart's three proxies before
 returning their Service ownership to the runtime release; do not allow both
@@ -289,6 +374,11 @@ with the same stateful images and claims. Keep upstream CRD management in place
 unless a separately reviewed schema rollback is needed. Never uninstall either
 CRD release or downgrade a data directory speculatively. The backup exception
 means rollback cannot recover damaged storage.
+
+After modernization, Grafana 13 has migrated the SQLite database to unified
+storage. The initial cutover rollback procedure does not authorize downgrading
+that database or the new CRD schemas. Prefer a reviewed forward repair; there is
+no pre-upgrade storage backup to restore.
 
 ## References
 

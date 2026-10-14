@@ -15,7 +15,7 @@ The shared policy sets `automerge: true`, `automergeType: "branch"`, and
 `platformAutomerge: false`. `prCreation: "immediate"` allows branch automerge in
 the same run that creates or rebases an update branch. Despite the option name,
 successful branch automerge does not create a PR. Do not use `"approval"`,
-`"not-pending"`, or `"status-success"`: Renovate 43.288.0 returns newly written
+`"not-pending"`, or `"status-success"`: Renovate can return newly written
 branches as pending before attempting automerge with those settings.
 Renovate may create a fallback PR if the branch merge itself fails; inspect the
 job logs in that case. `recreateWhen: "always"` allows
@@ -37,6 +37,12 @@ version range, and branch automerge behavior for that image family.
 Wardn AI image pins are the exception: they use the `git-refs` datasource with
 `currentValue=master` so Renovate can update full commit-SHA image tags that
 Docker tag versioning ignores.
+
+NUT (`docker.io/instantlinux/nut-upsd`) shares its OCI repository with Helm
+charts. Its container rule accepts only `2.x.y-rN` tags and uses regex
+versioning with a numeric build capture for `N`. This excludes bare chart
+tags such as `2.8.5` and orders container revisions such as `r2` and `r10`
+numerically. `scripts/check-renovate-policy.py` checks this tag boundary.
 
 DevFeed tracks its ten upstream GHCR images, including the MCP server, through the `docker` datasource.
 Only stable `X.Y.Z` tags are eligible; commit SHAs, moving tags, prereleases,
@@ -158,3 +164,16 @@ datasource:
 # renovate: datasource=git-refs depName=https://github.com/abhi1693/wardn-ai currentValue=master
 image: registry.home/ghcr.io/abhi1693/wardn-ai-backend:<40-character-sha>
 ```
+
+## Dashboard query validation
+
+Job status, start/completion timestamps and CronJob ownership are deduplicated
+by Kubernetes job identity before joins. This prevents historical kube-state-metrics
+label changes or duplicate scrape series from causing many-to-many joins and
+inflating retained-job counts. Latest completed duration selects the most recent
+completion timestamp, not the longest retained run. Retention still limits which
+jobs are visible; the dashboard is not a permanent execution history.
+
+Run `python3 scripts/check-renovate-dashboard.py` for the duplicate-series and
+latest-job regression checks, then query the live dashboard over the migration
+window before accepting a change.

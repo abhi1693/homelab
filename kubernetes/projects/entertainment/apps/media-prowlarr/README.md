@@ -40,6 +40,11 @@ CIDRs.
   `media-jellyfin-arr-api-keys` Secret. Rotate that value and bump
   `home-lab.io/api-key-revision` in `values.yaml`; Fleet restarts Prowlarr and
   the Ryokan startup reconciler updates its configured endpoints.
+- After rotating Arr credentials, update Prowlarr's Sonarr/Radarr application
+  connections and force a full application/indexer sync. A normal sync can
+  complete without repairing stale credentials. Verify actual searches and
+  download handoff using the
+  [download recovery runbook](../../../../../docs/runbooks/media-download-recovery.md).
 - Use Prowlarr as the normal source of truth for Sonarr and Radarr indexers.
 - Ryokan replaces the former Sonarr Anime instance. Do not retain a Prowlarr
   application targeting `sonarr-anime.media.svc.cluster.local`; Ryokan manages

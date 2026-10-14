@@ -16,9 +16,6 @@ Kubernetes manifests for custom services.
 - `Seerr`: Jellyfin request portal. The Kubernetes release and internal Service
   name remain `jellyseerr` for compatibility, but the workload runs the official
   Seerr chart/image.
-- `Music Assistant`: authenticated YouTube Music account mirror, persistent
-  local cache, on-device audio-similarity radio, recommendations, PWA, and
-  playback.
 
 All app releases run in the `media` namespace, which is assigned to the Rancher
 `Entertainment` project.
@@ -35,14 +32,6 @@ uses NFSv3; UNAS does not support NFSv4.
 Sonarr and Radarr mount the completed-media PVC at `/data`. Jellyfin mounts the
 same PVC at `/media`, while keeping application state in PostgreSQL and shared
 files on `jellyfin-shared-data-nfs`; `/config` and `/data` are pod-local.
-
-Music Assistant mounts the same completed-library PVC twice: the common
-`/library/music` tree is read-only at `/media`, while
-`/library/music/YouTube Music` is writable at `/library-cache/music/YouTube
-Music` for atomic background cache publication. Production allows three
-concurrent yt-dlp track downloads; each stages on the retained application PVC
-before its completed file is atomically copied to NFS. The provider catalog and
-queue live in PostgreSQL rather than on this claim.
 
 The retired music applications' app-owned Longhorn PVCs are deleted with their
 Fleet bundles. Their old shared-export directories—`music/Lidarr`,
@@ -128,7 +117,6 @@ TrueCharts' default `amd64` node selector with:
 - `http://requests.media.home`
 - `http://sonarr.media.home`
 - `http://radarr.media.home`
-- `https://music.media.home`
 - `http://requests.anime.media.home`
 - `http://anime.media.home`
 - `http://prowlarr.media.home`
@@ -332,21 +320,6 @@ application PVC rather than in Git.
     Keep 4K request servers disabled. The live Seerr network settings prefer IPv4
     and use a 30 second Servarr API timeout; external metadata requests use
     direct egress.
-
-## Music Initial Wiring
-
-1. Open `https://music.media.home`, create the Music Assistant administrator,
-   enable the built-in Sendspin web player, and add `/media` as a local
-   filesystem music source when retained local media should be indexed.
-2. Confirm the Fleet-managed **YouTube Music** source loads. It reads the
-   browser cookie from `music-assistant-secrets`, stores it encrypted in Music
-   Assistant, mirrors the account snapshot into PostgreSQL, and caches audio
-   under `music/YouTube Music` without a PO-token service.
-3. Replace the SOPS value and increment Music Assistant's
-   `home-lab.io/ytmusic-cookie-revision` pod-template annotation when YouTube
-   expires the session.
-
-Only configure media sources and downloads that you have the right to access.
 
 qBittorrent uses its built-in WebUI authentication on both edge and in-cluster
 access.

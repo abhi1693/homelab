@@ -1,0 +1,140 @@
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: hyperlocal-kitchen-api
+  namespace: hyperlocal-kitchen
+  labels:
+    app.kubernetes.io/part-of: hyperlocal-kitchen
+spec:
+  replicas: 1
+  revisionHistoryLimit: 2
+  progressDeadlineSeconds: 900
+  selector:
+    matchLabels:
+      app.kubernetes.io/part-of: hyperlocal-kitchen
+      app.kubernetes.io/name: hyperlocal-kitchen-api
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxSurge: 1
+      maxUnavailable: 0
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/part-of: hyperlocal-kitchen
+        app.kubernetes.io/name: hyperlocal-kitchen-api
+        hyperlocal-kitchen-database-client: 'true'
+        hyperlocal-kitchen-redis-client: 'true'
+      annotations:
+        home-lab.io/config-checksum: 83125f1cef1c3b01277f3e7cc04e5f0b16dbf0c64416585c69a31d59097d391a
+    spec:
+      automountServiceAccountToken: false
+      imagePullSecrets:
+        - name: harbor-registry
+      nodeSelector:
+        kubernetes.io/arch: arm64
+      securityContext:
+        fsGroup: 10001
+        seccompProfile:
+          type: RuntimeDefault
+      terminationGracePeriodSeconds: 60
+      initContainers:
+        - name: wait-for-schema
+          # renovate: datasource=docker depName=ghcr.io/abhi1693/hyperlocal-kitchen/backend
+          image: registry.home/ghcr.io/abhi1693/hyperlocal-kitchen/backend:sha-168f2c82c842f2a368b35bd796c3f240c3b1170e@sha256:dc9b981addbaab540b7ad76b57760c9b571099ced8219ef1d7f00317d166b56c
+          command:
+            - python
+            - /opt/kitchen/wait-for-schema.py
+          envFrom:
+            - secretRef:
+                name: hyperlocal-kitchen
+          resources:
+            requests:
+              cpu: 25m
+              memory: 64Mi
+            limits:
+              memory: 128Mi
+          securityContext:
+            runAsNonRoot: true
+            runAsUser: 10001
+            runAsGroup: 10001
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities:
+              drop:
+                - ALL
+          volumeMounts:
+            - name: schema-check
+              mountPath: /opt/kitchen
+              readOnly: true
+            - name: tmp
+              mountPath: /tmp
+      containers:
+        - name: api
+          # renovate: datasource=docker depName=ghcr.io/abhi1693/hyperlocal-kitchen/backend
+          image: registry.home/ghcr.io/abhi1693/hyperlocal-kitchen/backend:sha-168f2c82c842f2a368b35bd796c3f240c3b1170e@sha256:dc9b981addbaab540b7ad76b57760c9b571099ced8219ef1d7f00317d166b56c
+          imagePullPolicy: IfNotPresent
+          command:
+            - uvicorn
+            - kitchen_api.main:app
+            - --host
+            - 0.0.0.0
+            - --port
+            - '8000'
+            - --no-proxy-headers
+            - --no-access-log
+          envFrom:
+            - configMapRef:
+                name: hyperlocal-kitchen
+            - secretRef:
+                name: hyperlocal-kitchen
+          resources:
+            requests:
+              cpu: 50m
+              memory: 128Mi
+            limits:
+              memory: 512Mi
+          securityContext:
+            runAsNonRoot: true
+            runAsUser: 10001
+            runAsGroup: 10001
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities:
+              drop:
+                - ALL
+          volumeMounts:
+            - name: tmp
+              mountPath: /tmp
+          ports:
+            - name: http
+              containerPort: 8000
+          startupProbe:
+            httpGet:
+              path: /ready
+              port: http
+            periodSeconds: 5
+            timeoutSeconds: 3
+            failureThreshold: 60
+          readinessProbe:
+            httpGet:
+              path: /ready
+              port: http
+            periodSeconds: 10
+            timeoutSeconds: 3
+            failureThreshold: 3
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: http
+            periodSeconds: 30
+            timeoutSeconds: 3
+            failureThreshold: 3
+      volumes:
+        - name: tmp
+          emptyDir:
+            sizeLimit: 128Mi
+        - name: schema-check
+          configMap:
+            name: hyperlocal-kitchen-schema-check

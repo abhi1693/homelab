@@ -24,7 +24,7 @@ controller:
   extraContainers:
     - name: sourcemap-resolver
       # renovate: datasource=docker depName=docker.io/library/python
-      image: registry.home/docker.io/python:3.14.7-alpine3.23
+      image: registry.home/docker.io/python:3.15.0-alpine3.23
       command: [python3, /opt/resolver/sourcemap-resolver.py]
       securityContext:
         runAsNonRoot: true

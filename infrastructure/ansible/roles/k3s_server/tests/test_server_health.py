@@ -85,6 +85,21 @@ class EtcdTests(unittest.TestCase):
 
 
 class PlatformTests(unittest.TestCase):
+    def test_detached_scheduled_volume_is_idle(self):
+        volume = {"metadata": {"name": "idle"}, "spec": {"nodeID": ""},
+                  "status": {"state": "detached", "robustness": "unknown",
+                             "currentNodeID": "", "conditions": [{"type": "Scheduled", "status": "True"}]}}
+        health.validate_longhorn_volume(volume)
+        for change in ({"robustness": "faulted"}, {"state": "attaching"},
+                       {"currentNodeID": "node-1"}):
+            changed = copy.deepcopy(volume)
+            changed["status"].update(change)
+            with self.subTest(change=change), self.assertRaises(health.Unhealthy):
+                health.validate_longhorn_volume(changed)
+        volume["status"]["conditions"][0]["status"] = "False"
+        with self.assertRaises(health.Unhealthy):
+            health.validate_longhorn_volume(volume)
+
     def test_old_ready_deployment_does_not_hide_incomplete_rollout(self):
         deployment = {"kind": "Deployment", "metadata": {"namespace": "system", "name": "dns", "generation": 4},
                       "spec": {"replicas": 2}, "status": {"observedGeneration": 4, "readyReplicas": 2,

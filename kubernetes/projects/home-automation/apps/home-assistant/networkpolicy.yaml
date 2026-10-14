@@ -136,22 +136,6 @@ spec:
       app.kubernetes.io/instance: home-assistant
       app.kubernetes.io/name: home-assistant
   egress:
-    # Home Assistant uses the browser-resolvable HTTPS ingress for Music
-    # Assistant authorization. Match the Traefik Service and require the exact
-    # TLS SNI so this rule cannot reach another ingress host.
-    - toServices:
-        - k8sService:
-            serviceName: traefik
-            namespace: kube-system
-      toPorts:
-        - ports:
-            # Cilium may enforce before or after Service target-port rewriting.
-            - port: "443"
-              protocol: TCP
-            - port: "8443"
-              protocol: TCP
-          serverNames:
-            - music.media.home
     - toServices:
         - k8sService:
             serviceName: jellyfin

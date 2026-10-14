@@ -53,7 +53,6 @@
     owner: root
     group: root
     mode: "0644"
-  register: k3s_system_addons_coredns_manifest
 
 - name: Render custom Metrics Server manifest
   ansible.builtin.template:
@@ -62,7 +61,6 @@
     owner: root
     group: root
     mode: "0644"
-  register: k3s_system_addons_metrics_server_manifest
 
 - name: Wait for custom system add-on deployments to exist
   ansible.builtin.command:
@@ -84,29 +82,29 @@
     - coredns
     - metrics-server
 
-- name: Restart custom system add-on deployments after manifest changes
+- name: Wait for custom system add-on deployment images to match inventory
   ansible.builtin.command:
     argv:
       - /usr/local/bin/k3s
       - kubectl
       - -n
       - kube-system
-      - rollout
-      - restart
-      - "deployment/{{ item }}"
+      - get
+      - "deployment/{{ item.name }}"
+      - -o
+      - jsonpath={.spec.template.spec.containers[0].image}
   environment:
     KUBECONFIG: /etc/rancher/k3s/k3s.yaml
-  loop: >-
-    {{
-      [
-        {'name': 'coredns', 'changed': k3s_system_addons_coredns_manifest.changed},
-        {'name': 'metrics-server', 'changed': k3s_system_addons_metrics_server_manifest.changed}
-      ]
-      | selectattr('changed', 'equalto', true)
-      | map(attribute='name')
-      | list
-    }}
-  changed_when: true
+  register: k3s_system_addons_deployment_image
+  changed_when: false
+  until: k3s_system_addons_deployment_image.stdout | trim == item.image
+  retries: 60
+  delay: 5
+  loop:
+    - name: coredns
+      image: "{{ k3s_system_addons.coredns.image }}"
+    - name: metrics-server
+      image: "{{ k3s_system_addons.metrics_server.image }}"
 
 - name: Wait for custom system add-on deployments to roll out
   ansible.builtin.command:

@@ -25,7 +25,7 @@ operator lifecycle.
 | `csi-driver-nfs` | Installs the upstream NFS CSI driver and the retained shared-NAS StorageClass. | Gives existing NAS shares CSI lifecycle and creates isolated directories for explicitly opted-in file workloads without replacing Longhorn block storage. |
 | `rancher-monitoring` | Prometheus, Grafana, Alertmanager, dashboards, and rules. | Primary metrics, dashboards, and alerting plane. |
 | `rancher-generated-resource-defaults` | Adds narrow resource defaults for Rancher/Fleet-generated containers. | Bounds upstream workloads that expose no chart resource values without changing explicit sizing. |
-| `alloy-logs` | Disruption-protected singleton log collection pipeline. | Sends cluster/app logs toward Loki without duplicate stream ingestion. |
+| `alloy-logs` | Two clustered collectors on distinct nodes. | Sends all-namespace pod logs and Kubernetes events to Loki with distributed source ownership. |
 | `loki` | Log backend. | Stores and queries logs. |
 | `tempo` | Trace backend. | Stores OpenTelemetry traces and exposes trace query APIs. |
 | `pyroscope` | Profiling backend. | Supports continuous profiling experiments. |

@@ -1,0 +1,88 @@
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: postgresql-hyperlocal-kitchen-pooler-access
+  namespace: postgresql
+  labels:
+    app.kubernetes.io/name: postgresql-pooler
+    app.kubernetes.io/part-of: postgresql
+    home-lab.io/client: hyperlocal-kitchen
+spec:
+  podSelector:
+    matchLabels:
+      cnpg.io/poolerName: postgresql-pooler-hyperlocal-kitchen-rw
+  policyTypes:
+    - Ingress
+  ingress:
+    - from:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: hyperlocal-kitchen
+          podSelector:
+            matchLabels:
+              hyperlocal-kitchen-database-client: 'true'
+      ports:
+        - protocol: TCP
+          port: 5432
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: postgresql-hyperlocal-kitchen-direct-access
+  namespace: postgresql
+  labels:
+    app.kubernetes.io/name: postgresql
+    app.kubernetes.io/part-of: postgresql
+    home-lab.io/client: hyperlocal-kitchen
+spec:
+  podSelector:
+    matchLabels:
+      cnpg.io/cluster: postgresql
+      cnpg.io/podRole: instance
+  policyTypes:
+    - Ingress
+  ingress:
+    - from:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: hyperlocal-kitchen
+          podSelector:
+            matchLabels:
+              hyperlocal-kitchen-database-client: 'true'
+      ports:
+        - protocol: TCP
+          port: 5432
+---
+apiVersion: cilium.io/v2
+kind: CiliumNetworkPolicy
+metadata:
+  name: postgresql-hyperlocal-kitchen-pooler-apiserver-access
+  namespace: postgresql
+  labels:
+    app.kubernetes.io/name: postgresql-pooler
+    app.kubernetes.io/part-of: postgresql
+    home-lab.io/client: hyperlocal-kitchen
+spec:
+  endpointSelector:
+    matchLabels:
+      cnpg.io/poolerName: postgresql-pooler-hyperlocal-kitchen-rw
+  egress:
+    - toEntities:
+        - kube-apiserver
+      toPorts:
+        - ports:
+            - port: '443'
+              protocol: TCP
+            - port: '6443'
+              protocol: TCP
+    - toEndpoints:
+        - matchLabels:
+            k8s:io.kubernetes.pod.namespace: kube-system
+            k8s:k8s-app: kube-dns
+      toPorts:
+        - ports:
+            - port: '53'
+              protocol: UDP
+            - port: '53'
+              protocol: TCP

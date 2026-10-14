@@ -44,7 +44,7 @@ directly to the PostgreSQL primary. Each app should have:
 This pattern keeps shared PostgreSQL efficient while preserving app-level
 boundaries.
 
-Direct PostgreSQL access is explicitly scoped for NetBox, Music Assistant, and
+Direct PostgreSQL access is explicitly scoped for NetBox and
 application migration/build jobs. Runtime clients otherwise use their dedicated
 poolers. Each direct path still needs a bounded role and matching network policy.
 

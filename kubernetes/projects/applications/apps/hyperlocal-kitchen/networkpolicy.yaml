@@ -1,0 +1,290 @@
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: hyperlocal-kitchen-default-deny
+  namespace: hyperlocal-kitchen
+  labels:
+    app.kubernetes.io/part-of: hyperlocal-kitchen
+spec:
+  podSelector: {}
+  policyTypes:
+    - Ingress
+    - Egress
+  ingress: []
+  egress: []
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: hyperlocal-kitchen-dns
+  namespace: hyperlocal-kitchen
+  labels:
+    app.kubernetes.io/part-of: hyperlocal-kitchen
+spec:
+  podSelector: {}
+  policyTypes:
+    - Egress
+  egress:
+    - to:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: kube-system
+          podSelector:
+            matchLabels:
+              k8s-app: kube-dns
+      ports:
+        - protocol: UDP
+          port: 53
+        - protocol: TCP
+          port: 53
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: hyperlocal-kitchen-admin-tunnel
+  namespace: hyperlocal-kitchen
+  labels:
+    app.kubernetes.io/part-of: hyperlocal-kitchen
+spec:
+  podSelector:
+    matchLabels:
+      app.kubernetes.io/part-of: hyperlocal-kitchen
+      app.kubernetes.io/name: hyperlocal-kitchen-admin
+  policyTypes:
+    - Ingress
+  ingress:
+    - from:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: cloudflare
+          podSelector:
+            matchLabels:
+              app: controlled-cloudflared-connector
+              strrl.dev/cloudflare-tunnel-ingress-controller: controlled-cloudflared-connector
+      ports:
+        - protocol: TCP
+          port: 3000
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: hyperlocal-kitchen-api-tunnel
+  namespace: hyperlocal-kitchen
+  labels:
+    app.kubernetes.io/part-of: hyperlocal-kitchen
+spec:
+  podSelector:
+    matchLabels:
+      app.kubernetes.io/part-of: hyperlocal-kitchen
+      app.kubernetes.io/name: hyperlocal-kitchen-api
+  policyTypes:
+    - Ingress
+  ingress:
+    - from:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: cloudflare
+          podSelector:
+            matchLabels:
+              app: controlled-cloudflared-connector
+              strrl.dev/cloudflare-tunnel-ingress-controller: controlled-cloudflared-connector
+      ports:
+        - protocol: TCP
+          port: 8000
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: hyperlocal-kitchen-gateway-egress
+  namespace: hyperlocal-kitchen
+  labels:
+    app.kubernetes.io/part-of: hyperlocal-kitchen
+spec:
+  podSelector:
+    matchLabels:
+      app.kubernetes.io/part-of: hyperlocal-kitchen
+      app.kubernetes.io/name: hyperlocal-kitchen-admin
+  policyTypes:
+    - Egress
+  egress:
+    - to:
+        - podSelector:
+            matchLabels:
+              app.kubernetes.io/part-of: hyperlocal-kitchen
+              app.kubernetes.io/name: hyperlocal-kitchen-admin-api
+      ports:
+        - protocol: TCP
+          port: 8000
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: hyperlocal-kitchen-admin-api-ingress
+  namespace: hyperlocal-kitchen
+  labels:
+    app.kubernetes.io/part-of: hyperlocal-kitchen
+spec:
+  podSelector:
+    matchLabels:
+      app.kubernetes.io/part-of: hyperlocal-kitchen
+      app.kubernetes.io/name: hyperlocal-kitchen-admin-api
+  policyTypes:
+    - Ingress
+  ingress:
+    - from:
+        - podSelector:
+            matchLabels:
+              app.kubernetes.io/part-of: hyperlocal-kitchen
+              app.kubernetes.io/name: hyperlocal-kitchen-admin
+      ports:
+        - protocol: TCP
+          port: 8000
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: hyperlocal-kitchen-redis-egress
+  namespace: hyperlocal-kitchen
+  labels:
+    app.kubernetes.io/part-of: hyperlocal-kitchen
+spec:
+  podSelector:
+    matchLabels:
+      hyperlocal-kitchen-redis-client: 'true'
+  policyTypes:
+    - Egress
+  egress:
+    - to:
+        - podSelector:
+            matchLabels:
+              app.kubernetes.io/part-of: hyperlocal-kitchen
+              app.kubernetes.io/name: hyperlocal-kitchen-redis
+      ports:
+        - protocol: TCP
+          port: 6379
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: hyperlocal-kitchen-redis-ingress
+  namespace: hyperlocal-kitchen
+  labels:
+    app.kubernetes.io/part-of: hyperlocal-kitchen
+spec:
+  podSelector:
+    matchLabels:
+      app.kubernetes.io/part-of: hyperlocal-kitchen
+      app.kubernetes.io/name: hyperlocal-kitchen-redis
+  policyTypes:
+    - Ingress
+  ingress:
+    - from:
+        - podSelector:
+            matchLabels:
+              hyperlocal-kitchen-redis-client: 'true'
+      ports:
+        - protocol: TCP
+          port: 6379
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: hyperlocal-kitchen-postgresql-egress
+  namespace: hyperlocal-kitchen
+  labels:
+    app.kubernetes.io/part-of: hyperlocal-kitchen
+spec:
+  podSelector:
+    matchLabels:
+      hyperlocal-kitchen-database-client: 'true'
+  policyTypes:
+    - Egress
+  egress:
+    - to:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: postgresql
+          podSelector:
+            matchLabels:
+              cnpg.io/poolerName: postgresql-pooler-hyperlocal-kitchen-rw
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: postgresql
+          podSelector:
+            matchLabels:
+              cnpg.io/cluster: postgresql
+              cnpg.io/podRole: instance
+      ports:
+        - protocol: TCP
+          port: 5432
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: hyperlocal-kitchen-oidc-egress
+  namespace: hyperlocal-kitchen
+  labels:
+    app.kubernetes.io/part-of: hyperlocal-kitchen
+spec:
+  podSelector:
+    matchExpressions:
+      - key: app.kubernetes.io/name
+        operator: In
+        values:
+          - hyperlocal-kitchen-api
+          - hyperlocal-kitchen-admin-api
+  policyTypes:
+    - Egress
+  egress:
+    - to:
+        - ipBlock:
+            cidr: 0.0.0.0/0
+            except:
+              - 10.0.0.0/8
+              - 100.64.0.0/10
+              - 127.0.0.0/8
+              - 169.254.0.0/16
+              - 172.16.0.0/12
+              - 192.168.0.0/16
+      ports:
+        - protocol: TCP
+          port: 443
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: cloudflare-hyperlocal-kitchen-egress
+  namespace: cloudflare
+  labels:
+    app.kubernetes.io/part-of: hyperlocal-kitchen
+spec:
+  podSelector:
+    matchLabels:
+      app: controlled-cloudflared-connector
+      strrl.dev/cloudflare-tunnel-ingress-controller: controlled-cloudflared-connector
+  policyTypes:
+    - Egress
+  egress:
+    - to:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: hyperlocal-kitchen
+          podSelector:
+            matchLabels:
+              app.kubernetes.io/name: hyperlocal-kitchen-admin
+              app.kubernetes.io/part-of: hyperlocal-kitchen
+      ports:
+        - protocol: TCP
+          port: 3000
+    - to:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: hyperlocal-kitchen
+          podSelector:
+            matchLabels:
+              app.kubernetes.io/name: hyperlocal-kitchen-api
+              app.kubernetes.io/part-of: hyperlocal-kitchen
+      ports:
+        - protocol: TCP
+          port: 8000

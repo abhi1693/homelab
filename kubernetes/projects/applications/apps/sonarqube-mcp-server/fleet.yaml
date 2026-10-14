@@ -1,0 +1,12 @@
+---
+name: sonarqube-mcp-server
+defaultNamespace: devfeed
+labels:
+  app.kubernetes.io/part-of: sonarqube-mcp-server
+  home-lab.io/project-slug: applications
+dependsOn:
+  - name: rancher-project-applications
+  - name: cert-manager-local-ca
+  - name: devfeed
+helm:
+  takeOwnership: true

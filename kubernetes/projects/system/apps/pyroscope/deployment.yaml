@@ -41,7 +41,7 @@ spec:
       containers:
         - name: pyroscope
           # renovate: datasource=docker depName=docker.io/grafana/pyroscope
-          image: docker.io/grafana/pyroscope:2.3.1
+          image: docker.io/grafana/pyroscope:2.4.0
           imagePullPolicy: IfNotPresent
           args:
             - -target=all
@@ -59,6 +59,8 @@ spec:
             - -querier.max-query-lookback=24h
             - -querier.max-query-length=24h
             - -validation.reject-older-than=2h
+            # The default uses all four node cores and overlaps memory-heavy jobs.
+            - -compaction-worker.job-concurrency=1
             - -usage-stats.enabled=false
             - -self-profiling.disable-push=true
             - -log.level=info
@@ -98,9 +100,9 @@ spec:
           resources:
             requests:
               cpu: 10m
-              memory: 96Mi
+              memory: 128Mi
             limits:
-              memory: 160Mi
+              memory: 256Mi
           securityContext:
             allowPrivilegeEscalation: false
             capabilities:

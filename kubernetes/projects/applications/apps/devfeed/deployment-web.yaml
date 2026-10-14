@@ -52,7 +52,7 @@ spec:
       containers:
         - name: web
           # renovate: datasource=docker depName=ghcr.io/abhi1693/devfeed.tech/web
-          image: registry.home/ghcr.io/abhi1693/devfeed.tech/web:0.0.45@sha256:37df3ba4188413d70a79cf29cf6906bc300f2da162b95f4f90229314f9264113
+          image: registry.home/ghcr.io/abhi1693/devfeed.tech/web:0.0.52@sha256:1cca7958dff698faab7b8cbff275177aca692e328471a1142d61046147569d31
           imagePullPolicy: IfNotPresent
           envFrom:
             - configMapRef:
@@ -80,6 +80,8 @@ spec:
             - name: DEVFEED_USER_EXTENSION_IDS
               value: '["hliakjocndflpkmfajndigbpngfcekdm","iihaipjedchahiehignbngclgpklbddo"]'
             - name: DEVFEED_FARO_ENABLED
+              value: 'true'
+            - name: DEVFEED_X_PIXEL_ENABLED
               value: 'true'
             - name: DEVFEED_ANALYTICS_ENABLED
               value: 'true'

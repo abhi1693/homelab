@@ -19,7 +19,7 @@ subsystem.
 | `k3s_agent.yml` | K3s agent configuration. |
 | `k3s_system_addons.yml` | HA CoreDNS and Metrics Server overrides with inventory-managed resources. |
 | `kube_vip.yml` | Kubernetes API registration VIP support. |
-| `cilium.yml` | Cilium install and upgrade, Hubble, and Traefik-to-MetalLB integration. |
+| `cilium.yml` | Cilium install and upgrade, Hubble, and Traefik-to-MetalLB integration; `cilium_entrypoint=cli` updates only the host CLI. |
 | `longhorn.yml` | Longhorn CRD and chart install. |
 | `cert_manager.yml` | cert-manager chart and ClusterIssuer bootstrap. |
 | `rancher.yml` | Rancher install and Fleet settings. |
@@ -45,6 +45,12 @@ Run a validation entrypoint:
 
 ```sh
 ansible-playbook playbooks/cilium.yml -e cilium_entrypoint=validation
+```
+
+Update only the bootstrap server's Cilium CLI:
+
+```sh
+ansible-playbook playbooks/cilium.yml -e cilium_entrypoint=cli
 ```
 
 Run the node image cache prune playbook only as a targeted break-glass action:

@@ -11,7 +11,7 @@ metadata:
 spec:
   ingressClassName: traefik
   rules:
-    - host: mcp.netbox.home
+    - host: netbox.mcp.home
       http:
         paths:
           - path: /
@@ -23,5 +23,5 @@ spec:
                   name: http
   tls:
     - hosts:
-        - mcp.netbox.home
+        - netbox.mcp.home
       secretName: netbox-mcp-server-home-tls

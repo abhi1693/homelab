@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Patch Episeerr 3.8.9 with aggregate season-progress prefetching."""
+"""Patch Episeerr 3.9.6 with aggregate season-progress prefetching."""
 
 from pathlib import Path
 

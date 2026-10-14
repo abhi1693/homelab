@@ -2,33 +2,44 @@
 
 Fleet-managed deployment for ShipyardHQ.
 
-Application release `1.5.33` upgrades Next.js from 16.3.4 to 16.3.5, which fixes
-`use cache` prerender signal retention. The web pods previously exhausted
-their 3 GiB JavaScript heap despite disabling the in-process cache. The heap
-and container limits remain unchanged; verify the bundled Next.js version,
-restart counts and sustained memory trend under traffic after rollout.
-See [the upstream patch](https://github.com/vercel/next.js/pull/98448).
-[Release CI](https://github.com/abhi1693/shipyardhq/actions/runs/35194201338)
-passed the ARM64 build, vulnerability scan and runtime smoke checks. All image
-references pin index digest `sha256:0b857f474b838b3adce541eb1505c7ade190dabb64e332c55f4757de975ecaa5`.
+Application release `1.5.39` adds an authenticated, plan-filtered products API
+with stable cursor pagination and private, uncached responses. Production is
+configured for the one-time Pro plan only. OpenTelemetry database instrumentation
+dependencies are updated. No database schema changes are required.
+
+Source commit `1b751b65` passed all 504 tests, ESLint, application and tooling
+TypeScript checks, full formatting validation, the production build, and local
+homepage/browse browser and CSS checks. GitHub Tests and Security Checks passed.
+[Release CI](https://github.com/abhi1693/shipyardhq/actions/runs/38148703125)
+passed the ARM64 image build, runtime smoke checks, and security scan with zero
+high/critical vulnerabilities and zero secrets.
+All image references pin index digest `sha256:2d05e0bb63b7f06b445799f271adafd8e54250448dff7a3fa39196313cbf9b29`,
+verified identical at GHCR and the internal mirror.
+
+Next.js 16.4 and React 19.3 retain Cache Components with Partial Prefetching;
+the public layout requires static shells and per-link prefetches with
+`ensureStatic = "prefetch"`. Partner Spotlight streams behind an independent
+Suspense boundary and `navigation()` gate. Turbopack garbage collection, lazy
+dynamic imports, worker threads, and security upgrade reminders remain enabled.
+The experimental native Rust React Compiler remains opt-in through
+`NEXT_RUST_REACT_COMPILER=1` and is off in production.
 
 The preceding 1.5.32 release gives historical leaderboard payloads a fixed
 24-hour cache lifetime. Reads do not extend it, so version invalidation no
 longer leaves obsolete generations in Valkey indefinitely. The active version
 marker remains persistent.
 
-The image uses Node.js 22.23.2 on Alpine 3.24 with npm 11.19.1 and Alpine
-security updates. This replaces the vulnerable Debian base and bundled npm tools.
+The image uses Node.js 22.23.2 on Alpine 3.24 with npm 11.19.1 with patched bundled brace-expansion 5.0.12, undici 6.28.1,
+and http-cache-semantics 4.3.0,
+and Alpine security updates. This replaces the vulnerable Debian base and bundled npm tools.
 GNU tar preserves Fleet artifact compatibility. The native ARM64 CI smoke check
 loads Sharp, the profiler, Next.js SWC, and Tailwind, generates Prisma, tests
 cache retention, and round-trips an artifact using Fleet's exact tar options.
 High/critical vulnerability and secret checks remain mandatory, including
 findings without available fixes; no scan exception is enabled.
 
-Before release, all 463 unit tests, ESLint, both TypeScript checks, scoped
-formatting, and the production build passed. A read-only production Prisma
-profile of a populated historical month's cache-miss queries completed in
-473 ms.
+For release 1.5.32, a read-only production Prisma profile of a populated
+historical month's cache-miss queries completed in 473 ms.
 
 On upgrade, apply a one-time `EXPIRE 86400 NX` to existing payload keys in
 `production:leaderboard:periodic:historical:v1:*` and
@@ -46,10 +57,10 @@ check stylesheet HTTP responses and desktop/mobile rendering after rollout.
 
 The web, worker, builder, ingestion, and cache-cleanup images share the same
 release. There are no database schema changes. To roll back, revert this release
-change through Git, restoring all four image-pin manifests to 1.5.32, and let
+change through Git, restoring all four image-pin manifests to 1.5.37, and let
 Fleet build or reuse the matching artifact before rolling the pods. Rollback
-restores the known Next.js memory-growth risk. Historical leaderboard TTL
-behavior is unchanged by 1.5.33.
+restores the previous Next.js and React versions and prefetch behavior.
+Historical leaderboard TTL behavior is unchanged by 1.5.39.
 
 The custom web, worker, and image-proxy Deployments retain two ReplicaSet
 revisions; Git and Fleet history remain the primary rollback path.
@@ -74,7 +85,7 @@ dockerconfigjson Secret for `registry.home`, backed by
 ```bash
 kubectl create namespace shipyardhq --dry-run=client -o yaml | kubectl apply -f -
 
-kubectl -n shipyardhq create secret generic shipyardhq-runtime \
+kubectl -n shipyardhq create secret generic shipyardhq \
   --from-env-file=/path/to/shipyardhq/production.env
 
 kubectl -n shipyardhq create secret generic shipyardhq-local-database \
@@ -94,7 +105,7 @@ REDIS_SENTINEL_NODES=valkey.valkey.svc.cluster.local:26379
 REDIS_DB=20
 ```
 
-Keep these values out of `shipyardhq-runtime` when recreating the Secret.
+Keep these values out of `shipyardhq` when recreating the Secret.
 
 Set these Cloudflare R2 secret values in the runtime env file. The bucket,
 endpoint, and public base URL are declared in the `shipyardhq` ConfigMap.
@@ -105,6 +116,23 @@ R2_SECRET_ACCESS_KEY=<cloudflare-r2-secret-access-key>
 ```
 
 Only the R2 credentials above are required for Shipyard media storage.
+
+## Products API
+
+`GET /api/products` uses a private bearer token and only returns published
+products assigned to the one-time Pro plan (`slug: pro`,
+`type: one_time_price`, ID `cmiuavhi401pvfi48hi4mevjx`). Recurring Pro products
+are excluded. Clients cannot override the configured plan with query parameters.
+
+`secrets.sops.yaml` manages `PRODUCTS_API_TOKEN` and `PRODUCTS_API_PLAN_ID`
+in the `shipyardhq` Secret. The token is 64 alphanumeric characters and remains
+encrypted in Git. Web pods consume both values through `envFrom` when the
+release rolls out. Keep these values out of the public ConfigMap and client code.
+
+Requests require `Authorization: Bearer <token>`. Missing or invalid credentials
+return `401`; successful responses are private and uncached. Use `limit` (1-100,
+default 20) and the returned `nextCursor` to paginate. Malformed pagination
+returns `400`. If either runtime value is absent, the endpoint returns `503`.
 
 ## Database
 
@@ -193,12 +221,12 @@ container follows the NetBox chart worker pattern and waits for
 `30m` CPU request stays below the running worker's request so the completed init
 container does not raise the worker pod's scheduler footprint.
 
-Secret runtime env is stored in the `shipyardhq-runtime` Kubernetes Secret. Do
+Secret runtime env is stored in the `shipyardhq` Kubernetes Secret. Do
 not commit secret runtime environment values.
 
 ## Image Proxy
 
-The `shipyardhq-imgproxy` Deployment serves signed imgproxy image URLs from
+The `shipyardhq-imgproxy` Deployment runs digest-pinned imgproxy `4.0.17` and serves signed imgproxy image URLs from
 `img.shipyardhq.dev`. It is configured to fetch source images only from the
 existing public R2 media origin:
 
@@ -248,7 +276,12 @@ the `metrics` port, and the ServiceMonitor scrapes `/metrics` from
 `cattle-monitoring-system`. NetworkPolicy only allows the public image endpoint
 from the Cloudflare tunnel and the metrics endpoint from Rancher Monitoring.
 The `shipyardhq-imgproxy-dashboard` ConfigMap is labeled for Rancher Grafana
-sidecar discovery in `cattle-dashboards`.
+sidecar discovery in `cattle-dashboards`. It provisions the shared **imgproxy /
+Overview** dashboard for ShipyardHQ and DevFeed, retaining UID `shipyardhq-imgproxy`
+and its existing URL. Application and Instance filters select either service or
+compare both; aggregations retain the application namespace. Memory and runtime
+counts use separate panels with appropriate units. Both services scrape every
+60 seconds.
 
 ## OpenTelemetry
 

@@ -9,7 +9,7 @@ metadata:
     app.kubernetes.io/part-of: firefly-iii
     home-lab.io/project-slug: applications
 spec:
-  suspend: false
+  # The monthly scaler owns suspend; omit it so Helm preserves runtime state.
   schedule: "0 3 * * *"
   concurrencyPolicy: Forbid
   successfulJobsHistoryLimit: 3
@@ -36,7 +36,7 @@ spec:
           containers:
             - name: curl
               # renovate: datasource=github-releases depName=curl/curl-container
-              image: registry.home/docker.io/curlimages/curl:8.22.0
+              image: registry.home/docker.io/curlimages/curl:8.23.0
               imagePullPolicy: IfNotPresent
               env:
                 - name: STATIC_CRON_TOKEN

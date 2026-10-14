@@ -17,8 +17,9 @@ ansible-playbook playbooks/k3s_server.yml -e k3s_server_entrypoint=validation
 ```
 
 The tools play installs only the ARM64 `etcdctl` client from the checksum-pinned
-official etcd 3.6.14 release. It does not install an etcd server, alter systemd,
-or restart K3s. Re-running it is idempotent. The version, SHA256, and associated
+official etcd 3.6.14 release, compatible with the embedded etcd in K3s 1.36.5.
+It does not install an etcd server, alter systemd, or restart K3s. Re-running
+it is idempotent. The version, SHA256, and associated
 K3s release are in `inventories/home/group_vars/k3s_servers.yml`. Review these
 pins together whenever K3s changes, including compatibility with both versions
 during the rolling transition. Rolling main and validation do not download tools;
@@ -71,7 +72,9 @@ under separate authorization, never an automatic downgrade or membership reset.
   desired Ready/available/updated counts, with a Ready pod for every configured
   node-local DaemonSet on the target. The inventory includes Cilium, kube-vip,
   Longhorn, node monitoring, DNS, ingress, Rancher, Fleet, and Harbor registry.
-- Every Longhorn volume healthy, PostgreSQL clusters at all desired instances
+- Every attached Longhorn volume healthy; an idle detached volume may report
+  `unknown` robustness only when it is scheduled and has no current or desired
+  node attachment. PostgreSQL clusters at all desired instances
   (at least three), and expected Fleet GitRepos present. Every home-lab GitRepo
   must be Ready, not Stalled, and have no missing, modified, unknown, unready,
   or WaitApplied resources or outstanding bundle deployments.

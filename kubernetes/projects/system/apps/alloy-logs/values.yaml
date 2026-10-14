@@ -4,7 +4,20 @@ crds:
 
 controller:
   type: deployment
-  replicas: 1
+  replicas: 2
+  updateStrategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxUnavailable: 0
+      maxSurge: 1
+  affinity:
+    podAntiAffinity:
+      requiredDuringSchedulingIgnoredDuringExecution:
+        - labelSelector:
+            matchLabels:
+              app.kubernetes.io/name: alloy
+              app.kubernetes.io/instance: alloy-logs
+          topologyKey: kubernetes.io/hostname
   podDisruptionBudget:
     enabled: true
     minAvailable: 1
@@ -19,25 +32,18 @@ controller:
 
 alloy:
   enableReporting: false
+  clustering:
+    enabled: true
+    name: alloy-logs
   configMap:
     content: |-
       discovery.kubernetes "pods" {
         role = "pod"
 
-        selectors {
-          role  = "pod"
-          field = "status.phase=Running"
-        }
       }
 
       discovery.relabel "pods" {
         targets = discovery.kubernetes.pods.targets
-
-        rule {
-          source_labels = ["__meta_kubernetes_namespace"]
-          regex         = "(kube-system|kube-public|kube-node-lease|cattle-system|cattle-fleet-system|cattle-impersonation-system|cattle-provisioning-capi-system|cattle-resources-system|fleet-local|cert-manager|longhorn-system)"
-          action        = "drop"
-        }
 
         rule {
           source_labels = ["__meta_kubernetes_namespace"]
@@ -92,6 +98,25 @@ alloy:
       loki.source.kubernetes "pods" {
         targets    = discovery.relabel.pods.output
         forward_to = [loki.process.devfeed.receiver]
+        clustering {
+          enabled = true
+        }
+      }
+
+      loki.source.kubernetes_events "cluster" {
+        job_name   = "kubernetes-events"
+        log_format = "json"
+        forward_to = [loki.process.events.receiver]
+        clustering {
+          enabled = true
+        }
+      }
+
+      loki.process "events" {
+        forward_to = [loki.write.local.receiver]
+        stage.static_labels {
+          values = { cluster = "local" }
+        }
       }
 
       loki.process "devfeed" {
@@ -138,5 +163,6 @@ configReloader:
 
 serviceMonitor:
   enabled: true
+  interval: 60s
   additionalLabels:
     app.kubernetes.io/part-of: rancher-monitoring
