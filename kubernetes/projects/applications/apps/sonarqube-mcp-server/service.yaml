@@ -1,0 +1,13 @@
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: sonarqube-mcp-server
+  namespace: devfeed
+spec:
+  selector:
+    app.kubernetes.io/name: sonarqube-mcp-server
+  ports:
+    - name: http
+      port: 8080
+      targetPort: http

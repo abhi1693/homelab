@@ -12,7 +12,7 @@ qbitConfigImage:
   repository: registry.home/docker.io/curlimages/curl
   pullPolicy: IfNotPresent
   # renovate: datasource=github-releases depName=curl/curl-container
-  tag: 8.22.0
+  tag: 8.23.0
 chartContext:
   appUrl: https://qbittorrent.media.home
 global:
@@ -27,10 +27,10 @@ podOptions:
     kubernetes.io/arch: arm64
 resources:
   requests:
-    cpu: 200m
+    cpu: 370m
     # qBittorrent restores roughly 800 torrents at startup and needs room for
     # peer-reconnect bursts; lower limits repeatedly OOM-killed the client.
-    memory: 1305Mi
+    memory: 1960Mi
   limits:
     # Reserve sustained demand with headroom; allow hashing/transfers to burst.
     cpu: 0

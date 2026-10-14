@@ -9,7 +9,7 @@ metadata:
     app.kubernetes.io/part-of: firefly-iii
     home-lab.io/project-slug: applications
 spec:
-  replicas: 1
+  # The monthly scaler owns replicas; omit it so Helm preserves runtime state.
   revisionHistoryLimit: 3
   strategy:
     type: Recreate
@@ -39,7 +39,7 @@ spec:
       containers:
         - name: firefly-iii
           # renovate: datasource=docker depName=docker.io/fireflyiii/core
-          image: registry.home/docker.io/fireflyiii/core:version-6.7.6
+          image: registry.home/docker.io/fireflyiii/core:version-6.7.9
           imagePullPolicy: IfNotPresent
           envFrom:
             - configMapRef:

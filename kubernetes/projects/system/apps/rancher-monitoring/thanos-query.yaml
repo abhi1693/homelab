@@ -82,7 +82,7 @@ spec:
           type: RuntimeDefault
       containers:
         - name: thanos-query
-          image: docker.io/rancher/appco-thanos:0.40.1-8.1
+          image: quay.io/thanos/thanos:v0.42.4
           imagePullPolicy: IfNotPresent
           args:
             - query

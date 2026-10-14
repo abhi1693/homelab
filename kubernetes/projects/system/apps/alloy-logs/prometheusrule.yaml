@@ -1,0 +1,28 @@
+---
+apiVersion: monitoring.coreos.com/v1
+kind: PrometheusRule
+metadata:
+  name: alloy-logs-availability
+  namespace: cattle-monitoring-system
+  labels:
+    app.kubernetes.io/part-of: rancher-monitoring
+spec:
+  groups:
+    - name: alloy-logs.availability
+      rules:
+        - alert: AlloyLogsReplicaUnavailable
+          expr: kube_deployment_status_replicas_available{namespace="cattle-monitoring-system",deployment="alloy-logs"} < 2 or absent(kube_deployment_status_replicas_available{namespace="cattle-monitoring-system",deployment="alloy-logs"})
+          for: 5m
+          labels:
+            severity: warning
+          annotations:
+            summary: Cluster log collection has lost redundancy
+            description: Restore two Alloy replicas on distinct nodes through Fleet. Check peer connectivity on TCP/12345 and Loki delivery counters.
+        - alert: AlloyLogsMetricsUnavailable
+          expr: sum(up{namespace="cattle-monitoring-system",job="alloy-logs"}) < 2 or absent(up{namespace="cattle-monitoring-system",job="alloy-logs"})
+          for: 5m
+          labels:
+            severity: warning
+          annotations:
+            summary: An Alloy log collector cannot be monitored
+            description: Fewer than two Alloy scrape targets are healthy. Check the ServiceMonitor, pod readiness and network policy.

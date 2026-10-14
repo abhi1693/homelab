@@ -17,3 +17,5 @@ spec:
   workloads:
     - {key: home-k3s/finance/apps/deployment/firefly-iii, namespace: finance, apiGroup: apps, kind: Deployment, name: firefly-iii, desiredReplicas: 1, sourcePath: kubernetes/projects/applications/apps/firefly-iii/deployment.yaml}
     - {key: home-k3s/finance/batch/cronjob/firefly-iii-cron, namespace: finance, apiGroup: batch, kind: CronJob, name: firefly-iii-cron, sourcePath: kubernetes/projects/applications/apps/firefly-iii/cronjob.yaml}
+    - {key: home-k3s/finance/batch/cronjob/firefly-monthly-start, namespace: finance, apiGroup: batch, kind: CronJob, name: firefly-monthly-start, sourcePath: kubernetes/projects/applications/apps/firefly-iii/monthly-scaler.yaml}
+    - {key: home-k3s/finance/batch/cronjob/firefly-monthly-stop, namespace: finance, apiGroup: batch, kind: CronJob, name: firefly-monthly-stop, sourcePath: kubernetes/projects/applications/apps/firefly-iii/monthly-scaler.yaml}

@@ -12,6 +12,14 @@
       - k3s.registration_vip | trim != ''
       - cilium.version | trim != ''
       - cilium.cli_version | trim != ''
+      - cilium.cluster_name | trim != ''
+      - cilium.bgp_control_plane_enabled is boolean
+      - cilium.routing_mode in ['tunnel', 'native']
+      - cilium.tunnel_protocol in ['vxlan', 'geneve']
+      - cilium.rollout.agent_max_unavailable | int == 1
+      - cilium.rollout.envoy_max_unavailable | int == 1
+      - cilium.rollout.operator_max_surge | int == 1
+      - cilium.rollout.operator_max_unavailable | int == 0
       - cilium.agent_capabilities | length > 0
       - cilium.cluster_pool_ipv4_pod_cidr_list | trim != ''
       - cilium.operator_replicas | int > 0
@@ -38,6 +46,25 @@
     fail_msg: Expected Cilium and bundled Traefik inputs to be fully configured.
     success_msg: "Cilium and bundled Traefik inputs are configured"
 
+- name: Check kernel BTF support on every node before Cilium 1.20.2
+  ansible.builtin.stat:
+    path: /sys/kernel/btf/vmlinux
+  delegate_to: "{{ item }}"
+  loop: "{{ groups['k3s_nodes'] }}"
+  register: cilium_node_btf
+  when: cilium.version == '1.20.2'
+
+- name: Reject Cilium 1.20.2 on nodes without kernel BTF
+  ansible.builtin.assert:
+    that:
+      - item.stat.exists
+    fail_msg: >-
+      Cilium 1.20.2 cannot initialize its socket load-balancing datapath on
+      {{ item.item }} without /sys/kernel/btf/vmlinux; keep Cilium 1.20.1.
+      See https://github.com/cilium/cilium/issues/48778.
+  loop: "{{ cilium_node_btf.results }}"
+  when: cilium.version == '1.20.2'
+
 - name: Wait for local K3s API before installing Cilium
   ansible.builtin.wait_for:
     host: 127.0.0.1
@@ -56,32 +83,8 @@
     fail_msg: Expected local K3s API /readyz endpoint to return ok before installing Cilium.
     success_msg: "Local K3s API is ready for Cilium installation"
 
-- name: Map system architecture to Cilium CLI release architecture
-  ansible.builtin.set_fact:
-    cilium_cli_arch: >-
-      {{
-        {
-          'aarch64': 'arm64',
-          'arm64': 'arm64',
-          'x86_64': 'amd64',
-          'amd64': 'amd64'
-        }.get(ansible_facts['architecture'], '')
-      }}
-
-- name: Assert Cilium CLI architecture is supported
-  ansible.builtin.assert:
-    that:
-      - cilium_cli_arch | trim != ''
-    fail_msg: "Unsupported architecture for Cilium CLI install: {{ ansible_facts['architecture'] }}"
-    success_msg: "Using Cilium CLI architecture {{ cilium_cli_arch }}"
-
-- name: Ensure local source directory exists for Cilium CLI downloads
-  ansible.builtin.file:
-    path: /usr/local/src
-    state: directory
-    owner: root
-    group: root
-    mode: "0755"
+- name: Install or update the Cilium CLI
+  ansible.builtin.include_tasks: cli.yml
 
 - name: Render desired Cilium values
   ansible.builtin.template:
@@ -91,71 +94,6 @@
     group: root
     mode: "0644"
   register: cilium_values_file
-
-- name: Check Cilium CLI binary path
-  ansible.builtin.stat:
-    path: /usr/local/bin/cilium
-  register: cilium_cli_binary_stat
-
-- name: Read installed Cilium CLI version
-  ansible.builtin.command: /usr/local/bin/cilium version --client
-  register: cilium_cli_version_output
-  changed_when: false
-  when: cilium_cli_binary_stat.stat.exists
-
-- name: Record installed Cilium CLI version
-  ansible.builtin.set_fact:
-    cilium_cli_installed_version: >-
-      {{
-        ((cilium_cli_version_output.stdout | regex_search('v[0-9.]+')) | default(''))
-      }}
-  when: cilium_cli_binary_stat.stat.exists
-
-- name: Download Cilium CLI archive
-  ansible.builtin.get_url:
-    url: "https://github.com/cilium/cilium-cli/releases/download/{{ cilium.cli_version }}/cilium-linux-{{ cilium_cli_arch }}.tar.gz"
-    dest: "/usr/local/src/cilium-linux-{{ cilium_cli_arch }}.tar.gz"
-    owner: root
-    group: root
-    mode: "0644"
-  when:
-    - not cilium_cli_binary_stat.stat.exists
-      or (cilium_cli_installed_version | default('')) != cilium.cli_version
-
-- name: Download Cilium CLI checksum
-  ansible.builtin.get_url:
-    url: "https://github.com/cilium/cilium-cli/releases/download/{{ cilium.cli_version }}/cilium-linux-{{ cilium_cli_arch }}.tar.gz.sha256sum"
-    dest: "/usr/local/src/cilium-linux-{{ cilium_cli_arch }}.tar.gz.sha256sum"
-    owner: root
-    group: root
-    mode: "0644"
-  when:
-    - not cilium_cli_binary_stat.stat.exists
-      or (cilium_cli_installed_version | default('')) != cilium.cli_version
-
-- name: Verify Cilium CLI archive checksum
-  ansible.builtin.command:
-    argv:
-      - sha256sum
-      - --check
-      - "cilium-linux-{{ cilium_cli_arch }}.tar.gz.sha256sum"
-  args:
-    chdir: /usr/local/src
-  when:
-    - not cilium_cli_binary_stat.stat.exists
-      or (cilium_cli_installed_version | default('')) != cilium.cli_version
-
-- name: Install Cilium CLI
-  ansible.builtin.unarchive:
-    src: "/usr/local/src/cilium-linux-{{ cilium_cli_arch }}.tar.gz"
-    dest: /usr/local/bin
-    remote_src: true
-    owner: root
-    group: root
-    mode: "0755"
-  when:
-    - not cilium_cli_binary_stat.stat.exists
-      or (cilium_cli_installed_version | default('')) != cilium.cli_version
 
 - name: Check for existing Cilium DaemonSet
   ansible.builtin.command:
@@ -317,39 +255,7 @@
     - cilium_restartable_addon_deployments is defined
   changed_when: false
 
-- name: Restart Cilium daemonset after install or upgrade
-  ansible.builtin.command:
-    argv:
-      - /usr/local/bin/k3s
-      - kubectl
-      - -n
-      - kube-system
-      - rollout
-      - restart
-      - daemonset/cilium
-  environment:
-    KUBECONFIG: /etc/rancher/k3s/k3s.yaml
-  when:
-    - (cilium_install_result is changed) or (cilium_upgrade_result is changed)
-  changed_when: true
-
-- name: Restart Cilium operator after install or upgrade
-  ansible.builtin.command:
-    argv:
-      - /usr/local/bin/k3s
-      - kubectl
-      - -n
-      - kube-system
-      - rollout
-      - restart
-      - deployment/cilium-operator
-  environment:
-    KUBECONFIG: /etc/rancher/k3s/k3s.yaml
-  when:
-    - (cilium_install_result is changed) or (cilium_upgrade_result is changed)
-  changed_when: true
-
-- name: Wait for Cilium daemonset rollout after install or upgrade restart
+- name: Wait for Cilium daemonset rollout after install or upgrade
   ansible.builtin.command:
     argv:
       - /usr/local/bin/k3s
@@ -366,7 +272,7 @@
     - (cilium_install_result is changed) or (cilium_upgrade_result is changed)
   changed_when: false
 
-- name: Wait for Cilium operator rollout after install or upgrade restart
+- name: Wait for Cilium operator rollout after install or upgrade
   ansible.builtin.command:
     argv:
       - /usr/local/bin/k3s
@@ -376,6 +282,23 @@
       - rollout
       - status
       - deployment/cilium-operator
+      - --timeout=300s
+  environment:
+    KUBECONFIG: /etc/rancher/k3s/k3s.yaml
+  when:
+    - (cilium_install_result is changed) or (cilium_upgrade_result is changed)
+  changed_when: false
+
+- name: Wait for Cilium Envoy rollout after install or upgrade
+  ansible.builtin.command:
+    argv:
+      - /usr/local/bin/k3s
+      - kubectl
+      - -n
+      - kube-system
+      - rollout
+      - status
+      - daemonset/cilium-envoy
       - --timeout=300s
   environment:
     KUBECONFIG: /etc/rancher/k3s/k3s.yaml

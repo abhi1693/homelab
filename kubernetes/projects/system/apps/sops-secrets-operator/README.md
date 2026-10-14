@@ -1,6 +1,8 @@
 # SOPS Secrets Operator
 
-This bundle installs `isindir/sops-secrets-operator` into the `sops` namespace.
+This bundle installs `isindir/sops-secrets-operator` chart `0.28.1` (operator
+`0.21.2`) into the `sops` namespace. The patch adds support for `unencrypted_regex`
+in SopsSecret metadata while retaining the existing age key and secret resources.
 The operator uses the existing `sops/sops-age-key-file` Secret created during
 bootstrap. That Secret must contain the same age identity used by local SOPS:
 

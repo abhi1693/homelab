@@ -22,6 +22,7 @@ spec:
   template:
     metadata:
       annotations:
+        devfeed.tech/x-pixel-token-revision: '2026-10-03'
         devfeed.tech/oidc-providers: '2026-09-28-shared-github-google'
         devfeed.tech/feed-max-bytes: '20000000'
         devfeed.tech/ai-content-not-before: 'disabled'
@@ -55,7 +56,7 @@ spec:
       containers:
         - name: user-api
           # renovate: datasource=docker depName=ghcr.io/abhi1693/devfeed.tech/user-api
-          image: registry.home/ghcr.io/abhi1693/devfeed.tech/user-api:0.0.45@sha256:120ab0f88baaaeff79b357b8e45ccca7ced1cc9d9544966090c5196491eda13c
+          image: registry.home/ghcr.io/abhi1693/devfeed.tech/user-api:0.0.52@sha256:efca110e64340008230ca8a9b34877f8406eee82f262e4633e31b496657f1dc9
           imagePullPolicy: IfNotPresent
           resources:
             requests:
@@ -73,6 +74,8 @@ spec:
               drop:
                 - ALL
           envFrom:
+            - secretRef:
+                name: devfeed-image-storage
             - configMapRef:
                 name: devfeed-telemetry
             - configMapRef:
@@ -84,6 +87,15 @@ spec:
             - configMapRef:
                 name: devfeed-oidc-providers
           env:
+            - name: DEVFEED_X_PIXEL_ENABLED
+              value: 'true'
+            - name: X_SIGNUP_EVENT_ID
+              value: tw-pc5f8-rgbo7
+            - name: X_PIXEL_TOKEN
+              valueFrom:
+                secretKeyRef:
+                  name: devfeed-x-conversions
+                  key: X_PIXEL_TOKEN
             - name: DEVFEED_USER_MCP_RESOURCE_URL
               value: https://mcp.devfeed.tech/mcp
             - name: DEVFEED_USER_MCP_ISSUER_URL
@@ -149,7 +161,7 @@ spec:
       initContainers:
         - name: wait-for-inbox
           # renovate: datasource=docker depName=ghcr.io/abhi1693/devfeed.tech/user-api
-          image: registry.home/ghcr.io/abhi1693/devfeed.tech/user-api:0.0.45@sha256:120ab0f88baaaeff79b357b8e45ccca7ced1cc9d9544966090c5196491eda13c
+          image: registry.home/ghcr.io/abhi1693/devfeed.tech/user-api:0.0.52@sha256:efca110e64340008230ca8a9b34877f8406eee82f262e4633e31b496657f1dc9
           imagePullPolicy: IfNotPresent
           resources:
             requests:
@@ -181,7 +193,7 @@ spec:
               else: raise SystemExit('Inbox provisioning not ready')
         - name: wait-for-schema
           # renovate: datasource=docker depName=ghcr.io/abhi1693/devfeed.tech/backend
-          image: registry.home/ghcr.io/abhi1693/devfeed.tech/backend:0.0.45@sha256:60e3cf4fa8368b808c1cf2fc2fbc70ef8a042f69913e7f5367fa9a476d370b1e
+          image: registry.home/ghcr.io/abhi1693/devfeed.tech/backend:0.0.52@sha256:5217dc6e52f196c1f9d6f7bfb121f2736f53bcac3e2965d5dc4563f82961ce60
           imagePullPolicy: IfNotPresent
           securityContext:
             runAsNonRoot: true

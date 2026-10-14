@@ -1,0 +1,58 @@
+---
+apiVersion: home-lab.io/v1alpha1
+kind: WorkloadCatalog
+metadata:
+  name: hyperlocal-kitchen
+spec:
+  displayName: Hyperlocal Kitchen
+  purpose: Community pickup and home-delivery marketplace with a separate administrator portal.
+  owner: home-lab
+  project: applications
+  cluster: home-k3s
+  lifecycle: active
+  criticality: medium
+  dataClassification: restricted
+  repository: https://github.com/abhi1693/hyperlocal-kitchen
+  gitPath: kubernetes/projects/applications/apps/hyperlocal-kitchen
+  workloads:
+    - key: home-k3s/hyperlocal-kitchen/apps/deployment/hyperlocal-kitchen-api
+      namespace: hyperlocal-kitchen
+      apiGroup: apps
+      kind: Deployment
+      name: hyperlocal-kitchen-api
+      desiredReplicas: 1
+      sourcePath: kubernetes/projects/applications/apps/hyperlocal-kitchen/deployment-api.yaml
+    - key: home-k3s/hyperlocal-kitchen/apps/deployment/hyperlocal-kitchen-admin-api
+      namespace: hyperlocal-kitchen
+      apiGroup: apps
+      kind: Deployment
+      name: hyperlocal-kitchen-admin-api
+      desiredReplicas: 1
+      sourcePath: kubernetes/projects/applications/apps/hyperlocal-kitchen/deployment-admin-api.yaml
+    - key: home-k3s/hyperlocal-kitchen/apps/deployment/hyperlocal-kitchen-admin
+      namespace: hyperlocal-kitchen
+      apiGroup: apps
+      kind: Deployment
+      name: hyperlocal-kitchen-admin
+      desiredReplicas: 1
+      sourcePath: kubernetes/projects/applications/apps/hyperlocal-kitchen/deployment-admin.yaml
+    - key: home-k3s/hyperlocal-kitchen/apps/deployment/hyperlocal-kitchen-worker
+      namespace: hyperlocal-kitchen
+      apiGroup: apps
+      kind: Deployment
+      name: hyperlocal-kitchen-worker
+      desiredReplicas: 1
+      sourcePath: kubernetes/projects/applications/apps/hyperlocal-kitchen/deployment-worker.yaml
+    - key: home-k3s/hyperlocal-kitchen/apps/deployment/hyperlocal-kitchen-redis
+      namespace: hyperlocal-kitchen
+      apiGroup: apps
+      kind: Deployment
+      name: hyperlocal-kitchen-redis
+      desiredReplicas: 1
+      sourcePath: kubernetes/projects/applications/apps/hyperlocal-kitchen/deployment-redis.yaml
+    - key: home-k3s/hyperlocal-kitchen/batch/job/hyperlocal-kitchen-migrate-168f2c8
+      namespace: hyperlocal-kitchen
+      apiGroup: batch
+      kind: Job
+      name: hyperlocal-kitchen-migrate-168f2c8
+      sourcePath: kubernetes/projects/applications/apps/hyperlocal-kitchen/migration-job.yaml

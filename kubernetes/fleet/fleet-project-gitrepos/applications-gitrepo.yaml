@@ -14,6 +14,7 @@ spec:
   clientSecretName: home-lab-apps-github
   pollingInterval: 1h0m0s
   paths:
+    - kubernetes/projects/applications/apps/hyperlocal-kitchen
     - kubernetes/projects/applications/apps/devfeed
     - kubernetes/projects/applications/apps/applications-helm-repositories
     - kubernetes/projects/applications/apps/firefly-iii-storage
@@ -24,6 +25,7 @@ spec:
     - kubernetes/projects/applications/apps/portfolio
     - kubernetes/projects/applications/apps/renovate
     - kubernetes/projects/applications/apps/shipyardhq
+    - kubernetes/projects/applications/apps/sonarqube-mcp-server
     - kubernetes/projects/applications/apps/wardn-ai-website
     - kubernetes/projects/applications/apps/wardn-license-server-prerequisites
     - kubernetes/projects/applications/apps/wardn-license-server

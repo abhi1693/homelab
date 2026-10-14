@@ -1,9 +1,10 @@
 # Rancher Monitoring
 
 The monitoring runtime uses upstream `prometheus-community/kube-prometheus-stack`
-`80.9.1`, matching the base of the retired Rancher chart. The initial handoff
-pins Prometheus 3.8.1, Grafana 12.3.1, Alertmanager 0.30.0 and their existing
-storage identities. The operator authorized this cutover without new backups.
+`92.2.0`: Prometheus 3.15.0, Grafana 13.2.3, Alertmanager 0.34.1 and operator
+0.94.1. Prometheus, Alertmanager, Grafana, the Grafana sidecar and Thanos use
+upstream images. Thanos query and sidecars run 0.42.4. Existing storage identities
+are retained. The operator explicitly requested continuing without backups.
 
 The upstream chart is fetched from its official GHCR OCI repository, avoiding
 large HTTP chart-index parsing in the memory-bounded HelmOps controller.
@@ -16,14 +17,27 @@ upgraded in place to remove its legacy destructive uninstall hook. Its upstream
 CRD upgrade Job applies schemas before the runtime updates. Namespaces remain
 owned by the wrapper manifests; HelmOps do not set namespace metadata.
 
-`upstream-values.yaml` and `upstream-crd-values.yaml` are active runtime values;
-`values.yaml` and `crd-values.yaml` retain the legacy configuration for a reviewed
-rollback. `preserved-dashboards-values.yaml` carries 25 public chart dashboard
-ConfigMaps with unchanged names, namespace and UIDs. Stock dashboard generation
-is disabled to prevent duplicate provisioning. Review these definitions when
-upgrading the upstream chart; Rancher integration dashboards are independently
-maintained by the dashboard chart. Custom dashboards and UI-created dashboards
-retain their existing ConfigMaps and Grafana database.
+The CRDs were upgraded to chart `92.2.0` before the runtime, using upstream
+`registry.k8s.io/kubectl:v1.36.4`.
+
+`upstream-values.yaml` and `upstream-crd-values.yaml` are active runtime values.
+`values.yaml` and `crd-values.yaml` retain the initial legacy configuration as a
+historical reference; Grafana 13 database migrations require a reviewed recovery
+plan rather than a blind downgrade.
+
+Stock dashboards are generated directly by the upstream chart in
+`cattle-monitoring-system`, retaining their dashboard UIDs. The frozen
+`preserved-dashboards-values.yaml` input is retired. The temporary Helm pre-upgrade
+hook removed the 24 former stock ConfigMaps in `cattle-dashboards` before
+native provisioning started. The hook and its RBAC are now removed, and runtime
+drift correction is restored.
+The existing AIX ConfigMap is updated in place. Rancher integration dashboards
+and custom dashboards remain in their existing namespaces, and UI-created
+content stays in Grafana's database. Chart upgrades now refresh stock dashboards
+automatically.
+
+Grafana 13's SQLite migration uses a 64 MiB migration cache and Parquet staging;
+the Grafana container has a 1 GiB memory limit and its existing UID/GID 472.
 
 Native `monitoring-prometheus`, `monitoring-alertmanager` and
 `monitoring-grafana` Services back the maintained Rancher UI proxies. Grafana's
@@ -94,7 +108,8 @@ samples up to 30 minutes out of order to accommodate collector batching; each
 producer still needs a unique service instance identity. The runtime handoff
 retains dashboard ConfigMaps and Rancher bridge Services through Helm keep
 annotations. The operator authorized the 2026-10-01 cutover without new storage
-backups; existing PVCs and stateful runtime versions must remain unchanged.
+backups. The subsequent modernization retained the existing PVCs while advancing
+the stateful runtimes to the upstream versions listed above.
 Grafana also provisions
 a `Tempo` datasource for the lightweight Tempo app in this project.
 Alertmanager runs two replicas with retained `2Gi` NFS PVCs. Grafana is exposed internally at
@@ -122,6 +137,9 @@ temporary NFS delay cannot make an otherwise healthy Grafana process exit.
 Alertmanager loads `AlertmanagerConfig` resources cluster-wide and uses the
 `home-lab-slack` config to send non-`Watchdog`, non-`none` severity alert
 notifications to Slack.
+A temporary `MonitoringMigrationDeliveryCheck` alert verified the delivery path
+after modernization: Slack notifications increased with zero delivery failures.
+The temporary rule was removed through Fleet.
 The Slack incoming-webhook URL is stored in the SOPS-managed
 `alertmanager-slack` Secret.
 
@@ -171,7 +189,7 @@ series ingestion, and API SLO rules afterward.
 
 Review requests against sustained CPU and memory use with burst headroom.
 Prometheus requests `400m` CPU and `4Gi` memory per replica. Grafana's main and dashboard-sidecar containers request `35m` CPU and
-`512Mi` memory in total. Rancher's separate UI proxy has two replicas. The chart-wide `grafana.sidecar.resources` key applies to its
+`704Mi` memory in total. Rancher's separate UI proxy has two replicas. The chart-wide `grafana.sidecar.resources` key applies to its
 sidecars. Node exporter requests `5m` CPU on each node and remains burstable.
 `kube-state-metrics` requests `192Mi` and is capped at `384Mi`; preserve
 startup headroom when resizing it.
@@ -249,3 +267,32 @@ Operational response procedures:
 
 Current Grafana NFS capacity is adequate; transient stalls require time-aligned
 evidence before changing the storage backend.
+
+## Unsupported ingress dashboards
+
+This cluster uses Traefik, not ingress-nginx. Chart
+`rancher-monitoring-dashboards` `110.0.1+up0.1.4` ignores
+`dashboardArtifacts.groups.ingressNginx: false` in its dashboard ConfigMap
+template (it only respects it in the integration index). The Grafana sidecar's
+supported pre-reload script therefore removes exactly `nginx.json` and
+`request-handling-performance.json` from its ephemeral provisioning directory.
+The chart-owned ConfigMap remains, but its two dashboards are not provisioned.
+This survives reconciliation without editing live chart resources. Retain the
+false group setting and remove this workaround once an upgraded chart no longer
+renders the unwanted ConfigMap. Traefik dashboards and metrics remain enabled.
+
+Validate Helm inputs by rendering their pinned charts before server-side dry runs.
+The raw-manifest pre-commit hook excludes `upstream-values.yaml`,
+`upstream-crd-values.yaml` and `dashboards-values.yaml`; they are values maps,
+not Kubernetes resource documents. YAML syntax validation still covers them.
+
+## Coverage and HA boundary
+
+The [2026-10-01 review](../../../../../docs/runbooks/monitoring-ha-review.md)
+checks the modernization against live targets and seven-day resource history.
+Prometheus, Alertmanager and Thanos have redundant replicas, but Grafana's
+SQLite/NFS database, the shared NAS, kube-state-metrics and the operator remain
+single failure points with different consequences. Do not describe the entire
+stack as HA. Actual etcd server-health metrics are absent despite API-client
+metrics with `etcd_` prefixes. Keep the measured Prometheus memory headroom;
+reducing requests does not reduce actual resource consumption.

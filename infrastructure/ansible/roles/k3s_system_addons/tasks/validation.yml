@@ -52,6 +52,35 @@
     KUBECONFIG: /etc/rancher/k3s/k3s.yaml
   changed_when: false
 
+- name: Read custom system add-on deployment images
+  ansible.builtin.command:
+    argv:
+      - /usr/local/bin/k3s
+      - kubectl
+      - -n
+      - kube-system
+      - get
+      - "deployment/{{ item.name }}"
+      - -o
+      - jsonpath={.spec.template.spec.containers[0].image}
+  environment:
+    KUBECONFIG: /etc/rancher/k3s/k3s.yaml
+  register: k3s_system_addons_validation_images
+  changed_when: false
+  loop:
+    - name: coredns
+      image: "{{ k3s_system_addons.coredns.image }}"
+    - name: metrics-server
+      image: "{{ k3s_system_addons.metrics_server.image }}"
+
+- name: Assert custom system add-on deployment images match inventory
+  ansible.builtin.assert:
+    that:
+      - item.stdout | trim == item.item.image
+    fail_msg: "{{ item.item.name }} image does not match inventory"
+    success_msg: "{{ item.item.name }} image matches inventory"
+  loop: "{{ k3s_system_addons_validation_images.results }}"
+
 - name: Read kube-dns service routing
   ansible.builtin.command:
     argv:

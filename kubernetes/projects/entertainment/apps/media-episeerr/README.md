@@ -28,6 +28,14 @@ then receives the Sonarr series-add event, changes monitoring to the rule-owned
 season, and removes the transient delay tag. Bootstrap refuses to overwrite a
 different Jellyseerr webhook destination.
 
+Bootstrap removes references to deleted Sonarr tags from Jellyseerr's request
+defaults while preserving valid user tags. This prevents new requests from
+inheriting orphan tag IDs after tags are deleted or recreated. The long delay
+is intentional; repair an unresolved rule assignment rather than shortening
+the delay profile. Existing series retain their own settings until explicitly
+repaired through the application API or UI. See the
+[download recovery runbook](../../../../../docs/runbooks/media-download-recovery.md).
+
 Fleet rollout does not automatically bulk-migrate existing Sonarr series.
 Assign one through the Episeerr UI, or add both `episeerr_default` and
 `episeerr_delay` before triggering the Episeerr Sonarr webhook. A one-time
@@ -55,8 +63,8 @@ next-season decision still uses the separate 25 percent aggregate-season gate.
 
 ## Runtime Shape
 
-- Image: `registry.home/ghcr.io/abhi1693/home-lab-episeerr:3.8.9-5`
-- Upstream release: `vansmak/episeerr:3.8.9`, pinned by digest in the image
+- Image: `registry.home/ghcr.io/abhi1693/home-lab-episeerr:3.9.6-2@sha256:ea5961a513fd660e9c7fecc07a305ef51aac355ae516da57a44f91d04e748c31`
+- Upstream release: `vansmak/episeerr:3.9.6`, pinned by digest in the image
   Dockerfile
 - Service: `episeerr.media.svc.cluster.local:5002`
 - Config and SQLite state: retained 1Gi Longhorn PVC
@@ -64,10 +72,12 @@ next-season decision still uses the separate 25 percent aggregate-season gate.
 - Pod user: UID/GID `1000`, read-only root filesystem, dropped capabilities,
   RuntimeDefault seccomp, and no service-account token
 
-The image workflow must publish `3.8.9-5` before Fleet can start the workload.
-The wrapper upgrades the two upstream Python packages that had fixable
-high-severity scan results and applies an assertion-guarded season-progress
-patch with behavioral tests during the image build.
+The `3.9.6-2` image copies the pinned upstream application onto a pinned
+Python 3.13 Alpine runtime with locked Python dependencies. It applies an
+assertion-guarded season-progress patch with five behavioral tests during the
+build. Native ARM64 vulnerability/secret scanning and non-root, read-only
+authentication smoke tests must pass before the workflow publishes the tag.
+The init and application containers use the same immutable digest.
 
 ## Network Boundary
 

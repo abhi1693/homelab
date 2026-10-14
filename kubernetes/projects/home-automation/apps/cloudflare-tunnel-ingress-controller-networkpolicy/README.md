@@ -1,8 +1,8 @@
 # Cloudflare Tunnel Network Policies
 
 This companion Fleet bundle owns the controller and connector network policies,
-the controller disruption budget, and the connector's Cilium egress exception
-for Music Assistant. It depends on the Cloudflare controller chart bundle.
+and the controller disruption budget. It depends on the Cloudflare controller
+chart bundle.
 
 The chart owns both metrics Services and ServiceMonitors through
 `serviceMonitor.create`. Keep their definitions out of this bundle so Fleet

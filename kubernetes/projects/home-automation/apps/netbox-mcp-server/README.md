@@ -6,8 +6,8 @@ namespace and reaches NetBox through its internal-LAN ingress hostname.
 
 ## Endpoint
 
-- MCP URL: `https://mcp.netbox.home/mcp`
-- Browser guide: `https://mcp.netbox.home/`
+- MCP URL: `https://netbox.mcp.home/mcp`
+- Browser guide: `https://netbox.mcp.home/`
 - NetBox target header: `X-NetBox-URL: https://netbox.home/`
 - Authentication: `Authorization: Bearer <NetBox v2 token>`
 
@@ -69,5 +69,5 @@ After Fleet reconciles, verify the deployment and endpoint:
 ```sh
 kubectl -n netbox rollout status deployment/netbox-mcp-server
 kubectl -n netbox get certificate netbox-mcp-server-home
-curl --cacert /path/to/home-local-ca.crt https://mcp.netbox.home/
+curl --cacert /path/to/home-local-ca.crt https://netbox.mcp.home/
 ```

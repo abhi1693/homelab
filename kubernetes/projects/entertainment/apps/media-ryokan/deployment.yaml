@@ -47,7 +47,7 @@ spec:
       initContainers:
         - name: sync-qbittorrent-credentials
           # renovate: datasource=docker depName=docker.io/library/python
-          image: registry.home/docker.io/library/python:3.14-alpine
+          image: registry.home/docker.io/library/python:3.15-alpine
           imagePullPolicy: IfNotPresent
           command:
             - python3

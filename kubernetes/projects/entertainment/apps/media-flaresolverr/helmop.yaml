@@ -33,7 +33,7 @@ spec:
     releaseName: flaresolverr
     repo: oci://oci.trueforge.org/truecharts/flaresolverr
     # renovate: datasource=docker depName=oci.trueforge.org/truecharts/flaresolverr
-    version: 17.11.1
+    version: 18.0.0
     atomic: true
     timeoutSeconds: 600
     takeOwnership: true

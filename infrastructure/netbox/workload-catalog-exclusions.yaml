@@ -5,6 +5,14 @@ metadata:
   name: project-app-coverage
 spec:
   exclusions:
+    - path: kubernetes/projects/database/apps/postgresql-devfeed-prerequisites
+      disposition: component
+      application: postgresql
+      reason: DevFeed database credentials and network access are part of PostgreSQL.
+    - path: kubernetes/projects/system/apps/longhorn-backups
+      disposition: component
+      application: longhorn
+      reason: Backup targets and backup credentials are part of Longhorn.
     - path: kubernetes/projects/applications/apps/applications-helm-repositories
       disposition: support
       application: fleet
@@ -29,6 +37,10 @@ spec:
       disposition: component
       application: postgresql
       reason: Network boundaries are part of the PostgreSQL application.
+    - path: kubernetes/projects/database/apps/postgresql-hyperlocal-kitchen-prerequisites
+      disposition: component
+      application: postgresql
+      reason: Hyperlocal Kitchen credentials and pooler network access are part of PostgreSQL.
     - path: kubernetes/projects/database/apps/postgresql-launchboard-prerequisites
       disposition: component
       application: postgresql

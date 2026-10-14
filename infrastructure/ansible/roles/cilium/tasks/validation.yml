@@ -73,6 +73,91 @@
   register: cilium_operator_rollout
   changed_when: false
 
+- name: Wait for Cilium Envoy DaemonSet rollout
+  ansible.builtin.command:
+    argv:
+      - /usr/local/bin/k3s
+      - kubectl
+      - -n
+      - kube-system
+      - rollout
+      - status
+      - daemonset/cilium-envoy
+      - --timeout=300s
+  register: cilium_envoy_rollout
+  changed_when: false
+
+- name: Read deployed Cilium agent and operator images
+  ansible.builtin.command:
+    argv:
+      - /usr/local/bin/k3s
+      - kubectl
+      - -n
+      - kube-system
+      - get
+      - "{{ item.kind }}/{{ item.name }}"
+      - -o
+      - jsonpath={.spec.template.spec.containers[0].image}
+  loop:
+    - kind: daemonset
+      name: cilium
+    - kind: deployment
+      name: cilium-operator
+  register: cilium_deployed_images
+  changed_when: false
+
+- name: Assert Cilium agent and operator match the inventory version
+  ansible.builtin.assert:
+    that:
+      - "(':v' ~ cilium.version ~ '@') in item.stdout"
+    fail_msg: "{{ item.item.name }} image does not match Cilium {{ cilium.version }}."
+    success_msg: "{{ item.item.name }} image matches Cilium {{ cilium.version }}."
+  loop: "{{ cilium_deployed_images.results }}"
+
+- name: Read Cilium agent and Envoy rollout limits
+  ansible.builtin.command:
+    argv:
+      - /usr/local/bin/k3s
+      - kubectl
+      - -n
+      - kube-system
+      - get
+      - "daemonset/{{ item }}"
+      - -o
+      - jsonpath={.spec.updateStrategy.rollingUpdate.maxUnavailable}
+  loop:
+    - cilium
+    - cilium-envoy
+  register: cilium_daemonset_rollout_limits
+  changed_when: false
+
+- name: Assert Cilium agent and Envoy roll one node at a time
+  ansible.builtin.assert:
+    that:
+      - item.stdout | int == 1
+    fail_msg: "{{ item.item }} must use maxUnavailable 1."
+  loop: "{{ cilium_daemonset_rollout_limits.results }}"
+
+- name: Read Cilium operator rollout limits
+  ansible.builtin.command:
+    argv:
+      - /usr/local/bin/k3s
+      - kubectl
+      - -n
+      - kube-system
+      - get
+      - deployment/cilium-operator
+      - -o
+      - jsonpath={.spec.strategy.rollingUpdate.maxSurge}{" "}{.spec.strategy.rollingUpdate.maxUnavailable}
+  register: cilium_operator_rollout_limits
+  changed_when: false
+
+- name: Assert Cilium operator keeps both replicas available
+  ansible.builtin.assert:
+    that:
+      - cilium_operator_rollout_limits.stdout | trim == '1 0'
+    fail_msg: Cilium operator must use maxSurge 1 and maxUnavailable 0.
+
 - name: Read deployed Cilium kube-proxy replacement setting
   ansible.builtin.command:
     argv:
@@ -120,6 +205,28 @@
       - (cilium_service_topology.stdout | trim | bool) == (cilium.service_topology | bool)
     fail_msg: Expected Cilium service topology to match inventory.
     success_msg: Cilium service topology matches inventory.
+
+- name: Read deployed Cilium network identity and routing settings
+  ansible.builtin.command:
+    argv:
+      - /usr/local/bin/k3s
+      - kubectl
+      - -n
+      - kube-system
+      - get
+      - configmap/cilium-config
+      - -o
+      - json
+  register: cilium_network_config
+  changed_when: false
+
+- name: Assert Cilium network identity and routing settings match inventory
+  ansible.builtin.assert:
+    that:
+      - (cilium_network_config.stdout | from_json).data['cluster-name'] == cilium.cluster_name
+      - (cilium_network_config.stdout | from_json).data['routing-mode'] == cilium.routing_mode
+      - (cilium_network_config.stdout | from_json).data['tunnel-protocol'] == cilium.tunnel_protocol
+    fail_msg: Cilium cluster identity or routing settings differ from inventory.
 
 - name: Read deployed Cilium local redirect policy setting
   ansible.builtin.command:

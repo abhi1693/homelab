@@ -1,0 +1,119 @@
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: sonarqube-mcp-server
+  namespace: devfeed
+  labels:
+    app.kubernetes.io/name: sonarqube-mcp-server
+    app.kubernetes.io/part-of: sonarqube-mcp-server
+    home-lab.io/project-slug: applications
+spec:
+  replicas: 1
+  revisionHistoryLimit: 2
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxUnavailable: 0
+      maxSurge: 1
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: sonarqube-mcp-server
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: sonarqube-mcp-server
+        app.kubernetes.io/part-of: sonarqube-mcp-server
+        home-lab.io/project-slug: applications
+    spec:
+      automountServiceAccountToken: false
+      nodeSelector:
+        kubernetes.io/arch: arm64
+      imagePullSecrets:
+        - name: harbor-registry
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 100
+        runAsGroup: 101
+        fsGroup: 101
+        seccompProfile:
+          type: RuntimeDefault
+      containers:
+        - name: server
+          # renovate: datasource=docker depName=sonarsource/sonarqube-mcp
+          image: registry.home/docker.io/sonarsource/sonarqube-mcp:1.19.0.2785@sha256:fdd8a409b34bb130a648eff3195dedbc7001c4aa3ad326fd51a968160c1e4c04
+          imagePullPolicy: IfNotPresent
+          env:
+            - name: SONARQUBE_TRANSPORT
+              value: http
+            - name: SONARQUBE_HTTP_HOST
+              value: 0.0.0.0
+            - name: SONARQUBE_HTTP_PORT
+              value: "8080"
+            - name: SONARQUBE_MCP_IN_CONTAINER
+              value: "true"
+            - name: SONARQUBE_HTTP_ALLOWED_ORIGINS
+              value: https://sonar.mcp.home
+            - name: SONARQUBE_ORG
+              value: abhi1693
+            - name: SONARQUBE_PROJECT_KEY
+              value: abhi1693_devfeed.tech
+            - name: SONARQUBE_READ_ONLY
+              value: "true"
+            - name: SONARQUBE_TOOLSETS
+              value: issues,rules,sources,quality-gates,measures,coverage,duplications,security-hotspots
+            - name: SONARQUBE_LOG_TO_FILE_DISABLED
+              value: "true"
+            - name: JAVA_TOOL_OPTIONS
+              value: -XX:MaxRAMPercentage=65.0
+          ports:
+            - name: http
+              containerPort: 8080
+          startupProbe:
+            httpGet:
+              path: /health
+              port: http
+            periodSeconds: 3
+            timeoutSeconds: 3
+            failureThreshold: 40
+          readinessProbe:
+            httpGet:
+              path: /health
+              port: http
+            periodSeconds: 10
+            timeoutSeconds: 3
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: http
+            periodSeconds: 30
+            timeoutSeconds: 3
+          resources:
+            requests:
+              cpu: 100m
+              memory: 256Mi
+            limits:
+              memory: 768Mi
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities:
+              drop:
+                - ALL
+          volumeMounts:
+            - name: storage
+              mountPath: /app/storage
+            - name: home
+              mountPath: /home/appuser
+            - name: tmp
+              mountPath: /tmp
+      volumes:
+        - name: storage
+          emptyDir:
+            sizeLimit: 256Mi
+        - name: home
+          emptyDir:
+            sizeLimit: 256Mi
+        - name: tmp
+          emptyDir:
+            sizeLimit: 64Mi

@@ -1,0 +1,24 @@
+---
+name: hyperlocal-kitchen
+defaultNamespace: hyperlocal-kitchen
+labels:
+  app.kubernetes.io/part-of: hyperlocal-kitchen
+  home-lab.io/project-slug: applications
+dependsOn:
+  - name: rancher-project-applications
+  - name: postgresql
+  - name: postgresql-hyperlocal-kitchen-prerequisites
+  - name: cloudflare-tunnel-ingress-controller
+  - name: sops-secrets-operator
+helm:
+  takeOwnership: true
+  timeoutSeconds: 900
+  waitForJobs: true
+diff:
+  comparePatches:
+    - apiVersion: v1
+      kind: PersistentVolumeClaim
+      name: hyperlocal-kitchen-redis
+      namespace: hyperlocal-kitchen
+      jsonPointers:
+        - /spec/volumeName

@@ -52,13 +52,13 @@ spec:
             - name: PORT
               value: "8000"
             - name: MCP_PUBLIC_URL
-              value: https://mcp.netbox.home/mcp
+              value: https://netbox.mcp.home/mcp
             - name: ALLOWED_HOSTS
-              value: mcp.netbox.home,netbox-mcp-server,netbox-mcp-server.netbox,netbox-mcp-server.netbox.svc,netbox-mcp-server.netbox.svc.cluster.local,127.0.0.1,localhost
+              value: netbox.mcp.home,netbox-mcp-server,netbox-mcp-server.netbox,netbox-mcp-server.netbox.svc,netbox-mcp-server.netbox.svc.cluster.local,127.0.0.1,localhost
             - name: ALLOWED_ORIGINS
-              value: https://mcp.netbox.home
+              value: https://netbox.mcp.home
             - name: CORS_ORIGINS
-              value: https://mcp.netbox.home
+              value: https://netbox.mcp.home
             - name: ALLOW_REMOTE_HTTP
               value: "true"
             - name: TLS_TERMINATED_BY_PROXY

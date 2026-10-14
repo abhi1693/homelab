@@ -18,6 +18,14 @@ spec:
     - Egress
   ingress:
     - from:
+        - podSelector:
+            matchLabels:
+              app.kubernetes.io/name: alloy
+              app.kubernetes.io/instance: alloy-logs
+      ports:
+        - protocol: TCP
+          port: 12345
+    - from:
         - namespaceSelector:
             matchLabels:
               kubernetes.io/metadata.name: cattle-monitoring-system
@@ -30,6 +38,14 @@ spec:
           port: 12345
   egress:
     - to:
+        - podSelector:
+            matchLabels:
+              app.kubernetes.io/name: alloy
+              app.kubernetes.io/instance: alloy-logs
+      ports:
+        - protocol: TCP
+          port: 12345
+    - to:
         - namespaceSelector:
             matchLabels:
               kubernetes.io/metadata.name: kube-system
@@ -41,9 +57,6 @@ spec:
           port: 53
         - protocol: TCP
           port: 53
-    - ports:
-        - protocol: TCP
-          port: 443
     - to:
         - podSelector:
             matchLabels:

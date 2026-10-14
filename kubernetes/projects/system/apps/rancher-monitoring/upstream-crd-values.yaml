@@ -12,9 +12,9 @@ crds:
         repository: library/busybox
         tag: 1.37.0
       kubectl:
-        registry: docker.io
-        repository: rancher/kuberlr-kubectl
-        tag: v7.0.1
+        registry: registry.k8s.io
+        repository: kubectl
+        tag: v1.36.4
     resources:
       requests:
         cpu: 10m

@@ -1,6 +1,16 @@
 k8sServiceHost: {{ k3s.registration_vip }}
 k8sServicePort: {{ cilium.k8s_service_port }}
+cluster:
+  name: {{ cilium.cluster_name | to_json }}
+bgpControlPlane:
+  enabled: {{ cilium.bgp_control_plane_enabled | lower }}
+routingMode: {{ cilium.routing_mode | to_json }}
+tunnelProtocol: {{ cilium.tunnel_protocol | to_json }}
 kubeProxyReplacement: true
+updateStrategy:
+  type: RollingUpdate
+  rollingUpdate:
+    maxUnavailable: {{ cilium.rollout.agent_max_unavailable }}
 localRedirectPolicies:
   enabled: false
 resources:
@@ -62,6 +72,11 @@ ipam:
       - {{ cilium.cluster_pool_ipv4_pod_cidr_list | to_json }}
 operator:
   replicas: {{ cilium.operator_replicas }}
+  updateStrategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxSurge: {{ cilium.rollout.operator_max_surge }}
+      maxUnavailable: {{ cilium.rollout.operator_max_unavailable }}
   nodeSelector:
     node-role.kubernetes.io/control-plane: "true"
   tolerations:
@@ -91,6 +106,10 @@ operator:
         matchLabels:
           io.cilium/app: operator
 envoy:
+  updateStrategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxUnavailable: {{ cilium.rollout.envoy_max_unavailable }}
   resources:
     requests:
       cpu: {{ cilium.resources.envoy.requests.cpu }}

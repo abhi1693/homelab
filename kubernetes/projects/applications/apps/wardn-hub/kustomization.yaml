@@ -19,9 +19,6 @@ resources:
   - deployment-scoring.yaml
   - deployment-frontend.yaml
   - service.yaml
-  - servicemonitor.yaml
   - prometheusrule.yaml
-  - grafana-dashboard.yaml
-  - grafana-codex-app-server-dashboard.yaml
   - ingress.yaml
   - networkpolicy.yaml

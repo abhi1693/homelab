@@ -16,9 +16,9 @@ Traefik LoadBalancer IP, `192.168.3.3`.
 Current choices:
 
 - namespace: `ups`
-- NUT image: `instantlinux/nut-upsd:2.8.3-r4`
+- NUT image: `instantlinux/nut-upsd:2.8.5-r1`
 - dashboard image: `brandawg93/peanut:6.0.0`
-- Prometheus exporter image: `druggeri/nut_exporter:3.3.0`
+- Prometheus exporter image: `druggeri/nut_exporter:3.3`
 - ingress class: `traefik`
 - hostname: `ups.home`
 - NUT service endpoint: `ups-monitoring.ups.svc.cluster.local:3493`
@@ -27,6 +27,14 @@ Current choices:
 - USB node: `k8s-rpi1`
 - USB driver: `usbhid-ups`
 - UPS serial: `0B2428G26638`
+
+NUT container tags use the `X.Y.Z-rN` format. Bare version tags such as `2.8.5`
+can contain Helm chart artifacts instead of runnable images, causing
+`CreateContainerError: no command specified`. Renovate accepts only `2.x.y-rN`
+tags and compares the revision numerically so it can update the container
+without selecting chart artifacts. After a Fleet rollout, verify all three
+containers are Ready, the `upsc` readiness probe succeeds, both UPS scrape
+targets are healthy, and `UpsExporterDown` clears.
 
 The NUT container is pinned to `k8s-rpi1`, mounts host `/dev/bus/usb`, and runs
 privileged because the NUT USB HID driver needs direct access to the UPS device.

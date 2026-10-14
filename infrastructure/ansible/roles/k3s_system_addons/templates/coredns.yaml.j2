@@ -91,7 +91,8 @@ spec:
   strategy:
     type: RollingUpdate
     rollingUpdate:
-      maxUnavailable: 1
+      maxUnavailable: 0
+      maxSurge: 1
   selector:
     matchLabels:
       k8s-app: kube-dns

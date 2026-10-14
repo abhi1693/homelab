@@ -99,6 +99,7 @@ declared app-side maximum connection demand.
 | `devfeed_chimely` | `devfeed-rw` | Chimely-managed | 20 | 24 |
 | `jellyfin` | `jellyfin-rw` | 14 | 30 | 32 |
 | `shipyardhq` | `shipyardhq-rw` | 20 | 28 | 32 |
+| `kitchen` | `hyperlocal-kitchen-rw` | 3 processes, maximum 45 connections | 48 | 52 |
 | `launchboard` | `launchboard-rw` | 4 | 8 | 10 |
 | `harbor` | `harbor-rw` | chart-managed | 24 | 36 |
 | `netbox` | direct | implicit | n/a | 10 |
@@ -107,7 +108,6 @@ declared app-side maximum connection demand.
 | `wardn_license` | `wardn-license-rw` | implicit | 8 | 12 |
 | `firefly` | `firefly-iii-rw` | implicit | 4 | 10 |
 | `zitadel` | `zitadel-rw` | 16 | 32 | 32 |
-| `music_assistant` | direct | 2 | 2 | 4 |
 | `home_assistant` | `home-assistant-rw` | implicit | 10 | 12 |
 
 `wardn-ai-rw` is paused at zero instances alongside Wardn AI. Its database and
@@ -134,21 +134,11 @@ session-pool replica can therefore absorb the full 16-connection steady-state
 budget even when service load balancing is uneven. The two poolers expose 32
 backend slots in aggregate, matching the role limit; connections are opened on
 demand, so the normal app budget still leaves 16 role connections available.
-Music Assistant connects directly to the read-write service because its
-YouTube Music cache catalog uses a two-connection `asyncpg` pool with durable
-row leases and `FOR UPDATE SKIP LOCKED` claims. Its role limit of four preserves
-reconnect headroom without allocating another PgBouncer deployment. The
-`music_assistant` database is retained if its declarative Database resource is
-removed. Its Cilium ingress policy permits the cluster's `host` and
-`remote-node` identities on PostgreSQL port 5432 because Music Assistant
-requires host networking for player discovery. This covers both a primary on
-the same node and primary failover to another trusted K3s node.
-
 ## PgBouncer resource reservations
 
 Pooler request and replica settings are declared in `values.yaml`. Review
 them against sustained usage and queueing in the `pgbouncer-dashboard`.
-NetBox and Music Assistant connect directly and do not add poolers.
+NetBox connects directly and does not add a pooler.
 
 Only poolers with at least two replicas have a `minAvailable: 1` PDB.
 Single-replica poolers intentionally have no PDB because one would either remain
@@ -285,3 +275,8 @@ node had over 250Gi free. Verify all three PVC capacities and in-pod filesystem
 sizes after reconciliation, then check replication and the low-disk alert.
 Volume expansion cannot be rolled back by shrinking the PVC. Retain all claims
 and database records; this change does not introduce an analysis-history deletion policy.
+
+Hyperlocal Kitchen has a retained `kitchen` database and role with SOPS-managed
+credentials. Its two session poolers each allow 24 backend connections; the
+role limit of 52 leaves four slots for direct migrations and schema checks.
+See `kubernetes/projects/applications/apps/hyperlocal-kitchen/README.md`.

@@ -1,0 +1,31 @@
+---
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: hyperlocal-kitchen
+  namespace: hyperlocal-kitchen
+  labels:
+    app.kubernetes.io/part-of: hyperlocal-kitchen
+spec:
+  ingressClassName: cloudflare-tunnel
+  rules:
+    - host: kitchen-admin-af01fda18c31ce91fd5401ca6fbe71ad.abhimanyu-saharan.com
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: hyperlocal-kitchen-admin
+                port:
+                  name: http
+    - host: kitchen-api-af01fda18c31ce91fd5401ca6fbe71ad.abhimanyu-saharan.com
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: hyperlocal-kitchen-api
+                port:
+                  name: http

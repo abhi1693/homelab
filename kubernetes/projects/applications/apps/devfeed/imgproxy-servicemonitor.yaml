@@ -1,0 +1,22 @@
+---
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+  name: devfeed-imgproxy
+  namespace: devfeed
+  labels:
+    app.kubernetes.io/name: devfeed-imgproxy
+    app.kubernetes.io/part-of: devfeed
+spec:
+  jobLabel: app.kubernetes.io/name
+  namespaceSelector:
+    matchNames:
+      - devfeed
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: devfeed-imgproxy
+  endpoints:
+    - port: metrics
+      path: /metrics
+      interval: 60s
+      scrapeTimeout: 15s

@@ -10,14 +10,14 @@ and <a href=".pre-commit-config.yaml">pre-commit</a></em></p>
 <p>
   <img alt="Ansible bootstrap" src="https://img.shields.io/badge/Ansible-bootstrap-1A1918?style=flat-square&amp;logo=ansible&amp;logoColor=white">
   <img alt="Rancher Fleet GitOps" src="https://img.shields.io/badge/Rancher%20Fleet-GitOps-0075A8?style=flat-square&amp;logo=rancher&amp;logoColor=white">
-  <img alt="Renovate 43.288.0" src="https://img.shields.io/badge/Renovate-43.288.0-1A1F6C?style=flat-square&amp;logo=renovatebot&amp;logoColor=white">
+  <img alt="Renovate 44.158.1" src="https://img.shields.io/badge/Renovate-44.158.1-1A1F6C?style=flat-square&amp;logo=renovatebot&amp;logoColor=white">
 </p>
 
 <p>
   <img alt="Raspberry Pi 5 Model B" src="https://img.shields.io/badge/Raspberry%20Pi-5%20Model%20B-C51A4A?style=flat-square&amp;logo=raspberrypi&amp;logoColor=white">
-  <img alt="K3s v1.36.4+k3s1" src="https://img.shields.io/badge/K3s-v1.36.4%2Bk3s1-326CE5?style=flat-square&amp;logo=k3s&amp;logoColor=white">
+  <img alt="K3s v1.36.5+k3s1" src="https://img.shields.io/badge/K3s-v1.36.5%2Bk3s1-326CE5?style=flat-square&amp;logo=k3s&amp;logoColor=white">
   <img alt="Cilium 1.20.1" src="https://img.shields.io/badge/Cilium-1.20.1-F8C517?style=flat-square&amp;logo=cilium&amp;logoColor=black">
-  <img alt="Rancher 2.15.1" src="https://img.shields.io/badge/Rancher-2.15.1-0075A8?style=flat-square&amp;logo=rancher&amp;logoColor=white">
+  <img alt="Rancher 2.15.2" src="https://img.shields.io/badge/Rancher-2.15.2-0075A8?style=flat-square&amp;logo=rancher&amp;logoColor=white">
   <img alt="Longhorn 1.12.1" src="https://img.shields.io/badge/Longhorn-1.12.1-6D4AFF?style=flat-square">
   <img alt="NFS CSI 4.13.4" src="https://img.shields.io/badge/NFS%20CSI-4.13.4-326CE5?style=flat-square&amp;logo=kubernetes&amp;logoColor=white">
 </p>
@@ -52,7 +52,7 @@ applications are modeled as Git-managed bundles.
 | Area | Current shape |
 | --- | --- |
 | Hardware | Eight ARM64 Raspberry Pi nodes: three K3s servers and five workers. |
-| Kubernetes | K3s `v1.36.4+k3s1` with embedded etcd and a kube-vip API registration VIP. |
+| Kubernetes | K3s `v1.36.5+k3s1` with embedded etcd and a kube-vip API registration VIP. |
 | Bootstrap | Ansible prepares hosts, configures K3s, installs Cilium, Longhorn, Rancher, and Fleet. |
 | GitOps | Rancher Fleet reconciles one GitRepo per major project boundary. |
 | Networking | Cilium `1.20.1` provides CNI, kube-proxy replacement, and NetworkPolicy; MetalLB `0.16.1` provides Layer 2 service VIPs. |
@@ -101,12 +101,10 @@ and selected application integrations.
 | GitHub | Repository hosting, image automation, GHCR image sources, app webhooks. | Workflows, manifests, Renovate metadata, Harbor proxy paths. |
 | Cloudflare | Public tunnel ingress, DNS automation for public routes, DNS01 certificate solving, R2-backed app storage. | Tunnel ingress class, cert-manager issuer configuration, app secret contracts. |
 | Let's Encrypt | Public TLS certificates through cert-manager ACME. | cert-manager ClusterIssuer settings. |
-| UniFi gateway | LAN routing, internal DNS, mDNS reflection, and scoped cross-VLAN player control. | ExternalDNS UniFi app plus VLAN and firewall notes; Kubernetes VIPs use ordinary connected-VLAN routing, while Music Assistant has a least-privilege Google Cast policy. |
+| UniFi gateway | LAN routing, internal DNS, mDNS reflection, and scoped cross-VLAN player control. | ExternalDNS UniFi app plus VLAN and firewall notes; Kubernetes VIPs use ordinary connected-VLAN routing. |
 | NAS | NFS exports for media plus retained per-PVC shared application storage. | Static media PVs, the `nfs-shared-retain` StorageClass, application claims, and storage runbooks. |
 | External registries | Upstream images from Docker Hub, GHCR, OCI registries, and vendor registries. | Harbor proxy/cache paths and Renovate update comments. |
 | App SaaS APIs | App-specific integrations such as GitHub, Clerk, Sanity, payment APIs, and similar services. | Per-app manifests and README secret contracts. |
-| Last.fm | Catalog-level recommendations for Music Assistant radio. | Music Assistant provider configuration and SOPS-managed application key. |
-| YouTube / YouTube Music | Authenticated account discovery, radio, playback, and persistent local caching through Music Assistant. | Hash-pinned Music Assistant provider, encrypted SOPS-fed cookie configuration, PostgreSQL account/cache catalog, and documented unofficial-API boundaries. |
 
 ## Common Commands
 
@@ -134,6 +132,10 @@ ansible-galaxy collection install -r collections/requirements.yml
 ansible-playbook --syntax-check playbooks/site.yml
 ansible-playbook playbooks/k3s_server.yml -e k3s_server_entrypoint=validation
 ```
+
+Rancher chart upgrades have a [scheduling preflight](infrastructure/ansible/README.md)
+that blocks an unschedulable surge while the three replicas require separate
+control-plane nodes.
 
 Kubernetes bundle dry run:
 
@@ -528,6 +530,12 @@ engine.
 The Ansible Cilium role installs the Cilium CLI, renders values, waits for the
 local K3s API, installs or upgrades Cilium, restarts bootstrap add-ons after
 the first install, configures bundled Traefik, and validates its MetalLB VIP.
+Its upgrade values preserve the cluster identity and VXLAN routing mode while
+rolling Cilium and Envoy one node at a time; the role waits for those rollouts
+without forcing a second restart.
+For a CLI-only update, run `playbooks/cilium.yml -e cilium_entrypoint=cli` from
+`infrastructure/ansible/`; this entrypoint changes the CLI on the bootstrap
+server without rendering values or touching the Cilium dataplane.
 
 ## Layer 2 LoadBalancer VIPs
 
@@ -668,7 +676,7 @@ These services are not just "apps"; they are the platform other apps depend on.
 | Upstream monitoring + Rancher dashboards | System | HA Prometheus scraping, Thanos Query, Grafana, Alertmanager, dashboards, and alert rules. |
 | Loki | System | Log aggregation. |
 | Tempo | System | Trace storage for OpenTelemetry traces. |
-| Pyroscope | System | Continuous profiling backend; ephemeral 24-hour storage with Raft logs and snapshots colocated for container restart recovery. |
+| Pyroscope | System | Continuous profiling backend; ephemeral 24-hour storage, serial compaction, and memory headroom above its Go runtime target. Raft logs and snapshots are colocated for container restart recovery. |
 | OpenTelemetry Collector | System | Two-replica OTLP gateway and affinity-routed processing tiers for metrics and traces. |
 | ExternalDNS for UniFi | System | Reconciles internal DNS records from Kubernetes Ingress hosts and annotated Services. |
 
@@ -678,15 +686,18 @@ These services are not just "apps"; they are the platform other apps depend on.
 
 | App | What it does | Notable dependencies |
 | --- | --- | --- |
-| [DevFeed](kubernetes/projects/applications/apps/devfeed/README.md) | Developer news on 0.0.45 with per-user language preferences, feed sorting, reading streaks and shareable Dev Cards; managed topic logos with bounded SVG conversion and 32/64/96-pixel variants; PgBouncer connection reuse, redundant web/APIs, dedicated background workers and a search indexer; OAuth MCP agent connections, native OpenTelemetry metrics and refreshed Grafana dashboards, probes, logs, traces and profiles; automatic pre-upgrade [migration hooks](kubernetes/projects/applications/apps/devfeed/migrations.md). | PostgreSQL, Typesense, shared Valkey Sentinel, Chimely, dedicated Codex and internal imgproxy, R2 article images and topic logos, Zitadel, public Cloudflare Tunnel and internal Traefik. |
-| Firefly III | Personal finance application. | PostgreSQL pooler, NFS upload PVC, internal Traefik ingress, scoped Home Assistant API access. |
+| [DevFeed](kubernetes/projects/applications/apps/devfeed/README.md) | Developer news on 0.0.52 with individual search content-type filters, restored feed navigation, managed publisher logos, background sitemap snapshots and lighter public-page loading; daily Must Reads, weekly streak progress, compact lists and improved mobile navigation; avatar uploads, reading leaderboards, improved Dev Card navigation, admin reader-profile and activity views, enabled X sign-up attribution, HTTPS redirects and stronger reader/admin content security policies; per-user language preferences, feed sorting, reading streaks and shareable Dev Cards; managed topic logos with bounded SVG conversion and 32/64/96-pixel variants; PgBouncer connection reuse, redundant web/APIs, dedicated background workers and a search indexer; OAuth MCP agent connections, native OpenTelemetry metrics and refreshed Grafana dashboards, probes, logs, traces and profiles; automatic pre-upgrade [migration hooks](kubernetes/projects/applications/apps/devfeed/migrations.md). | PostgreSQL, Typesense, shared Valkey Sentinel, Chimely, dedicated Codex and internal imgproxy, R2 article images and topic logos, Zitadel, public Cloudflare Tunnel and internal Traefik. |
+| Firefly III | Personal finance application with a monthly active window; the in-cluster scaler owns web replicas and daily-cron suspension. | PostgreSQL pooler, NFS upload PVC, internal Traefik ingress, scoped Home Assistant API access. |
+| [Hyperlocal Kitchen](kubernetes/projects/applications/apps/hyperlocal-kitchen/README.md) | Community pickup/home-delivery marketplace with admin UI, separate APIs, worker, and gated migrations. | PostgreSQL pooler, persistent Redis, Zitadel, SOPS, Harbor, Cloudflare Tunnel with long random hostnames. |
 | Harbor | Local registry and proxy/cache registry. | PostgreSQL, Valkey, NFS storage, monitoring. |
+| [SonarQube MCP Server](kubernetes/projects/applications/apps/sonarqube-mcp-server/README.md) | Read-only SonarCloud MCP access for DevFeed at `https://sonar.mcp.home/mcp`. | SonarCloud, per-client user tokens, Harbor, internal Traefik, local CA. |
 | Personal Blog | Public blog deployment. | Harbor image, Cloudflare Tunnel, Sanity revalidation secret. |
 | Portfolio | Public portfolio deployment. | Harbor image, Cloudflare Tunnel. |
 | ShipyardHQ | Public commerce/content application with web, worker, image proxy, and build jobs. | PostgreSQL, Valkey, R2, Harbor, NFS build cache, Cloudflare Tunnel. |
 | Wardn AI | Paused agent platform: API, frontend, worker, WhatsApp bridge, and dedicated PostgreSQL pooler at zero replicas. | PostgreSQL, Wardn Hub, NFS and Longhorn storage, internal Traefik ingress. |
 | Wardn AI Website | Public product website for Wardn AI. | Harbor image, Cloudflare Tunnel. |
 | Wardn Hub | Public registry with API, frontend, and scoring online; consolidated worker and Codex temporarily paused at zero replicas, with refresh hook skipped and login state retained. | PostgreSQL, OpenTelemetry, Harbor, Cloudflare Tunnel, NFS build cache, Longhorn Codex state. |
+| [Zitadel](kubernetes/projects/applications/apps/zitadel/README.md) | Central identity provider on v4.19.4 with signed Login UI cookies and a custom GitHub registration retry. | PostgreSQL, SOPS secrets, Cloudflare Tunnel. |
 | Wardn License Server | Private entitlement issuer, Dodo webhook worker, and administration console. | PostgreSQL, Zitadel, Harbor, Dodo, Cloudflare Tunnel. |
 
 ### Database Project
@@ -709,8 +720,6 @@ These services are not just "apps"; they are the platform other apps depend on.
 | Sonarr | TV library management. |
 | Episeerr | Complete-current-season downloads with Jellyfin-driven next-season prefetch. |
 | Radarr | Movie library management. |
-| Music Assistant | Player UI with an authenticated YouTube Music account mirror, persistent local cache, personalized Home recommendations, online song radio, and local audio-similarity radio. |
-| Music Assistant Alexa skill | Bridges Music Assistant queue transfer and direct play to Echo devices through public HTTPS skill and stream routes. |
 | Ryokan | Anime request/import workflow with direct public-indexer HTTPS egress and receipt-verified batch cleanup. |
 | Shoko | Anime metadata and library management for Jellyfin/Shokofin. |
 | Jellyfin | Media server using custom image work and PostgreSQL-oriented experiments. |
@@ -723,18 +732,7 @@ library storage. Download clients write to a NAS-backed downloads PVC, and
 qBittorrent keeps a retained NFS snapshot of its torrent catalog so Longhorn
 config-volume loss does not also erase the active download queue.
 Importers move completed content into the UNAS-backed media library. Jellyfin
-scans the completed video library, not partial downloads. Music Assistant owns
-the music path directly: its hash-pinned authenticated YouTube provider mirrors
-the account data exposed by YouTube Music, starts uncached playback immediately,
-and persists background copies under `music/YouTube Music` with up to three
-paced yt-dlp downloads. A PostgreSQL catalog tracks account snapshots, queue
-state, cache files, and audio quality. Scheduled reconciliation requeues missing
-files and upgrades cached media when a better authenticated format is
-available. The common NFS music tree remains available for local playback and
-Sonic Analysis.
-Alexa playback uses a separately pinned skill-prototype service with retained
-ASK authorization; public Cloudflare Tunnel routes expose only its skill
-callback and Music Assistant's player-stream port.
+scans the completed video library, not partial downloads.
 
 ### Home Automation Project
 
@@ -814,6 +812,8 @@ PRs, while manifests keep Harbor pull paths. Home-built images use GHCR source p
 through the Harbor GHCR proxy cache, for example
 `registry.home/ghcr.io/abhi1693/...`. Cluster-foundational versions such as
 K3s, Cilium, Rancher, Longhorn, MetalLB, and CSI NFS remain manually governed.
+NUT updates accept only `2.x.y-rN` container tags because its upstream OCI
+repository also contains Helm chart artifacts under bare version tags.
 Valkey chart upgrades also require a guarded `OnDelete` rollout, and completed
 Rack Ops bootstrap Jobs require an explicit new Job revision; Renovate excludes
 those two manifests to preserve their operational contracts.
@@ -913,11 +913,12 @@ operations become part of the platform, not an afterthought.
 Observability is built into the system project and then extended by app bundles.
 
 The [upstream monitoring migration](docs/runbooks/rancher-monitoring-migration.md)
-uses `kube-prometheus-stack` `80.9.1` and Rancher dashboard integration
+uses `kube-prometheus-stack` `92.2.0` and Rancher dashboard integration
 `110.0.1+up0.1.4`. Existing Prometheus/Alertmanager names, PVC bindings, dashboard
 UIDs and datasource UIDs remain stable. K3s scraping uses authenticated native
 kubelet endpoints. The 2026-10-01 cutover has an explicit operator exception to
-the backup gate and pins the existing stateful runtime versions.
+the backup gate. The follow-up uses upstream runtime images and chart-managed
+stock dashboards, with Prometheus 3.15.0, Grafana 13.2.3 and Alertmanager 0.34.1.
 `scripts/monitoring-migration-state.py` captures private inventories outside Git.
 
 | Signal | System |
@@ -925,11 +926,24 @@ the backup gate and pins the existing stateful runtime versions.
 | Metrics | Two upstream Prometheus scrapers, Thanos Query, and ServiceMonitor resources. |
 | Dashboards | Grafana dashboards from labeled ConfigMaps. |
 | Alerts | PrometheusRules and AlertmanagerConfig resources. |
-| Logs | Loki. |
+| Logs | Clustered Alloy pod/event collection and two Loki gateways; Loki storage remains single-replica. |
 | Traces | Two OpenTelemetry gateways, two tail-sampling processors, and Tempo. |
 | Profiles | Pyroscope. |
 | Network flows | Cilium/Hubble where enabled. |
 | Hardware health | node-exporter, Raspberry Pi throttling metrics, smartctl exporter, UPS exporter. |
+
+The shared **imgproxy / Overview** dashboard compares DevFeed and ShipyardHQ,
+with application and instance filters and private 60-second metric scrapes.
+
+Grafana excludes the unused ingress-nginx dashboards; Traefik remains the ingress
+monitoring view.
+
+DevFeed has one operational overview for availability, reader latency/errors,
+worker progress and search backlog; its telemetry and alerts remain enabled.
+
+Wardn-specific Grafana dashboards and dedicated API/worker metric scrapes are
+retired; Codex metric export is disabled. Shared cluster resource monitoring,
+application logs, and traces remain available.
 
 The observability stack is intentionally local and modest. OpenTelemetry uses
 two stateless gateways and two stateful processors with identity-aware routing;
@@ -941,6 +955,10 @@ database performance, queue behavior, application traces, and whether a change
 made the lab worse. Prometheus scrapes the dedicated API server target
 for `apiserver_*` metrics; the parallel K3s server scrape retains K3s, cAdvisor,
 and probe metrics without ingesting duplicate API server series.
+
+The [monitoring coverage and HA review](docs/runbooks/monitoring-ha-review.md)
+records the remaining etcd, host-log, Grafana database, and Loki storage gaps.
+The metrics backend is redundant; the complete observability stack is not yet HA.
 
 Scheduler reservations are periodically right-sized from Prometheus history
 while CPU remains burstable for storage and database hot paths. Longhorn
@@ -1026,6 +1044,9 @@ scripts/setup-pre-commit.sh
 pre-commit run --all-files
 ```
 
+Kubernetes schema validation excludes container build inputs under
+`kubernetes/images/`; their package and lock files still receive YAML validation.
+
 The pre-commit configuration preserves the former validation workflow's
 Ansible, YAML policy, Kubernetes schema, Terraform, shell, and Dockerfile
 checks. The bootstrap requires `uv`, Terraform, ShellCheck, `curl`, and standard
@@ -1036,6 +1057,15 @@ Ansible, Renovate policy, and Terraform validation run when their subsystem
 changes.
 
 Subsystem-specific checks remain useful during development.
+
+Validate Renovate dashboard joins and retained-job counts with `promtool`:
+
+```sh
+python3 scripts/check-renovate-dashboard.py
+```
+
+This covers duplicate historical scrape labels and selection of the latest
+completed job. Follow with live range queries across the affected time window.
 
 Tempo configuration and image changes also run an ARM64 `Tempo validation`
 workflow on pull requests. It starts the pinned image with the repository
@@ -1203,8 +1233,6 @@ App and component deep dives:
 | [kubernetes/projects/entertainment/apps/media-helm-repositories/README.md](kubernetes/projects/entertainment/apps/media-helm-repositories/README.md) | Media Helm repository registrations. |
 | [kubernetes/projects/entertainment/apps/media-jellyfin/README.md](kubernetes/projects/entertainment/apps/media-jellyfin/README.md) | Jellyfin media server. |
 | [kubernetes/projects/entertainment/apps/media-jellyseerr/README.md](kubernetes/projects/entertainment/apps/media-jellyseerr/README.md) | Jellyseerr media request portal. |
-| [kubernetes/projects/entertainment/apps/media-music-assistant/README.md](kubernetes/projects/entertainment/apps/media-music-assistant/README.md) | Music Assistant discovery, playback, and provider wiring. |
-| [kubernetes/projects/entertainment/apps/media-music-assistant-alexa-skill/README.md](kubernetes/projects/entertainment/apps/media-music-assistant-alexa-skill/README.md) | Persistent Alexa Custom/Music-model bridge and public player-stream wiring. |
 | [kubernetes/projects/entertainment/apps/media-profilarr/README.md](kubernetes/projects/entertainment/apps/media-profilarr/README.md) | Profilarr profile and quality-definition sync for Radarr/Sonarr. |
 | [kubernetes/projects/entertainment/apps/media-prowlarr/README.md](kubernetes/projects/entertainment/apps/media-prowlarr/README.md) | Prowlarr indexer management. |
 | [kubernetes/projects/entertainment/apps/media-qbittorrent/README.md](kubernetes/projects/entertainment/apps/media-qbittorrent/README.md) | qBittorrent peer traffic and automation. |
@@ -1223,7 +1251,7 @@ App and component deep dives:
 | [kubernetes/projects/home-automation/apps/ups-monitoring/README.md](kubernetes/projects/home-automation/apps/ups-monitoring/README.md) | UPS monitoring. |
 | [kubernetes/projects/home-automation/apps/cups/README.md](kubernetes/projects/home-automation/apps/cups/README.md) | USB printing, LAN IPP, and moving the printer between Pi nodes. |
 | [kubernetes/projects/system/apps/alloy-faro/README.md](kubernetes/projects/system/apps/alloy-faro/README.md) | Alloy Faro frontend telemetry collector. |
-| [kubernetes/projects/system/apps/alloy-logs/README.md](kubernetes/projects/system/apps/alloy-logs/README.md) | Alloy application log collector. |
+| [kubernetes/projects/system/apps/alloy-logs/README.md](kubernetes/projects/system/apps/alloy-logs/README.md) | Alloy cluster pod and event log collectors. |
 | [kubernetes/projects/system/apps/csi-driver-nfs/README.md](kubernetes/projects/system/apps/csi-driver-nfs/README.md) | Upstream NFS CSI driver for static exports and retained per-PVC NAS directories. |
 | [kubernetes/projects/system/apps/external-dns-unifi/README.md](kubernetes/projects/system/apps/external-dns-unifi/README.md) | ExternalDNS integration for UniFi DNS. |
 | [kubernetes/projects/system/apps/loki/README.md](kubernetes/projects/system/apps/loki/README.md) | Loki log backend. |
@@ -1244,6 +1272,7 @@ Runbooks and architecture decisions:
 | [docs/runbooks/fleet-namespace-psa-labels.md](docs/runbooks/fleet-namespace-psa-labels.md) | Fleet namespace ownership and Pod Security Admission label rollout guidance. |
 | [docs/runbooks/alertmanager-firing-alert-triage.md](docs/runbooks/alertmanager-firing-alert-triage.md) | Live alert inventory, synthetic alert interpretation, and exact failed-Job cleanup. |
 | [docs/runbooks/completed-torrent-import-recovery.md](docs/runbooks/completed-torrent-import-recovery.md) | Recover completed torrents with copy-first Arr mapping repair, exact library verification, and gated payload cleanup. |
+| [docs/runbooks/media-download-recovery.md](docs/runbooks/media-download-recovery.md) | Repair Arr authentication, unresolved Episeerr request holds, and verify download handoff. |
 | [docs/runbooks/kubernetes-cpu-overcommit.md](docs/runbooks/kubernetes-cpu-overcommit.md) | N-1 scheduler capacity diagnosis and evidence-backed CPU request sizing. |
 | [docs/runbooks/kubernetes-resource-policy.md](docs/runbooks/kubernetes-resource-policy.md) | Production resource policy, September 19 CPU sizing evidence, generated-container defaults, and Longhorn exceptions. |
 | [docs/runbooks/k3s-node-maintenance.md](docs/runbooks/k3s-node-maintenance.md) | Sequential Raspberry Pi node drain, clean shutdown, and recovery with kube-vip, PDB, Longhorn, Fleet, and controller gates. |
@@ -1275,3 +1304,10 @@ shared Alloy/Loki delivery loss. The shared PostgreSQL cluster retains three
 20Gi data and 4Gi WAL claims (216Gi nominal Longhorn replica capacity). See the
 [PostgreSQL operating notes](kubernetes/projects/database/apps/postgresql/README.md)
 and [Loki delivery notes](kubernetes/projects/system/apps/loki/README.md).
+
+The public [`abhi1693/homelab`](https://github.com/abhi1693/homelab) mirror is
+published by `.github/workflows/mirror-public.yml`. It removes private inventories,
+network configuration, GitHub metadata other than the public mirror's existing
+`.github/FUNDING.yml`, Secret/ConfigMap YAML, and SOPS files,
+including excluded files left over from earlier public snapshots. YAML cleanup
+and verification stop on read errors; the mirror retains its own Git history.

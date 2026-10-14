@@ -165,26 +165,13 @@ HTTP/protobuf to the in-cluster `opentelemetry-collector` service in
 the collector endpoint; each backend container sets its own service name and
 Kubernetes resource attributes so traces appear separately in Grafana Tempo.
 
-The Codex app-server wrapper writes `[analytics] enabled = true` and `[otel]`
-settings into the runtime `config.toml`. Codex log export is disabled with
-`CODEX_OTEL_EXPORTER=none`, user prompt export remains redacted, and Codex
-metrics are exported to the collector with `CODEX_OTEL_METRICS_EXPORTER=otlp-http`
-over HTTP/protobuf. The metrics of primary interest are:
+The Wardn Hub Product Metrics and Codex App Server dashboards are retired.
+The dedicated Hub API/worker ServiceMonitor and its Prometheus ingress policy
+are removed, and `CODEX_OTEL_METRICS_EXPORTER=none` disables Codex metric export
+when the currently paused deployment is resumed. Existing time series age out
+under normal Prometheus retention; no historical data is forcibly deleted.
 
-- `codex.api_request` and `codex.api_request.duration_ms`
-- `codex.sse_event` and `codex.sse_event.duration_ms`
-- `codex.websocket.request` and `codex.websocket.request.duration_ms`
-- `codex.websocket.event` and `codex.websocket.event.duration_ms`
-- `codex.tool.call` and `codex.tool.call.duration_ms`
-- turn-level metrics such as `codex.turn.e2e_duration_ms`,
-  `codex.turn.ttft.duration_ms`, `codex.turn.tool.call`, and
-  `codex.turn.token_usage`
-
-The collector forwards those OTLP metrics to Prometheus. Prometheus may expose
-the metric names with its OTLP name normalization, for example by translating
-dots to underscores. Unit-normalized duration names may also include an extra
-unit segment such as `_milliseconds` before Prometheus histogram suffixes.
-
-The shared OpenTelemetry collector converts delta-temporality metrics to
-cumulative before forwarding them to Prometheus. Without that conversion,
-Prometheus rejects Codex metric batches with invalid temporality/type errors.
+Application traces and cluster-wide container logs/resource metrics remain
+available through the shared observability stack. The Codex thread-saturation
+alert remains because it uses shared cAdvisor metrics, not the retired scrape.
+Codex log export remains disabled and user prompts remain redacted.

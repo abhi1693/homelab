@@ -56,7 +56,7 @@ spec:
       containers:
         - name: frontend
           # renovate: datasource=git-refs depName=https://github.com/abhi1693/wardn-ai currentValue=master
-          image: registry.home/ghcr.io/abhi1693/wardn-ai-frontend:5d2efe3ced9a4413035c1c0de9228150ba9b8bbb
+          image: registry.home/ghcr.io/abhi1693/wardn-ai-frontend:560b1e502e13ae6ffd8b7a283c82fe19b4b3e6d7
           imagePullPolicy: IfNotPresent
           envFrom:
             - configMapRef:

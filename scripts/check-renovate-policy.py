@@ -139,6 +139,76 @@ def main() -> int:
                 if f'"{package}"' not in rule:
                     failures.append(f"DevFeed image missing from grouped rule: {package}")
 
+    # The upstream NUT registry also publishes bare-version Helm artifacts.
+    # Runtime image updates must retain the -rN family and compare N numerically.
+    nut_rules = [
+        block
+        for block in re.findall(r"\{[^{}]*\}", config)
+        if 'matchPackageNames: ["docker.io/instantlinux/nut-upsd"]' in block
+    ]
+    if len(nut_rules) != 1:
+        failures.append("expected one NUT runtime image rule")
+    else:
+        rule = nut_rules[0]
+        versioning = re.search(r'versioning:\s*("[^"\n]+")', rule)
+        allowed = re.search(r'allowedVersions:\s*("[^"\n]+")', rule)
+        if versioning is None or allowed is None:
+            failures.append("NUT image rule needs regex versioning and an allowed-tag filter")
+        else:
+            versioning_value = json.loads(versioning.group(1))
+            allowed_value = json.loads(allowed.group(1))
+            if not versioning_value.startswith("regex:") or not (
+                allowed_value.startswith("/") and allowed_value.endswith("/")
+            ):
+                failures.append("NUT image rule must use regex versioning and allowedVersions")
+            else:
+                version_pattern = re.compile(
+                    re.sub(r"\(\?<([A-Za-z]+)>", r"(?P<\1>", versioning_value[6:])
+                )
+                allowed_pattern = re.compile(allowed_value[1:-1])
+                version_parts = ("major", "minor", "patch", "build")
+                if not all(part in version_pattern.groupindex for part in version_parts):
+                    failures.append("NUT regex must capture major, minor, patch, and numeric build")
+                else:
+                    parsed_versions = []
+                    for tag in ("2.8.3-r4", "2.8.5-r1", "2.8.5-r2", "2.8.5-r10", "2.9.0-r1"):
+                        match = version_pattern.fullmatch(tag)
+                        if match is None or allowed_pattern.fullmatch(tag) is None:
+                            failures.append(f"NUT runtime image tag rejected: {tag}")
+                            continue
+                        parts = tuple(match.group(part) for part in version_parts)
+                        if not all(part is not None and part.isdecimal() for part in parts):
+                            failures.append(f"NUT version captures must be numeric: {tag}")
+                            continue
+                        parsed_versions.append(tuple(int(part) for part in parts))
+                    if len(parsed_versions) == 5 and any(
+                        left >= right
+                        for left, right in zip(parsed_versions, parsed_versions[1:])
+                    ):
+                        failures.append("NUT regex must order upstream versions and rN builds numerically")
+
+                for tag in (
+                    "2.8.5", "0.1.14", "latest", "3.0.0-r1", "2.8.5-r1-alpine",
+                    "2.8.5-r1-rc.1", "2.8.5-r", "2.8.5-r1.1",
+                ):
+                    if allowed_pattern.fullmatch(tag):
+                        failures.append(f"NUT non-runtime tag allowed: {tag}")
+
+                deployment_path = (
+                    REPOSITORY_ROOT
+                    / "kubernetes/projects/home-automation/apps/ups-monitoring/deployment.yaml"
+                )
+                deployed_tags = re.findall(
+                    r"(?m)^\s*image:\s*registry\.home/docker\.io/instantlinux/nut-upsd:([^@\s]+)",
+                    deployment_path.read_text(encoding="utf-8"),
+                )
+                if len(deployed_tags) != 1 or any(
+                    version_pattern.fullmatch(tag) is None
+                    or allowed_pattern.fullmatch(tag) is None
+                    for tag in deployed_tags
+                ):
+                    failures.append("NUT Deployment must select one guarded -rN runtime image tag")
+
     required_merge_policy = {
         "automerge": "true",
         "automergeType": '"branch"',

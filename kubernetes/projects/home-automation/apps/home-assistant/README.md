@@ -5,8 +5,8 @@ chart. Rancher Fleet reconciles this directory and K3s' Helm controller installs
 the resulting `HelmChart` resource.
 
 - endpoint: `http://ha.home`
-- chart version: `0.3.75`
-- app version: `2026.9.1`
+- chart version: `0.3.85`
+- app version: `2026.9.4`
 - namespace: `home-assistant`
 - replicas: `1`, using `Recreate` updates
 - persistence: Longhorn `4Gi` RWX PVC `home-assistant-pvc`
@@ -36,7 +36,7 @@ Review it before cleanup; never overwrite live Recorder files during recovery.
 Portable Home Assistant source is owned by the public
 [`abhi1693/home-assistant`](https://github.com/abhi1693/home-assistant)
 repository. This deployment pins commit
-`c9c71355ed3f685c832b77ab2da8218f65fbfc8b` and the SHA-256 of its GitHub source
+`fc9df5384406d56ce123997880501a212bdf9726` and the SHA-256 of its GitHub source
 archive. The `install-home-assistant-source` init container verifies the archive
 before running its standard-library-only bootstrap against `/config`.
 
@@ -161,6 +161,10 @@ private signaling API; the relay fetches RTSPS from the UDM at
 LAN browsers use `192.168.3.17:8555/TCP,UDP` for WebRTC media. Protect API
 access uses TCP `443`; speaker-capable cameras need the separately scoped
 TCP `7004` path. Keep recorder and camera destinations explicit.
+The Kitchen Sink G5 Turret Ultra is included in the source-managed Security
+camera wall and clip history for all three family profiles. Its three RTSPS
+qualities use the existing UDM `192.168.1.1:7441` egress rule; the source-managed
+stream reconciler enables its medium and low Home Assistant entities.
 
 Companion App external sensor delivery uses the
 [mobile webhook gateway](../home-assistant-mobile-webhook/README.md), not public
@@ -175,7 +179,6 @@ Home Assistant has narrowly scoped service paths:
 
 - go2rtc signaling: `http://home-assistant-go2rtc.home-assistant.svc.cluster.local:1984/`
 - go2rtc WebRTC media: `192.168.3.17:8555/TCP,UDP`
-- Music Assistant: `https://music.media.home`
 - Jellyfin: `http://jellyfin.media.svc.cluster.local:8096`
 - Seerr: `http://jellyseerr.media.svc.cluster.local:10241`
 - Firefly III: `http://finance.home:80`, or directly at
@@ -206,11 +209,7 @@ authenticated init-container check also holds Home Assistant startup until the
 relay API is ready, preventing a one-shot go2rtc connection failure during
 simultaneous reconciliation.
 
-Use the browser-resolvable HTTPS hostname for Music Assistant authorization.
-Cilium permits Traefik HTTPS only when TLS SNI is `music.media.home`, and
-the pod's default CA bundle is extended with the Home Lab Local CA. The
-`REQUESTS_CA_BUNDLE` environment variable makes Home Assistant's shared Python
-HTTP client use that extended bundle. Jellyfin uses its in-cluster service URL.
+Jellyfin uses its in-cluster service URL.
 Seerr's existing administrator API key is copied into the encrypted
 `home-assistant-seerr-api` SopsSecret and injected only into the Home Assistant
 pod. It is never exposed to Lovelace. If the Seerr key is rotated, update the

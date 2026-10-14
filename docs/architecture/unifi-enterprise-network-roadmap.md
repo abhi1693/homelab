@@ -57,7 +57,7 @@ migrations happen only after the new switching foundation has soaked.
 - Separate infrastructure management, servers, trusted clients, IoT, cameras,
   storage, guests, and VPN clients by explicit trust boundary.
 - Default-deny new cross-zone connections and allow only documented flows.
-- Preserve required K3s, ExternalDNS, Home Assistant, Music Assistant, Cast,
+- Preserve required K3s, ExternalDNS, Home Assistant, Cast,
   Protect, NFS/SMB, and local DNS behavior.
 - Apply Wi-Fi and wired client isolation according to actual peer-to-peer
   requirements.
@@ -315,7 +315,7 @@ some boundaries. The five user policies were:
 | --- | --- | --- |
 | Allow WireGuard to k8s-rpi | Disabled; empty server selection | Remove if obsolete or rebuild for a named VPN source; it is currently redundant with broad VPN-to-DMZ access. |
 | Allow K8s to Access Protect | Entire K3s network to one Protect address on TCP 443/7441 | Narrow source to Home Assistant or an explicit service group when stable identities permit. |
-| Allow Music Assistant Google Cast | One source to one player on TCP 8008/8009/8443 | Preserve; this is the model for least-privilege exceptions. |
+| Allow Music Assistant Google Cast | Retired workload exception | Remove through the UniFi operator workflow. |
 | Allow K8s to Manage IoT | Entire K3s network to entire IoT network on all ports | Replace with per-application and per-device-group rules. |
 | Allow DMZ to Gateway IP | Entire K3s network to 192.168.3.1 TCP 443 | Restrict to the ExternalDNS workload source if a stable source identity is available. |
 
@@ -501,7 +501,7 @@ after a live flow capture.
 | Management | Internet | Controller updates, NTP, DNS, certificate/vendor services as required | Cannot initiate to ordinary client networks without a documented management need. |
 | K3s/server | Gateway | DHCP, DNS, NTP; ExternalDNS to Network API HTTPS from its stable source | No whole-subnet gateway administration. |
 | K3s/server | Protect/Camera | Home Assistant to Protect TCP 443/7441 and speaker-capable cameras TCP 7004; other exact services after audit | No whole-subnet Camera or Protect access. |
-| K3s/server | IoT | Home Assistant/Music Assistant to named device groups and exact ports | Remove all-ports, whole-subnet rule. |
+| K3s/server | IoT | Home Assistant to named device groups and exact ports | Remove all-ports, whole-subnet rule. |
 | Trusted | K3s/server | Required application VIPs, Traefik, and user services | Do not make every server port reachable by default. |
 | Trusted | IoT | Controller apps to named devices as required | No blanket peer access. |
 | IoT | Gateway | DHCP, DNS, NTP | No gateway administration or other local services. |
@@ -520,9 +520,8 @@ after a live flow capture.
 
 - Replace global all-network mDNS reflection with a Custom service/network list
   for only required Cast, AirPlay, printer, and discovery services.
-- Preserve the existing narrow Music Assistant-to-bedroom-player TCP
-  8008/8009/8443 rule and the player's return fetch to Music Assistant TCP
-  8097.
+- Remove retired Music Assistant player-control and TCP 8097 return-fetch
+  exceptions through the UniFi operator workflow.
 - Trust DHCP only on the gateway/upstream path. Enable per-network DHCP guard
   only after the legitimate server address is verified.
 - Enable IGMP snooping where multicast behavior is understood and test Protect,

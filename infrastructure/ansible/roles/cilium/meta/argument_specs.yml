@@ -46,6 +46,42 @@ argument_specs:
             required: true
             description:
               - Exact Cilium CLI version to install for bootstrap and validation.
+          cluster_name:
+            type: str
+            required: true
+            description:
+              - Cluster identity preserved across Cilium upgrades.
+          bgp_control_plane_enabled:
+            type: bool
+            required: true
+            description:
+              - Whether the Cilium BGP control plane is enabled.
+          routing_mode:
+            type: str
+            required: true
+            description:
+              - Cilium routing mode preserved across upgrades.
+          tunnel_protocol:
+            type: str
+            required: true
+            description:
+              - Cilium tunnel protocol preserved across upgrades.
+          rollout:
+            type: dict
+            required: true
+            options:
+              agent_max_unavailable:
+                type: int
+                required: true
+              envoy_max_unavailable:
+                type: int
+                required: true
+              operator_max_surge:
+                type: int
+                required: true
+              operator_max_unavailable:
+                type: int
+                required: true
           agent_capabilities:
             type: list
             required: true

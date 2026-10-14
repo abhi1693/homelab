@@ -33,7 +33,7 @@ tests:
         summary: DevFeed availability is burning its error budget quickly
         description: Both the 1h and 5m windows exceed the 99.9% SLO fast-burn threshold, with at least 100 requests in 1h.
           Inspect 5xx routes, recent releases, readiness, database and dependency panels.
-        runbook_url: https://github.com/abhi1693/devfeed.tech/blob/v0.0.45/packages/core/OBSERVABILITY.md
+        runbook_url: https://github.com/abhi1693/devfeed.tech/blob/v0.0.46/packages/core/OBSERVABILITY.md
         dashboard_url: http://grafana.home/d/devfeed-operations
   - eval_time: 6h
     alertname: DevFeedAvailabilitySlowBurn
@@ -47,7 +47,7 @@ tests:
         summary: DevFeed availability has sustained error-budget burn
         description: Both 6h and 30m exceed the slower burn threshold. Low traffic alone does not trigger a burn alert; deployment
           and synthetic availability checks cover total outages.
-        runbook_url: https://github.com/abhi1693/devfeed.tech/blob/v0.0.45/packages/core/OBSERVABILITY.md
+        runbook_url: https://github.com/abhi1693/devfeed.tech/blob/v0.0.46/packages/core/OBSERVABILITY.md
         dashboard_url: http://grafana.home/d/devfeed-operations
 - name: short error burst does not trigger long-window burn
   interval: 1m
@@ -82,7 +82,7 @@ tests:
         summary: A DevFeed HTTP availability probe is failing
         description: Public reader HTTPS or an internal service readiness/login probe failed. Inspect the instance URL, probe
           HTTP status/TLS/DNS and corresponding deployment. No authenticated account action is performed.
-        runbook_url: https://github.com/abhi1693/devfeed.tech/blob/v0.0.45/packages/core/OBSERVABILITY.md
+        runbook_url: https://github.com/abhi1693/devfeed.tech/blob/v0.0.46/packages/core/OBSERVABILITY.md
         dashboard_url: http://grafana.home/d/devfeed-operations
 - name: application pool timeouts are visible independently of SQL execution errors
   interval: 1m
@@ -102,7 +102,7 @@ tests:
         summary: DevFeed exhausted an application database pool
         description: Check pool checkout and hold time before increasing connections. PgBouncer readiness does not prove local
           pool capacity.
-        dashboard_url: http://grafana.home/d/devfeed-diagnostics
+        dashboard_url: http://grafana.home/d/devfeed-operations
 - name: normalize native and Node histograms while excluding notification streams
   interval: 1m
   input_series:

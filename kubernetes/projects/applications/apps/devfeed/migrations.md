@@ -24,6 +24,40 @@ last-run result, disappearance of the successful Job, live schema revision and
 index validity, Fleet convergence and application readiness. Keep retained PVCs,
 credentials and content through upgrades and cleanup.
 
+## Release 0.0.52: schema 0023
+
+Apply `0023` with the matching backend pre-upgrade hook. It adds `sources.managed_logo`,
+the nullable image-job source reference, source-job indexes, and a subject constraint
+that supports managed publisher logos. Existing accounts, articles, bookmarks, topic
+logos, and preferences are retained. The existing Images worker processes source logos
+using its configured R2 storage and imgproxy connection.
+
+Verify a completed offsite PostgreSQL backup and healthy WAL archiving before the
+upgrade. Older 0.0.51 services require schema `0022`, so readiness can briefly drop
+after migration until replacement pods start. Preserve schema `0023` and recover with
+compatible images through Fleet; do not run the destructive downgrade as part of an
+ordinary image rollback.
+
+Verify schema `0023`, both new columns, valid source-job indexes, successful hook
+completion, matching Fleet deployment IDs, all release image pins, API readiness,
+and scheduler-generated sitemap snapshots.
+
+## Release 0.0.51: schema 0022
+
+Apply `0021` (persisted daily Must Reads) and `0022` (topic description vocabulary
+in ranking revisions) with the matching backend pre-upgrade hook. These migrations
+retain existing accounts, articles, bookmarks and preferences. The revision trigger
+invalidates old topic ranking snapshots after the upgrade.
+
+Older 0.0.50 services require schema `0020`, so readiness can briefly drop before
+replacement pods start. Keep schema `0022` and recover with compatible images;
+an image-only rollback to 0.0.50 is insufficient. Do not drop saved daily picks
+or downgrade the database as part of an ordinary image rollback.
+
+Verify schema `0022`, the `user_must_reads` table, the description-aware
+`refresh_topics_revision()` function, valid indexes, successful hook completion,
+matching Fleet deployment IDs, release image digests, and reader/API readiness.
+
 ## v0.0.9
 
 The v0.0.9 backend hook upgrades `0006` through `0007` (private bookmarks) to

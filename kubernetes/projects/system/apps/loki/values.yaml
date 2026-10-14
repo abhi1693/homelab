@@ -2,6 +2,10 @@
 deploymentMode: SingleBinary
 
 loki:
+  image:
+    # renovate: datasource=docker depName=docker.io/grafana/loki
+    tag: 3.6.17
+    digest: sha256:cd5471d6ae439eb0a7a9055b9b2fb3fd3c5485934dd576473a6289d3936b8b27
   auth_enabled: false
   commonConfig:
     path_prefix: /var/loki
@@ -62,6 +66,12 @@ backend:
 
 gateway:
   enabled: true
+  replicas: 2
+  deploymentStrategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxUnavailable: 0
+      maxSurge: 1
   nodeSelector:
     kubernetes.io/arch: arm64
     node-role.kubernetes.io/control-plane: "true"
@@ -72,11 +82,12 @@ gateway:
       effect: NoExecute
   verboseLogging: false
   nginxConfig:
-    # This cluster has IPv4-only Services. Bound DNS/backend connection stalls
-    # below Alloy and Grafana request timeouts so clients can retry promptly.
-    resolver: "kube-dns.kube-system.svc.cluster.local. valid=10s ipv6=off"
+    # Loki uses a stable ClusterIP. Resolve it when NGINX starts instead of
+    # resolving every request; intermittent runtime DNS timeouts caused 502s
+    # and permanent Alloy batch drops despite a healthy Loki backend.
+    file: |
+      {{ include "loki.nginxFile" . | replace "$request_uri" "" }}
     serverSnippet: |
-      resolver_timeout 5s;
       proxy_connect_timeout 5s;
   resources:
     requests:

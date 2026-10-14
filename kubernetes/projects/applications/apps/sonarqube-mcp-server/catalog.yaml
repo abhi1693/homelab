@@ -1,0 +1,19 @@
+---
+apiVersion: home-lab.io/v1alpha1
+kind: WorkloadCatalog
+metadata:
+  name: sonarqube-mcp-server
+spec:
+  displayName: SonarQube MCP Server
+  purpose: Provide authenticated read-only MCP access to SonarCloud for DevFeed.
+  owner: home-lab
+  project: applications
+  cluster: home-k3s
+  lifecycle: active
+  criticality: medium
+  dataClassification: restricted
+  repository: https://github.com/abhi1693/home-lab
+  gitPath: kubernetes/projects/applications/apps/sonarqube-mcp-server
+  runbook: kubernetes/projects/applications/apps/sonarqube-mcp-server/README.md
+  workloads:
+    - {key: home-k3s/devfeed/apps/deployment/sonarqube-mcp-server, namespace: devfeed, apiGroup: apps, kind: Deployment, name: sonarqube-mcp-server, desiredReplicas: 1, sourcePath: kubernetes/projects/applications/apps/sonarqube-mcp-server/deployment.yaml}

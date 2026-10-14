@@ -95,11 +95,7 @@ spec:
             - name: CODEX_OTEL_TRACE_PROTOCOL
               value: binary
             - name: CODEX_OTEL_METRICS_EXPORTER
-              value: otlp-http
-            - name: CODEX_OTEL_METRICS_ENDPOINT
-              value: http://opentelemetry-collector.cattle-monitoring-system.svc.cluster.local:4318/v1/metrics
-            - name: CODEX_OTEL_METRICS_PROTOCOL
-              value: binary
+              value: none
             - name: RUST_LOG
               value: codex_app_server=info,codex_core=info,codex_api=info,codex_models_manager=info,rmcp=warn,warn
             - name: CODEX_STATUS_TIMEOUT_SECONDS

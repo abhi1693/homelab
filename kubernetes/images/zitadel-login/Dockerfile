@@ -1,9 +1,9 @@
 FROM node:26-bookworm AS build
-ARG ZITADEL_REF=e2886a61670ca8fd41c9434f87036546e5620bcc
+ARG ZITADEL_REF=101343ad87aef7b0eea7c3522d519308e0ea9547
 RUN apt-get update && apt-get install -y --no-install-recommends python3 ca-certificates && rm -rf /var/lib/apt/lists/*
 WORKDIR /src
 RUN curl --fail --location --retry 3 "https://codeload.github.com/zitadel/zitadel/tar.gz/${ZITADEL_REF}" | tar -xz --strip-components=1
-RUN corepack enable && corepack prepare pnpm@10.30.3 --activate
+RUN npm install --global pnpm@10.30.3
 COPY patch-register.py /tmp/patch-register.py
 COPY retry-not-found.ts retry-not-found.test.ts apps/login/src/lib/server/
 RUN python3 /tmp/patch-register.py

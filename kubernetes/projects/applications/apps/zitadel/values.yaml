@@ -3,7 +3,7 @@ imageRegistry: registry.home/docker.io
 image:
   repository: registry.home/ghcr.io/zitadel/zitadel
   # renovate: datasource=docker depName=ghcr.io/zitadel/zitadel
-  tag: v4.15.3
+  tag: v4.19.4@sha256:90a3045b80a2b5b395e1e770302076906af3a5911225af7c464b4f3bd00d0a1b
   pullPolicy: IfNotPresent
 imagePullSecrets: []
 zitadel:
@@ -92,11 +92,12 @@ ingress:
 login:
   enabled: true
   replicaCount: 2
+  sessionCookieSecretName: zitadel-login-env
   image:
     repository: registry.home/ghcr.io/abhi1693/home-lab-zitadel-login
-    # Bounded GitHub registration session retry; core stays on upstream v4.15.3.
+    # Bounded GitHub registration session retry; core stays on upstream v4.19.4.
     # renovate: datasource=docker depName=ghcr.io/abhi1693/home-lab-zitadel-login
-    tag: 4.15.3-idp-retry1@sha256:9e53cf6e009ca506f6e8015e1bf82ffa959276cc36ba5af72d507ef7e4c81e6c
+    tag: 4.19.4-idp-retry1@sha256:6a08219dd72da25409be8bc93544cfd68d720f82269a29f43ae6717957889d0c
     pullPolicy: IfNotPresent
   service:
     type: ClusterIP
@@ -134,8 +135,8 @@ login:
       scrapeTimeout: 10s
   resources:
     requests:
-      cpu: 40m
-      memory: 164Mi
+      cpu: 70m
+      memory: 152Mi
     limits:
       memory: 256Mi
   nodeSelector:
@@ -149,8 +150,8 @@ login:
           app.kubernetes.io/instance: zitadel
 resources:
   requests:
-    cpu: 40m
-    memory: 182Mi
+    cpu: 50m
+    memory: 156Mi
   limits:
     memory: 768Mi
 nodeSelector:

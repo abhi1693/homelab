@@ -305,6 +305,18 @@ cluster:
       bypassrls: false
       passwordSecret:
         name: shipyardhq-postgresql
+    - name: kitchen
+      ensure: present
+      login: true
+      connectionLimit: 52
+      superuser: false
+      createdb: false
+      createrole: false
+      inherit: true
+      replication: false
+      bypassrls: false
+      passwordSecret:
+        name: hyperlocal-kitchen-postgresql
     - name: launchboard
       ensure: present
       login: true
@@ -389,18 +401,6 @@ cluster:
       bypassrls: false
       passwordSecret:
         name: zitadel-postgresql
-    - name: music_assistant
-      ensure: present
-      login: true
-      connectionLimit: 4
-      superuser: false
-      createdb: false
-      createrole: false
-      inherit: true
-      replication: false
-      bypassrls: false
-      passwordSecret:
-        name: music-assistant-postgresql
     - name: home_assistant
       ensure: present
       login: true
@@ -485,6 +485,9 @@ databases:
   - name: shipyardhq
     owner: shipyardhq
     databaseReclaimPolicy: retain
+  - name: kitchen
+    owner: kitchen
+    databaseReclaimPolicy: retain
   - name: launchboard
     owner: launchboard
     databaseReclaimPolicy: retain
@@ -505,9 +508,6 @@ databases:
     databaseReclaimPolicy: retain
   - name: zitadel
     owner: zitadel
-    databaseReclaimPolicy: retain
-  - name: music_assistant
-    owner: music_assistant
     databaseReclaimPolicy: retain
   - name: home_assistant
     owner: home_assistant
@@ -619,6 +619,55 @@ poolers:
                 memory: 56Mi
               limits:
                 memory: 192Mi
+  - instances: 2
+    monitoring:
+      enabled: true
+      podMonitor:
+        enabled: true
+    name: hyperlocal-kitchen-rw
+    parameters:
+      default_pool_size: '24'
+      max_client_conn: '60'
+      min_pool_size: '1'
+      server_idle_timeout: '120'
+    poolMode: session
+    template:
+      metadata:
+        labels:
+          app.kubernetes.io/part-of: postgresql
+          home-lab.io/client: hyperlocal-kitchen
+      spec:
+        affinity:
+          podAntiAffinity:
+            requiredDuringSchedulingIgnoredDuringExecution:
+            - labelSelector:
+                matchLabels:
+                  cnpg.io/poolerName: postgresql-pooler-hyperlocal-kitchen-rw
+              matchLabelKeys:
+              - pod-template-hash
+              topologyKey: kubernetes.io/hostname
+        containers:
+        # renovate: datasource=docker depName=ghcr.io/cloudnative-pg/pgbouncer
+        - image: registry.home/ghcr.io/cloudnative-pg/pgbouncer:1.26.0
+          name: pgbouncer
+          resources:
+            limits:
+              memory: 192Mi
+            requests:
+              cpu: 10m
+              memory: 56Mi
+        nodeSelector:
+          kubernetes.io/arch: arm64
+        topologySpreadConstraints:
+        - labelSelector:
+            matchLabels:
+              cnpg.io/poolerName: postgresql-pooler-hyperlocal-kitchen-rw
+          matchLabelKeys:
+          - pod-template-hash
+          maxSkew: 1
+          topologyKey: kubernetes.io/hostname
+          whenUnsatisfiable: DoNotSchedule
+    type: rw
   - name: launchboard-rw
     type: rw
     poolMode: session

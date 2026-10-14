@@ -137,9 +137,3 @@ commands, and obsolete pre-migration ReplicaSets must not be retained.
 The companion `cloudflare-tunnel-ingress-controller-secrets` raw Fleet bundle
 owns the namespace `LimitRange` as a fallback for workloads without explicit
 resources; the connector's explicit requests and limits remain authoritative.
-
-The companion network-policy bundle also grants the connector a Cilium
-`remote-node` egress exception on TCP `8097` for Music Assistant's public Alexa
-stream route. Music Assistant uses host networking, so Cilium assigns the
-destination the `remote-node` identity; a standard pod selector or LAN
-`ipBlock` does not match that path.

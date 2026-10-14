@@ -1,0 +1,92 @@
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: hyperlocal-kitchen-admin
+  namespace: hyperlocal-kitchen
+  labels:
+    app.kubernetes.io/part-of: hyperlocal-kitchen
+spec:
+  replicas: 1
+  revisionHistoryLimit: 2
+  selector:
+    matchLabels:
+      app.kubernetes.io/part-of: hyperlocal-kitchen
+      app.kubernetes.io/name: hyperlocal-kitchen-admin
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxSurge: 1
+      maxUnavailable: 0
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/part-of: hyperlocal-kitchen
+        app.kubernetes.io/name: hyperlocal-kitchen-admin
+      annotations:
+        home-lab.io/config-checksum: 83125f1cef1c3b01277f3e7cc04e5f0b16dbf0c64416585c69a31d59097d391a
+    spec:
+      automountServiceAccountToken: false
+      imagePullSecrets:
+        - name: harbor-registry
+      nodeSelector:
+        kubernetes.io/arch: arm64
+      securityContext:
+        fsGroup: 1000
+        seccompProfile:
+          type: RuntimeDefault
+      terminationGracePeriodSeconds: 60
+      containers:
+        - name: admin
+          # renovate: datasource=docker depName=ghcr.io/abhi1693/hyperlocal-kitchen/admin
+          image: registry.home/ghcr.io/abhi1693/hyperlocal-kitchen/admin:sha-168f2c82c842f2a368b35bd796c3f240c3b1170e@sha256:0cc109986500be927800e8a500e6ea5d5230de0c93ec5e58da89bdec67f9f89c
+          imagePullPolicy: IfNotPresent
+          env:
+            - name: KITCHEN_ADMIN_API_URL
+              valueFrom:
+                configMapKeyRef:
+                  name: hyperlocal-kitchen
+                  key: KITCHEN_ADMIN_API_URL
+            - name: KITCHEN_ADMIN_BASE_URL
+              valueFrom:
+                configMapKeyRef:
+                  name: hyperlocal-kitchen
+                  key: KITCHEN_ADMIN_BASE_URL
+          ports:
+            - name: http
+              containerPort: 3000
+          resources:
+            requests:
+              cpu: 50m
+              memory: 128Mi
+            limits:
+              memory: 512Mi
+          securityContext:
+            runAsNonRoot: true
+            runAsUser: 1000
+            runAsGroup: 1000
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities:
+              drop:
+                - ALL
+          volumeMounts:
+            - name: tmp
+              mountPath: /tmp
+          startupProbe:
+            tcpSocket:
+              port: http
+            periodSeconds: 5
+            failureThreshold: 30
+          readinessProbe:
+            tcpSocket:
+              port: http
+            periodSeconds: 10
+          livenessProbe:
+            tcpSocket:
+              port: http
+            periodSeconds: 30
+      volumes:
+        - name: tmp
+          emptyDir:
+            sizeLimit: 128Mi

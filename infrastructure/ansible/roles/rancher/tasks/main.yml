@@ -66,6 +66,40 @@
     fail_msg: Expected local K3s API /readyz endpoint to return ok before deploying Rancher.
     success_msg: "Local K3s API is ready for Rancher deployment"
 
+- name: Check whether the Rancher HelmChart manifest already exists
+  ansible.builtin.stat:
+    path: /var/lib/rancher/k3s/server/manifests/rancher-helmchart.yaml
+  register: rancher_existing_chart_manifest
+
+- name: Preview Rancher HelmChart manifest before changing bootstrap resources
+  ansible.builtin.template:
+    src: rancher-helmchart.yaml.j2
+    dest: /var/lib/rancher/k3s/server/manifests/rancher-helmchart.yaml
+    owner: root
+    group: root
+    mode: "0600"
+  check_mode: true
+  no_log: true
+  register: rancher_chart_manifest_preflight
+  when: rancher_existing_chart_manifest.stat.exists
+
+- name: Refuse Rancher chart upgrades that cannot schedule a surge pod
+  ansible.builtin.assert:
+    that:
+      - >-
+        not rancher_existing_chart_manifest.stat.exists or
+        not rancher_chart_manifest_preflight.changed or
+        rancher.anti_affinity != 'required' or
+        rancher.replicas | int < groups['k3s_servers'] | length
+    fail_msg: >-
+      Updating the Rancher HelmChart would trigger a chart rollout. The upstream
+      chart hardcodes maxSurge=1. Required pod anti-affinity
+      with {{ rancher.replicas }} replicas on {{ groups['k3s_servers'] | length }}
+      eligible servers leaves surge pods Pending. Keep required anti-affinity;
+      review chart support for maxSurge=0 or add eligible server capacity before
+      starting another chart upgrade.
+    success_msg: Rancher chart upgrade scheduling is safe for this cluster
+
 - name: Ensure K3s manifests directory exists for Rancher
   ansible.builtin.file:
     path: /var/lib/rancher/k3s/server/manifests

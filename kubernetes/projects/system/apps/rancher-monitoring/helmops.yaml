@@ -31,7 +31,7 @@ spec:
   helm:
     releaseName: rancher-monitoring-crd
     repo: oci://ghcr.io/prometheus-community/charts/kube-prometheus-stack
-    version: 80.9.1
+    version: 92.2.0
     timeoutSeconds: 1200
     takeOwnership: true
     valuesFrom:
@@ -85,12 +85,10 @@ spec:
   downstreamResources:
   - kind: ConfigMap
     name: rancher-monitoring-values
-  - kind: ConfigMap
-    name: monitoring-preserved-dashboards-values
   helm:
     releaseName: rancher-monitoring
     repo: oci://ghcr.io/prometheus-community/charts/kube-prometheus-stack
-    version: 80.9.1
+    version: 92.2.0
     timeoutSeconds: 1200
     takeOwnership: true
     valuesFrom:
@@ -98,10 +96,6 @@ spec:
         name: rancher-monitoring-values
         namespace: fleet-local
         key: values.yaml
-    - configMapKeyRef:
-        name: monitoring-preserved-dashboards-values
-        namespace: fleet-local
-        key: preserved-dashboards-values.yaml
     waitForJobs: true
 ---
 apiVersion: fleet.cattle.io/v1alpha1

@@ -1,4 +1,4 @@
-# syntax=docker/dockerfile:1.27
+# syntax=docker/dockerfile:1.28
 
 ARG POSTGRES_PROVIDER_REF=10.11.8-1
 ARG JELLYFIN_IMAGE=jellyfin/jellyfin:10.11.11

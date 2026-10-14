@@ -9,6 +9,7 @@ through a Fleet `HelmOp`.
 - Chart: Bitnami `valkey` `6.1.11` from
   `oci://registry-1.docker.io/bitnamicharts/valkey`
 - Release: `valkey`
+- Runtime: Valkey and Sentinel `9.1.2`, pinned to ARM64-capable image digests
 - Architecture: replicated Valkey with Sentinel enabled
 - Storage: three retained Longhorn-backed 4Gi PVCs, each with three storage
   replicas; `pvc-expansion.yaml` owns the online expansion of the existing
@@ -127,3 +128,14 @@ shared dataset had grown beyond 1GiB, while replicas retained approximately
 1.4GiB startup datasets. The 4Gi limit provides room for both datasets during
 `swapdb` full synchronization, allocator overhead, and AOF rewrite activity.
 Existing clients' databases and keys remain unchanged.
+
+## October 2026 security upgrade
+
+The 9.1.2 runtime upgrade completed through a temporary Fleet-managed Job under
+its retained `OnDelete` policy. Replicas were replaced one at a time, with Pod
+readiness, replication offsets and Sentinel quorum checked between steps. An
+upgraded replica became primary before the former primary was replaced. All
+three nodes then reported 9.1.2 with both replication links synchronized.
+
+The temporary Job, script, RBAC and network policies were removed after
+verification. The three existing PVCs remained bound and healthy.
