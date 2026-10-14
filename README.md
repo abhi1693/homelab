@@ -806,6 +806,10 @@ reduces external registry dependency and makes ARM64 image choices visible.
 Harbor's own component images are a bootstrap exception: they pull directly
 from GHCR so the registry can recover without depending on `registry.home`.
 
+Zitadel Login images publish immutable `v4.19.4-idp-retry1-<commit>` tags after
+native ARM64 builds, runtime vulnerability scans, and smoke tests. Deploying a
+new build requires a separate Fleet values change.
+
 Renovate checks non-foundational application, build, CI, and Coder dependencies
 and automerges enabled updates directly into the default branch without opening
 PRs, while manifests keep Harbor pull paths. Home-built images use GHCR source paths
