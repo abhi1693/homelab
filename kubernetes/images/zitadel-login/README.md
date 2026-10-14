@@ -42,6 +42,15 @@ Two fixes require major-version upgrades: Faker 9.9.0 to 10.5.0 and
 postcss-selector-parser 6.0.10 to 7.1.6. Faker 10 requires a recent Node 20/22
 or Node 24+, satisfied by the Node 26 image; the upstream Login source already
 uses modern Faker APIs. Review these separately from the patch/minor updates.
+The build omits `node-forge` and its types, which are used only by upstream
+`dockerized/ca/utils/tls.ts`. Dockerized integration fixtures are excluded from
+production TypeScript checking; all runtime source stays strictly checked, and
+the bounded-retry regressions still run. The committed lockfile removes both
+packages from the dependency graph rather than dismissing the alert.
+
+CI publishes immutable `v4.19.4-idp-retry1-<commit>` tags after native ARM64
+build, runtime vulnerability scanning, and smoke tests. It does not overwrite
+the existing fixed `v4.19.4-idp-retry1` release tag.
 Deployment is separate: only update the Fleet values after this build succeeds.
 Rollback to upstream `ghcr.io/zitadel/zitadel-login:v4.19.4` removes the retry
 protection; retain the custom image digest for a subsequent rollback.
@@ -59,3 +68,9 @@ from the same SOPS-managed secret on every replica. Existing unsigned Login UI
 cookies are rejected once after upgrade; application sessions and issued tokens
 are unaffected. The core upgrade runs database setup migrations, so a core
 downgrade requires a separate database compatibility review.
+
+As of 2026-10-15, [braces](https://github.com/advisories/GHSA-vfj7-8cjw-p6xm)
+and [sprintf-js](https://github.com/advisories/GHSA-hp3w-g68c-fv3c) have no patched
+release. They remain in development tooling and their alerts stay open until
+upstream fixes or reviewed replacements are available. The published Login
+runtime SBOM contains neither package.
