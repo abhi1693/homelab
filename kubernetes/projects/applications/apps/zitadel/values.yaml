@@ -136,7 +136,7 @@ login:
   resources:
     requests:
       cpu: 70m
-      memory: 152Mi
+      memory: 153Mi
     limits:
       memory: 256Mi
   nodeSelector:
