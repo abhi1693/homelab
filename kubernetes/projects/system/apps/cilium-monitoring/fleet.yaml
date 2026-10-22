@@ -1,0 +1,10 @@
+---
+name: cilium-monitoring
+defaultNamespace: cattle-monitoring-system
+labels:
+  app.kubernetes.io/name: cilium-monitoring
+  app.kubernetes.io/part-of: rancher-monitoring
+  home-lab.io/project-slug: system
+dependsOn:
+  - name: rancher-monitoring-helmop
+  - name: cilium-helmop

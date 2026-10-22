@@ -5,6 +5,10 @@ metadata:
   name: project-app-coverage
 spec:
   exclusions:
+    - path: kubernetes/projects/system/apps/cilium-monitoring
+      disposition: component
+      application: cilium
+      reason: Scrapes, alerts and dashboards support the Fleet-managed Cilium service.
     - path: kubernetes/projects/database/apps/postgresql-devfeed-prerequisites
       disposition: component
       application: postgresql

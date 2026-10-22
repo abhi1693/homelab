@@ -1,0 +1,440 @@
+---
+rule_files:
+- rules.yml
+evaluation_interval: 1m
+tests:
+- name: traffic without WAL progress persists beyond hold time
+  interval: 1m
+  input_series:
+  - series: loki_distributor_lines_received_total{namespace="cattle-monitoring-system"}
+    values: 0+100x30
+  - series: loki_ingester_wal_records_logged_total{namespace="cattle-monitoring-system"}
+    values: 100+0x30
+  alert_rule_test:
+  - eval_time: 4m
+    alertname: LokiWALWritesStalled
+    exp_alerts: []
+  - eval_time: 15m
+    alertname: LokiWALWritesStalled
+    exp_alerts:
+    - exp_labels: &id001
+        severity: critical
+        namespace: cattle-monitoring-system
+        incident: log-delivery
+      exp_annotations: &id002
+        summary: Loki receives logs but makes no WAL progress
+        description: Incoming logs persist while the rolling 10-minute successful WAL-record increase stays
+          zero. Readiness and received-line counters do not prove durable ingestion; inspect WAL errors and
+          query fresh logs before recovery.
+        runbook_url: https://github.com/abhi1693/home-lab/blob/master/docs/runbooks/loki-stale-nfs-wal.md
+- name: healthy ingestion advances WAL
+  interval: 1m
+  input_series:
+  - series: loki_distributor_lines_received_total{namespace="cattle-monitoring-system"}
+    values: 0+100x30
+  - series: loki_ingester_wal_records_logged_total{namespace="cattle-monitoring-system"}
+    values: 0+10x30
+  alert_rule_test:
+  - eval_time: 20m
+    alertname: LokiWALWritesStalled
+    exp_alerts: []
+- name: idle ingestion does not page
+  interval: 1m
+  input_series:
+  - series: loki_distributor_lines_received_total{namespace="cattle-monitoring-system"}
+    values: 100+0x30
+  - series: loki_ingester_wal_records_logged_total{namespace="cattle-monitoring-system"}
+    values: 100+0x30
+  alert_rule_test:
+  - eval_time: 20m
+    alertname: LokiWALWritesStalled
+    exp_alerts: []
+- name: missing WAL telemetry is not reported as zero progress
+  interval: 1m
+  input_series:
+  - series: loki_distributor_lines_received_total{namespace="cattle-monitoring-system"}
+    values: 0+100x30
+  alert_rule_test:
+  - eval_time: 20m
+    alertname: LokiWALWritesStalled
+    exp_alerts: []
+- name: WAL resumes and alert recovers
+  interval: 1m
+  input_series:
+  - series: loki_distributor_lines_received_total{namespace="cattle-monitoring-system"}
+    values: 0+100x40
+  - series: loki_ingester_wal_records_logged_total{namespace="cattle-monitoring-system"}
+    values: 100+0x15 110+10x24
+  alert_rule_test:
+  - eval_time: 15m
+    alertname: LokiWALWritesStalled
+    exp_alerts:
+    - exp_labels: *id001
+      exp_annotations: *id002
+  - eval_time: 26m
+    alertname: LokiWALWritesStalled
+    exp_alerts: []
+- name: WAL counter reset with new writes remains healthy
+  interval: 1m
+  input_series:
+  - series: loki_distributor_lines_received_total{namespace="cattle-monitoring-system"}
+    values: 0+100x10 0+100x20
+  - series: loki_ingester_wal_records_logged_total{namespace="cattle-monitoring-system"}
+    values: 0+10x10 0+10x20
+  alert_rule_test:
+  - eval_time: 20m
+    alertname: LokiWALWritesStalled
+    exp_alerts: []
+- name: unrelated namespace traffic does not page
+  interval: 1m
+  input_series:
+  - series: loki_distributor_lines_received_total{namespace="other"}
+    values: 0+100x30
+  - series: loki_ingester_wal_records_logged_total{namespace="cattle-monitoring-system"}
+    values: 100+0x30
+  alert_rule_test:
+  - eval_time: 20m
+    alertname: LokiWALWritesStalled
+    exp_alerts: []
+- name: non-retryable queue drops remain visible with reason and namespace
+  interval: 1m
+  input_series:
+  - series: loki_write_dropped_entries_total{namespace="cattle-monitoring-system",pod="alloy-node-logs-test",reason="queue_is_full"}
+    values: 0+1x30
+  alert_rule_test:
+  - eval_time: 10m
+    alertname: AlloyLogEntriesDropped
+    exp_alerts:
+    - exp_labels:
+        severity: warning
+        namespace: cattle-monitoring-system
+        incident: log-delivery
+        data_loss: permanent
+        pod: alloy-node-logs-test
+        reason: queue_is_full
+      exp_annotations:
+        summary: Alloy permanently discarded log entries
+        description: 'Last positive 10m window: alloy-node-logs-test permanently lost ~10 entries (reason=queue_is_full).
+          Check collector HTTP errors, Loki rejections, and queue pressure. Drops can follow non-retryable
+          errors or exhausted retries. Held firing for 10m after positive evaluations stop; resolved means
+          no recent drops, not recovery. Verify fresh logs after repair.'
+        runbook_url: https://github.com/abhi1693/home-lab/blob/master/kubernetes/projects/system/apps/loki/README.md#delivery-headroom-and-alerts
+- name: generic ingester errors are not described as retry exhaustion
+  interval: 1m
+  input_series:
+  - series: loki_write_dropped_entries_total{namespace="cattle-monitoring-system",pod="alloy-faro-test",reason="ingester_error"}
+    values: 0+1x30
+  alert_rule_test:
+  - eval_time: 10m
+    alertname: AlloyLogEntriesDropped
+    exp_alerts:
+    - exp_labels:
+        severity: warning
+        namespace: cattle-monitoring-system
+        incident: log-delivery
+        data_loss: permanent
+        pod: alloy-faro-test
+        reason: ingester_error
+      exp_annotations:
+        summary: Alloy permanently discarded log entries
+        description: 'Last positive 10m window: alloy-faro-test permanently lost ~10 entries (reason=ingester_error).
+          Check collector HTTP errors, Loki rejections, and queue pressure. Drops can follow non-retryable
+          errors or exhausted retries. Held firing for 10m after positive evaluations stop; resolved means
+          no recent drops, not recovery. Verify fresh logs after repair.'
+        runbook_url: https://github.com/abhi1693/home-lab/blob/master/kubernetes/projects/system/apps/loki/README.md#delivery-headroom-and-alerts
+- name: missing drop reason remains actionable
+  interval: 1m
+  input_series:
+  - series: loki_write_dropped_entries_total{namespace="cattle-monitoring-system",pod="alloy-missing-reason"}
+    values: 0+1x30
+  alert_rule_test:
+  - eval_time: 10m
+    alertname: AlloyLogEntriesDropped
+    exp_alerts:
+    - exp_labels:
+        severity: warning
+        namespace: cattle-monitoring-system
+        incident: log-delivery
+        data_loss: permanent
+        pod: alloy-missing-reason
+      exp_annotations:
+        summary: Alloy permanently discarded log entries
+        description: 'Last positive 10m window: alloy-missing-reason permanently lost ~10 entries (reason=unspecified).
+          Check collector HTTP errors, Loki rejections, and queue pressure. Drops can follow non-retryable
+          errors or exhausted retries. Held firing for 10m after positive evaluations stop; resolved means
+          no recent drops, not recovery. Verify fresh logs after repair.'
+        runbook_url: https://github.com/abhi1693/home-lab/blob/master/kubernetes/projects/system/apps/loki/README.md#delivery-headroom-and-alerts
+- name: empty drop reason remains actionable
+  interval: 1m
+  input_series:
+  - series: loki_write_dropped_entries_total{namespace="cattle-monitoring-system",pod="alloy-empty-reason",reason=""}
+    values: 0+1x30
+  alert_rule_test:
+  - eval_time: 10m
+    alertname: AlloyLogEntriesDropped
+    exp_alerts:
+    - exp_labels:
+        severity: warning
+        namespace: cattle-monitoring-system
+        incident: log-delivery
+        data_loss: permanent
+        pod: alloy-empty-reason
+      exp_annotations:
+        summary: Alloy permanently discarded log entries
+        description: 'Last positive 10m window: alloy-empty-reason permanently lost ~10 entries (reason=unspecified).
+          Check collector HTTP errors, Loki rejections, and queue pressure. Drops can follow non-retryable
+          errors or exhausted retries. Held firing for 10m after positive evaluations stop; resolved means
+          no recent drops, not recovery. Verify fresh logs after repair.'
+        runbook_url: https://github.com/abhi1693/home-lab/blob/master/kubernetes/projects/system/apps/loki/README.md#delivery-headroom-and-alerts
+- name: historical drops and new retries without new drops do not alert
+  interval: 1m
+  input_series:
+  - series: loki_write_dropped_entries_total{namespace="cattle-monitoring-system",pod="alloy-healthy",reason="ingester_error"}
+    values: 1000+0x30
+  - series: loki_write_batch_retries_total{namespace="cattle-monitoring-system",pod="alloy-healthy"}
+    values: 0+100x30
+  alert_rule_test:
+  - eval_time: 20m
+    alertname: AlloyLogEntriesDropped
+    exp_alerts: []
+- name: Loki rejections preserve reason namespace hold time and recovery
+  interval: 1m
+  input_series:
+  - series: loki_discarded_samples_total{namespace="cattle-monitoring-system",reason="too_far_behind"}
+    values: 0+1x10 10+0x20
+  alert_rule_test:
+  - eval_time: 4m
+    alertname: LokiLogEntriesRejected
+    exp_alerts: []
+  - eval_time: 10m
+    alertname: LokiLogEntriesRejected
+    exp_alerts:
+    - exp_labels:
+        severity: warning
+        namespace: cattle-monitoring-system
+        incident: log-delivery
+        reason: too_far_behind
+      exp_annotations:
+        summary: Loki is rejecting log entries
+        description: 'Loki rejected ~10 entries in 10m (reason=too_far_behind). Check Loki validation errors:
+          too_far_behind needs producer timestamp/ordering checks; rate limits need ingestion-budget/burst
+          checks. The rolling increase has stayed positive for 5m. Compare Alloy permanent drops separately;
+          pipeline-stage counts must not be added.'
+        runbook_url: https://github.com/abhi1693/home-lab/blob/master/kubernetes/projects/system/apps/loki/README.md#delivery-headroom-and-alerts
+  - eval_time: 22m
+    alertname: LokiLogEntriesRejected
+    exp_alerts: []
+- name: Loki rejection without a reason remains visible
+  interval: 1m
+  input_series:
+  - series: loki_discarded_samples_total{namespace="cattle-monitoring-system"}
+    values: 0+1x30
+  alert_rule_test:
+  - eval_time: 10m
+    alertname: LokiLogEntriesRejected
+    exp_alerts:
+    - exp_labels:
+        severity: warning
+        namespace: cattle-monitoring-system
+        incident: log-delivery
+      exp_annotations:
+        summary: Loki is rejecting log entries
+        description: 'Loki rejected ~10 entries in 10m (reason=unspecified). Check Loki validation errors:
+          too_far_behind needs producer timestamp/ordering checks; rate limits need ingestion-budget/burst
+          checks. The rolling increase has stayed positive for 5m. Compare Alloy permanent drops separately;
+          pipeline-stage counts must not be added.'
+        runbook_url: https://github.com/abhi1693/home-lab/blob/master/kubernetes/projects/system/apps/loki/README.md#delivery-headroom-and-alerts
+- name: unrelated namespace drops and rejections do not alert
+  interval: 1m
+  input_series:
+  - series: loki_write_dropped_entries_total{namespace="other",pod="alloy-other",reason="ingester_error"}
+    values: 0+100x30
+  - series: loki_discarded_samples_total{namespace="other",reason="too_far_behind"}
+    values: 0+100x30
+  alert_rule_test:
+  - eval_time: 20m
+    alertname: AlloyLogEntriesDropped
+    exp_alerts: []
+  - eval_time: 20m
+    alertname: LokiLogEntriesRejected
+    exp_alerts: []
+- name: permanent loss fires immediately and bridges brief gaps between bursts
+  interval: 1m
+  input_series:
+  - series: loki_write_dropped_entries_total{namespace="cattle-monitoring-system",pod="alloy-bursty",reason="ingester_error"}
+    values: 0+0x9 1+0x11 2+0x30
+  alert_rule_test:
+  - eval_time: 9m
+    alertname: AlloyLogEntriesDropped
+    exp_alerts: []
+  - eval_time: 10m
+    alertname: AlloyLogEntriesDropped
+    exp_alerts:
+    - exp_labels:
+        severity: warning
+        namespace: cattle-monitoring-system
+        incident: log-delivery
+        data_loss: permanent
+        pod: alloy-bursty
+        reason: ingester_error
+      exp_annotations:
+        summary: Alloy permanently discarded log entries
+        description: 'Last positive 10m window: alloy-bursty permanently lost ~1 entries (reason=ingester_error).
+          Check collector HTTP errors, Loki rejections, and queue pressure. Drops can follow non-retryable
+          errors or exhausted retries. Held firing for 10m after positive evaluations stop; resolved means
+          no recent drops, not recovery. Verify fresh logs after repair.'
+        runbook_url: https://github.com/abhi1693/home-lab/blob/master/kubernetes/projects/system/apps/loki/README.md#delivery-headroom-and-alerts
+  - eval_time: 20m
+    alertname: AlloyLogEntriesDropped
+    exp_alerts:
+    - exp_labels:
+        severity: warning
+        namespace: cattle-monitoring-system
+        incident: log-delivery
+        data_loss: permanent
+        pod: alloy-bursty
+        reason: ingester_error
+      exp_annotations:
+        summary: Alloy permanently discarded log entries
+        description: 'Last positive 10m window: alloy-bursty permanently lost ~1 entries (reason=ingester_error).
+          Check collector HTTP errors, Loki rejections, and queue pressure. Drops can follow non-retryable
+          errors or exhausted retries. Held firing for 10m after positive evaluations stop; resolved means
+          no recent drops, not recovery. Verify fresh logs after repair.'
+        runbook_url: https://github.com/abhi1693/home-lab/blob/master/kubernetes/projects/system/apps/loki/README.md#delivery-headroom-and-alerts
+  - eval_time: 22m
+    alertname: AlloyLogEntriesDropped
+    exp_alerts:
+    - exp_labels:
+        severity: warning
+        namespace: cattle-monitoring-system
+        incident: log-delivery
+        data_loss: permanent
+        pod: alloy-bursty
+        reason: ingester_error
+      exp_annotations:
+        summary: Alloy permanently discarded log entries
+        description: 'Last positive 10m window: alloy-bursty permanently lost ~1 entries (reason=ingester_error).
+          Check collector HTTP errors, Loki rejections, and queue pressure. Drops can follow non-retryable
+          errors or exhausted retries. Held firing for 10m after positive evaluations stop; resolved means
+          no recent drops, not recovery. Verify fresh logs after repair.'
+        runbook_url: https://github.com/abhi1693/home-lab/blob/master/kubernetes/projects/system/apps/loki/README.md#delivery-headroom-and-alerts
+  - eval_time: 32m
+    alertname: AlloyLogEntriesDropped
+    exp_alerts:
+    - exp_labels:
+        severity: warning
+        namespace: cattle-monitoring-system
+        incident: log-delivery
+        data_loss: permanent
+        pod: alloy-bursty
+        reason: ingester_error
+      exp_annotations:
+        summary: Alloy permanently discarded log entries
+        description: 'Last positive 10m window: alloy-bursty permanently lost ~1 entries (reason=ingester_error).
+          Check collector HTTP errors, Loki rejections, and queue pressure. Drops can follow non-retryable
+          errors or exhausted retries. Held firing for 10m after positive evaluations stop; resolved means
+          no recent drops, not recovery. Verify fresh logs after repair.'
+        runbook_url: https://github.com/abhi1693/home-lab/blob/master/kubernetes/projects/system/apps/loki/README.md#delivery-headroom-and-alerts
+  - eval_time: 40m
+    alertname: AlloyLogEntriesDropped
+    exp_alerts:
+    - exp_labels:
+        severity: warning
+        namespace: cattle-monitoring-system
+        incident: log-delivery
+        data_loss: permanent
+        pod: alloy-bursty
+        reason: ingester_error
+      exp_annotations:
+        summary: Alloy permanently discarded log entries
+        description: 'Last positive 10m window: alloy-bursty permanently lost ~1 entries (reason=ingester_error).
+          Check collector HTTP errors, Loki rejections, and queue pressure. Drops can follow non-retryable
+          errors or exhausted retries. Held firing for 10m after positive evaluations stop; resolved means
+          no recent drops, not recovery. Verify fresh logs after repair.'
+        runbook_url: https://github.com/abhi1693/home-lab/blob/master/kubernetes/projects/system/apps/loki/README.md#delivery-headroom-and-alerts
+  - eval_time: 42m
+    alertname: AlloyLogEntriesDropped
+    exp_alerts: []
+- name: permanent loss resolves only after ten minutes without positive evaluations
+  interval: 1m
+  input_series:
+  - series: loki_write_dropped_entries_total{namespace="cattle-monitoring-system",pod="alloy-bursty",reason="ingester_error"}
+    values: 0+0x9 1+0x40
+  alert_rule_test:
+  - eval_time: 10m
+    alertname: AlloyLogEntriesDropped
+    exp_alerts:
+    - exp_labels:
+        severity: warning
+        namespace: cattle-monitoring-system
+        incident: log-delivery
+        data_loss: permanent
+        pod: alloy-bursty
+        reason: ingester_error
+      exp_annotations:
+        summary: Alloy permanently discarded log entries
+        description: 'Last positive 10m window: alloy-bursty permanently lost ~1 entries (reason=ingester_error).
+          Check collector HTTP errors, Loki rejections, and queue pressure. Drops can follow non-retryable
+          errors or exhausted retries. Held firing for 10m after positive evaluations stop; resolved means
+          no recent drops, not recovery. Verify fresh logs after repair.'
+        runbook_url: https://github.com/abhi1693/home-lab/blob/master/kubernetes/projects/system/apps/loki/README.md#delivery-headroom-and-alerts
+  - eval_time: 28m
+    alertname: AlloyLogEntriesDropped
+    exp_alerts:
+    - exp_labels:
+        severity: warning
+        namespace: cattle-monitoring-system
+        incident: log-delivery
+        data_loss: permanent
+        pod: alloy-bursty
+        reason: ingester_error
+      exp_annotations:
+        summary: Alloy permanently discarded log entries
+        description: 'Last positive 10m window: alloy-bursty permanently lost ~1 entries (reason=ingester_error).
+          Check collector HTTP errors, Loki rejections, and queue pressure. Drops can follow non-retryable
+          errors or exhausted retries. Held firing for 10m after positive evaluations stop; resolved means
+          no recent drops, not recovery. Verify fresh logs after repair.'
+        runbook_url: https://github.com/abhi1693/home-lab/blob/master/kubernetes/projects/system/apps/loki/README.md#delivery-headroom-and-alerts
+  - eval_time: 30m
+    alertname: AlloyLogEntriesDropped
+    exp_alerts: []
+- name: critical WAL stall and permanent drops are independently observable
+  interval: 1m
+  input_series:
+  - series: loki_distributor_lines_received_total{namespace="cattle-monitoring-system"}
+    values: 0+100x30
+  - series: loki_ingester_wal_records_logged_total{namespace="cattle-monitoring-system"}
+    values: 100+0x30
+  - series: loki_write_dropped_entries_total{namespace="cattle-monitoring-system",pod="alloy-bursty",reason="ingester_error"}
+    values: 0+0x9 1+0x30
+  alert_rule_test:
+  - eval_time: 15m
+    alertname: LokiWALWritesStalled
+    exp_alerts:
+    - exp_labels:
+        severity: critical
+        namespace: cattle-monitoring-system
+        incident: log-delivery
+      exp_annotations:
+        summary: Loki receives logs but makes no WAL progress
+        description: Incoming logs persist while the rolling 10-minute successful WAL-record increase stays
+          zero. Readiness and received-line counters do not prove durable ingestion; inspect WAL errors and
+          query fresh logs before recovery.
+        runbook_url: https://github.com/abhi1693/home-lab/blob/master/docs/runbooks/loki-stale-nfs-wal.md
+  - eval_time: 15m
+    alertname: AlloyLogEntriesDropped
+    exp_alerts:
+    - exp_labels:
+        severity: warning
+        namespace: cattle-monitoring-system
+        incident: log-delivery
+        data_loss: permanent
+        pod: alloy-bursty
+        reason: ingester_error
+      exp_annotations:
+        summary: Alloy permanently discarded log entries
+        description: 'Last positive 10m window: alloy-bursty permanently lost ~1 entries (reason=ingester_error).
+          Check collector HTTP errors, Loki rejections, and queue pressure. Drops can follow non-retryable
+          errors or exhausted retries. Held firing for 10m after positive evaluations stop; resolved means
+          no recent drops, not recovery. Verify fresh logs after repair.'
+        runbook_url: https://github.com/abhi1693/home-lab/blob/master/kubernetes/projects/system/apps/loki/README.md#delivery-headroom-and-alerts

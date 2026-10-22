@@ -1,0 +1,172 @@
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  labels:
+    app.kubernetes.io/name: devfeed-partner-api
+    app.kubernetes.io/part-of: devfeed
+  name: devfeed-partner-api
+  namespace: devfeed
+spec:
+  replicas: 2
+  revisionHistoryLimit: 2
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: devfeed-partner-api
+      app.kubernetes.io/part-of: devfeed
+  strategy:
+    rollingUpdate:
+      maxSurge: 1
+      maxUnavailable: 0
+    type: RollingUpdate
+  template:
+    metadata:
+      annotations:
+        devfeed.tech/oidc-providers: '2026-10-20-devfeed-instance'
+      labels:
+        app.kubernetes.io/name: devfeed-partner-api
+        app.kubernetes.io/part-of: devfeed
+        devfeed-database-client: 'true'
+        devfeed-redis-client: 'true'
+        devfeed-telemetry: 'true'
+    spec:
+      affinity:
+        podAntiAffinity:
+          requiredDuringSchedulingIgnoredDuringExecution:
+          - labelSelector:
+              matchLabels:
+                app.kubernetes.io/name: devfeed-partner-api
+            topologyKey: kubernetes.io/hostname
+      automountServiceAccountToken: false
+      containers:
+      - command:
+        - uvicorn
+        - devfeed_partner_api.main:app
+        - --host
+        - 0.0.0.0
+        - --port
+        - '8004'
+        - --no-proxy-headers
+        - --no-access-log
+        env:
+        - name: DEVFEED_PARTNER_CREDENTIAL_KEY
+          valueFrom:
+            secretKeyRef:
+              name: devfeed-partner-keys
+              key: DEVFEED_PARTNER_CREDENTIAL_KEY
+        envFrom:
+        - configMapRef:
+            name: devfeed-telemetry
+        - configMapRef:
+            name: devfeed
+        - configMapRef:
+            name: devfeed-automation
+        - configMapRef:
+            name: devfeed-oidc-providers
+        - configMapRef:
+            name: devfeed-partner
+        - secretRef:
+            name: devfeed-database
+        - secretRef:
+            name: devfeed-image-storage
+        # renovate: datasource=docker depName=ghcr.io/abhi1693/devfeed.tech/partner-api
+        image: registry.home/ghcr.io/abhi1693/devfeed.tech/partner-api:0.1.1@sha256:0fe87e220ce4ade061a7affdf4481fe0d1af3bcdcb9c9ae67e2afadce921b872
+        imagePullPolicy: IfNotPresent
+        livenessProbe:
+          failureThreshold: 3
+          httpGet:
+            path: /health/live
+            port: 8004
+          periodSeconds: 10
+          timeoutSeconds: 5
+        name: partner-api
+        ports:
+        - name: metrics
+          containerPort: 9100
+        - containerPort: 8004
+        readinessProbe:
+          failureThreshold: 3
+          httpGet:
+            path: /health/ready
+            port: 8004
+          periodSeconds: 10
+          timeoutSeconds: 5
+        resources:
+          limits:
+            memory: 1Gi
+          requests:
+            cpu: 100m
+            memory: 256Mi
+        securityContext:
+          allowPrivilegeEscalation: false
+          capabilities:
+            drop:
+            - ALL
+          readOnlyRootFilesystem: true
+          runAsGroup: 10001
+          runAsNonRoot: true
+          runAsUser: 10001
+        startupProbe:
+          failureThreshold: 60
+          httpGet:
+            path: /health/live
+            port: 8004
+          periodSeconds: 10
+          timeoutSeconds: 5
+        volumeMounts:
+        - name: tmp
+          mountPath: /tmp
+      imagePullSecrets:
+      - name: harbor-registry
+      initContainers:
+      - command:
+        - python
+        - -c
+        - "import time\nfrom sqlalchemy import text\nfrom devfeed_core.db import get_engine\n\
+          from devfeed_core.version import SCHEMA_REVISION, BACKWARD_COMPATIBLE_SCHEMA_REVISIONS\n\
+          for attempt in range(180):\n    try:\n        with get_engine().connect()\
+          \ as connection:\n            if connection.execute(text(\"SELECT version_num\
+          \ FROM alembic_version\")).scalar() in {SCHEMA_REVISION, *BACKWARD_COMPATIBLE_SCHEMA_REVISIONS}:\n\
+          \                print(\"Database schema ready\", flush=True)\n        \
+          \        break\n    except Exception:\n        pass\n    time.sleep(5)\n\
+          else:\n    raise SystemExit(\"Timed out waiting for release schema\")\n"
+        env:
+        - name: DEVFEED_DATABASE_POOL_ENABLED
+          value: 'false'
+        envFrom:
+        - configMapRef:
+            name: devfeed
+        - secretRef:
+            name: devfeed-database
+        # renovate: datasource=docker depName=ghcr.io/abhi1693/devfeed.tech/backend
+        image: registry.home/ghcr.io/abhi1693/devfeed.tech/backend:0.1.1@sha256:607c540414d8c218835b4ac447a5f84143acef1f97ac747867778db178583268
+        imagePullPolicy: IfNotPresent
+        name: wait-for-schema
+        resources:
+          limits:
+            memory: 128Mi
+          requests:
+            cpu: 10m
+            memory: 64Mi
+        securityContext:
+          allowPrivilegeEscalation: false
+          capabilities:
+            drop:
+            - ALL
+          readOnlyRootFilesystem: true
+          runAsGroup: 10001
+          runAsNonRoot: true
+          runAsUser: 10001
+      nodeSelector:
+        kubernetes.io/arch: arm64
+      securityContext:
+        fsGroup: 10001
+        fsGroupChangePolicy: OnRootMismatch
+        seccompProfile:
+          type: RuntimeDefault
+      serviceAccountName: devfeed
+      terminationGracePeriodSeconds: 180
+      volumes:
+      - name: tmp
+        emptyDir:
+          sizeLimit: 256Mi

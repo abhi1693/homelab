@@ -1,0 +1,101 @@
+---
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: zitadel-devfeed-smtp
+  namespace: zitadel
+  labels: &id001
+    app.kubernetes.io/name: zitadel-devfeed-smtp
+    app.kubernetes.io/instance: zitadel
+    app.kubernetes.io/part-of: zitadel
+spec:
+  schedule: '*/5 * * * *'
+  concurrencyPolicy: Forbid
+  successfulJobsHistoryLimit: 1
+  failedJobsHistoryLimit: 2
+  jobTemplate:
+    spec:
+      backoffLimit: 1
+      activeDeadlineSeconds: 180
+      template:
+        metadata:
+          labels: *id001
+        spec:
+          automountServiceAccountToken: false
+          restartPolicy: Never
+          nodeSelector:
+            kubernetes.io/arch: arm64
+          securityContext:
+            runAsNonRoot: true
+            runAsUser: 1000
+            runAsGroup: 1000
+            fsGroup: 1000
+            seccompProfile:
+              type: RuntimeDefault
+          containers:
+          - name: reconcile
+            # renovate: datasource=docker depName=docker.io/alpine/k8s
+            image: registry.home/docker.io/alpine/k8s:1.35.6@sha256:1e60f04b38f9a0a7b5ab8688029f1141033d0c7f0da46a9c8068ace814de8267
+            command:
+            - python3
+            - -B
+            - /config/reconcile-smtp.py
+            resources:
+              requests:
+                cpu: 10m
+                memory: 32Mi
+              limits:
+                cpu: 100m
+                memory: 96Mi
+            securityContext:
+              allowPrivilegeEscalation: false
+              readOnlyRootFilesystem: true
+              capabilities:
+                drop:
+                - ALL
+            volumeMounts:
+            - name: config
+              mountPath: /config
+              readOnly: true
+            - name: api
+              mountPath: /credentials/api
+              readOnly: true
+            - name: smtp
+              mountPath: /credentials/smtp
+              readOnly: true
+          volumes:
+          - name: config
+            configMap:
+              name: zitadel-devfeed-smtp-script
+          - name: api
+            secret:
+              secretName: zitadel-devfeed-gitops
+              defaultMode: 288
+          - name: smtp
+            secret:
+              secretName: zitadel-devfeed-smtp
+              defaultMode: 288
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: zitadel-devfeed-smtp-egress
+  namespace: zitadel
+spec:
+  podSelector:
+    matchLabels:
+      app.kubernetes.io/name: zitadel
+  policyTypes:
+  - Egress
+  egress:
+  - to:
+    - ipBlock:
+        cidr: 0.0.0.0/0
+        except:
+        - 10.0.0.0/8
+        - 100.64.0.0/10
+        - 172.16.0.0/12
+        - 192.168.0.0/16
+    ports:
+    - protocol: TCP
+      port: 465

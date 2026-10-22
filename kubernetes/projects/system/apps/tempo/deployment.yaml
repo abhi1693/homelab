@@ -21,7 +21,8 @@ spec:
   template:
     metadata:
       annotations:
-        home-lab.io/tempo-config-revision: "2026-09-18-http-query-streaming"
+        home-lab.io/tempo-config-revision: "2026-10-19-persistent-traces"
+        home-lab.io/storage-revision: "2026-10-19-persistent-history"
       labels:
         app.kubernetes.io/name: tempo
         app.kubernetes.io/component: tracing-backend
@@ -29,6 +30,7 @@ spec:
         home-lab.io/project-slug: system
     spec:
       automountServiceAccountToken: false
+      terminationGracePeriodSeconds: 120
       nodeSelector:
         kubernetes.io/arch: arm64
         node-role.kubernetes.io/control-plane: "true"
@@ -113,5 +115,5 @@ spec:
           configMap:
             name: tempo
         - name: data
-          emptyDir:
-            sizeLimit: 2Gi
+          persistentVolumeClaim:
+            claimName: tempo-data

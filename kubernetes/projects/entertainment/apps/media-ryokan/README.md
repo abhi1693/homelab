@@ -140,7 +140,7 @@ A successful built-in search and no matching error confirm the direct path.
 
 ## Persistent data and poster artwork
 
-The `ryokan-data` Longhorn PVC is mounted at `/data` with `4 GiB` requested
+The `ryokan-data` Longhorn PVC is mounted at `/data` with `8 GiB` requested
 capacity. It stores the SQLite database, WAL, AniBridge cache, and locally
 cached poster/banner artwork. Keep enough free space for both the database WAL
 and high-resolution artwork; a full volume can surface as SQLite `database is
@@ -159,6 +159,14 @@ kubectl -n media exec deployment/ryokan -- df -h /data
 
 Do not delete `ryokan.db`, its WAL files, or artwork blobs manually. Expand the
 Fleet-managed PVC when capacity is the problem, then rerun the native rebuild.
+
+The October 2026 expansion from 4Gi to 8Gi preserves the active SQLite database,
+its WAL, and retained recovery snapshots after `/data` reached 100% usage. All
+Longhorn disks had more than 320Gi available before expansion. Verify both PVC
+capacity and the mounted filesystem after Fleet reconciliation; increasing the
+request alone does not prove filesystem expansion completed. PVCs cannot be
+shrunk to roll this change back. Review retention of old recovery snapshots
+separately rather than deleting database files during an alert response.
 
 ## Connection troubleshooting
 

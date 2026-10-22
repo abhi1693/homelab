@@ -1,0 +1,168 @@
+---
+# Keep in sync with the Cilium bootstrap inventory/template.
+k8sServiceHost: 192.168.3.2
+k8sServicePort: 6443
+cluster:
+  name: "default"
+bgpControlPlane:
+  enabled: false
+routingMode: "tunnel"
+tunnelProtocol: "vxlan"
+kubeProxyReplacement: true
+rollOutCiliumPods: true
+prometheus:
+  enabled: true
+  port: 9962
+updateStrategy:
+  type: RollingUpdate
+  rollingUpdate:
+    maxUnavailable: 1
+localRedirectPolicies:
+  enabled: false
+resources:
+  requests:
+    cpu: 100m
+    memory: 384Mi
+  limits:
+    memory: 768Mi
+initResources:
+  requests:
+    cpu: 10m
+    memory: 32Mi
+  limits:
+    cpu: 250m
+    memory: 128Mi
+cgroup:
+  autoMount:
+    resources:
+      requests:
+        cpu: 10m
+        memory: 32Mi
+      limits:
+        cpu: 250m
+        memory: 128Mi
+cni:
+  resources:
+    requests:
+      cpu: 10m
+      memory: 32Mi
+    limits:
+      cpu: 250m
+      memory: 128Mi
+loadBalancer:
+  serviceTopology: true
+hubble:
+  enabled: true
+  eventBufferCapacity: "4095"
+  metrics:
+    port: 9965
+    enabled:
+
+      - "dns:sourceContext=namespace;destinationContext=namespace"
+
+      - "drop:sourceContext=namespace;destinationContext=namespace"
+
+      - "tcp"
+
+      - "flow:sourceContext=namespace;destinationContext=namespace"
+
+      - "icmp"
+
+  relay:
+    enabled: false
+  ui:
+    enabled: false
+    replicas: 1
+    ingress:
+      enabled: false
+      className: "traefik"
+      hosts:
+
+        - "hubble.home"
+
+      tls: []
+securityContext:
+  capabilities:
+    ciliumAgent:
+
+      - CHOWN
+
+      - KILL
+
+      - NET_ADMIN
+
+      - NET_RAW
+
+      - IPC_LOCK
+
+      - SYS_MODULE
+
+      - SYS_ADMIN
+
+      - SYS_RESOURCE
+
+      - DAC_OVERRIDE
+
+      - FOWNER
+
+      - SETGID
+
+      - SETUID
+
+      - SYSLOG
+
+      - NET_BIND_SERVICE
+
+ipam:
+  operator:
+    clusterPoolIPv4PodCIDRList:
+      - "10.42.0.0/16"
+operator:
+  replicas: 2
+  prometheus:
+    enabled: true
+    port: 9963
+  updateStrategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxSurge: 1
+      maxUnavailable: 0
+  nodeSelector:
+    node-role.kubernetes.io/control-plane: "true"
+  tolerations:
+    - key: CriticalAddonsOnly
+      operator: Equal
+      value: "true"
+      effect: NoExecute
+  resources:
+    requests:
+      cpu: 25m
+      memory: 160Mi
+    limits:
+      cpu: 500m
+      memory: 320Mi
+  affinity:
+    podAntiAffinity:
+      requiredDuringSchedulingIgnoredDuringExecution:
+        - topologyKey: kubernetes.io/hostname
+          labelSelector:
+            matchLabels:
+              io.cilium/app: operator
+  topologySpreadConstraints:
+    - maxSkew: 1
+      topologyKey: kubernetes.io/hostname
+      whenUnsatisfiable: DoNotSchedule
+      labelSelector:
+        matchLabels:
+          io.cilium/app: operator
+envoy:
+  updateStrategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxUnavailable: 1
+  resources:
+    requests:
+      cpu: 25m
+      memory: 64Mi
+    limits:
+      memory: 256Mi

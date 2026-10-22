@@ -26,6 +26,34 @@ spec:
       - name: severity
         matchType: "!="
         value: none
+    routes:
+      # Correlate explicitly classified symptoms without hiding any member.
+      - receiver: slack
+        matchers:
+          - name: incident
+            matchType: "=~"
+            value: log-delivery|metric-delivery|trace-delivery
+        groupBy:
+          - incident
+          - cluster
+          - namespace
+      # Fast and slow burn describe the same service's availability incident.
+      - receiver: slack
+        matchers:
+          - name: namespace
+            matchType: "="
+            value: devfeed
+          - name: app
+            matchType: "="
+            value: devfeed
+          - name: alertname
+            matchType: "=~"
+            value: DevFeedAvailability(Fast|Slow)Burn
+        groupBy:
+          - cluster
+          - namespace
+          - app
+          - service
   receivers:
     - name: slack
       slackConfigs:
@@ -35,22 +63,47 @@ spec:
           sendResolved: true
           username: home-lab-alertmanager
           iconEmoji: ":rotating_light:"
-          title: '{{ .Status | toUpper }}: {{ .CommonLabels.alertname }}'
-          fallback: '{{ .Status | toUpper }}: {{ .CommonLabels.alertname }}'
-          color: '{{ if eq .Status "firing" }}danger{{ else }}good{{ end }}'
+          title: '{{ .Status | toUpper }}: {{ if .CommonLabels.incident }}{{ .CommonLabels.incident }}{{ else if .CommonLabels.alertname }}{{ .CommonLabels.alertname }}{{ else if .CommonLabels.app }}{{ .CommonLabels.app }}{{ else }}related alerts{{ end }}{{ if .CommonLabels.service }} / {{ .CommonLabels.service }}{{ end }} ({{ len .Alerts.Firing }} firing, {{ len .Alerts.Resolved }} resolved)'
+          titleLink: '{{ .ExternalURL }}/#/alerts?filter={{ if .CommonLabels.incident }}{{ printf "incident=%q" .CommonLabels.incident | urlquery }}{{ else if .CommonLabels.alertname }}{{ printf "alertname=%q" .CommonLabels.alertname | urlquery }}{{ else }}{{ printf "app=%q" .CommonLabels.app | urlquery }}{{ end }}'
+          fallback: '{{ .Status | toUpper }}: {{ if .CommonLabels.incident }}{{ .CommonLabels.incident }}{{ else if .CommonLabels.alertname }}{{ .CommonLabels.alertname }}{{ else }}{{ .CommonLabels.app }}{{ end }} ({{ len .Alerts.Firing }} firing, {{ len .Alerts.Resolved }} resolved)'
+          color: '{{ if eq .Status "resolved" }}good{{ else }}{{ $urgent := false }}{{ range .Alerts.Firing }}{{ if or (eq .Labels.severity "critical") (eq .Labels.data_loss "permanent") }}{{ $urgent = true }}{{ end }}{{ end }}{{ if $urgent }}danger{{ else }}warning{{ end }}{{ end }}'
           text: |-
-            {{ range .Alerts -}}
-            *{{ .Annotations.summary }}*
-            {{ .Annotations.description }}
-            {{ end }}
+            {{- $loss := false -}}
+            {{- $ordered := list -}}
+            {{- range .Alerts -}}
+              {{- if eq .Labels.data_loss "permanent" }}{{ $loss = true }}{{ end -}}
+            {{- end -}}
+            {{- range .Alerts.Firing -}}
+              {{- if eq .Labels.data_loss "permanent" }}{{ $ordered = append $ordered . }}{{ end -}}
+            {{- end -}}
+            {{- range .Alerts.Firing -}}
+              {{- if ne .Labels.data_loss "permanent" }}{{ $ordered = append $ordered . }}{{ end -}}
+            {{- end -}}
+            {{- range .Alerts.Resolved }}{{ $ordered = append $ordered . }}{{ end -}}
+            {{- if $loss }}
+            *Permanent telemetry loss:* discarded entries cannot be recovered. RESOLVED means the alert's recovery window cleared, not that lost data returned.
+            {{ end -}}
+            {{- range $index, $alert := $ordered -}}
+            {{- if lt $index 4 }}
+            *{{ .Status | toUpper }} · {{ printf "%.20s" .Labels.severity }} · {{ printf "%.80s" .Labels.alertname }}*
+            {{ if .Labels.pod }}Pod: `{{ printf "%.90s" .Labels.pod }}`{{ else if .Labels.node }}Node: `{{ printf "%.90s" .Labels.node }}`{{ else if .Labels.instance }}Instance: `{{ printf "%.90s" .Labels.instance }}`{{ else if .Labels.service }}Service: `{{ printf "%.90s" .Labels.service }}`{{ else }}Scope: {{ if .Labels.namespace }}{{ printf "%.90s" .Labels.namespace }}{{ else }}namespace not provided{{ end }}{{ end }}{{ if .Labels.reason }} · Reason: `{{ printf "%.60s" .Labels.reason }}`{{ end }}
+            {{ if .Annotations.summary }}{{ printf "%.100s" .Annotations.summary }}
+            {{ end }}{{ printf "%.240s" .Annotations.description }}
+            {{ if and .Annotations.runbook_url (le (len .Annotations.runbook_url) 240) }}<{{ .Annotations.runbook_url }}|Runbook>{{ else if and .Annotations.dashboard_url (le (len .Annotations.dashboard_url) 240) }}<{{ .Annotations.dashboard_url }}|Dashboard>{{ else if and .GeneratorURL (le (len .GeneratorURL) 240) }}<{{ .GeneratorURL }}|Query>{{ end }}
+            {{ end -}}
+            {{- end -}}
+            {{ if gt (len .Alerts) 4 }}Showing the first 4 of {{ len .Alerts }} alerts; firing permanent-loss alerts come first. <{{ .ExternalURL }}/#/alerts|View all alerts>{{ end }}
           fields:
             - title: Severity
-              value: '{{ .CommonLabels.severity }}'
+              value: '{{ if .CommonLabels.severity }}{{ .CommonLabels.severity }}{{ else }}{{ $critical := false }}{{ range .Alerts.Firing }}{{ if eq .Labels.severity "critical" }}{{ $critical = true }}{{ end }}{{ end }}{{ if $critical }}critical (mixed group){{ else }}mixed; see each alert{{ end }}{{ end }}'
               short: true
             - title: Namespace
-              value: '{{ .CommonLabels.namespace }}'
+              value: '{{ if .CommonLabels.namespace }}{{ .CommonLabels.namespace }}{{ else }}not provided; see each alert{{ end }}'
               short: true
-            - title: Alerts
-              value: '{{ len .Alerts }}'
+            - title: Firing / Resolved
+              value: '{{ len .Alerts.Firing }} / {{ len .Alerts.Resolved }}'
+              short: true
+            - title: Notification
+              value: '{{ if .NotificationReason }}{{ reReplaceAll "_" " " .NotificationReason }}{{ else }}alert group update{{ end }}'
               short: true
           footer: home-lab

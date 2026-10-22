@@ -2,21 +2,31 @@
 
 Fleet-managed deployment for ShipyardHQ.
 
-Application release `1.5.39` adds an authenticated, plan-filtered products API
-with stable cursor pagination and private, uncached responses. Production is
-configured for the one-time Pro plan only. OpenTelemetry database instrumentation
-dependencies are updated. No database schema changes are required.
+Application release `1.5.40` fixes live-clock prerender errors on leaderboards
+and member pages, keeps guide parameter access behind Suspense, and prevents
+default-plan loading from swallowing framework control-flow errors. The HTTP
+observer cleans up response listeners and correlates failed responses and render
+errors with request IDs and Cloudflare Ray values. The original tunnel reset's
+application cause remains unproven.
 
-Source commit `1b751b65` passed all 504 tests, ESLint, application and tooling
-TypeScript checks, full formatting validation, the production build, and local
-homepage/browse browser and CSS checks. GitHub Tests and Security Checks passed.
-[Release CI](https://github.com/abhi1693/shipyardhq/actions/runs/38148703125)
+The release refreshes 53 compatible direct package constraints, including Next.js
+16.4.2, React 19.3.1, Clerk 7.9.17, and Prisma 7.10.1. Major-version migrations and
+prereleases are excluded. Prisma Client is regenerated without schema changes or
+new migrations. The production npm audit reports zero vulnerabilities; the
+existing lint-only glob-chain advisories remain excluded from the container.
+
+Source commit `494795bf` passed all 514 tests, ESLint, application and tooling
+TypeScript checks, formatting validation, the production build, desktop/mobile
+public-route and CSS checks, and repeated authenticated member flows. GitHub Tests
+and Security Checks passed.
+[Release CI](https://github.com/abhi1693/shipyardhq/actions/runs/38949547313)
 passed the ARM64 image build, runtime smoke checks, and security scan with zero
 high/critical vulnerabilities and zero secrets.
-All image references pin index digest `sha256:2d05e0bb63b7f06b445799f271adafd8e54250448dff7a3fa39196313cbf9b29`,
+All six image references pin index digest
+`sha256:26baceb033c263c7c89ae90cadc30ecbe339e61f18d5b92779271344b0cd9549`,
 verified identical at GHCR and the internal mirror.
 
-Next.js 16.4 and React 19.3 retain Cache Components with Partial Prefetching;
+Next.js 16.4.2 and React 19.3.1 retain Cache Components with Partial Prefetching;
 the public layout requires static shells and per-link prefetches with
 `ensureStatic = "prefetch"`. Partner Spotlight streams behind an independent
 Suspense boundary and `navigation()` gate. Turbopack garbage collection, lazy
@@ -57,10 +67,11 @@ check stylesheet HTTP responses and desktop/mobile rendering after rollout.
 
 The web, worker, builder, ingestion, and cache-cleanup images share the same
 release. There are no database schema changes. To roll back, revert this release
-change through Git, restoring all four image-pin manifests to 1.5.37, and let
+change through Git, restoring all four image-pin manifests to 1.5.39, and let
 Fleet build or reuse the matching artifact before rolling the pods. Rollback
-restores the previous Next.js and React versions and prefetch behavior.
-Historical leaderboard TTL behavior is unchanged by 1.5.39.
+restores the previous application and dependency versions; no database rollback
+is needed.
+Historical leaderboard TTL behavior is unchanged by 1.5.40.
 
 The custom web, worker, and image-proxy Deployments retain two ReplicaSet
 revisions; Git and Fleet history remain the primary rollback path.

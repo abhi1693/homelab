@@ -14,9 +14,14 @@ This bundle installs Sonarr through a Fleet `HelmOp` for TV library automation.
 Sonarr is ARM64-pinned and participates in the `heavy-media` topology spread
 group so large media workloads avoid piling onto one node.
 
-CPU requests are `100m`, with no CPU limit (`resources.limits.cpu: 0` disables
-the TrueCharts default). Imports may burst above the request. This singleton
-rolls on resource changes; let Fleet reconcile during a quiet import window.
+CPU requests are `500m`, with no CPU limit (`resources.limits.cpu: 0` disables
+the TrueCharts default). Imports may burst above the request. On October 21,
+2026, automated tuning had raised the request to `1130m`, leaving the pod
+Pending because eligible workers lacked that much unreserved CPU. The
+`cluster-ops/media-helm` profile now leaves Sonarr's CPU request operator-managed
+while retaining memory tuning. Review worker reservations and heavy-media
+placement before re-enabling CPU tuning. This singleton rolls on resource
+changes; let Fleet reconcile during a quiet import window.
 
 ## Storage
 

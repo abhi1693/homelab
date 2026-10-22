@@ -1,0 +1,22 @@
+---
+apiVersion: home-lab.io/v1alpha1
+kind: WorkloadCatalog
+metadata:
+  name: alloy-node-logs
+spec:
+  displayName: Alloy Node Logs
+  purpose: Collect node-local container files and K3s/kernel journals for incident diagnosis.
+  owner: home-lab
+  project: system
+  cluster: home-k3s
+  lifecycle: active
+  criticality: high
+  dataClassification: sensitive
+  repository: https://github.com/abhi1693/home-lab
+  gitPath: kubernetes/projects/system/apps/alloy-node-logs
+  runbook: kubernetes/projects/system/apps/alloy-node-logs/README.md
+  knownLimitations:
+    - File offsets and journal cursors survive pod restarts on the same node; pending write batches are in memory.
+    - Host loss, journal vacuuming, pod deletion and kubelet rotation can remove unread local logs.
+  workloads:
+    - {key: home-k3s/cattle-monitoring-system/apps/daemonset/alloy-node-logs, namespace: cattle-monitoring-system, apiGroup: apps, kind: DaemonSet, name: alloy-node-logs, sourcePath: kubernetes/projects/system/apps/alloy-node-logs/values.yaml}

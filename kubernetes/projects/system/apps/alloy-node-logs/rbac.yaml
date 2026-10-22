@@ -1,0 +1,30 @@
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: alloy-node-logs
+  labels:
+    app.kubernetes.io/name: alloy-node-logs
+    app.kubernetes.io/part-of: rancher-monitoring
+    home-lab.io/project-slug: system
+rules:
+  - apiGroups: [""]
+    resources: ["pods"]
+    verbs: ["get", "list", "watch"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: alloy-node-logs
+  labels:
+    app.kubernetes.io/name: alloy-node-logs
+    app.kubernetes.io/part-of: rancher-monitoring
+    home-lab.io/project-slug: system
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: alloy-node-logs
+subjects:
+  - kind: ServiceAccount
+    name: alloy-node-logs
+    namespace: cattle-monitoring-system

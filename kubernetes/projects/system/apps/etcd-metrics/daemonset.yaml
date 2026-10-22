@@ -1,0 +1,102 @@
+---
+apiVersion: apps/v1
+kind: DaemonSet
+metadata:
+  name: etcd-metrics
+  namespace: cattle-monitoring-system
+spec:
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: etcd-metrics
+  minReadySeconds: 15
+  updateStrategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxUnavailable: 1
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: etcd-metrics
+        app.kubernetes.io/part-of: rancher-monitoring
+        home-lab.io/project-slug: system
+    spec:
+      serviceAccountName: etcd-metrics
+      # K3s intentionally exposes native etcd metrics only on host loopback.
+      hostNetwork: true
+      dnsPolicy: ClusterFirstWithHostNet
+      nodeSelector:
+        kubernetes.io/arch: arm64
+        kubernetes.io/os: linux
+        node-role.kubernetes.io/control-plane: "true"
+        node-role.kubernetes.io/etcd: "true"
+      tolerations:
+        - key: CriticalAddonsOnly
+          operator: Equal
+          value: "true"
+          effect: NoExecute
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 65532
+        runAsGroup: 65532
+        seccompProfile:
+          type: RuntimeDefault
+      containers:
+        - name: kube-rbac-proxy
+          # v0.23.0 linux/arm64 manifest, verified against the official registry.
+          # renovate: datasource=docker depName=quay.io/brancz/kube-rbac-proxy
+          image: quay.io/brancz/kube-rbac-proxy:v0.23.0@sha256:da1c385414e8dceb6ee8e89c1a3accfb5bc840640782e2567782d91308b46b33
+          imagePullPolicy: IfNotPresent
+          args:
+            - --secure-listen-address=$(HOST_IP):9238
+            - --upstream=http://127.0.0.1:2381/
+            - --allow-paths=/metrics
+            - --config-file=/etc/kube-rbac-proxy/config.yaml
+            - --tls-cert-file=/etc/etcd-metrics-tls/tls.crt
+            - --tls-private-key-file=/etc/etcd-metrics-tls/tls.key
+            - --tls-min-version=VersionTLS12
+            - --http2-disable
+            - --logtostderr=true
+          env:
+            - name: HOST_IP
+              valueFrom:
+                fieldRef:
+                  fieldPath: status.hostIP
+            - name: GOMEMLIMIT
+              value: 48MiB
+          ports:
+            - name: https-metrics
+              containerPort: 9238
+              hostPort: 9238
+              protocol: TCP
+          readinessProbe:
+            tcpSocket:
+              port: https-metrics
+            initialDelaySeconds: 3
+            periodSeconds: 10
+            timeoutSeconds: 2
+          resources:
+            requests:
+              cpu: 5m
+              memory: 32Mi
+            limits:
+              memory: 96Mi
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities:
+              drop: [ALL]
+          volumeMounts:
+            - name: config
+              mountPath: /etc/kube-rbac-proxy
+              readOnly: true
+            - name: tls
+              mountPath: /etc/etcd-metrics-tls
+              readOnly: true
+      volumes:
+        - name: config
+          configMap:
+            name: etcd-metrics-proxy
+        - name: tls
+          secret:
+            secretName: etcd-metrics-tls
+            defaultMode: 0444

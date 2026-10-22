@@ -23,7 +23,7 @@ spec:
     metadata:
       annotations:
         devfeed.tech/x-pixel-token-revision: '2026-10-03'
-        devfeed.tech/oidc-providers: '2026-09-28-shared-github-google'
+        devfeed.tech/oidc-providers: '2026-10-20-devfeed-instance'
         devfeed.tech/feed-max-bytes: '20000000'
         devfeed.tech/ai-content-not-before: 'disabled'
       labels:
@@ -56,7 +56,7 @@ spec:
       containers:
         - name: user-api
           # renovate: datasource=docker depName=ghcr.io/abhi1693/devfeed.tech/user-api
-          image: registry.home/ghcr.io/abhi1693/devfeed.tech/user-api:0.0.52@sha256:efca110e64340008230ca8a9b34877f8406eee82f262e4633e31b496657f1dc9
+          image: registry.home/ghcr.io/abhi1693/devfeed.tech/user-api:0.1.1@sha256:956c208a6d0d6326c5c48c625abb788ece7b43b625c1b683eb524fa100f2b58d
           imagePullPolicy: IfNotPresent
           resources:
             requests:
@@ -87,6 +87,11 @@ spec:
             - configMapRef:
                 name: devfeed-oidc-providers
           env:
+            - name: DEVFEED_PARTNER_TRACKING_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: devfeed-partner-keys
+                  key: DEVFEED_PARTNER_TRACKING_KEY
             - name: DEVFEED_X_PIXEL_ENABLED
               value: 'true'
             - name: X_SIGNUP_EVENT_ID
@@ -161,7 +166,7 @@ spec:
       initContainers:
         - name: wait-for-inbox
           # renovate: datasource=docker depName=ghcr.io/abhi1693/devfeed.tech/user-api
-          image: registry.home/ghcr.io/abhi1693/devfeed.tech/user-api:0.0.52@sha256:efca110e64340008230ca8a9b34877f8406eee82f262e4633e31b496657f1dc9
+          image: registry.home/ghcr.io/abhi1693/devfeed.tech/user-api:0.1.1@sha256:956c208a6d0d6326c5c48c625abb788ece7b43b625c1b683eb524fa100f2b58d
           imagePullPolicy: IfNotPresent
           resources:
             requests:
@@ -193,7 +198,7 @@ spec:
               else: raise SystemExit('Inbox provisioning not ready')
         - name: wait-for-schema
           # renovate: datasource=docker depName=ghcr.io/abhi1693/devfeed.tech/backend
-          image: registry.home/ghcr.io/abhi1693/devfeed.tech/backend:0.0.52@sha256:5217dc6e52f196c1f9d6f7bfb121f2736f53bcac3e2965d5dc4563f82961ce60
+          image: registry.home/ghcr.io/abhi1693/devfeed.tech/backend:0.1.1@sha256:607c540414d8c218835b4ac447a5f84143acef1f97ac747867778db178583268
           imagePullPolicy: IfNotPresent
           securityContext:
             runAsNonRoot: true

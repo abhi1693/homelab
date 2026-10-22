@@ -12,4 +12,4 @@ controller on TCP `9090` and each connector on TCP `44483`.
 See the [controller README](../cloudflare-tunnel-ingress-controller/README.md)
 for monitoring, availability, and transport settings.
 
-DevFeed allows connector egress to `devfeed-web` on TCP 3000 and `devfeed-mcp` on TCP 8003 in the `devfeed` namespace. MCP serves `mcp.devfeed.tech`; the admin app remains internal to Traefik.
+DevFeed allows connector egress to `devfeed-web` and `devfeed-partner` on TCP 3000 and `devfeed-mcp` on TCP 8003 in the `devfeed` namespace. The partner frontend serves `partners.devfeed.tech`. MCP serves `mcp.devfeed.tech`; the admin app remains internal to Traefik.

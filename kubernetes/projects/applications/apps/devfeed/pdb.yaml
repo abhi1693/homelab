@@ -73,3 +73,33 @@ spec:
     matchLabels:
       app.kubernetes.io/name: devfeed-admin-api
       app.kubernetes.io/part-of: devfeed
+---
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  labels:
+    app.kubernetes.io/name: devfeed-partner
+    app.kubernetes.io/part-of: devfeed
+  name: devfeed-partner
+  namespace: devfeed
+spec:
+  minAvailable: 1
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: devfeed-partner
+      app.kubernetes.io/part-of: devfeed
+---
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  labels:
+    app.kubernetes.io/name: devfeed-partner-api
+    app.kubernetes.io/part-of: devfeed
+  name: devfeed-partner-api
+  namespace: devfeed
+spec:
+  minAvailable: 1
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: devfeed-partner-api
+      app.kubernetes.io/part-of: devfeed

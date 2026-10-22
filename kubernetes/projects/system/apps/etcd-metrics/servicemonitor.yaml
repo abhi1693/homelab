@@ -1,0 +1,47 @@
+---
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+  name: etcd-metrics
+  namespace: cattle-monitoring-system
+spec:
+  namespaceSelector:
+    matchNames: [cattle-monitoring-system]
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: etcd-metrics
+  sampleLimit: 2000
+  bodySizeLimit: 8MiB
+  endpoints:
+    - port: https-metrics
+      path: /metrics
+      scheme: https
+      interval: 30s
+      scrapeTimeout: 10s
+      # SafeAuthorization supports Secret selectors only. Read the existing
+      # rotating projected token instead of creating a long-lived token Secret.
+      bearerTokenFile: /var/run/secrets/kubernetes.io/serviceaccount/token
+      tlsConfig:
+        serverName: etcd-metrics.cattle-monitoring-system.svc
+        ca:
+          secret:
+            name: etcd-metrics-tls
+            key: ca.crt
+        insecureSkipVerify: false
+      relabelings:
+        - sourceLabels: [__meta_kubernetes_pod_node_name]
+          targetLabel: node
+        - sourceLabels: [__meta_kubernetes_pod_node_name]
+          targetLabel: instance
+        - targetLabel: job
+          replacement: etcd
+        - targetLabel: cluster_id
+          replacement: local
+        - targetLabel: cluster_name
+          replacement: local
+      metricRelabelings:
+        # K3s's loopback endpoint shares registries with its other components.
+        # Their metrics already have authenticated scrapes; retain native etcd only.
+        - sourceLabels: [__name__]
+          regex: etcd_.*
+          action: keep

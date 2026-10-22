@@ -1,0 +1,22 @@
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: pyroscope-data
+  namespace: cattle-monitoring-system
+  annotations:
+    helm.sh/resource-policy: keep
+  labels:
+    app.kubernetes.io/name: pyroscope
+    app.kubernetes.io/component: profiling-backend
+    app.kubernetes.io/part-of: rancher-monitoring
+    home-lab.io/project-slug: system
+spec:
+  accessModes:
+    - ReadWriteOnce
+  storageClassName: longhorn
+  # Preserve the existing binding during Fleet's forced Helm reconciliation.
+  volumeName: pvc-4ddc51a7-65bd-40a6-8a52-ffd66802744d
+  resources:
+    requests:
+      storage: 2Gi

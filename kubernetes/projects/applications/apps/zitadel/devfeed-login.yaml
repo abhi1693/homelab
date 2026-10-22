@@ -1,0 +1,160 @@
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: zitadel-devfeed-login
+  namespace: zitadel
+  labels: &id001
+    app.kubernetes.io/name: zitadel-devfeed-login
+    app.kubernetes.io/instance: zitadel
+    app.kubernetes.io/part-of: zitadel
+    home-lab.io/project-slug: applications
+spec:
+  replicas: 2
+  revisionHistoryLimit: 2
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: zitadel-devfeed-login
+  template:
+    metadata:
+      labels: *id001
+    spec:
+      automountServiceAccountToken: false
+      nodeSelector:
+        kubernetes.io/arch: arm64
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 1000
+        fsGroup: 1000
+        seccompProfile:
+          type: RuntimeDefault
+      containers:
+      - name: login
+        # renovate: datasource=docker depName=ghcr.io/abhi1693/home-lab-zitadel-login
+        image: registry.home/ghcr.io/abhi1693/home-lab-zitadel-login:4.19.4-idp-retry1@sha256:6a08219dd72da25409be8bc93544cfd68d720f82269a29f43ae6717957889d0c
+        ports:
+        - name: http
+          containerPort: 3000
+        envFrom:
+        - secretRef:
+            name: zitadel-devfeed-login-env
+        env:
+        - name: NEXT_PUBLIC_BASE_PATH
+          value: /ui/v2/login
+        - name: ZITADEL_API_URL
+          value: http://zitadel:8080
+        - name: ZITADEL_EXTERNALDOMAIN
+          value: auth.devfeed.tech
+        - name: CUSTOM_REQUEST_HEADERS
+          value: Host:auth.devfeed.tech,X-Zitadel-Public-Host:auth.devfeed.tech
+        - name: HOSTNAME
+          value: 0.0.0.0
+        - name: PORT
+          value: '3000'
+        resources:
+          requests:
+            cpu: 70m
+            memory: 146Mi
+          limits:
+            memory: 256Mi
+        securityContext:
+          allowPrivilegeEscalation: false
+          readOnlyRootFilesystem: true
+          capabilities:
+            drop:
+            - ALL
+          runAsNonRoot: true
+          runAsUser: 1000
+        volumeMounts:
+        - name: tmp
+          mountPath: /tmp
+        readinessProbe:
+          httpGet:
+            path: /ui/v2/login/ready
+            port: http
+          periodSeconds: 10
+          failureThreshold: 6
+          timeoutSeconds: 2
+        livenessProbe:
+          httpGet:
+            path: /ui/v2/login/healthy
+            port: http
+          periodSeconds: 10
+          failureThreshold: 6
+          timeoutSeconds: 2
+        startupProbe:
+          httpGet:
+            path: /ui/v2/login/ready
+            port: http
+          periodSeconds: 5
+          failureThreshold: 24
+          timeoutSeconds: 2
+      volumes:
+      - name: tmp
+        emptyDir: {}
+      topologySpreadConstraints:
+      - maxSkew: 1
+        topologyKey: kubernetes.io/hostname
+        whenUnsatisfiable: ScheduleAnyway
+        labelSelector:
+          matchLabels:
+            app.kubernetes.io/name: zitadel-devfeed-login
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: zitadel-devfeed-login
+  namespace: zitadel
+  labels:
+    app.kubernetes.io/name: zitadel-devfeed-login
+    app.kubernetes.io/instance: zitadel
+    app.kubernetes.io/part-of: zitadel
+    home-lab.io/project-slug: applications
+spec:
+  selector:
+    app.kubernetes.io/name: zitadel-devfeed-login
+  ports:
+  - name: http
+    port: 3000
+    targetPort: http
+    appProtocol: kubernetes.io/http
+---
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: zitadel-devfeed-login
+  namespace: zitadel
+  labels:
+    app.kubernetes.io/name: zitadel-devfeed-login
+    app.kubernetes.io/instance: zitadel
+    app.kubernetes.io/part-of: zitadel
+    home-lab.io/project-slug: applications
+spec:
+  ingressClassName: cloudflare-tunnel
+  rules:
+  - host: auth.devfeed.tech
+    http:
+      paths:
+      - path: /ui/v2/login
+        pathType: Prefix
+        backend:
+          service:
+            name: zitadel-devfeed-login
+            port:
+              number: 3000
+---
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: zitadel-devfeed-login
+  namespace: zitadel
+  labels:
+    app.kubernetes.io/name: zitadel-devfeed-login
+    app.kubernetes.io/instance: zitadel
+    app.kubernetes.io/part-of: zitadel
+    home-lab.io/project-slug: applications
+spec:
+  minAvailable: 1
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: zitadel-devfeed-login

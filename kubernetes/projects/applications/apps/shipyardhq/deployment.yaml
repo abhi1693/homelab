@@ -65,7 +65,7 @@ spec:
       initContainers:
         - name: restore-next-build
           # renovate: datasource=docker depName=ghcr.io/abhi1693/shipyardhq
-          image: registry.home/ghcr.io/abhi1693/shipyardhq:1.5.39@sha256:2d05e0bb63b7f06b445799f271adafd8e54250448dff7a3fa39196313cbf9b29
+          image: registry.home/ghcr.io/abhi1693/shipyardhq:1.5.40@sha256:26baceb033c263c7c89ae90cadc30ecbe339e61f18d5b92779271344b0cd9549
           imagePullPolicy: IfNotPresent
           command:
             - /bin/sh
@@ -229,7 +229,7 @@ spec:
       containers:
         - name: web
           # renovate: datasource=docker depName=ghcr.io/abhi1693/shipyardhq
-          image: registry.home/ghcr.io/abhi1693/shipyardhq:1.5.39@sha256:2d05e0bb63b7f06b445799f271adafd8e54250448dff7a3fa39196313cbf9b29
+          image: registry.home/ghcr.io/abhi1693/shipyardhq:1.5.40@sha256:26baceb033c263c7c89ae90cadc30ecbe339e61f18d5b92779271344b0cd9549
           imagePullPolicy: IfNotPresent
           command:
             - node
@@ -435,7 +435,7 @@ spec:
       containers:
         - name: worker
           # renovate: datasource=docker depName=ghcr.io/abhi1693/shipyardhq
-          image: registry.home/ghcr.io/abhi1693/shipyardhq:1.5.39@sha256:2d05e0bb63b7f06b445799f271adafd8e54250448dff7a3fa39196313cbf9b29
+          image: registry.home/ghcr.io/abhi1693/shipyardhq:1.5.40@sha256:26baceb033c263c7c89ae90cadc30ecbe339e61f18d5b92779271344b0cd9549
           imagePullPolicy: IfNotPresent
           command:
             - npm
@@ -506,8 +506,8 @@ spec:
               value: postgresql://$(POSTGRES_USER):$(POSTGRES_PASSWORD)@postgresql-pooler-shipyardhq-rw.postgresql.svc.cluster.local:5432/$(POSTGRES_DB)?sslmode=disable
           resources:
             requests:
-              cpu: 190m
-              memory: 600Mi
+              cpu: 80m
+              memory: 572Mi
             limits:
               memory: 896Mi
           securityContext:

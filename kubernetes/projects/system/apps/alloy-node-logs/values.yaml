@@ -1,0 +1,275 @@
+---
+crds:
+  create: false
+
+image:
+  # ARM64 manifest for grafana/alloy:v1.20.1, verified from the OCI index.
+  digest: sha256:830fe0d4e1cde1fb1d15b23a792939c88c81bf41aac8ed34180143acaaa9889b
+
+# Stage one primes file offsets while the existing API collector owns pod logs.
+# Keep the API pod source until every forwarding replacement is Ready.
+nodeLogs:
+  podLogsEnabled: true
+
+controller:
+  type: daemonset
+  # Force a real rolling replacement to flush priming readers' quiet-file
+  # checkpoints before the enabled replacements start.
+  podAnnotations:
+    home-lab.io/log-handover-stage: forwarding-v1
+  nodeSelector:
+    kubernetes.io/arch: arm64
+    kubernetes.io/os: linux
+  tolerations:
+    - operator: Exists
+  updateStrategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxUnavailable: 1
+      maxSurge: 0
+  terminationGracePeriodSeconds: 60
+  volumes:
+    extra:
+      - name: pod-logs
+        hostPath:
+          path: /var/log/pods
+          type: Directory
+      - name: persistent-journal
+        hostPath:
+          path: /var/log/journal
+          type: Directory
+      - name: runtime-journal
+        hostPath:
+          path: /run/log/journal
+          type: Directory
+      - name: machine-id
+        hostPath:
+          path: /etc/machine-id
+          type: File
+      - name: alloy-state
+        hostPath:
+          path: /var/lib/alloy-node-logs
+          type: DirectoryOrCreate
+
+rbac:
+  # The chart concatenates clusterRules/rules; an empty side renders invalid
+  # YAML in 1.13.1. Fleet owns the narrower pods-only RBAC manifest instead.
+  create: false
+
+alloy:
+  enableReporting: false
+  clustering:
+    enabled: false
+  storagePath: /var/lib/alloy-node-logs
+  extraEnv:
+    - name: NODE_NAME
+      valueFrom:
+        fieldRef:
+          fieldPath: spec.nodeName
+  mounts:
+    extra:
+      - name: pod-logs
+        mountPath: /var/log/pods
+        readOnly: true
+      - name: persistent-journal
+        mountPath: /var/log/journal
+        readOnly: true
+      - name: runtime-journal
+        mountPath: /run/log/journal
+        readOnly: true
+      - name: machine-id
+        mountPath: /etc/machine-id
+        readOnly: true
+      - name: alloy-state
+        mountPath: /var/lib/alloy-node-logs
+  # Host CRI logs are root:root 0640; root with no capabilities can read them.
+  # Journal directories and files are root owned, so no host group is required.
+  securityContext:
+    runAsUser: 0
+    runAsGroup: 0
+    allowPrivilegeEscalation: false
+    readOnlyRootFilesystem: true
+    capabilities:
+      drop: [ALL]
+    seccompProfile:
+      type: RuntimeDefault
+  configMap:
+    content: |-
+      discovery.kubernetes "pods" {
+        role = "pod"
+        selectors {
+          role  = "pod"
+          field = "spec.nodeName=" + sys.env("NODE_NAME")
+        }
+      }
+
+      discovery.relabel "pods" {
+        targets = discovery.kubernetes.pods.targets
+        rule {
+          source_labels = ["__meta_kubernetes_namespace"]
+          target_label  = "namespace"
+        }
+        rule {
+          source_labels = ["__meta_kubernetes_pod_name"]
+          target_label  = "pod"
+        }
+        rule {
+          source_labels = ["__meta_kubernetes_pod_container_name"]
+          target_label  = "container"
+        }
+        rule {
+          source_labels = ["__meta_kubernetes_pod_node_name"]
+          target_label  = "node"
+        }
+        rule {
+          source_labels = ["__meta_kubernetes_pod_label_app_kubernetes_io_name"]
+          regex         = "(.+)"
+          target_label  = "app"
+        }
+        rule {
+          source_labels = ["__meta_kubernetes_pod_label_app_kubernetes_io_part_of"]
+          regex         = "(.+)"
+          target_label  = "part_of"
+        }
+        rule {
+          source_labels = ["__meta_kubernetes_pod_label_app_kubernetes_io_component"]
+          regex         = "(.+)"
+          target_label  = "component"
+        }
+        rule {
+          source_labels = ["__meta_kubernetes_namespace", "__meta_kubernetes_pod_container_name"]
+          separator     = "/"
+          target_label  = "job"
+        }
+        rule {
+          target_label = "cluster"
+          replacement  = "local"
+        }
+        rule {
+          source_labels = ["__meta_kubernetes_pod_uid", "__meta_kubernetes_pod_container_name"]
+          separator     = "/"
+          target_label  = "__path__"
+          replacement   = "/var/log/pods/*$1/*.log"
+        }
+      }
+
+      loki.source.file "pods" {
+        targets                 = discovery.relabel.pods.output
+        // Priming reads existing files into the discard stage, checkpointing
+        // even quiet files. Seeking EOF alone does not save their offsets.
+        tail_from_end           = false
+        on_positions_file_error = "restart_from_end"
+        {{- if .Values.nodeLogs.podLogsEnabled }}
+        forward_to              = [loki.process.pods.receiver]
+        {{- else }}
+        forward_to              = [loki.process.pods_priming.receiver]
+        {{- end }}
+        file_match {
+          enabled     = true
+          sync_period = "5s"
+        }
+      }
+
+      // During priming, the API collector is authoritative. Consume locally to
+      // save positions without replaying existing pod files into Loki.
+      loki.process "pods_priming" {
+        forward_to = []
+        stage.drop {
+          expression          = ".*"
+          drop_counter_reason = "migration_priming"
+        }
+      }
+
+      loki.process "pods" {
+        forward_to = [loki.write.local.receiver]
+        stage.cri {
+          max_partial_lines              = 100
+          max_partial_line_size          = 262144
+          max_partial_line_size_truncate = true
+        }
+        // CRI parsing restores the producer timestamp before the age filter.
+        stage.drop {
+          older_than          = "336h"
+          drop_counter_reason = "expired_retention"
+        }
+        stage.label_drop {
+          values = ["filename", "stream", "flags"]
+        }
+        stage.match {
+          selector = "{namespace=\"devfeed\"}"
+          stage.json {
+            expressions = { severity = "level", service = "service" }
+          }
+          stage.labels {
+            values = { severity = "", service = "" }
+          }
+        }
+      }
+
+      // Separate exact matches avoid unsupported journal OR syntax and keep
+      // auth/session/general system logs outside the collection boundary.
+      // Empty path searches both persistent and volatile journal directories.
+      loki.source.journal "k3s_server" {
+        path           = ""
+        matches        = "_SYSTEMD_UNIT=k3s.service"
+        max_age        = "5m"
+        format_as_json = true
+        labels         = { cluster = "local", node = sys.env("NODE_NAME"), source = "journal", unit = "k3s.service", job = "node/k3s" }
+        forward_to     = [loki.process.journal.receiver]
+      }
+      loki.source.journal "k3s_agent" {
+        path           = ""
+        matches        = "_SYSTEMD_UNIT=k3s-agent.service"
+        max_age        = "5m"
+        format_as_json = true
+        labels         = { cluster = "local", node = sys.env("NODE_NAME"), source = "journal", unit = "k3s-agent.service", job = "node/k3s" }
+        forward_to     = [loki.process.journal.receiver]
+      }
+      loki.source.journal "kernel" {
+        path           = ""
+        matches        = "_TRANSPORT=kernel"
+        max_age        = "5m"
+        format_as_json = true
+        labels         = { cluster = "local", node = sys.env("NODE_NAME"), source = "journal", unit = "kernel", job = "node/kernel" }
+        forward_to     = [loki.process.journal.receiver]
+      }
+      loki.process "journal" {
+        forward_to = [loki.write.local.receiver]
+        stage.drop {
+          older_than          = "336h"
+          drop_counter_reason = "expired_retention"
+        }
+      }
+
+      loki.write "local" {
+        endpoint {
+          url = "http://loki-gateway.cattle-monitoring-system.svc.cluster.local/loki/api/v1/push"
+          batch_size          = "256KiB"
+          retry_on_http_429    = true
+          min_backoff_period  = "1s"
+          max_backoff_period  = "1m"
+          max_backoff_retries = 20
+        }
+      }
+  resources:
+    requests:
+      cpu: 50m
+      memory: 128Mi
+      ephemeral-storage: 16Mi
+    limits:
+      memory: 256Mi
+      ephemeral-storage: 128Mi
+
+configReloader:
+  resources:
+    requests:
+      cpu: 5m
+      memory: 16Mi
+    limits:
+      memory: 32Mi
+
+serviceMonitor:
+  enabled: true
+  interval: 60s
+  additionalLabels:
+    app.kubernetes.io/part-of: rancher-monitoring

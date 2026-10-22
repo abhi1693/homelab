@@ -27,7 +27,7 @@ spec:
       - name: FAMILY_FINANCE_INVESTMENT_FILE
         value: /finance/investments.json
       - name: HOME_ASSISTANT_SOURCE_REVISION
-        value: "fc9df5384406d56ce123997880501a212bdf9726"
+        value: "ba4ae51a6636de1aca2dca21be5a0d7e921df7bc"
       - name: GO2RTC_USERNAME
         valueFrom:
           secretKeyRef:
@@ -183,8 +183,8 @@ spec:
         args:
           - |-
             set -eu
-            revision="fc9df5384406d56ce123997880501a212bdf9726"
-            expected_sha256="cfe59d09c79b073c88c24143d589c827f71ca4a4b6be02440b9f8dacaaa23d43"
+            revision="ba4ae51a6636de1aca2dca21be5a0d7e921df7bc"
+            expected_sha256="5cc2ec53b085a2a7f55b1f1f8feff861a53f7ff9e89ef82591f377942825235d"
             archive="/tmp/home-assistant-source.tar.gz"
             source_root="/tmp/home-assistant-source"
 

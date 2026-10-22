@@ -1,0 +1,28 @@
+---
+apiVersion: monitoring.coreos.com/v1
+kind: PrometheusRule
+metadata:
+  name: alloy-node-logs-availability
+  namespace: cattle-monitoring-system
+  labels:
+    app.kubernetes.io/part-of: rancher-monitoring
+spec:
+  groups:
+    - name: alloy-node-logs.availability
+      rules:
+        - alert: AlloyNodeLogsUnavailable
+          expr: kube_daemonset_status_number_available{namespace="cattle-monitoring-system",daemonset="alloy-node-logs"} < kube_daemonset_status_desired_number_scheduled{namespace="cattle-monitoring-system",daemonset="alloy-node-logs"} or absent(kube_daemonset_status_desired_number_scheduled{namespace="cattle-monitoring-system",daemonset="alloy-node-logs"})
+          for: 5m
+          labels:
+            severity: warning
+          annotations:
+            summary: A node has lost its local incident log collector
+            description: Compare Alloy DaemonSet desired and available nodes. Check host log mounts, permissions, pod readiness, and Loki delivery through Fleet.
+        - alert: AlloyNodeLogsMetricsUnavailable
+          expr: up{namespace="cattle-monitoring-system",job="alloy-node-logs"} == 0 or absent(up{namespace="cattle-monitoring-system",job="alloy-node-logs"})
+          for: 5m
+          labels:
+            severity: warning
+          annotations:
+            summary: A node log collector cannot be monitored
+            description: Check the Alloy ServiceMonitor, pod readiness and TCP/12345 monitoring ingress. A healthy scrape does not prove delivery; also inspect Loki drops and journal entries.

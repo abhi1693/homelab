@@ -1,0 +1,18 @@
+---
+apiVersion: home-lab.io/v1alpha1
+kind: WorkloadCatalog
+metadata:
+  name: etcd-metrics
+spec:
+  displayName: K3s Etcd Metrics
+  purpose: Securely collect native embedded-etcd health and disk metrics from all control-plane nodes.
+  owner: home-lab
+  project: system
+  cluster: home-k3s
+  lifecycle: active
+  criticality: high
+  dataClassification: restricted
+  repository: https://github.com/abhi1693/home-lab
+  gitPath: kubernetes/projects/system/apps/etcd-metrics
+  workloads:
+    - {key: home-k3s/cattle-monitoring-system/apps/daemonset/etcd-metrics, namespace: cattle-monitoring-system, apiGroup: apps, kind: DaemonSet, name: etcd-metrics, sourcePath: kubernetes/projects/system/apps/etcd-metrics/daemonset.yaml}

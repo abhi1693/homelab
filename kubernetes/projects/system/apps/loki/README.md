@@ -54,6 +54,25 @@ entity to allow only the 443/6443 API path required by the rules sidecar.
   samples, and no live dashboard consumes their output series.
 - Validate alongside `alloy-logs` when changing gateway or service naming.
 
+## Stalled NFS WAL recovery
+
+The WAL remains enabled on the retained NFS claim at `/var/loki/wal`. Graceful
+shutdown flushes in-memory chunks, with a 300-second termination allowance for
+new pods. A stable pod annotation records the Fleet-managed recovery for
+[issue #138](https://github.com/abhi1693/home-lab/issues/138); it reopens stale
+handles while preserving the WAL for replay. The original NFS invalidation
+trigger remains unproven, and the NAS remains a failure point.
+
+`LokiWALWritesStalled` alerts when incoming logs continue but the rolling
+ten-minute successful WAL-record increase stays zero for five minutes. Unlike
+readiness or received-line counters, it detects failed durable write progress.
+It does not detect every partial-delivery failure or missing telemetry; keep
+the Alloy drop alerts and verify fresh query results too. Follow the
+[recovery runbook](../../../../../docs/runbooks/loki-stale-nfs-wal.md) for data
+preservation, replay, loss accounting, rollback and the post-recovery observation
+window. Validate alert scenarios with `python scripts/check-loki-observability.py`
+from the repository root (requires `promtool` and PyYAML).
+
 ## Delivery headroom and alerts
 
 The tenant budget is 8MiB/s with a 16MiB burst, increased from the implicit 4MiB/s
@@ -64,6 +83,31 @@ The monitoring rules alert on permanent Alloy drops, Loki rejections and Grafana
 restarts. Validate log delivery and memory after rollout; revert rate/resource
 settings through Git if write latency or memory pressure increases. Retention
 and retained storage are unchanged.
+
+`AlloyLogEntriesDropped` reports the last positive rolling ten-minute count per
+collector pod and drop reason, rather than lifetime counters or retry attempts.
+It fires immediately and stays firing for ten minutes after the expression
+stops reporting drops. This bridges brief quiet gaps in a continuing incident;
+the retained annotation describes the last positive evaluation, not new loss
+throughout that hold. A resolved notification means no recent drops remain in
+the evaluation and hold windows; it does not recover discarded evidence.
+The fixed `data_loss: permanent` label identifies this loss alert for explicit
+protection from availability or severity-based inhibition.
+
+The count can include non-retryable failures: HTTP 4xx other than retry-enabled
+429 responses are not retried. `ingester_error` is a generic drop reason and
+does not prove retry exhaustion; `queue_is_full` and `batch_too_large` need local
+queue/batch investigation. Read collector errors for the HTTP status and Loki
+validation error, then compare rejection reasons, write latency, queue pressure,
+and fresh query results. `too_far_behind` requires producer timestamp and
+per-stream ordering checks; increasing retry counts alone does not fix it.
+
+`LokiLogEntriesRejected` retains its five-minute hold and ten-minute count.
+Rejections, collector drops, and WAL stalls carry the bounded
+`incident: log-delivery` label so notifications can correlate those observations
+without asserting a shared cause. Loki rejection and Alloy drop counters
+describe different pipeline stages and must not be summed as unique lost logs.
+Permanent-loss alerts must remain visible alongside backend or critical alerts.
 
 Log retention, query lookback, and the maximum accepted entry age are 14 days. Alloy filters
 expired Kubernetes entries before batching and counts them separately as

@@ -228,6 +228,36 @@
       - (cilium_network_config.stdout | from_json).data['tunnel-protocol'] == cilium.tunnel_protocol
     fail_msg: Cilium cluster identity or routing settings differ from inventory.
 
+- name: Assert Cilium incident metrics match inventory
+  ansible.builtin.assert:
+    that:
+      - (cilium_network_config.stdout | from_json).data['prometheus-serve-addr'] == ':' ~ (cilium.metrics.agent_port | string)
+      - (cilium_network_config.stdout | from_json).data['operator-prometheus-serve-addr'] == ':' ~ (cilium.metrics.operator_port | string)
+      - (cilium_network_config.stdout | from_json).data['enable-hubble'] | bool == cilium.hubble.enabled | bool
+      - (cilium_network_config.stdout | from_json).data['hubble-metrics-server'] == ':' ~ (cilium.metrics.hubble_port | string)
+      - (cilium_network_config.stdout | from_json).data['hubble-metrics'].split() == cilium.hubble.metrics
+    fail_msg: Cilium agent, operator, or Hubble metrics differ from inventory.
+
+- name: Check Cilium agent metrics on every node
+  ansible.builtin.uri:
+    url: "http://127.0.0.1:{{ cilium.metrics.agent_port }}/metrics"
+    use_proxy: false
+    status_code: 200
+    return_content: false
+  delegate_to: "{{ item }}"
+  loop: "{{ groups['k3s_nodes'] }}"
+  when: cilium.metrics.agent_enabled | bool
+
+- name: Check Hubble metrics on every node
+  ansible.builtin.uri:
+    url: "http://127.0.0.1:{{ cilium.metrics.hubble_port }}/metrics"
+    use_proxy: false
+    status_code: 200
+    return_content: false
+  delegate_to: "{{ item }}"
+  loop: "{{ groups['k3s_nodes'] }}"
+  when: cilium.hubble.enabled | bool
+
 - name: Read deployed Cilium local redirect policy setting
   ansible.builtin.command:
     argv:

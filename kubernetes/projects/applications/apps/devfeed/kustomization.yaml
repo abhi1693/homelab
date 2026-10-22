@@ -73,3 +73,6 @@ resources:
   - networkpolicy-images.yaml
   - image-storage-secrets.sops.yaml
   - imgproxy-secrets.sops.yaml
+  - deployment-partner.yaml
+  - deployment-partner-api.yaml
+  - partner-secrets.sops.yaml

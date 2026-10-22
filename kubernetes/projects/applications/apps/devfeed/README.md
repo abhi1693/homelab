@@ -1,10 +1,10 @@
 # DevFeed
 
 Fleet-managed developer news platform. All application workloads use release
-**0.0.52** with verified ARM64 image digests. Approval and publication require an
+**0.1.1** with verified ARM64 image digests. Approval and publication require an
 explicit article page-kind classification; missing or uncertain classifications stay blocked.
 
-Renovate tracks stable `X.Y.Z` Docker tags for all ten DevFeed images on GHCR,
+Renovate tracks stable `X.Y.Z` Docker tags for all twelve DevFeed images on GHCR,
 grouping runtime, init-container, and migration-hook updates while refreshing
 their SHA-256 pins. Commit tags, moving tags, and prereleases are excluded;
 Kubernetes continues pulling the pinned images through Harbor.
@@ -12,14 +12,62 @@ Kubernetes continues pulling the pinned images through Harbor.
 Reader language preferences support one or more languages, defaulting to English.
 My feed and Latest retain source/content filters and offer Most liked sorting.
 Source/topic discovery is paginated and restricted to the selected article languages.
-Web, Chrome and Edge share the reader. Chrome and Edge 0.1.20 packages are attached
-to the DevFeed 0.0.52 GitHub release. Browser-store publication is tracked separately
-from the website deployment.
+Web, Chrome and Edge share the reader. Chrome and Edge 0.1.22 packages belong to
+the DevFeed 0.1.1 release. Browser-store publication is tracked separately from
+the website deployment.
 Sources added by import, the admin form, or CLI share discovery and review. Imports
 remain pending until reviewed; full-auto mode uses AI review and approval enables polling.
-The pre-upgrade hook applies and verifies schema `0023` before replacing application workloads.
+The pre-upgrade hook applies and verifies schema `0033` before replacing application workloads.
 Release 0.0.41 applied migrations `0018` and `0019`; the migration job mounts the
 operator-managed historical topic-kind map needed to canonicalize stored topic data.
+
+Release 0.1.1 uses source `418b1512ba59a4f2dbb9a3b9b8749a49352f358e` and the
+[verified release image manifest](https://github.com/abhi1693/devfeed.tech/releases/download/v0.1.1/image-manifest.json)
+for all twelve ARM64 image pins. It adds source and article lifecycle boards,
+independently retryable processing, sign-in recovery, coordinated SSO sign-out,
+public API/OAuth/MCP discovery, and tier-based partner import schedules.
+Before migration, pause the scheduler through Fleet, drain deliveries, and stop
+older workers and the search indexer through a separate Fleet revision. Restore
+workers with the new images after migration, then resume the scheduler after
+readiness and image verification. See [migration lifecycle](migrations.md).
+Keep schema `0033` for recovery and use schema-compatible images; rolling back to
+0.1.0 images is not schema-compatible.
+
+Reader and partner clients register their exact SSO completion and back-channel
+logout URLs with `auth.devfeed.tech`, following the
+[client registration matrix](https://github.com/abhi1693/devfeed.tech/blob/v0.1.1/packages/http/README.md#zitadel-client-registration).
+The private admin client registers its
+browser SSO completion URL; admin back-channel logout is intentionally omitted.
+No public admin callback route is exposed. Existing browser sessions must sign in
+again after this release; independent MCP credentials retain their own revocation
+contract. Real provider notification delivery is a separate live verification step.
+
+Release 0.1.0 used source `7e04f3ca73db20d360be9f8c7692e80f488a828f`.
+All twelve ARM64 images have verified source attestations and matching GHCR/Harbor digests
+from [release image CI](https://github.com/abhi1693/devfeed.tech/actions/runs/39105413852).
+It adds tag discovery and follows, collection sharing, contextual partner promotions,
+and the dedicated portal at **https://partners.devfeed.tech**. The partner frontend
+has no database, Redis, storage, or OIDC credentials; only its private API handles
+partner sessions and enforces the `partner` role and account membership.
+The separate Zitadel client `395933820357969357` uses authorization code with PKCE,
+callback `/api/v1/partner/auth/callback`, and logout return `/login`.
+Cloudflare Tunnel owns public TLS and DNS; origin ingress accepts only the tunnel connector.
+Synthetic probes cover the public partner login and private frontend/API readiness.
+
+Production enables `DEVFEED_ADAPTIVE_SOURCE_POLLING_ENABLED=true` consistently through
+the shared ConfigMap. Sources retain their individual fixed/adaptive setting; use the
+admin source controls to opt sources into adaptive polling (300–86400 seconds).
+The existing article-derived topic proposal pause remains in force.
+Encrypted `partner-secrets.sops.yaml` supplies distinct delivery receipt, caller-proof,
+and import-credential keys. Only API/user API get receipt signing; only web/API get
+caller proofs; admin API, partner API, ingestion and source-analysis workers get import
+encryption. The web gateway trusts Cloudflare's overwritten `cf-connecting-ip` header.
+Admin and partner APIs receive the existing image-storage secret for artwork uploads.
+Partner jobs use the existing ingestion and source-analysis workers and scheduler.
+Migrations `0024`–`0026` add partnerships, adaptive polling, and saved tag follows.
+The migration process alone uses a 600-second statement timeout and a 30-second
+lock timeout for the production vocabulary backfill. Normal services retain their
+30-second statement timeout; the migration Job is bounded to 840 seconds.
 
 Release 0.0.52 uses source `af3220ca445f474e9d82f0363229b82d8d5812fb` and the
 [release image build workflow](https://github.com/abhi1693/devfeed.tech/actions/runs/38139276936).
@@ -114,16 +162,16 @@ reverting to a compatible build; an image-only rollback to 0.0.43 is not support
 
 | Entry point | Routing | OIDC client |
 | --- | --- | --- |
-| `https://devfeed.tech` | Public Cloudflare Tunnel, reader frontend only | `390346916430350165` |
-| `https://admin.devfeed.home` | Internal Traefik, home-local-ca certificate | `390346721797867349` |
+| `https://devfeed.tech` | Public Cloudflare Tunnel, reader frontend only | `395933883155154618` |
+| `https://admin.devfeed.home` | Internal Traefik, home-local-ca certificate | `395931985047979469` |
 
 Search and topic Follow actions return to the originating page after sign-in;
 search queries and filters survive the callback. Return URLs remain restricted
 to known local paths and search parameters.
 
 The reader sign-in page offers GitHub and Google through the existing Zitadel
-client. Both APIs load the `devfeed-oidc-providers` ConfigMap, selecting GitHub provider `390412503718298452`
-and Google provider `391210575599764264`. Changing these IDs requires rolling the
+client. Both APIs load the `devfeed-oidc-providers` ConfigMap, selecting GitHub provider `395930791550387898`
+and Google provider `395930568564409805`. Changing these IDs requires rolling the
 reader and admin APIs via their `devfeed.tech/oidc-providers` pod-template annotations.
 
 The reader session uses a 30-day inactivity timeout and a 90-day absolute lifetime.
@@ -132,8 +180,8 @@ short-lived ID token. The session-policy change requires one fresh login when th
 new application release is deployed; existing session records are not migrated.
 Admin session policy is unchanged.
 
-Both clients use `https://auth.abhimanyu-saharan.com`, organization
-`389593181982820082`, PKCE and secure cookies. Administration additionally requires
+Both clients use `https://auth.devfeed.tech`, organization
+`395926894337328224`, PKCE and secure cookies. Administration additionally requires
 `superuser`. Register the callbacks `/api/v1/user/auth/callback` on the public origin
 and `/api/v1/admin/auth/callback` on the admin origin in Zitadel. Internal clients
 must trust the home CA and resolve `admin.devfeed.home` to `192.168.3.3`.
@@ -784,3 +832,16 @@ tunnel. Public discovery calls only the public API. OAuth account tools call the
 user API through the private `user-api` Service alias and share its Redis database 10; MCP has no database or admin credentials.
 The reader advertises this endpoint, offers read-only/read-write consent and lists
 revocable connections. MCP egress is restricted to DNS, Redis and the two APIs.
+
+## Dedicated identity instance migration
+
+The coordinated migration to `auth.devfeed.tech` preserves existing reader
+account UUIDs, partner memberships and administrator preference data. See the
+[identity migration runbook](../../../../../docs/runbooks/devfeed-identity-migration.md).
+During the database cutover only, all three sign-in APIs are paused through
+Fleet; the public content API and reader remain deployed.
+
+The 2026-10-20 cutover mapped 34 ZITADEL users and 36 social identity links.
+It retained 33 existing DevFeed account UUIDs, three partner memberships and
+one administrator-preferences record. The source users were kept for rollback;
+existing browser sessions require a fresh sign-in with the new issuer.

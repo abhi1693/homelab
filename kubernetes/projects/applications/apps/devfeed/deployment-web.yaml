@@ -52,7 +52,7 @@ spec:
       containers:
         - name: web
           # renovate: datasource=docker depName=ghcr.io/abhi1693/devfeed.tech/web
-          image: registry.home/ghcr.io/abhi1693/devfeed.tech/web:0.0.52@sha256:1cca7958dff698faab7b8cbff275177aca692e328471a1142d61046147569d31
+          image: registry.home/ghcr.io/abhi1693/devfeed.tech/web:0.1.1@sha256:a007e6754dec8bc10626738f478f66491ff94108fcadc6d6d0ac53174d740af1
           imagePullPolicy: IfNotPresent
           envFrom:
             - configMapRef:
@@ -75,6 +75,13 @@ spec:
               drop:
                 - ALL
           env:
+            - name: DEVFEED_PARTNER_CALLER_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: devfeed-partner-keys
+                  key: DEVFEED_PARTNER_CALLER_KEY
+            - name: DEVFEED_PARTNER_CALLER_IP_HEADER
+              value: cf-connecting-ip
             - name: DEVFEED_MCP_PUBLIC_URL
               value: https://mcp.devfeed.tech/mcp
             - name: DEVFEED_USER_EXTENSION_IDS

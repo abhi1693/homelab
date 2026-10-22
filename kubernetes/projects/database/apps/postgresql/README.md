@@ -8,6 +8,20 @@ Deployment without exposing a Pooler-specific resource field. The namespace
 This app owns the CloudNativePG cluster, application roles, databases, and
 PgBouncer poolers used by home-lab apps.
 
+## PostgreSQL image catalog
+
+The chart creates the namespaced `ImageCatalog` named `postgresql` from
+`imageCatalog.images` in `values.yaml`. The cluster selects it through
+`cluster.imageCatalogRef`, using `version.postgresql` as the major version.
+All three PostgreSQL instances use the selected catalog image. The catalog
+pins PostgreSQL 17.11 by its multi-platform OCI index SHA-256 digest, verified
+against both GHCR and the Harbor proxy; the index includes Linux ARM64.
+The exact `tag@sha256` reference is declared once in `values.yaml`.
+Update that entry through Git and Fleet to roll out future image changes;
+do not also set `cluster.imageName`. PgBouncer images remain configured separately.
+To undo the catalog migration, restore `cluster.imageName` to the same image
+and remove the catalog reference and catalog values through Git.
+
 ## Monitoring collector database
 
 The cluster uses `app` as its `cluster.initdb.database` and owner, matching
@@ -36,9 +50,9 @@ failure even when the metrics endpoint and Prometheus target remain up.
 ## Storage redundancy
 
 The three PostgreSQL instances are hard-spread across nodes and synchronously
-replicate database state. Each instance has a separate 20Gi data PVC and 4Gi WAL
+replicate database state. Each instance has a separate 32Gi data PVC and 4Gi WAL
 PVC.
-Those six Longhorn volumes each use three storage replicas, for 216Gi of
+Those six Longhorn volumes each use three storage replicas, for 324Gi of
 nominal scheduled block capacity beneath the three application-level database
 copies. This intentionally accepts compounded storage and write amplification
 so every individual PVC can tolerate replica loss at the block layer.
@@ -267,12 +281,16 @@ storage. The setting reverts at the end of each collector query; global
 during the selected Grafana time range, so old cumulative-heavy query families
 drop out when they are no longer active in that window.
 
-## September 2026 data-volume headroom
+## Data-volume headroom
 
-Increase the retained data claims from 10Gi to 20Gi through CNPG/Fleet; WAL remains
-4Gi. The latest scheduled backup completed before this change and each Longhorn
-node had over 250Gi free. Verify all three PVC capacities and in-pod filesystem
-sizes after reconciliation, then check replication and the low-disk alert.
+The September 2026 change increased retained data claims from 10Gi to 20Gi.
+On 19 October, the data volumes crossed the upstream 70% warning threshold,
+with roughly 30% free, while WAL volumes retained roughly 80% free. Increase
+the data claims to 32Gi through CNPG/Fleet; WAL remains 4Gi. The latest scheduled
+backup succeeded and continuous archiving was healthy before this change; each
+Longhorn disk had more than 320Gi free. Verify all three PVC capacities and
+in-pod filesystem sizes after reconciliation, then check replication and the
+low-disk alert.
 Volume expansion cannot be rolled back by shrinking the PVC. Retain all claims
 and database records; this change does not introduce an analysis-history deletion policy.
 

@@ -1,0 +1,22 @@
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: tempo-data
+  namespace: cattle-monitoring-system
+  annotations:
+    helm.sh/resource-policy: keep
+  labels:
+    app.kubernetes.io/name: tempo
+    app.kubernetes.io/component: tracing-backend
+    app.kubernetes.io/part-of: rancher-monitoring
+    home-lab.io/project-slug: system
+spec:
+  accessModes:
+    - ReadWriteOnce
+  storageClassName: longhorn
+  # Preserve the existing binding during Fleet's forced Helm reconciliation.
+  volumeName: pvc-7c037e00-d951-4873-a830-e66e14ab8dff
+  resources:
+    requests:
+      storage: 2Gi

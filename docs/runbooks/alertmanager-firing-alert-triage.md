@@ -16,6 +16,11 @@ time. A failed Job can remain after the alert resolves so its status and logs ar
 available for diagnosis. It does not prove that the current CronJob schedule,
 Fleet revision, or storage policy is still failing.
 
+For repeated Slack messages, inspect firing/resolved membership and the native
+notification reason before changing intervals. See
+[Slack notifications](slack-notifications.md) for correlation, recovery holds
+and duplicate-delivery diagnosis.
+
 ## Impact
 
 - A real current fault can be hidden in a large list of historical failed Jobs.
@@ -30,7 +35,7 @@ Read the Alertmanager API rather than relying on a notification snapshot:
 
 ```sh
 kubectl get --raw \
-  '/api/v1/namespaces/cattle-monitoring-system/services/http:rancher-monitoring-alertmanager:9093/proxy/api/v2/alerts' \
+  '/api/v1/namespaces/cattle-monitoring-system/services/http:monitoring-alertmanager:9093/proxy/api/v2/alerts' \
   | jq -r '
       .[]
       | [
@@ -48,7 +53,7 @@ For `InfoInhibitor`, find the actual information-level alert in Prometheus:
 
 ```sh
 kubectl get --raw \
-  '/api/v1/namespaces/cattle-monitoring-system/services/http:rancher-monitoring-prometheus:9090/proxy/api/v1/alerts' \
+  '/api/v1/namespaces/cattle-monitoring-system/services/http:prometheus-write-0:9090/proxy/api/v1/alerts' \
   | jq -r '
       .data.alerts[]
       | select(.labels.severity == "info")

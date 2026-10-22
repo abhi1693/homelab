@@ -44,7 +44,7 @@ versioning with a numeric build capture for `N`. This excludes bare chart
 tags such as `2.8.5` and orders container revisions such as `r2` and `r10`
 numerically. `scripts/check-renovate-policy.py` checks this tag boundary.
 
-DevFeed tracks its ten upstream GHCR images, including the MCP server, through the `docker` datasource.
+DevFeed tracks its twelve upstream GHCR images, including the MCP server and partner portal, through the `docker` datasource.
 Only stable `X.Y.Z` tags are eligible; commit SHAs, moving tags, prereleases,
 `v` prefixes, and build suffixes are excluded. Runtime, init-container, and
 migration-hook updates share the `DevFeed images` group and retain digest pins.
@@ -119,6 +119,8 @@ The exclusion includes K3s, kube-vip, Cilium and its CLI, CoreDNS, Metrics
 Server, cert-manager, Rancher, Longhorn, MetalLB, CSI NFS, the embedded CNPG
 operator chart, SOPS Secrets Operator, and Rancher system charts. Renovate must
 not scan the Ansible `group_vars` that own the main platform pins.
+The Fleet `system/apps/cilium` bundle is also excluded: moving Cilium's runtime
+Helm ownership to Fleet does not change its manual upgrade policy.
 
 `scripts/check-renovate-policy.py` enforces the ignored paths, rejects critical
 package names and metadata, and requires literal non-critical GitOps images,

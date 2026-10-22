@@ -1,4 +1,4 @@
-# Rancher Monitoring
+# Upstream kube-prometheus-stack
 
 The monitoring runtime uses upstream `prometheus-community/kube-prometheus-stack`
 `92.2.0`: Prometheus 3.15.0, Grafana 13.2.3, Alertmanager 0.34.1 and operator
@@ -24,6 +24,13 @@ The CRDs were upgraded to chart `92.2.0` before the runtime, using upstream
 `values.yaml` and `crd-values.yaml` retain the initial legacy configuration as a
 historical reference; Grafana 13 database migrations require a reviewed recovery
 plan rather than a blind downgrade.
+
+The `rancher-monitoring` directory, release and resource names are retained to
+preserve storage bindings, selectors and existing consumers. They do not select
+the retired Rancher runtime chart. The workload catalog points runtime workloads
+at `upstream-values.yaml` and the separate Rancher UI integration proxy at
+`dashboards-values.yaml`; removed PushProx and Prometheus Adapter workloads are
+not part of the active inventory.
 
 Stock dashboards are generated directly by the upstream chart in
 `cattle-monitoring-system`, retaining their dashboard UIDs. The frozen
@@ -142,6 +149,16 @@ after modernization: Slack notifications increased with zero delivery failures.
 The temporary rule was removed through Fleet.
 The Slack incoming-webhook URL is stored in the SOPS-managed
 `alertmanager-slack` Secret.
+
+Slack messages show per-alert firing/resolved status, source, severity and
+Alertmanager's native notification reason. Explicit telemetry incident labels
+correlate related delivery symptoms; DevFeed fast/slow availability burns group
+by service. Other alerts retain alert-name grouping. Permanent loss is displayed
+first and is never hidden by a new inhibition rule. The four-hour repeat and
+five-minute group interval remain unchanged; Alloy's ten-minute recovery hold
+bridges the measured brief gaps between drop bursts. See the
+[notification runbook](../../../../../docs/runbooks/slack-notifications.md)
+for the investigation, recovery semantics and local capture validation.
 
 `kube-state-metrics` mounts host timezone data read-only so it can parse CronJobs
 using Kubernetes `.spec.timeZone` values such as `Asia/Kolkata`.

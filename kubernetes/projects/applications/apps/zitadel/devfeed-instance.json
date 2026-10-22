@@ -1,0 +1,14 @@
+{
+  "instanceId": "395916271490696759",
+  "issuer": "https://auth.devfeed.tech",
+  "adminUsername": "admin",
+  "adminEmail": "admin@abhimanyu-saharan.com",
+  "smtp": {
+    "senderAddress": "noreply@devfeed.tech",
+    "senderName": "DevFeed",
+    "tls": true,
+    "host": "smtp.mx.cloudflare.net:465",
+    "user": "api_token",
+    "replyToAddress": ""
+  }
+}

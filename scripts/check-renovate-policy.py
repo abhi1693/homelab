@@ -15,6 +15,7 @@ CONFIG_PATH = Path("kubernetes/projects/applications/apps/renovate/configmap.yam
 CRITICAL_PATHS = (
     Path("infrastructure/ansible/inventories/home/group_vars"),
     Path("kubernetes/projects/database/apps/cnpg-operator/chart"),
+    Path("kubernetes/projects/system/apps/cilium"),
     Path("kubernetes/projects/system/apps/csi-driver-nfs"),
     Path("kubernetes/projects/system/apps/longhorn-fstrim-labeler"),
     Path("kubernetes/projects/system/apps/metallb"),
@@ -30,6 +31,7 @@ REQUIRED_IGNORE_PATHS = (
     "kubernetes/projects/database/apps/cnpg-operator/chart/**",
     "kubernetes/projects/database/apps/valkey/helmop.yaml",
     "kubernetes/projects/home-automation/apps/rack-ops-controllers/secret-bootstrap.yaml",
+    "kubernetes/projects/system/apps/cilium/**",
     "kubernetes/projects/system/apps/csi-driver-nfs/**",
     "kubernetes/projects/system/apps/longhorn-fstrim-labeler/**",
     "kubernetes/projects/system/apps/metallb/**",

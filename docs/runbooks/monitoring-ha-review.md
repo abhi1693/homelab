@@ -55,6 +55,14 @@ cost; measure after rollout before reducing retention or raising limits.
 
 ## Required work before claiming full HA and coverage
 
+### Persistent trace and profile history
+
+The 2026-10-19 [trace/profile persistence change](observability-persistence.md)
+replaces Tempo and Pyroscope's temporary stores with separate bounded 2Gi
+Longhorn claims. Both retain 24 hours, remain single-instance backends, and
+reuse data across pod replacements. This closes the rollout-history gap; it
+does not provide application HA or an independent backup.
+
 ### Loki storage and write availability
 
 There is no existing local HA object store in the inspected system bundles.
@@ -98,6 +106,12 @@ preserving silences and notification state and verifying the peer mesh between
 steps. Do not recreate both claims or restart both replicas together.
 
 ### Host logs and remaining metrics
+
+The 2026-10-19 implementation is described in
+[incident coverage](incident-coverage.md): node-local Alloy readers with persistent
+positions, K3s/kernel journals, authenticated native etcd metrics and separate
+Cilium/Hubble monitors. The requirements below record the original review;
+durable write buffers and Kubernetes audit logging remain separate work.
 
 API-based pod log collection cannot guarantee all rotated, previous-container,
 short-lived, or deleted-pod logs. Add a node-local collector on every node with

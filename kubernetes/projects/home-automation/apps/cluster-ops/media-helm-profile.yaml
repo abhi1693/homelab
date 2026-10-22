@@ -260,7 +260,8 @@ spec:
       metricProfileRef: resource-only
       scaling:
         replicas: true
-        cpu: true
+        # Operator-managed burstable reservation; automatic increases blocked scheduling.
+        cpu: false
         memory: true
       bounds:
         replicas:

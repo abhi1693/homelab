@@ -1,0 +1,29 @@
+---
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+namespace: cattle-monitoring-system
+resources:
+  - certificate.yaml
+  - rbac.yaml
+  - daemonset.yaml
+  - service.yaml
+  - servicemonitor.yaml
+  - prometheusrule.yaml
+  - dashboard.yaml
+configMapGenerator:
+  - name: etcd-metrics-proxy
+    literals:
+      - |
+        config.yaml=authorization:
+          resourceAttributes:
+            namespace: cattle-monitoring-system
+            apiVersion: v1
+            resource: services
+            subresource: proxy
+            name: etcd-metrics
+labels:
+  - pairs:
+      app.kubernetes.io/name: etcd-metrics
+      app.kubernetes.io/part-of: rancher-monitoring
+      home-lab.io/project-slug: system
+    includeSelectors: false

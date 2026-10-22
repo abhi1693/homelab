@@ -12,7 +12,7 @@ This directory contains the reusable bootstrap roles for the lab.
 | `k3s_agent` | K3s agent config. | Joins worker nodes to the server API endpoint with matching kubelet and registry settings. |
 | `k3s_system_addons` | K3s add-on customization. | Manages bootstrap add-ons such as CoreDNS and metrics-server overrides. |
 | `kube_vip` | API VIP. | Keeps the Kubernetes API registration endpoint stable for joining and operating nodes. |
-| `cilium` | CNI, policy, Hubble, and Traefik config. | Provides pod networking and integrates LAN service exposure with Fleet-managed MetalLB. |
+| `cilium` | CNI bootstrap, validation, and Traefik config. | Installs initial Cilium, yields runtime Helm ownership to Fleet, and validates bounded Hubble metrics. |
 | `longhorn` | Distributed storage. | Provides Kubernetes persistent volumes for the app and platform layer. |
 | `cert_manager` | Certificate management. | Installs cert-manager and the ClusterIssuer used by cluster services. |
 | `rancher` | Rancher management plane. | Installs Rancher and configures Fleet behavior. |

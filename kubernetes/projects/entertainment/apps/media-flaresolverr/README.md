@@ -1,7 +1,7 @@
 # FlareSolverr
 
 This bundle installs FlareSolverr through a Fleet `HelmOp` for indexers that
-require browser-challenge handling, and the planned single DevFeed solver worker.
+require browser-challenge handling, and the single DevFeed solver worker.
 
 ## Runtime Shape
 
@@ -17,7 +17,13 @@ There is no user-facing ingress. Only Prowlarr and the dedicated DevFeed solver 
 
 The container runs with `LOG_LEVEL=info`, HTML logging disabled, a 60-second
 browser timeout, and `https://www.google.com` as the test URL. The service
-requests 640Mi and permits 2Gi memory with a 1000m CPU limit. On September 21,
+requests `150m` CPU and `800Mi` memory, and permits `2Gi` memory. There is no
+CPU limit: numeric `resources.limits.cpu: 0` disables the TrueCharts default,
+allowing browser challenge bursts. On October 21, 2026, the former `1000m`
+cap throttled roughly 79–86 percent of CPU periods during DevFeed solver
+traffic. Removing the cap addresses that throttling; upstream challenges can
+still fail or time out, so verify real solver outcomes as well as readiness.
+On September 21,
 2026, a browser workload was OOMKilled under the former 1536Mi cap; the sampled
 48-hour working-set peak was 1518Mi. The 2Gi cap adds headroom for browser bursts.
 Verify restarts and peak memory during real challenge traffic after rollout. DevFeed

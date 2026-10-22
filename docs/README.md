@@ -32,6 +32,7 @@ hide inside a manifest comment:
 | `runbooks/README.md` | Standard format for new runbooks. |
 | `runbooks/alertmanager-firing-alert-triage.md` | Live Alertmanager inventory, synthetic-alert interpretation, and evidence-preserving failed-Job cleanup. |
 | `runbooks/completed-torrent-import-recovery.md` | Safe recovery for completed torrents blocked by Arr mappings, including copy-first Sonarr pack-title repair and exact-hash cleanup. |
+| `runbooks/devfeed-identity-migration.md` | DevFeed virtual-instance user import, social identity mapping, transactional database cutover and rollback. |
 | `runbooks/fleet-namespace-psa-labels.md` | Procedure for namespace ownership and Pod Security Admission label changes under Fleet. |
 | `runbooks/kubernetes-cpu-overcommit.md` | N-1 CPU request capacity diagnosis and evidence-backed request sizing. |
 | `runbooks/kubernetes-resource-policy.md` | Production requests, limits, generated-container defaults, validation, and Longhorn exceptions. |

@@ -639,3 +639,133 @@ spec:
     ports:
     - protocol: TCP
       port: 5432
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: devfeed-partner-to-devfeed-partner-api
+  namespace: devfeed
+  labels:
+    app.kubernetes.io/part-of: devfeed
+spec:
+  podSelector:
+    matchLabels:
+      app.kubernetes.io/name: devfeed-partner
+  policyTypes:
+  - Egress
+  egress:
+  - to:
+    - podSelector:
+        matchLabels:
+          app.kubernetes.io/name: devfeed-partner-api
+    ports:
+    - protocol: TCP
+      port: 8004
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: devfeed-partner-api-from-devfeed-partner
+  namespace: devfeed
+  labels:
+    app.kubernetes.io/part-of: devfeed
+spec:
+  podSelector:
+    matchLabels:
+      app.kubernetes.io/name: devfeed-partner-api
+  policyTypes:
+  - Ingress
+  ingress:
+  - from:
+    - podSelector:
+        matchLabels:
+          app.kubernetes.io/name: devfeed-partner
+    ports:
+    - protocol: TCP
+      port: 8004
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: devfeed-partner-api-public-egress
+  namespace: devfeed
+  labels:
+    app.kubernetes.io/part-of: devfeed
+spec:
+  podSelector:
+    matchLabels:
+      app.kubernetes.io/name: devfeed-partner-api
+  policyTypes:
+  - Egress
+  egress:
+  - to:
+    - ipBlock:
+        cidr: 0.0.0.0/0
+        except:
+        - 10.0.0.0/8
+        - 100.64.0.0/10
+        - 127.0.0.0/8
+        - 169.254.0.0/16
+        - 172.16.0.0/12
+        - 192.168.0.0/16
+    ports:
+    - protocol: TCP
+      port: 80
+    - protocol: TCP
+      port: 443
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: devfeed-partner-public-egress
+  namespace: devfeed
+  labels:
+    app.kubernetes.io/part-of: devfeed
+spec:
+  podSelector:
+    matchLabels:
+      app.kubernetes.io/name: devfeed-partner
+  policyTypes:
+  - Egress
+  egress:
+  - to:
+    - ipBlock:
+        cidr: 0.0.0.0/0
+        except:
+        - 10.0.0.0/8
+        - 100.64.0.0/10
+        - 127.0.0.0/8
+        - 169.254.0.0/16
+        - 172.16.0.0/12
+        - 192.168.0.0/16
+    ports:
+    - protocol: TCP
+      port: 80
+    - protocol: TCP
+      port: 443
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: devfeed-partner-ingress
+  namespace: devfeed
+  labels:
+    app.kubernetes.io/part-of: devfeed
+spec:
+  podSelector:
+    matchLabels:
+      app.kubernetes.io/name: devfeed-partner
+  policyTypes:
+  - Ingress
+  ingress:
+  - from:
+    - namespaceSelector:
+        matchLabels:
+          kubernetes.io/metadata.name: cloudflare
+      podSelector:
+        matchLabels:
+          app: controlled-cloudflared-connector
+          strrl.dev/cloudflare-tunnel-ingress-controller: controlled-cloudflared-connector
+    ports:
+    - protocol: TCP
+      port: 3000

@@ -1,0 +1,40 @@
+---
+apiVersion: fleet.cattle.io/v1alpha1
+kind: HelmOp
+metadata:
+  name: cilium
+  labels:
+    app.kubernetes.io/name: cilium
+    app.kubernetes.io/part-of: cilium
+    home-lab.io/project-slug: system
+spec:
+  defaultNamespace: kube-system
+  labels:
+    app.kubernetes.io/name: cilium
+    app.kubernetes.io/part-of: cilium
+    home-lab.io/project-slug: system
+  targets:
+    - name: default
+      clusterGroup: default
+  targetRestrictions:
+    - name: default
+      clusterGroup: default
+  correctDrift:
+    enabled: true
+    keepFailHistory: true
+  downstreamResources:
+    - kind: ConfigMap
+      name: cilium-values
+  helm:
+    releaseName: cilium
+    repo: https://helm.cilium.io
+    chart: cilium
+    version: 1.20.1
+    timeoutSeconds: 900
+    takeOwnership: true
+    valuesFrom:
+      - configMapKeyRef:
+          name: cilium-values
+          namespace: fleet-local
+          key: values.yaml
+    waitForJobs: true

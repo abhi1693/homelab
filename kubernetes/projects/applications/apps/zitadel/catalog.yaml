@@ -17,3 +17,5 @@ spec:
   workloads:
     - {key: home-k3s/zitadel/apps/deployment/zitadel, namespace: zitadel, apiGroup: apps, kind: Deployment, name: zitadel, desiredReplicas: 2, sourcePath: kubernetes/projects/applications/apps/zitadel/values.yaml}
     - {key: home-k3s/zitadel/apps/deployment/zitadel-login, namespace: zitadel, apiGroup: apps, kind: Deployment, name: zitadel-login, desiredReplicas: 2, sourcePath: kubernetes/projects/applications/apps/zitadel/values.yaml}
+    - {key: home-k3s/zitadel/apps/deployment/zitadel-devfeed-login, namespace: zitadel, apiGroup: apps, kind: Deployment, name: zitadel-devfeed-login, desiredReplicas: 2, sourcePath: kubernetes/projects/applications/apps/zitadel/devfeed-login.yaml}
+    - {key: home-k3s/zitadel/batch/cronjob/zitadel-devfeed-smtp, namespace: zitadel, apiGroup: batch, kind: CronJob, name: zitadel-devfeed-smtp, sourcePath: kubernetes/projects/applications/apps/zitadel/devfeed-smtp.yaml}

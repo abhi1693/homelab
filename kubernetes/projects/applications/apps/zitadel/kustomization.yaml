@@ -4,9 +4,17 @@ kind: Kustomization
 resources:
   - namespace.yaml
   - secrets.sops.yaml
+  - devfeed-secrets.sops.yaml
+  - devfeed-login.yaml
+  - devfeed-smtp.yaml
   - helmop.yaml
   - networkpolicy.yaml
 configMapGenerator:
+  - name: zitadel-devfeed-smtp-script
+    namespace: zitadel
+    files:
+      - reconcile-smtp.py
+      - settings.json=devfeed-instance.json
   - name: zitadel-values
     files:
       - values.yaml

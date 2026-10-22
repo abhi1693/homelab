@@ -1,0 +1,78 @@
+---
+apiVersion: monitoring.coreos.com/v1
+kind: PrometheusRule
+metadata:
+  name: k3s-etcd-health
+  namespace: cattle-monitoring-system
+spec:
+  groups:
+    - name: k3s.etcd.health
+      rules:
+        - alert: K3sEtcdMetricsMissing
+          expr: |
+            ((count(etcd_server_has_leader{job="etcd"}) or vector(0)) < 3)
+            or ((count(etcd_disk_wal_fsync_duration_seconds_count{job="etcd"}) or vector(0)) < 3)
+            or ((count(etcd_disk_backend_commit_duration_seconds_count{job="etcd"}) or vector(0)) < 3)
+          for: 5m
+          labels:
+            severity: warning
+            namespace: cattle-monitoring-system
+          annotations:
+            summary: Native etcd telemetry is incomplete
+            description: Fewer than three members expose native leader, WAL fsync, or backend commit metrics. Check the etcd-metrics DaemonSet, endpoint discovery, TLS certificate, delegated authentication, scrape errors, and the host loopback listener. A healthy proxy TCP port alone does not prove etcd coverage.
+            runbook_url: https://github.com/abhi1693/home-lab/blob/master/kubernetes/projects/system/apps/etcd-metrics/README.md
+        - alert: K3sEtcdQuorumUnobserved
+          expr: (count(etcd_server_has_leader{job="etcd"} == 1) or vector(0)) < 2
+          for: 3m
+          labels:
+            severity: critical
+            namespace: cattle-monitoring-system
+          annotations:
+            summary: An etcd majority cannot be observed
+            description: Fewer than two of the three expected members report a leader. This can indicate quorum loss or a metrics/API authentication failure; inspect all three hosts and read-only etcd endpoint status before concluding that quorum is lost.
+            runbook_url: https://github.com/abhi1693/home-lab/blob/master/kubernetes/projects/system/apps/etcd-metrics/README.md
+        - alert: K3sEtcdMemberNoLeader
+          expr: etcd_server_has_leader{job="etcd"} == 0
+          for: 2m
+          labels:
+            severity: critical
+          annotations:
+            summary: An etcd member has no leader
+            description: 'Member {{ $labels.instance }} has reported no leader for two minutes. Check peer connectivity, disk latency, and the other two members before any recovery action.'
+            runbook_url: https://github.com/abhi1693/home-lab/blob/master/kubernetes/projects/system/apps/etcd-metrics/README.md
+        - alert: K3sEtcdWALFsyncSlow
+          expr: |
+            histogram_quantile(0.99,
+              sum by (instance, node, namespace, le) (rate(etcd_disk_wal_fsync_duration_seconds_bucket{job="etcd"}[5m]))
+            ) > 0.01
+          for: 10m
+          labels:
+            severity: warning
+          annotations:
+            summary: Etcd WAL fsync latency is high
+            description: 'Member {{ $labels.instance }} has exceeded 10ms p99 WAL fsync latency for ten minutes. Correlate node disk latency, kernel I/O errors, and competing storage writes.'
+            runbook_url: https://github.com/abhi1693/home-lab/blob/master/kubernetes/projects/system/apps/etcd-metrics/README.md
+        - alert: K3sEtcdBackendCommitSlow
+          expr: |
+            histogram_quantile(0.99,
+              sum by (instance, node, namespace, le) (rate(etcd_disk_backend_commit_duration_seconds_bucket{job="etcd"}[5m]))
+            ) > 0.025
+          for: 10m
+          labels:
+            severity: warning
+          annotations:
+            summary: Etcd backend commit latency is high
+            description: 'Member {{ $labels.instance }} has exceeded 25ms p99 backend commit latency for ten minutes. Correlate the host disk, kernel journal, and database size before changing etcd.'
+            runbook_url: https://github.com/abhi1693/home-lab/blob/master/kubernetes/projects/system/apps/etcd-metrics/README.md
+        - alert: K3sEtcdDatabaseQuotaNearLimit
+          expr: |
+            etcd_mvcc_db_total_size_in_bytes{job="etcd"}
+            / on (instance) group_left
+            etcd_server_quota_backend_bytes{job="etcd"} > 0.8
+          for: 15m
+          labels:
+            severity: warning
+          annotations:
+            summary: Etcd database approaches its backend quota
+            description: 'Member {{ $labels.instance }} has exceeded 80% of its backend quota for fifteen minutes. Compare total and in-use database size, retained Kubernetes objects, and recent growth. Do not treat routine free-page fragmentation alone as quota exhaustion.'
+            runbook_url: https://github.com/abhi1693/home-lab/blob/master/kubernetes/projects/system/apps/etcd-metrics/README.md

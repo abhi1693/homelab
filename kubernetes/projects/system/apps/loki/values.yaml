@@ -10,6 +10,13 @@ loki:
   commonConfig:
     path_prefix: /var/loki
     replication_factor: 1
+  ingester:
+    wal:
+      enabled: true
+      dir: /var/loki/wal
+      # Flush in-memory chunks during a graceful Fleet replacement as well as
+      # retaining the WAL for replay. Never remove WAL files to recover ESTALE.
+      flush_on_shutdown: true
   compactor:
     retention_enabled: true
     delete_request_store: filesystem
@@ -36,6 +43,10 @@ loki:
 
 singleBinary:
   replicas: 1
+  terminationGracePeriodSeconds: 300
+  podAnnotations:
+    # Reopen the stale NFS WAL handle through one Fleet-managed replacement.
+    home-lab.io/wal-recovery: "20261019-issue-138"
   persistence:
     enabled: true
     storageClass: nfs-shared-retain

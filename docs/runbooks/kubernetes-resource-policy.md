@@ -49,7 +49,11 @@ The `fleet-local` generated-container memory limit is 256Mi after Rancher's
 machineconfig cleanup hit the former 128Mi cap on September 19 and 21, 2026.
 New Pods inherit this limit; existing Pods are not resized. The FlareSolverr
 limit is 2Gi after an OOM and a sampled 1518Mi working-set peak at its former
-1536Mi cap; its 640Mi request remains unchanged. Check subsequent scheduled
+1536Mi cap; its current request is 800Mi. The October 21 repair removed its
+1000m CPU cap after sustained browser traffic caused high CFS throttling.
+Sonarr's CPU request is operator-managed at 500m after automatic increases to
+1130m left it unschedulable under the heavy-media placement constraint. Its
+memory tuning remains enabled. Check subsequent scheduled
 cleanup runs and representative browser traffic before considering these
 memory repairs fully proven.
 
@@ -114,9 +118,10 @@ checked during representative bursts. ShipyardHQ's restore-init request is
 lowered with the web request so it does not negate scheduler savings; its
 finite-work CPU limit is retained.
 
-Jellyfin, Sonarr, Radarr, Prowlarr, and qBittorrent use the pinned TrueCharts
-common library's numeric `resources.limits.cpu: 0` to render **no** CPU limit.
-Omitting this value inherits a chart default (1500m for the latter four).
+Jellyfin, Sonarr, Radarr, Prowlarr, qBittorrent, and FlareSolverr use the pinned
+TrueCharts common library's numeric `resources.limits.cpu: 0` to render **no**
+CPU limit. Omitting this value inherits a chart default (1500m for Sonarr,
+Radarr, Prowlarr, and qBittorrent).
 This numeric-zero convention is chart-specific; never set a Kubernetes
 container's raw `resources.limits.cpu` to zero. Verify the rendered PodSpec.
 Jellyfin and qBittorrent config init containers retain their former CPU caps

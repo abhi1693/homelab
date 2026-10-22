@@ -29,7 +29,7 @@ bootstrap-level work:
 - enabling API audit logging and secrets encryption settings;
 - configuring every host-networked kube-vip replica to use its node-local K3s
   API so the registration VIP survives any one control-plane outage;
-- installing Cilium through the Cilium CLI;
+- bootstrapping Cilium through the Cilium CLI before handing runtime Helm ownership to Fleet;
 - creating K3s static manifests such as HelmChart and HelmChartConfig files;
 - configuring Longhorn with three replicas by default, plus three-replica Rancher,
   cert-manager, kube-vip, and Fleet bootstrap with two hostname-separated local
@@ -153,7 +153,7 @@ The table records the bootstrap upgrades:
 | Rancher | 2.15.1 | 2.15.2 | `playbooks/rancher.yml` |
 | Cilium CLI | 0.19.4 | 0.20.1 | `playbooks/cilium.yml -e cilium_entrypoint=cli` |
 | cert-manager | 1.20.3 | 1.21.2 | `playbooks/cert_manager.yml` |
-| Cilium | 1.20.1 | 1.20.1 | `playbooks/cilium.yml` |
+| Cilium | 1.20.1 | 1.20.1 | `playbooks/cilium.yml` for initial bootstrap; Fleet thereafter |
 | kube-vip | 1.2.1 | 1.2.4 | `playbooks/kube_vip.yml` |
 
 The platform-changing entrypoints mutate bootstrap-managed cluster resources
@@ -164,6 +164,13 @@ values and scheduling constraints.
 The Cilium `cli` entrypoint changes only `/usr/local/bin/cilium` on the bootstrap
 server. It does not render chart values, run `cilium upgrade`, or restart pods.
 Use it when the CLI pin changes independently of the Cilium dataplane version.
+The Cilium role detects `fleet-local/cilium` targeting the existing
+`kube-system/cilium` release and skips CLI install/upgrade operations after
+handoff. Change the [Fleet Cilium bundle](../../kubernetes/projects/system/apps/cilium/README.md)
+for runtime updates, keeping the inventory and bootstrap template equal to its
+full Helm values. Run `scripts/check-cilium-observability.py` from the repository
+root to check that equality. Agent/operator/Hubble metrics are enabled without
+Relay or UI; the separate Cilium monitoring bundle owns Prometheus discovery.
 Keep the Cilium dataplane on 1.20.1 for the Raspberry Pi OS nodes. Cilium
 1.20.2 cannot initialize its socket load-balancing BPF programs on kernels
 without BTF, leaving new pods unable to get networking even while the Cilium
@@ -177,8 +184,10 @@ upgrade those independently.
 Cilium's inventory pins the live cluster name, disabled BGP control plane,
 VXLAN routing, and single-node agent and Envoy rollout limits. The operator
 uses the third control-plane node for a surge replica while keeping both
-existing replicas available. The role waits for the Helm-driven rollouts and
-does not force a second Cilium restart.
+existing replicas available. Bootstrap waits for Helm-driven rollouts and does
+not force a second Cilium restart. Subsequent runtime rollouts are Fleet-owned;
+the read-only validation entrypoint checks readiness and node-local agent and
+Hubble metrics.
 
 The upstream Rancher chart hardcodes `maxSurge: 1` and exposes no Helm value for
 the Deployment strategy. With three replicas, required hostname anti-affinity,

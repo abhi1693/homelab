@@ -1,0 +1,387 @@
+---
+rule_files:
+- rules.yml
+evaluation_interval: 1m
+tests:
+- name: three native members remain healthy
+  input_series:
+  - series: etcd_server_has_leader{job="etcd",instance="k8s-rpi1",node="k8s-rpi1",namespace="cattle-monitoring-system"}
+    values: 1+0x40
+  - series: etcd_disk_wal_fsync_duration_seconds_count{job="etcd",instance="k8s-rpi1",node="k8s-rpi1",namespace="cattle-monitoring-system"}
+    values: 0+100x40
+  - series: etcd_disk_backend_commit_duration_seconds_count{job="etcd",instance="k8s-rpi1",node="k8s-rpi1",namespace="cattle-monitoring-system"}
+    values: 0+100x40
+  - series: etcd_server_has_leader{job="etcd",instance="k8s-rpi2",node="k8s-rpi2",namespace="cattle-monitoring-system"}
+    values: 1+0x40
+  - series: etcd_disk_wal_fsync_duration_seconds_count{job="etcd",instance="k8s-rpi2",node="k8s-rpi2",namespace="cattle-monitoring-system"}
+    values: 0+100x40
+  - series: etcd_disk_backend_commit_duration_seconds_count{job="etcd",instance="k8s-rpi2",node="k8s-rpi2",namespace="cattle-monitoring-system"}
+    values: 0+100x40
+  - series: etcd_server_has_leader{job="etcd",instance="k8s-rpi3",node="k8s-rpi3",namespace="cattle-monitoring-system"}
+    values: 1+0x40
+  - series: etcd_disk_wal_fsync_duration_seconds_count{job="etcd",instance="k8s-rpi3",node="k8s-rpi3",namespace="cattle-monitoring-system"}
+    values: 0+100x40
+  - series: etcd_disk_backend_commit_duration_seconds_count{job="etcd",instance="k8s-rpi3",node="k8s-rpi3",namespace="cattle-monitoring-system"}
+    values: 0+100x40
+  alert_rule_test:
+  - eval_time: 20m
+    alertname: K3sEtcdMetricsMissing
+    exp_alerts: []
+  - eval_time: 20m
+    alertname: K3sEtcdQuorumUnobserved
+    exp_alerts: []
+  - eval_time: 20m
+    alertname: K3sEtcdMemberNoLeader
+    exp_alerts: []
+  - eval_time: 20m
+    alertname: K3sEtcdWALFsyncSlow
+    exp_alerts: []
+  - eval_time: 20m
+    alertname: K3sEtcdBackendCommitSlow
+    exp_alerts: []
+  - eval_time: 20m
+    alertname: K3sEtcdDatabaseQuotaNearLimit
+    exp_alerts: []
+  interval: 1m
+- name: one member disappears but the observed majority remains
+  input_series:
+  - series: etcd_server_has_leader{job="etcd",instance="k8s-rpi1",node="k8s-rpi1",namespace="cattle-monitoring-system"}
+    values: 1+0x40
+  - series: etcd_disk_wal_fsync_duration_seconds_count{job="etcd",instance="k8s-rpi1",node="k8s-rpi1",namespace="cattle-monitoring-system"}
+    values: 0+100x40
+  - series: etcd_disk_backend_commit_duration_seconds_count{job="etcd",instance="k8s-rpi1",node="k8s-rpi1",namespace="cattle-monitoring-system"}
+    values: 0+100x40
+  - series: etcd_server_has_leader{job="etcd",instance="k8s-rpi2",node="k8s-rpi2",namespace="cattle-monitoring-system"}
+    values: 1+0x40
+  - series: etcd_disk_wal_fsync_duration_seconds_count{job="etcd",instance="k8s-rpi2",node="k8s-rpi2",namespace="cattle-monitoring-system"}
+    values: 0+100x40
+  - series: etcd_disk_backend_commit_duration_seconds_count{job="etcd",instance="k8s-rpi2",node="k8s-rpi2",namespace="cattle-monitoring-system"}
+    values: 0+100x40
+  alert_rule_test:
+  - eval_time: 4m
+    alertname: K3sEtcdMetricsMissing
+    exp_alerts: []
+  - eval_time: 6m
+    alertname: K3sEtcdMetricsMissing
+    exp_alerts:
+    - exp_labels:
+        severity: warning
+        namespace: cattle-monitoring-system
+      exp_annotations:
+        summary: Native etcd telemetry is incomplete
+        description: Fewer than three members expose native leader, WAL fsync, or backend commit metrics. Check the etcd-metrics
+          DaemonSet, endpoint discovery, TLS certificate, delegated authentication, scrape errors, and the host loopback listener.
+          A healthy proxy TCP port alone does not prove etcd coverage.
+        runbook_url: https://github.com/abhi1693/home-lab/blob/master/kubernetes/projects/system/apps/etcd-metrics/README.md
+  - eval_time: 6m
+    alertname: K3sEtcdQuorumUnobserved
+    exp_alerts: []
+  interval: 1m
+- name: one observed member cannot establish a majority
+  input_series:
+  - series: etcd_server_has_leader{job="etcd",instance="k8s-rpi1",node="k8s-rpi1",namespace="cattle-monitoring-system"}
+    values: 1+0x40
+  - series: etcd_disk_wal_fsync_duration_seconds_count{job="etcd",instance="k8s-rpi1",node="k8s-rpi1",namespace="cattle-monitoring-system"}
+    values: 0+100x40
+  - series: etcd_disk_backend_commit_duration_seconds_count{job="etcd",instance="k8s-rpi1",node="k8s-rpi1",namespace="cattle-monitoring-system"}
+    values: 0+100x40
+  alert_rule_test:
+  - eval_time: 2m
+    alertname: K3sEtcdQuorumUnobserved
+    exp_alerts: []
+  - eval_time: 4m
+    alertname: K3sEtcdQuorumUnobserved
+    exp_alerts:
+    - exp_labels:
+        severity: critical
+        namespace: cattle-monitoring-system
+      exp_annotations:
+        summary: An etcd majority cannot be observed
+        description: Fewer than two of the three expected members report a leader. This can indicate quorum loss or a metrics/API
+          authentication failure; inspect all three hosts and read-only etcd endpoint status before concluding that quorum
+          is lost.
+        runbook_url: https://github.com/abhi1693/home-lab/blob/master/kubernetes/projects/system/apps/etcd-metrics/README.md
+  interval: 1m
+- name: all discovery and native telemetry disappear
+  input_series: []
+  alert_rule_test:
+  - eval_time: 6m
+    alertname: K3sEtcdMetricsMissing
+    exp_alerts:
+    - exp_labels:
+        severity: warning
+        namespace: cattle-monitoring-system
+      exp_annotations:
+        summary: Native etcd telemetry is incomplete
+        description: Fewer than three members expose native leader, WAL fsync, or backend commit metrics. Check the etcd-metrics
+          DaemonSet, endpoint discovery, TLS certificate, delegated authentication, scrape errors, and the host loopback listener.
+          A healthy proxy TCP port alone does not prove etcd coverage.
+        runbook_url: https://github.com/abhi1693/home-lab/blob/master/kubernetes/projects/system/apps/etcd-metrics/README.md
+  - eval_time: 4m
+    alertname: K3sEtcdQuorumUnobserved
+    exp_alerts:
+    - exp_labels:
+        severity: critical
+        namespace: cattle-monitoring-system
+      exp_annotations:
+        summary: An etcd majority cannot be observed
+        description: Fewer than two of the three expected members report a leader. This can indicate quorum loss or a metrics/API
+          authentication failure; inspect all three hosts and read-only etcd endpoint status before concluding that quorum
+          is lost.
+        runbook_url: https://github.com/abhi1693/home-lab/blob/master/kubernetes/projects/system/apps/etcd-metrics/README.md
+  - eval_time: 6m
+    alertname: K3sEtcdMemberNoLeader
+    exp_alerts: []
+  interval: 1m
+- name: successful proxy scrapes without native metrics are insufficient
+  input_series:
+  - series: up{job="etcd",instance="k8s-rpi1",node="k8s-rpi1",namespace="cattle-monitoring-system"}
+    values: 1+0x40
+  - series: up{job="etcd",instance="k8s-rpi2",node="k8s-rpi2",namespace="cattle-monitoring-system"}
+    values: 1+0x40
+  - series: up{job="etcd",instance="k8s-rpi3",node="k8s-rpi3",namespace="cattle-monitoring-system"}
+    values: 1+0x40
+  alert_rule_test:
+  - eval_time: 6m
+    alertname: K3sEtcdMetricsMissing
+    exp_alerts:
+    - exp_labels:
+        severity: warning
+        namespace: cattle-monitoring-system
+      exp_annotations:
+        summary: Native etcd telemetry is incomplete
+        description: Fewer than three members expose native leader, WAL fsync, or backend commit metrics. Check the etcd-metrics
+          DaemonSet, endpoint discovery, TLS certificate, delegated authentication, scrape errors, and the host loopback listener.
+          A healthy proxy TCP port alone does not prove etcd coverage.
+        runbook_url: https://github.com/abhi1693/home-lab/blob/master/kubernetes/projects/system/apps/etcd-metrics/README.md
+  interval: 1m
+- name: missing etcd_disk_wal_fsync_duration_seconds_count is detected despite leader metrics
+  input_series:
+  - series: etcd_server_has_leader{job="etcd",instance="k8s-rpi1",node="k8s-rpi1",namespace="cattle-monitoring-system"}
+    values: 1+0x40
+  - series: etcd_disk_backend_commit_duration_seconds_count{job="etcd",instance="k8s-rpi1",node="k8s-rpi1",namespace="cattle-monitoring-system"}
+    values: 0+100x40
+  - series: etcd_server_has_leader{job="etcd",instance="k8s-rpi2",node="k8s-rpi2",namespace="cattle-monitoring-system"}
+    values: 1+0x40
+  - series: etcd_disk_backend_commit_duration_seconds_count{job="etcd",instance="k8s-rpi2",node="k8s-rpi2",namespace="cattle-monitoring-system"}
+    values: 0+100x40
+  - series: etcd_server_has_leader{job="etcd",instance="k8s-rpi3",node="k8s-rpi3",namespace="cattle-monitoring-system"}
+    values: 1+0x40
+  - series: etcd_disk_backend_commit_duration_seconds_count{job="etcd",instance="k8s-rpi3",node="k8s-rpi3",namespace="cattle-monitoring-system"}
+    values: 0+100x40
+  alert_rule_test:
+  - eval_time: 6m
+    alertname: K3sEtcdMetricsMissing
+    exp_alerts:
+    - exp_labels:
+        severity: warning
+        namespace: cattle-monitoring-system
+      exp_annotations:
+        summary: Native etcd telemetry is incomplete
+        description: Fewer than three members expose native leader, WAL fsync, or backend commit metrics. Check the etcd-metrics
+          DaemonSet, endpoint discovery, TLS certificate, delegated authentication, scrape errors, and the host loopback listener.
+          A healthy proxy TCP port alone does not prove etcd coverage.
+        runbook_url: https://github.com/abhi1693/home-lab/blob/master/kubernetes/projects/system/apps/etcd-metrics/README.md
+  - eval_time: 6m
+    alertname: K3sEtcdQuorumUnobserved
+    exp_alerts: []
+  interval: 1m
+- name: missing etcd_disk_backend_commit_duration_seconds_count is detected despite leader metrics
+  input_series:
+  - series: etcd_server_has_leader{job="etcd",instance="k8s-rpi1",node="k8s-rpi1",namespace="cattle-monitoring-system"}
+    values: 1+0x40
+  - series: etcd_disk_wal_fsync_duration_seconds_count{job="etcd",instance="k8s-rpi1",node="k8s-rpi1",namespace="cattle-monitoring-system"}
+    values: 0+100x40
+  - series: etcd_server_has_leader{job="etcd",instance="k8s-rpi2",node="k8s-rpi2",namespace="cattle-monitoring-system"}
+    values: 1+0x40
+  - series: etcd_disk_wal_fsync_duration_seconds_count{job="etcd",instance="k8s-rpi2",node="k8s-rpi2",namespace="cattle-monitoring-system"}
+    values: 0+100x40
+  - series: etcd_server_has_leader{job="etcd",instance="k8s-rpi3",node="k8s-rpi3",namespace="cattle-monitoring-system"}
+    values: 1+0x40
+  - series: etcd_disk_wal_fsync_duration_seconds_count{job="etcd",instance="k8s-rpi3",node="k8s-rpi3",namespace="cattle-monitoring-system"}
+    values: 0+100x40
+  alert_rule_test:
+  - eval_time: 6m
+    alertname: K3sEtcdMetricsMissing
+    exp_alerts:
+    - exp_labels:
+        severity: warning
+        namespace: cattle-monitoring-system
+      exp_annotations:
+        summary: Native etcd telemetry is incomplete
+        description: Fewer than three members expose native leader, WAL fsync, or backend commit metrics. Check the etcd-metrics
+          DaemonSet, endpoint discovery, TLS certificate, delegated authentication, scrape errors, and the host loopback listener.
+          A healthy proxy TCP port alone does not prove etcd coverage.
+        runbook_url: https://github.com/abhi1693/home-lab/blob/master/kubernetes/projects/system/apps/etcd-metrics/README.md
+  - eval_time: 6m
+    alertname: K3sEtcdQuorumUnobserved
+    exp_alerts: []
+  interval: 1m
+- name: a member loses leadership and subsequently recovers
+  input_series:
+  - series: etcd_server_has_leader{job="etcd",instance="k8s-rpi1",node="k8s-rpi1",namespace="cattle-monitoring-system"}
+    values: 0+0x5 1+0x35
+  - series: etcd_disk_wal_fsync_duration_seconds_count{job="etcd",instance="k8s-rpi1",node="k8s-rpi1",namespace="cattle-monitoring-system"}
+    values: 0+100x40
+  - series: etcd_disk_backend_commit_duration_seconds_count{job="etcd",instance="k8s-rpi1",node="k8s-rpi1",namespace="cattle-monitoring-system"}
+    values: 0+100x40
+  - series: etcd_server_has_leader{job="etcd",instance="k8s-rpi2",node="k8s-rpi2",namespace="cattle-monitoring-system"}
+    values: 1+0x40
+  - series: etcd_disk_wal_fsync_duration_seconds_count{job="etcd",instance="k8s-rpi2",node="k8s-rpi2",namespace="cattle-monitoring-system"}
+    values: 0+100x40
+  - series: etcd_disk_backend_commit_duration_seconds_count{job="etcd",instance="k8s-rpi2",node="k8s-rpi2",namespace="cattle-monitoring-system"}
+    values: 0+100x40
+  - series: etcd_server_has_leader{job="etcd",instance="k8s-rpi3",node="k8s-rpi3",namespace="cattle-monitoring-system"}
+    values: 1+0x40
+  - series: etcd_disk_wal_fsync_duration_seconds_count{job="etcd",instance="k8s-rpi3",node="k8s-rpi3",namespace="cattle-monitoring-system"}
+    values: 0+100x40
+  - series: etcd_disk_backend_commit_duration_seconds_count{job="etcd",instance="k8s-rpi3",node="k8s-rpi3",namespace="cattle-monitoring-system"}
+    values: 0+100x40
+  alert_rule_test:
+  - eval_time: 1m
+    alertname: K3sEtcdMemberNoLeader
+    exp_alerts: []
+  - eval_time: 3m
+    alertname: K3sEtcdMemberNoLeader
+    exp_alerts:
+    - exp_labels:
+        severity: critical
+        job: etcd
+        instance: k8s-rpi1
+        node: k8s-rpi1
+        namespace: cattle-monitoring-system
+      exp_annotations:
+        summary: An etcd member has no leader
+        description: Member k8s-rpi1 has reported no leader for two minutes. Check peer connectivity, disk latency, and the
+          other two members before any recovery action.
+        runbook_url: https://github.com/abhi1693/home-lab/blob/master/kubernetes/projects/system/apps/etcd-metrics/README.md
+  - eval_time: 7m
+    alertname: K3sEtcdMemberNoLeader
+    exp_alerts: []
+  - eval_time: 3m
+    alertname: K3sEtcdQuorumUnobserved
+    exp_alerts: []
+  interval: 1m
+- name: K3sEtcdWALFsyncSlow sustained latency and recovery
+  input_series:
+  - series: etcd_disk_wal_fsync_duration_seconds_bucket{job="etcd",instance="k8s-rpi1",node="k8s-rpi1",namespace="cattle-monitoring-system",le="0.01"}
+    values: 0+90x15 1450+100x25
+  - series: etcd_disk_wal_fsync_duration_seconds_bucket{job="etcd",instance="k8s-rpi1",node="k8s-rpi1",namespace="cattle-monitoring-system",le="0.1"}
+    values: 0+100x41
+  - series: etcd_disk_wal_fsync_duration_seconds_bucket{job="etcd",instance="k8s-rpi1",node="k8s-rpi1",namespace="cattle-monitoring-system",le="+Inf"}
+    values: 0+100x41
+  alert_rule_test:
+  - eval_time: 4m
+    alertname: K3sEtcdWALFsyncSlow
+    exp_alerts: []
+  - eval_time: 11m
+    alertname: K3sEtcdWALFsyncSlow
+    exp_alerts:
+    - exp_labels:
+        severity: warning
+        instance: k8s-rpi1
+        node: k8s-rpi1
+        namespace: cattle-monitoring-system
+      exp_annotations:
+        summary: Etcd WAL fsync latency is high
+        description: Member k8s-rpi1 has exceeded 10ms p99 WAL fsync latency for ten minutes. Correlate node disk latency,
+          kernel I/O errors, and competing storage writes.
+        runbook_url: https://github.com/abhi1693/home-lab/blob/master/kubernetes/projects/system/apps/etcd-metrics/README.md
+  - eval_time: 22m
+    alertname: K3sEtcdWALFsyncSlow
+    exp_alerts: []
+  interval: 1m
+- name: K3sEtcdWALFsyncSlow healthy histogram including a counter reset
+  input_series:
+  - series: etcd_disk_wal_fsync_duration_seconds_bucket{job="etcd",instance="k8s-rpi1",node="k8s-rpi1",namespace="cattle-monitoring-system",le="0.01"}
+    values: 0+100x10 0+100x30
+  - series: etcd_disk_wal_fsync_duration_seconds_bucket{job="etcd",instance="k8s-rpi1",node="k8s-rpi1",namespace="cattle-monitoring-system",le="0.1"}
+    values: 0+100x10 0+100x30
+  - series: etcd_disk_wal_fsync_duration_seconds_bucket{job="etcd",instance="k8s-rpi1",node="k8s-rpi1",namespace="cattle-monitoring-system",le="+Inf"}
+    values: 0+100x10 0+100x30
+  alert_rule_test:
+  - eval_time: 20m
+    alertname: K3sEtcdWALFsyncSlow
+    exp_alerts: []
+  interval: 1m
+- name: K3sEtcdBackendCommitSlow sustained latency and recovery
+  input_series:
+  - series: etcd_disk_backend_commit_duration_seconds_bucket{job="etcd",instance="k8s-rpi1",node="k8s-rpi1",namespace="cattle-monitoring-system",le="0.025"}
+    values: 0+90x15 1450+100x25
+  - series: etcd_disk_backend_commit_duration_seconds_bucket{job="etcd",instance="k8s-rpi1",node="k8s-rpi1",namespace="cattle-monitoring-system",le="0.1"}
+    values: 0+100x41
+  - series: etcd_disk_backend_commit_duration_seconds_bucket{job="etcd",instance="k8s-rpi1",node="k8s-rpi1",namespace="cattle-monitoring-system",le="+Inf"}
+    values: 0+100x41
+  alert_rule_test:
+  - eval_time: 4m
+    alertname: K3sEtcdBackendCommitSlow
+    exp_alerts: []
+  - eval_time: 11m
+    alertname: K3sEtcdBackendCommitSlow
+    exp_alerts:
+    - exp_labels:
+        severity: warning
+        instance: k8s-rpi1
+        node: k8s-rpi1
+        namespace: cattle-monitoring-system
+      exp_annotations:
+        summary: Etcd backend commit latency is high
+        description: Member k8s-rpi1 has exceeded 25ms p99 backend commit latency for ten minutes. Correlate the host disk,
+          kernel journal, and database size before changing etcd.
+        runbook_url: https://github.com/abhi1693/home-lab/blob/master/kubernetes/projects/system/apps/etcd-metrics/README.md
+  - eval_time: 22m
+    alertname: K3sEtcdBackendCommitSlow
+    exp_alerts: []
+  interval: 1m
+- name: K3sEtcdBackendCommitSlow healthy histogram including a counter reset
+  input_series:
+  - series: etcd_disk_backend_commit_duration_seconds_bucket{job="etcd",instance="k8s-rpi1",node="k8s-rpi1",namespace="cattle-monitoring-system",le="0.025"}
+    values: 0+100x10 0+100x30
+  - series: etcd_disk_backend_commit_duration_seconds_bucket{job="etcd",instance="k8s-rpi1",node="k8s-rpi1",namespace="cattle-monitoring-system",le="0.1"}
+    values: 0+100x10 0+100x30
+  - series: etcd_disk_backend_commit_duration_seconds_bucket{job="etcd",instance="k8s-rpi1",node="k8s-rpi1",namespace="cattle-monitoring-system",le="+Inf"}
+    values: 0+100x10 0+100x30
+  alert_rule_test:
+  - eval_time: 20m
+    alertname: K3sEtcdBackendCommitSlow
+    exp_alerts: []
+  interval: 1m
+- name: database quota ratio respects hold time
+  input_series:
+  - series: etcd_mvcc_db_total_size_in_bytes{job="etcd",instance="k8s-rpi1",node="k8s-rpi1",namespace="cattle-monitoring-system"}
+    values: 850+0x40
+  - series: etcd_server_quota_backend_bytes{job="etcd",instance="k8s-rpi1",node="k8s-rpi1",namespace="cattle-monitoring-system"}
+    values: 1000+0x40
+  alert_rule_test:
+  - eval_time: 14m
+    alertname: K3sEtcdDatabaseQuotaNearLimit
+    exp_alerts: []
+  - eval_time: 16m
+    alertname: K3sEtcdDatabaseQuotaNearLimit
+    exp_alerts:
+    - exp_labels:
+        severity: warning
+        job: etcd
+        instance: k8s-rpi1
+        node: k8s-rpi1
+        namespace: cattle-monitoring-system
+      exp_annotations:
+        summary: Etcd database approaches its backend quota
+        description: Member k8s-rpi1 has exceeded 80% of its backend quota for fifteen minutes. Compare total and in-use database
+          size, retained Kubernetes objects, and recent growth. Do not treat routine free-page fragmentation alone as quota
+          exhaustion.
+        runbook_url: https://github.com/abhi1693/home-lab/blob/master/kubernetes/projects/system/apps/etcd-metrics/README.md
+  interval: 1m
+- name: database below threshold or missing quota is not an exhaustion alert
+  input_series:
+  - series: etcd_mvcc_db_total_size_in_bytes{job="etcd",instance="k8s-rpi1",node="k8s-rpi1",namespace="cattle-monitoring-system"}
+    values: 790+0x40
+  - series: etcd_server_quota_backend_bytes{job="etcd",instance="k8s-rpi1",node="k8s-rpi1",namespace="cattle-monitoring-system"}
+    values: 1000+0x40
+  - series: etcd_mvcc_db_total_size_in_bytes{job="etcd",instance="k8s-rpi2",node="k8s-rpi2",namespace="cattle-monitoring-system"}
+    values: 999+0x40
+  alert_rule_test:
+  - eval_time: 20m
+    alertname: K3sEtcdDatabaseQuotaNearLimit
+    exp_alerts: []
+  interval: 1m

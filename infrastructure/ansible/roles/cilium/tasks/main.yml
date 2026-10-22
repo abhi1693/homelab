@@ -25,7 +25,14 @@
       - cilium.operator_replicas | int > 0
       - cilium.k8s_service_port | int > 0
       - cilium.service_topology is boolean
+      - cilium.metrics.agent_enabled is boolean
+      - cilium.metrics.operator_enabled is boolean
+      - cilium.metrics.agent_port | int > 0
+      - cilium.metrics.operator_port | int > 0
+      - cilium.metrics.hubble_port | int > 0
       - cilium.hubble.enabled is boolean
+      - cilium.hubble.event_buffer_capacity | int == 4095
+      - cilium.hubble.metrics | length > 0
       - cilium.hubble.relay.enabled is boolean
       - cilium.hubble.ui.enabled is boolean
       - cilium.hubble.ui.replicas | int > 0
@@ -95,6 +102,39 @@
     mode: "0644"
   register: cilium_values_file
 
+- name: Check whether Fleet owns the Cilium release
+  ansible.builtin.command:
+    argv:
+      - /usr/local/bin/k3s
+      - kubectl
+      - -n
+      - fleet-local
+      - get
+      - helmop.fleet.cattle.io
+      - cilium
+      - --ignore-not-found
+      - -o
+      - jsonpath={.spec.helm.releaseName}{" "}{.spec.defaultNamespace}
+  register: cilium_fleet_release
+  changed_when: false
+  failed_when:
+    - cilium_fleet_release.rc != 0
+    - "\"the server doesn't have a resource type\" not in cilium_fleet_release.stderr"
+
+- name: Verify the Fleet Cilium release identity
+  ansible.builtin.assert:
+    that:
+      - cilium_fleet_release.stdout | trim in ['', 'cilium kube-system']
+    fail_msg: The Cilium HelmOp must target the existing kube-system/cilium release.
+
+- name: Report Fleet ownership of Cilium
+  ansible.builtin.debug:
+    msg: >-
+      Fleet owns kube-system/cilium. The Cilium CLI install/upgrade tasks are
+      skipped; change kubernetes/projects/system/apps/cilium/values.yaml and
+      its matching Ansible inventory/template instead.
+  when: cilium_fleet_release.stdout | trim == 'cilium kube-system'
+
 - name: Check for existing Cilium DaemonSet
   ansible.builtin.command:
     argv:
@@ -161,7 +201,9 @@
   environment:
     KUBECONFIG: /etc/rancher/k3s/k3s.yaml
   register: cilium_install_result
-  when: cilium_ds_image.rc != 0
+  when:
+    - cilium_ds_image.rc != 0
+    - cilium_fleet_release.stdout | trim != 'cilium kube-system'
   changed_when: true
 
 - name: Upgrade Cilium when installed version differs from inventory
@@ -178,6 +220,7 @@
   register: cilium_upgrade_result
   when:
     - cilium_ds_image.rc == 0
+    - cilium_fleet_release.stdout | trim != 'cilium kube-system'
     - cilium.version not in cilium_ds_image.stdout
       or cilium.version not in cilium_operator_image.stdout
       or (cilium_operator_replicas_current.stdout | default('0') | int) != (cilium.operator_replicas | int)

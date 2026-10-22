@@ -20,7 +20,8 @@ spec:
             severity: warning
           annotations:
             summary: OpenTelemetry gateway redundancy is reduced
-            description: Only {{ printf "%.0f" $value }} of two OpenTelemetry gateway replicas are available.
+            description: Only {{ printf "%.0f" $value }}/2 OpenTelemetry gateways have been available for 5m. Check pod readiness, scheduling, and node health. Compare downstream failures before attributing ingestion impact to this replica loss.
+            runbook_url: https://github.com/abhi1693/home-lab/blob/master/kubernetes/projects/system/apps/opentelemetry-collector/README.md
         - alert: OpenTelemetryProcessorReplicasUnavailable
           expr: kube_statefulset_status_replicas_ready{namespace="cattle-monitoring-system",statefulset="opentelemetry-processor"} < 2
           for: 5m
@@ -28,7 +29,8 @@ spec:
             severity: warning
           annotations:
             summary: OpenTelemetry processing redundancy is reduced
-            description: Only {{ printf "%.0f" $value }} of two OpenTelemetry processing replicas are ready.
+            description: Only {{ printf "%.0f" $value }}/2 OpenTelemetry processors have been ready for 5m. Check readiness, scheduling, and collector logs. Processor loss can discard undecided traces and reset delta conversion; gateway readiness alone does not prove delivery.
+            runbook_url: https://github.com/abhi1693/home-lab/blob/master/kubernetes/projects/system/apps/opentelemetry-collector/README.md
         - alert: OpenTelemetryLoadBalancingBackendsDegraded
           expr: otelcol_loadbalancer_num_backends{job="opentelemetry-collector"} < 2
           for: 5m
@@ -36,7 +38,8 @@ spec:
             severity: warning
           annotations:
             summary: OpenTelemetry gateway has fewer than two processing backends
-            description: The gateway on {{ $labels.pod }} sees only {{ printf "%.0f" $value }} processing backends.
+            description: '{{ $labels.pod }} has seen only {{ printf "%.0f" $value }}/2 processing backends for 5m. Check processor readiness, EndpointSlices, resolver errors, and network policy. Compare the other gateway before concluding that the processing tier is down.'
+            runbook_url: https://github.com/abhi1693/home-lab/blob/master/kubernetes/projects/system/apps/opentelemetry-collector/README.md
     - name: opentelemetry-collector.delivery
       rules:
         - alert: OpenTelemetryPrometheusExportFailures
@@ -44,17 +47,21 @@ spec:
           for: 5m
           labels:
             severity: warning
+            incident: metric-delivery
           annotations:
             summary: OpenTelemetry metrics are failing to reach Prometheus
-            description: A processing replica failed to deliver {{ printf "%.0f" $value }} metric points through {{ $labels.exporter }} in the last 10 minutes.
+            description: '{{ $labels.pod }}/{{ $labels.exporter }} failed ~{{ printf "%.0f" $value }} metric points in 10m. Check collector errors and target Prometheus OTLP ingress; compare the other destination. Final send failures after retry handling, not individual attempts. Rolling increase positive for 5m.'
+            runbook_url: https://github.com/abhi1693/home-lab/blob/master/kubernetes/projects/system/apps/opentelemetry-collector/README.md
         - alert: OpenTelemetryPrometheusQueueSaturated
           expr: otelcol_exporter_queue_size{exporter=~"otlp_http/prometheus-[01]"} / otelcol_exporter_queue_capacity{exporter=~"otlp_http/prometheus-[01]"} > 0.8
           for: 5m
           labels:
             severity: warning
+            incident: metric-delivery
           annotations:
             summary: OpenTelemetry Prometheus export queue is saturated
-            description: The {{ $labels.exporter }} queue has remained more than 80 percent full for five minutes.
+            description: '{{ $labels.pod }}/{{ $labels.exporter }} queue is {{ humanizePercentage $value }} full (>80% for 5m). Check target Prometheus readiness, export latency, and collector errors. Queue pressure signals delivery risk; it does not count permanent loss.'
+            runbook_url: https://github.com/abhi1693/home-lab/blob/master/kubernetes/projects/system/apps/opentelemetry-collector/README.md
         - alert: OpenTelemetryGatewayExportFailures
           expr: increase(otelcol_exporter_send_failed_spans{exporter="load_balancing/traces"}[10m]) > 0 or increase(otelcol_exporter_send_failed_metric_points{exporter="load_balancing/metrics"}[10m]) > 0
           for: 5m
@@ -62,7 +69,8 @@ spec:
             severity: warning
           annotations:
             summary: OpenTelemetry gateway cannot deliver telemetry to the processing tier
-            description: The {{ $labels.exporter }} exporter on {{ $labels.pod }} failed to deliver telemetry during the last 10 minutes.
+            description: '{{ $labels.pod }}/{{ $labels.exporter }} failed ~{{ printf "%.0f" $value }} {{ if eq $labels.exporter "load_balancing/traces" }}spans{{ else }}metric points{{ end }} in 10m. Check collector errors, processor readiness, EndpointSlices, and network policy. Final send failures after retry handling. Rolling increase positive for 5m; do not add pipeline-stage counts.'
+            runbook_url: https://github.com/abhi1693/home-lab/blob/master/kubernetes/projects/system/apps/opentelemetry-collector/README.md
         - alert: OpenTelemetryGatewayQueueSaturated
           expr: otelcol_exporter_queue_size{exporter=~"load_balancing/(metrics|traces)"} / otelcol_exporter_queue_capacity{exporter=~"load_balancing/(metrics|traces)"} > 0.8
           for: 5m
@@ -70,12 +78,15 @@ spec:
             severity: warning
           annotations:
             summary: OpenTelemetry gateway queue is saturated
-            description: The {{ $labels.exporter }} queue on {{ $labels.pod }} has remained more than 80 percent full for five minutes.
+            description: '{{ $labels.pod }}/{{ $labels.exporter }} queue is {{ humanizePercentage $value }} full (>80% for 5m). Check processor readiness, gateway export errors, and network latency. Queue pressure signals delivery risk; it does not count permanent loss.'
+            runbook_url: https://github.com/abhi1693/home-lab/blob/master/kubernetes/projects/system/apps/opentelemetry-collector/README.md
         - alert: OpenTelemetryTempoExportFailures
           expr: increase(otelcol_exporter_send_failed_spans{exporter="otlp_grpc/tempo"}[10m]) > 0
           for: 5m
           labels:
             severity: warning
+            incident: trace-delivery
           annotations:
             summary: OpenTelemetry traces are failing to reach Tempo
-            description: A processing replica failed to deliver {{ printf "%.0f" $value }} spans to Tempo in the last 10 minutes.
+            description: '{{ $labels.pod }}/{{ $labels.exporter }} failed ~{{ printf "%.0f" $value }} spans in 10m. Check collector errors and Tempo readiness/storage; query a fresh trace after repair. Final send failures after retry handling, not individual attempts. Rolling increase positive for 5m.'
+            runbook_url: https://github.com/abhi1693/home-lab/blob/master/kubernetes/projects/system/apps/opentelemetry-collector/README.md

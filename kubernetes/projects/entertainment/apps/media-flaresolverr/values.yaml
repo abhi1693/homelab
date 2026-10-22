@@ -20,10 +20,11 @@ podOptions:
     kubernetes.io/arch: arm64
 resources:
   requests:
-    cpu: 190m
-    memory: 640Mi
+    cpu: 150m
+    memory: 800Mi
   limits:
-    cpu: 1000m
+    # TrueCharts: omit the inherited CPU cap so browser challenges can burst.
+    cpu: 0
     memory: 2Gi
 service:
   main:

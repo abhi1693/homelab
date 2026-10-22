@@ -1,0 +1,9 @@
+---
+name: cilium-helmop
+defaultNamespace: fleet-local
+labels:
+  app.kubernetes.io/name: cilium
+  app.kubernetes.io/part-of: cilium
+  home-lab.io/project-slug: system
+helm:
+  waitForJobs: true

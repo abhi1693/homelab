@@ -6,7 +6,7 @@ the resulting `HelmChart` resource.
 
 - endpoint: `http://ha.home`
 - chart version: `0.3.85`
-- app version: `2026.9.4`
+- app version: `2026.10.1`
 - namespace: `home-assistant`
 - replicas: `1`, using `Recreate` updates
 - persistence: Longhorn `4Gi` RWX PVC `home-assistant-pvc`
@@ -36,7 +36,7 @@ Review it before cleanup; never overwrite live Recorder files during recovery.
 Portable Home Assistant source is owned by the public
 [`abhi1693/home-assistant`](https://github.com/abhi1693/home-assistant)
 repository. This deployment pins commit
-`fc9df5384406d56ce123997880501a212bdf9726` and the SHA-256 of its GitHub source
+`ba4ae51a6636de1aca2dca21be5a0d7e921df7bc` and the SHA-256 of its GitHub source
 archive. The `install-home-assistant-source` init container verifies the archive
 before running its standard-library-only bootstrap against `/config`.
 
@@ -165,6 +165,9 @@ The Kitchen Sink G5 Turret Ultra is included in the source-managed Security
 camera wall and clip history for all three family profiles. Its three RTSPS
 qualities use the existing UDM `192.168.1.1:7441` egress rule; the source-managed
 stream reconciler enables its medium and low Home Assistant entities.
+Clip history and startup/recovery backfill use the current Protect raw event-list
+API and typed decoder. A failed history request offers a Retry button without
+repeating requests on every Home Assistant state update.
 
 Companion App external sensor delivery uses the
 [mobile webhook gateway](../home-assistant-mobile-webhook/README.md), not public

@@ -16,3 +16,16 @@ spec:
   gitPath: kubernetes/projects/system/apps/pyroscope
   workloads:
     - {key: home-k3s/cattle-monitoring-system/apps/deployment/pyroscope, namespace: cattle-monitoring-system, apiGroup: apps, kind: Deployment, name: pyroscope, desiredReplicas: 1, sourcePath: kubernetes/projects/system/apps/pyroscope/deployment.yaml}
+  persistentStores:
+    - key: home-k3s/cattle-monitoring-system/persistentvolumeclaim/pyroscope-data
+      namespace: cattle-monitoring-system
+      type: PersistentVolumeClaim
+      name: pyroscope-data
+      storageClass: longhorn
+      capacity: 2Gi
+      accessModes:
+        - ReadWriteOnce
+      retention: retain
+      backup: Replicated by Longhorn; no dedicated application backup or disaster recovery guarantee.
+      dataClassification: sensitive
+      sourcePath: kubernetes/projects/system/apps/pyroscope/pvc.yaml

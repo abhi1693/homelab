@@ -30,6 +30,11 @@ for every profile:
 - Production profiles generally run with replica, CPU-request, and
   memory-request management enabled; persisted learning history still feeds
   the stability and safety gates before Git proposals are committed
+- Sonarr's CPU request in `media-helm-profile.yaml` is operator-managed after
+  automatic increases exhausted the eligible workers' unreserved CPU on
+  October 21, 2026. Its `500m` request permits uncapped import bursts; memory
+  tuning stays enabled. Review worker reservations and topology placement
+  before re-enabling CPU-request management
 - Every workload with replica management enabled must declare explicit
   `bounds.replicas` min/max values. The engine also requires traffic demand or
   availability recovery before CPU/memory-only pressure can scale replicas, so

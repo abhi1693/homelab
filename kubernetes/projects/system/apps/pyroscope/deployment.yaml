@@ -20,6 +20,8 @@ spec:
     type: Recreate
   template:
     metadata:
+      annotations:
+        home-lab.io/storage-revision: "2026-10-19-persistent-history"
       labels:
         app.kubernetes.io/name: pyroscope
         app.kubernetes.io/component: profiling-backend
@@ -27,6 +29,8 @@ spec:
         home-lab.io/project-slug: system
     spec:
       automountServiceAccountToken: false
+      # Allow the single writer to stop Raft and in-flight compaction cleanly.
+      terminationGracePeriodSeconds: 120
       nodeSelector:
         kubernetes.io/arch: arm64
         node-role.kubernetes.io/control-plane: "true"
@@ -118,5 +122,5 @@ spec:
               mountPath: /var/pyroscope
       volumes:
         - name: data
-          emptyDir:
-            sizeLimit: 2Gi
+          persistentVolumeClaim:
+            claimName: pyroscope-data

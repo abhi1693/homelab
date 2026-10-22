@@ -14,15 +14,67 @@ service account. A new environment must provision those dependencies, schema and
 inbox credentials before installing the application. Historical production Job
 manifests are not a supported initial-install procedure.
 
-Migrations must be compatible with the currently running release because they
-run before its replacement. The v0.0.8 schema change was applied only after old
-pods retired; subsequent upgrades now start from schema 0006. Use an earlier
-compatibility release when a future migration cannot safely precede deployment.
+Hooks run before workload replacement. Drain incompatible background processes
+through earlier Fleet revisions before migration; API readiness can briefly drop
+until the matching replacement services start. Use an earlier compatibility
+release when a migration cannot safely precede deployment.
 
 Validate manifests with a server dry run, then verify the Helm hook's successful
 last-run result, disappearance of the successful Job, live schema revision and
 index validity, Fleet convergence and application readiness. Keep retained PVCs,
 credentials and content through upgrades and cleanup.
+
+## Release 0.1.1: schema 0033
+
+The matching backend hook applies migrations `0027` through `0033`: processing-history
+indexes, transactional search-visibility revisions, topic-history range indexes,
+daily inference totals, separate source profile/relevance operations, and article
+lifecycle indexes. Migration `0031` backfills exact totals while holding a ledger
+write lock. Migration `0033` builds indexes concurrently and repairs interrupted
+index builds on retry. Verify a successful CNPG backup and healthy WAL archiving
+before starting the rollout.
+
+Use separate Fleet revisions to preserve the drain order:
+
+1. Set scheduler replicas to zero, wait for Fleet convergence and its pod to exit,
+   then drain active RQ deliveries. Durable queued outbox requests can remain for
+   the new scheduler. Inspect job status instead of treating orphan intermediate
+   queue entries as active work.
+2. Set the thirteen worker Deployments and search indexer to zero and wait for old
+   pods to exit. Include the shared AI worker, which also consumes source analysis.
+   Older coupled source consumers must not receive the split operations from `0032`.
+3. Update every runtime, init-container, and migration image to the verified release
+   pins and restore worker/indexer replicas, keeping the scheduler stopped. The
+   pre-upgrade hook must complete before replacement workloads start.
+4. Verify schema `0033`, valid indexes, all replacement images and readiness, then
+   restore the scheduler through Fleet and verify desired/applied equality again.
+
+Release 0.1.1 also accepts schema `0032` during a forward rollout; earlier schemas
+lack required source-processing fields. The hook retains the 600-second statement
+budget, 30-second lock budget, and 840-second deadline. Migration `0033` bounds its
+index metadata locks to five seconds. Deploy APIs and the reader before publishing
+extension 0.1.22. Preserve schema and processing evidence for recovery; an image-only
+rollback to 0.1.0 is incompatible, and downgrading `0032` is guarded while split work
+or explicit processing requests remain.
+
+## Release 0.1.0: schema 0026
+
+The matching backend pre-upgrade hook applies `0024` (partnerships), `0025`
+(adaptive source polling), and `0026` (saved tag follows) before replacing workloads.
+Verify a successful CNPG backup before rollout, migration completion, schema `0026`,
+all replacement pods Ready, and Fleet desired/applied equality. Migration `0024`
+backfills matching vocabulary; existing sources default to fixed polling in `0025`.
+The production article-token backfill exceeds the normal 30-second query budget.
+The hook appends a process-local connection listener with `statement_timeout=600s`
+and `lock_timeout=30s`, after the application default listener. Normal services
+retain the 30-second budget. The Job permits one retry and has an 840-second deadline
+within Fleet’s 900-second Helm timeout. The failed initial backfill rolled back.
+
+Enable the shared adaptive gate and partner signing/encryption configuration with the
+new images. Deploy the APIs before distributing extension 0.1.21.
+
+Preserve the upgraded schema and recover using schema-compatible images. Downgrading
+partnership tables destroys catalog, campaign, matching, and attribution records.
 
 ## Release 0.0.52: schema 0023
 

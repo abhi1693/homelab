@@ -11,25 +11,48 @@ spec:
   groups:
     - name: telemetry.delivery
       rules:
+        - alert: LokiWALWritesStalled
+          expr: |
+            (sum(increase(loki_distributor_lines_received_total{namespace="cattle-monitoring-system"}[10m])) > 0)
+            and
+            (sum(increase(loki_ingester_wal_records_logged_total{namespace="cattle-monitoring-system"}[10m])) == 0)
+          for: 5m
+          labels:
+            severity: critical
+            namespace: cattle-monitoring-system
+            incident: log-delivery
+          annotations:
+            summary: Loki receives logs but makes no WAL progress
+            description: Incoming logs persist while the rolling 10-minute successful WAL-record increase stays zero. Readiness and received-line counters do not prove durable ingestion; inspect WAL errors and query fresh logs before recovery.
+            runbook_url: https://github.com/abhi1693/home-lab/blob/master/docs/runbooks/loki-stale-nfs-wal.md
         - alert: AlloyLogEntriesDropped
           expr: sum by (pod, reason) (increase(loki_write_dropped_entries_total{namespace="cattle-monitoring-system"}[10m])) > 0
+          keep_firing_for: 10m
           labels:
             severity: warning
+            namespace: cattle-monitoring-system
+            incident: log-delivery
+            data_loss: permanent
           annotations:
             summary: Alloy permanently discarded log entries
-            description: '{{ $labels.pod }} discarded {{ printf "%.0f" $value }} entries after retries. Inspect Loki write latency and rejections; incident logs may be incomplete.'
+            description: 'Last positive 10m window: {{ $labels.pod }} permanently lost ~{{ printf "%.0f" $value }} entries (reason={{ if $labels.reason }}{{ $labels.reason }}{{ else }}unspecified{{ end }}). Check collector HTTP errors, Loki rejections, and queue pressure. Drops can follow non-retryable errors or exhausted retries. Held firing for 10m after positive evaluations stop; resolved means no recent drops, not recovery. Verify fresh logs after repair.'
+            runbook_url: https://github.com/abhi1693/home-lab/blob/master/kubernetes/projects/system/apps/loki/README.md#delivery-headroom-and-alerts
         - alert: LokiLogEntriesRejected
           expr: sum by (reason) (increase(loki_discarded_samples_total{namespace="cattle-monitoring-system"}[10m])) > 0
           for: 5m
           labels:
             severity: warning
+            namespace: cattle-monitoring-system
+            incident: log-delivery
           annotations:
             summary: Loki is rejecting log entries
-            description: 'Loki rejected entries for {{ $labels.reason }}. Check ingestion budgets and producer timestamps; retries and permanent drops are separate counters.'
+            description: 'Loki rejected ~{{ printf "%.0f" $value }} entries in 10m (reason={{ if $labels.reason }}{{ $labels.reason }}{{ else }}unspecified{{ end }}). Check Loki validation errors: too_far_behind needs producer timestamp/ordering checks; rate limits need ingestion-budget/burst checks. The rolling increase has stayed positive for 5m. Compare Alloy permanent drops separately; pipeline-stage counts must not be added.'
+            runbook_url: https://github.com/abhi1693/home-lab/blob/master/kubernetes/projects/system/apps/loki/README.md#delivery-headroom-and-alerts
         - alert: GrafanaRestarted
           expr: sum(increase(kube_pod_container_status_restarts_total{namespace="cattle-monitoring-system",container="grafana"}[15m])) > 0
           labels:
             severity: warning
+            namespace: cattle-monitoring-system
           annotations:
             summary: Grafana restarted
             description: Check container termination state, probe failures and database/storage latency before attributing the restart to memory pressure.

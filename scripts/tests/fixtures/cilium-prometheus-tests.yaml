@@ -1,0 +1,230 @@
+---
+rule_files:
+- rules.yml
+evaluation_interval: 1m
+tests:
+- name: healthy targets and controllers
+  interval: 1m
+  input_series:
+  - &id001
+    series: kube_node_info{node="node1"}
+    values: 1+0x25
+  - &id002
+    series: kube_node_info{node="node2"}
+    values: 1+0x25
+  - series: up{job="cilium-agent",node="node1",pod="cilium-agent-1"}
+    values: 1+0x25
+  - series: up{job="cilium-agent",node="node2",pod="cilium-agent-2"}
+    values: 1+0x25
+  - series: up{job="hubble",node="node1",pod="hubble-1"}
+    values: 1+0x25
+  - series: up{job="hubble",node="node2",pod="hubble-2"}
+    values: 1+0x25
+  - series: up{job="cilium-operator",node="node1",pod="cilium-operator-1"}
+    values: 1+0x25
+  - series: up{job="cilium-operator",node="node2",pod="cilium-operator-2"}
+    values: 1+0x25
+  - &id003
+    series: kube_deployment_spec_replicas{namespace="kube-system",deployment="cilium-operator"}
+    values: 2+0x25
+  - series: cilium_controllers_failing{node="node1"}
+    values: 0+0x25
+  - series: hubble_lost_events_total{node="node1",source="perf_event_ring_buffer"}
+    values: 0+0x25
+  alert_rule_test:
+  - eval_time: 20m
+    alertname: CiliumAgentMetricsUnavailable
+    exp_alerts: []
+  - eval_time: 20m
+    alertname: CiliumOperatorMetricsUnavailable
+    exp_alerts: []
+  - eval_time: 20m
+    alertname: HubbleMetricsUnavailable
+    exp_alerts: []
+  - eval_time: 20m
+    alertname: CiliumControllersFailing
+    exp_alerts: []
+  - eval_time: 20m
+    alertname: HubbleEventsLost
+    exp_alerts: []
+- name: removed agent targets are detected
+  interval: 1m
+  input_series:
+  - *id001
+  - *id002
+  alert_rule_test:
+  - eval_time: 20m
+    alertname: CiliumAgentMetricsUnavailable
+    exp_alerts:
+    - exp_labels:
+        node: node1
+        severity: warning
+        namespace: kube-system
+      exp_annotations:
+        summary: Cilium agent metrics are unavailable
+        description: Cilium agent metrics on node1 have been unavailable for 10 minutes.
+          Check the Cilium DaemonSet, listener on port 9962, and Prometheus discovery.
+    - exp_labels:
+        node: node2
+        severity: warning
+        namespace: kube-system
+      exp_annotations:
+        summary: Cilium agent metrics are unavailable
+        description: Cilium agent metrics on node2 have been unavailable for 10 minutes.
+          Check the Cilium DaemonSet, listener on port 9962, and Prometheus discovery.
+- name: failed agent scrape is detected per node
+  interval: 1m
+  input_series:
+  - *id001
+  - *id002
+  - series: up{job="cilium-agent",node="node1"}
+    values: 1+0x25
+  - series: up{job="cilium-agent",node="node2"}
+    values: 0+0x25
+  alert_rule_test:
+  - eval_time: 20m
+    alertname: CiliumAgentMetricsUnavailable
+    exp_alerts:
+    - exp_labels:
+        node: node2
+        severity: warning
+        namespace: kube-system
+      exp_annotations:
+        summary: Cilium agent metrics are unavailable
+        description: Cilium agent metrics on node2 have been unavailable for 10 minutes.
+          Check the Cilium DaemonSet, listener on port 9962, and Prometheus discovery.
+- name: one missing operator is detected
+  interval: 1m
+  input_series:
+  - *id003
+  - series: up{job="cilium-operator",node="node1"}
+    values: 1+0x25
+  alert_rule_test:
+  - eval_time: 20m
+    alertname: CiliumOperatorMetricsUnavailable
+    exp_alerts:
+    - exp_labels:
+        severity: warning
+        namespace: kube-system
+      exp_annotations:
+        summary: Cilium operator metrics are incomplete
+        description: Fewer Cilium operator metrics targets are healthy than configured
+          replicas for 10 minutes. Check operator readiness, listener on port 9963,
+          and Prometheus discovery.
+- name: all operator targets removed is detected
+  interval: 1m
+  input_series:
+  - *id003
+  alert_rule_test:
+  - eval_time: 20m
+    alertname: CiliumOperatorMetricsUnavailable
+    exp_alerts:
+    - exp_labels:
+        severity: warning
+        namespace: kube-system
+      exp_annotations:
+        summary: Cilium operator metrics are incomplete
+        description: Fewer Cilium operator metrics targets are healthy than configured
+          replicas for 10 minutes. Check operator readiness, listener on port 9963,
+          and Prometheus discovery.
+- name: removed Hubble target is detected
+  interval: 1m
+  input_series:
+  - *id001
+  - *id002
+  - series: up{job="hubble",node="node1"}
+    values: 1+0x25
+  alert_rule_test:
+  - eval_time: 20m
+    alertname: HubbleMetricsUnavailable
+    exp_alerts:
+    - exp_labels:
+        node: node2
+        severity: warning
+        namespace: kube-system
+      exp_annotations:
+        summary: Hubble flow metrics are unavailable
+        description: Hubble metrics on node2 have been unavailable for 10 minutes.
+          Check Hubble configuration, the Cilium agent, and the listener on port 9965.
+- name: persistent controller failures warn
+  interval: 1m
+  input_series:
+  - series: cilium_controllers_failing{node="node1"}
+    values: 1+0x25
+  alert_rule_test:
+  - eval_time: 20m
+    alertname: CiliumControllersFailing
+    exp_alerts:
+    - exp_labels:
+        node: node1
+        severity: warning
+        namespace: kube-system
+      exp_annotations:
+        summary: Cilium controllers are persistently failing
+        description: Cilium on node1 has failing controllers for 10 minutes. Inspect
+          Cilium status and node-local agent logs before changing network configuration.
+- name: transient controller failures stay quiet
+  interval: 1m
+  input_series:
+  - series: cilium_controllers_failing{node="node1"}
+    values: 1+0x4 0+0x20
+  alert_rule_test:
+  - eval_time: 20m
+    alertname: CiliumControllersFailing
+    exp_alerts: []
+- name: sustained perf event loss warns
+  interval: 1m
+  input_series:
+  - series: hubble_lost_events_total{node="node1",source="perf_event_ring_buffer"}
+    values: 0+120x25
+  alert_rule_test:
+  - eval_time: 20m
+    alertname: HubbleEventsLost
+    exp_alerts:
+    - exp_labels:
+        node: node1
+        source: perf_event_ring_buffer
+        severity: warning
+        namespace: kube-system
+      exp_annotations:
+        summary: Hubble is losing incident observation events
+        description: Hubble on node1 is losing more than one event per second from
+          perf_event_ring_buffer for 10 minutes. Flow metrics may be incomplete; inspect
+          CPU and event-queue pressure.
+- name: sustained observer queue loss warns
+  interval: 1m
+  input_series:
+  - series: hubble_lost_events_total{node="node2",source="observer_events_queue"}
+    values: 0+120x25
+  alert_rule_test:
+  - eval_time: 20m
+    alertname: HubbleEventsLost
+    exp_alerts:
+    - exp_labels:
+        node: node2
+        source: observer_events_queue
+        severity: warning
+        namespace: kube-system
+      exp_annotations:
+        summary: Hubble is losing incident observation events
+        description: Hubble on node2 is losing more than one event per second from
+          observer_events_queue for 10 minutes. Flow metrics may be incomplete; inspect
+          CPU and event-queue pressure.
+- name: history cache overwrites do not warn
+  interval: 1m
+  input_series:
+  - series: hubble_lost_events_total{node="node1",source="hubble_ring_buffer"}
+    values: 0+1000x25
+  alert_rule_test:
+  - eval_time: 20m
+    alertname: HubbleEventsLost
+    exp_alerts: []
+- name: one lost event per second stays below warning
+  interval: 1m
+  input_series:
+  - series: hubble_lost_events_total{node="node1",source="perf_event_ring_buffer"}
+    values: 0+60x25
+  alert_rule_test:
+  - eval_time: 20m
+    alertname: HubbleEventsLost
+    exp_alerts: []

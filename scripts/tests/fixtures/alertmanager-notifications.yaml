@@ -1,0 +1,85 @@
+---
+# Synthetic data only. The validator never posts these alerts to the cluster.
+alerts:
+  - status: firing
+    labels:
+      alertname: AlloyLogEntriesDropped
+      cluster: home-lab
+      incident: log-delivery
+      severity: warning
+      namespace: cattle-monitoring-system
+      data_loss: permanent
+      pod: alloy-faro-fixture-a
+      component_id: loki.write.fixture
+    annotations:
+      summary: Alloy permanently discarded log entries
+      description: Discarded 17 entries after retries; incident logs may be incomplete. Inspect Loki rejections and producer timestamps.
+      runbook_url: https://example.invalid/runbooks/log-delivery
+    startsAt: "2026-10-19T08:00:00Z"
+    endsAt: "2026-10-19T09:00:00Z"
+    generatorURL: https://example.invalid/graph?g0.expr=fixture
+    fingerprint: loss-fixture
+  - status: firing
+    labels:
+      alertname: LokiLogEntriesRejected
+      cluster: home-lab
+      incident: log-delivery
+      severity: critical
+      namespace: cattle-monitoring-system
+      reason: too_far_behind
+    annotations:
+      summary: Loki is rejecting log entries
+      description: Loki rejected entries for too_far_behind. Compare producer timestamps with the active stream ordering window.
+      runbook_url: https://example.invalid/runbooks/log-delivery
+    startsAt: "2026-10-19T08:01:00Z"
+    endsAt: "2026-10-19T09:00:00Z"
+    generatorURL: https://example.invalid/graph?g0.expr=rejected
+    fingerprint: rejection-fixture
+  - status: resolved
+    labels:
+      alertname: AlloyLogWriteRetries
+      cluster: home-lab
+      incident: log-delivery
+      severity: warning
+      namespace: cattle-monitoring-system
+      pod: alloy-faro-fixture-b
+      component_id: loki.write.fixture
+    annotations:
+      summary: Alloy is retrying log delivery
+      description: Write retries have stopped. Previously dropped entries remain lost; confirm no new permanent drops.
+      runbook_url: https://example.invalid/runbooks/log-delivery
+    startsAt: "2026-10-19T07:59:00Z"
+    endsAt: "2026-10-19T08:05:00Z"
+    generatorURL: https://example.invalid/graph?g0.expr=retries
+    fingerprint: retry-fixture
+devfeed_burns:
+  - labels:
+      alertname: DevFeedAvailabilityFastBurn
+      cluster: home-lab
+      namespace: devfeed
+      app: devfeed
+      service: api
+      severity: critical
+    annotations:
+      summary: DevFeed API fast burn
+      description: Inspect API 5xx routes and dependencies.
+  - labels:
+      alertname: DevFeedAvailabilitySlowBurn
+      cluster: home-lab
+      namespace: devfeed
+      app: devfeed
+      service: api
+      severity: warning
+    annotations:
+      summary: DevFeed API slow burn
+      description: Inspect sustained API availability loss.
+  - labels:
+      alertname: DevFeedAvailabilityFastBurn
+      cluster: home-lab
+      namespace: devfeed
+      app: devfeed
+      service: admin-api
+      severity: critical
+    annotations:
+      summary: DevFeed admin API fast burn
+      description: Inspect admin API 5xx routes and dependencies.

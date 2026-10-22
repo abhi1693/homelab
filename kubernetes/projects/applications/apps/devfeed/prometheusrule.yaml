@@ -76,7 +76,7 @@ spec:
         summary: DevFeed availability is burning its error budget quickly
         description: Both the 1h and 5m windows exceed the 99.9% SLO fast-burn threshold, with at least 100 requests in 1h.
           Inspect 5xx routes, recent releases, readiness, database and dependency panels.
-        runbook_url: https://github.com/abhi1693/devfeed.tech/blob/v0.0.50/packages/core/OBSERVABILITY.md
+        runbook_url: https://github.com/abhi1693/devfeed.tech/blob/v0.1.0/packages/core/OBSERVABILITY.md
         dashboard_url: http://grafana.home/d/devfeed-operations
     - alert: DevFeedAvailabilitySlowBurn
       expr: (devfeed:http_error_ratio:rate6h > 6 * 0.001) and on(service) (devfeed:http_error_ratio:rate30m > 6 * 0.001) and
@@ -90,7 +90,7 @@ spec:
         summary: DevFeed availability has sustained error-budget burn
         description: Both 6h and 30m exceed the slower burn threshold. Low traffic alone does not trigger a burn alert; deployment
           and synthetic availability checks cover total outages.
-        runbook_url: https://github.com/abhi1693/devfeed.tech/blob/v0.0.50/packages/core/OBSERVABILITY.md
+        runbook_url: https://github.com/abhi1693/devfeed.tech/blob/v0.1.0/packages/core/OBSERVABILITY.md
         dashboard_url: http://grafana.home/d/devfeed-operations
     - alert: DevFeedHighLatency
       expr: histogram_quantile(0.95,sum by(service,le)(rate(devfeed:http_duration_seconds_bucket{namespace="devfeed"}[10m])))
@@ -104,7 +104,7 @@ spec:
         summary: DevFeed p95 HTTP latency exceeds two seconds
         description: At least 50 requests occurred in 5m. Inspect route latency, database spans, checked-out connections,
           CPU and event-loop lag.
-        runbook_url: https://github.com/abhi1693/devfeed.tech/blob/v0.0.50/packages/core/OBSERVABILITY.md
+        runbook_url: https://github.com/abhi1693/devfeed.tech/blob/v0.1.0/packages/core/OBSERVABILITY.md
         dashboard_url: http://grafana.home/d/devfeed-operations
     - alert: DevFeedDeploymentUnavailable
       expr: (kube_deployment_status_replicas_available{namespace="devfeed"} < 1) and on (namespace, deployment) (kube_deployment_spec_replicas{namespace="devfeed"}
@@ -118,7 +118,7 @@ spec:
         summary: A DevFeed deployment has no available replicas
         description: Inspect Deployment conditions, init schema checks, image pulls, readiness and pod events. Preserve each
           workload's declared replica count in GitOps.
-        runbook_url: https://github.com/abhi1693/devfeed.tech/blob/v0.0.50/packages/core/OBSERVABILITY.md
+        runbook_url: https://github.com/abhi1693/devfeed.tech/blob/v0.1.0/packages/core/OBSERVABILITY.md
         dashboard_url: http://grafana.home/d/devfeed-operations
     - alert: DevFeedReplicasDegraded
       expr: kube_deployment_status_replicas_available{namespace="devfeed"} < kube_deployment_spec_replicas{namespace="devfeed"}
@@ -130,7 +130,7 @@ spec:
       annotations:
         summary: A DevFeed deployment has fewer ready replicas than desired
         description: Sustained capacity loss after the normal rollout window; inspect pending, crashing and unready pods.
-        runbook_url: https://github.com/abhi1693/devfeed.tech/blob/v0.0.50/packages/core/OBSERVABILITY.md
+        runbook_url: https://github.com/abhi1693/devfeed.tech/blob/v0.1.0/packages/core/OBSERVABILITY.md
         dashboard_url: http://grafana.home/d/devfeed-operations
     - alert: DevFeedPodCrashLoop
       expr: increase(kube_pod_container_status_restarts_total{namespace="devfeed"}[15m]) >= 3
@@ -143,7 +143,7 @@ spec:
         summary: A DevFeed container is repeatedly restarting
         description: Check previous container logs, last termination reason, OOM and readiness/liveness failures before changing
           resource limits.
-        runbook_url: https://github.com/abhi1693/devfeed.tech/blob/v0.0.50/packages/core/OBSERVABILITY.md
+        runbook_url: https://github.com/abhi1693/devfeed.tech/blob/v0.1.0/packages/core/OBSERVABILITY.md
         dashboard_url: http://grafana.home/d/devfeed-operations
     - alert: DevFeedMemoryPressure
       expr: sum by(pod)(container_memory_working_set_bytes{namespace="devfeed",container!="",container!="POD",image!=""})
@@ -157,7 +157,7 @@ spec:
         summary: A DevFeed pod exceeds 90% of its memory limit
         description: Use pod memory and heap profiles; worker pod memory includes its forked child. CPU requests are scheduling
           reservations, not throughput limits.
-        runbook_url: https://github.com/abhi1693/devfeed.tech/blob/v0.0.50/packages/core/OBSERVABILITY.md
+        runbook_url: https://github.com/abhi1693/devfeed.tech/blob/v0.1.0/packages/core/OBSERVABILITY.md
         dashboard_url: http://grafana.home/d/devfeed-operations
     - alert: DevFeedMetricsUnavailable
       expr: up{namespace="devfeed",telemetry="devfeed-application",service!=""} == 0
@@ -170,7 +170,7 @@ spec:
         summary: A private DevFeed metrics target cannot be scraped
         description: Check the listener on port 9100, PodMonitor target errors and both NetworkPolicy directions. Application
           ports must still return 404 for /metrics.
-        runbook_url: https://github.com/abhi1693/devfeed.tech/blob/v0.0.50/packages/core/OBSERVABILITY.md
+        runbook_url: https://github.com/abhi1693/devfeed.tech/blob/v0.1.0/packages/core/OBSERVABILITY.md
         dashboard_url: http://grafana.home/d/devfeed-operations
     - alert: DevFeedMetricsMissing
       expr: absent(up{namespace="devfeed",telemetry="devfeed-application",service!=""})
@@ -182,7 +182,7 @@ spec:
       annotations:
         summary: All DevFeed application metrics targets are missing
         description: Check PodMonitor discovery, selectors, Prometheus and Fleet. A missing series is not healthy.
-        runbook_url: https://github.com/abhi1693/devfeed.tech/blob/v0.0.50/packages/core/OBSERVABILITY.md
+        runbook_url: https://github.com/abhi1693/devfeed.tech/blob/v0.1.0/packages/core/OBSERVABILITY.md
         dashboard_url: http://grafana.home/d/devfeed-operations
     - alert: DevFeedBackgroundStalled
       expr: time() - devfeed_background_last_success_seconds{namespace="devfeed",service=~"scheduler|search-indexer"} > 300
@@ -194,7 +194,7 @@ spec:
       annotations:
         summary: DevFeed scheduler or search indexer has stopped completing cycles
         description: Inspect cycle failures, database/query latency, Typesense and process health.
-        runbook_url: https://github.com/abhi1693/devfeed.tech/blob/v0.0.50/packages/core/OBSERVABILITY.md
+        runbook_url: https://github.com/abhi1693/devfeed.tech/blob/v0.1.0/packages/core/OBSERVABILITY.md
         dashboard_url: http://grafana.home/d/devfeed-operations
     - alert: DevFeedSearchLag
       expr: devfeed_search_oldest_event_age_seconds{namespace="devfeed"} > 600 and devfeed_search_outbox{namespace="devfeed"}
@@ -207,7 +207,7 @@ spec:
       annotations:
         summary: DevFeed search index is more than ten minutes behind
         description: Inspect search-indexer cycle health and Typesense request errors.
-        runbook_url: https://github.com/abhi1693/devfeed.tech/blob/v0.0.50/packages/core/OBSERVABILITY.md
+        runbook_url: https://github.com/abhi1693/devfeed.tech/blob/v0.1.0/packages/core/OBSERVABILITY.md
         dashboard_url: http://grafana.home/d/devfeed-operations
     - alert: DevFeedHTTPProbeFailed
       expr: probe_success{namespace="devfeed",job="devfeed-http-probes"} == 0
@@ -220,7 +220,7 @@ spec:
         summary: A DevFeed HTTP availability probe is failing
         description: Public reader HTTPS or an internal service readiness/login probe failed. Inspect the instance URL, probe
           HTTP status/TLS/DNS and corresponding deployment. No authenticated account action is performed.
-        runbook_url: https://github.com/abhi1693/devfeed.tech/blob/v0.0.50/packages/core/OBSERVABILITY.md
+        runbook_url: https://github.com/abhi1693/devfeed.tech/blob/v0.1.0/packages/core/OBSERVABILITY.md
         dashboard_url: http://grafana.home/d/devfeed-operations
     - alert: DevFeedHTTPProbesMissing
       expr: absent(probe_success{namespace="devfeed",job="devfeed-http-probes"})
@@ -232,5 +232,5 @@ spec:
       annotations:
         summary: DevFeed HTTP probes are missing
         description: Check Probe discovery and the redundant blackbox exporter pods; missing telemetry is not success.
-        runbook_url: https://github.com/abhi1693/devfeed.tech/blob/v0.0.50/packages/core/OBSERVABILITY.md
+        runbook_url: https://github.com/abhi1693/devfeed.tech/blob/v0.1.0/packages/core/OBSERVABILITY.md
         dashboard_url: http://grafana.home/d/devfeed-operations

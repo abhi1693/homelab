@@ -37,7 +37,7 @@ spec:
       containers:
         - name: codex
           # renovate: datasource=docker depName=ghcr.io/abhi1693/devfeed.tech/codex
-          image: registry.home/ghcr.io/abhi1693/devfeed.tech/codex:0.0.52@sha256:8eb1df5f551386fcaea2aaf2b05777ecb858f305e690504833d8abba21bb273f
+          image: registry.home/ghcr.io/abhi1693/devfeed.tech/codex:0.1.1@sha256:6ae554040d6b4881663f9db957273e8b771d8182d1b43850326a109f6e7d6c1f
           imagePullPolicy: IfNotPresent
           args:
             - app-server
@@ -110,7 +110,7 @@ spec:
             failureThreshold: 60
         - name: log-retention
           # renovate: datasource=docker depName=ghcr.io/abhi1693/devfeed.tech/codex
-          image: registry.home/ghcr.io/abhi1693/devfeed.tech/codex:0.0.52@sha256:8eb1df5f551386fcaea2aaf2b05777ecb858f305e690504833d8abba21bb273f
+          image: registry.home/ghcr.io/abhi1693/devfeed.tech/codex:0.1.1@sha256:6ae554040d6b4881663f9db957273e8b771d8182d1b43850326a109f6e7d6c1f
           imagePullPolicy: IfNotPresent
           command:
             - node
@@ -176,7 +176,7 @@ spec:
       initContainers:
         - name: remove-legacy-logs
           # renovate: datasource=docker depName=ghcr.io/abhi1693/devfeed.tech/codex
-          image: registry.home/ghcr.io/abhi1693/devfeed.tech/codex:0.0.52@sha256:8eb1df5f551386fcaea2aaf2b05777ecb858f305e690504833d8abba21bb273f
+          image: registry.home/ghcr.io/abhi1693/devfeed.tech/codex:0.1.1@sha256:6ae554040d6b4881663f9db957273e8b771d8182d1b43850326a109f6e7d6c1f
           imagePullPolicy: IfNotPresent
           command:
             - node
@@ -206,7 +206,7 @@ spec:
               readOnly: true
         - name: chatgpt-login
           # renovate: datasource=docker depName=ghcr.io/abhi1693/devfeed.tech/codex
-          image: registry.home/ghcr.io/abhi1693/devfeed.tech/codex:0.0.52@sha256:8eb1df5f551386fcaea2aaf2b05777ecb858f305e690504833d8abba21bb273f
+          image: registry.home/ghcr.io/abhi1693/devfeed.tech/codex:0.1.1@sha256:6ae554040d6b4881663f9db957273e8b771d8182d1b43850326a109f6e7d6c1f
           imagePullPolicy: IfNotPresent
           env:
             - name: CODEX_SQLITE_HOME

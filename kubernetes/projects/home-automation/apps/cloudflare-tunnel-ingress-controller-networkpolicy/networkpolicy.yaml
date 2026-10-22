@@ -280,3 +280,13 @@ spec:
       ports:
         - protocol: TCP
           port: 3000
+    - to:
+        - podSelector:
+            matchLabels:
+              app.kubernetes.io/name: devfeed-partner
+          namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: devfeed
+      ports:
+        - protocol: TCP
+          port: 3000

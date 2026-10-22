@@ -10,7 +10,7 @@ and <a href=".pre-commit-config.yaml">pre-commit</a></em></p>
 <p>
   <img alt="Ansible bootstrap" src="https://img.shields.io/badge/Ansible-bootstrap-1A1918?style=flat-square&amp;logo=ansible&amp;logoColor=white">
   <img alt="Rancher Fleet GitOps" src="https://img.shields.io/badge/Rancher%20Fleet-GitOps-0075A8?style=flat-square&amp;logo=rancher&amp;logoColor=white">
-  <img alt="Renovate 44.158.1" src="https://img.shields.io/badge/Renovate-44.158.1-1A1F6C?style=flat-square&amp;logo=renovatebot&amp;logoColor=white">
+  <img alt="Renovate 44.161.0" src="https://img.shields.io/badge/Renovate-44.161.0-1A1F6C?style=flat-square&amp;logo=renovatebot&amp;logoColor=white">
 </p>
 
 <p>
@@ -527,12 +527,12 @@ component boundary while keeping Kubernetes VIP ownership inside the cluster
 and independent of WAN state. Cilium remains the pod dataplane and policy
 engine.
 
-The Ansible Cilium role installs the Cilium CLI, renders values, waits for the
-local K3s API, installs or upgrades Cilium, restarts bootstrap add-ons after
-the first install, configures bundled Traefik, and validates its MetalLB VIP.
-Its upgrade values preserve the cluster identity and VXLAN routing mode while
-rolling Cilium and Envoy one node at a time; the role waits for those rollouts
-without forcing a second restart.
+The Ansible Cilium role installs the Cilium CLI, waits for the local K3s API,
+and bootstraps Cilium and bundled Traefik. After the
+[Cilium Fleet bundle](kubernetes/projects/system/apps/cilium/README.md) takes
+ownership, the role checks the runtime without upgrading it through the CLI.
+Fleet preserves the existing release, cluster identity and VXLAN routing mode;
+configuration changes roll agents one node at a time.
 For a CLI-only update, run `playbooks/cilium.yml -e cilium_entrypoint=cli` from
 `infrastructure/ansible/`; this entrypoint changes the CLI on the bootstrap
 server without rendering values or touching the Cilium dataplane.
@@ -598,6 +598,10 @@ The repo is divided by responsibility rather than by tool alone.
 | Developer workspaces | `coder/templates/` | Coder Terraform templates and shared workspace image layers. |
 | Runbooks and ADRs | `docs/` | Operational procedures and design decisions that need more context than a manifest. |
 | Scripts | `scripts/` | Small utilities used by operators or migration workflows. |
+
+The [DevFeed identity migration runbook](docs/runbooks/devfeed-identity-migration.md)
+covers moving existing accounts to the dedicated authentication instance while
+preserving application data through a Fleet-coordinated cutover.
 
 The main architectural rule is locality: files that explain or operate an app
 should live next to the app. For example, an application directory can contain
@@ -669,14 +673,14 @@ These services are not just "apps"; they are the platform other apps depend on.
 | Rancher | Bootstrap/system | Cluster management plane and Fleet host. |
 | Fleet | Bootstrap/system | GitOps reconciliation engine. |
 | CloudNativePG | Database | PostgreSQL operator and shared database cluster. |
-| PostgreSQL | Database | Shared relational database with app-specific roles and poolers. |
+| PostgreSQL | Database | Shared relational database with app-specific roles and poolers; PostgreSQL instance images are managed centrally through a CNPG ImageCatalog. |
 | Valkey | Database | Shared cache/queue service with Sentinel. |
 | Harbor | Applications | Local registry and proxy/cache layer for images. |
 | SOPS Secrets Operator | System | Converts encrypted SOPS resources into native Kubernetes Secrets. |
 | Upstream monitoring + Rancher dashboards | System | HA Prometheus scraping, Thanos Query, Grafana, Alertmanager, dashboards, and alert rules. |
 | Loki | System | Log aggregation. |
 | Tempo | System | Trace storage for OpenTelemetry traces. |
-| Pyroscope | System | Continuous profiling backend; ephemeral 24-hour storage, serial compaction, and memory headroom above its Go runtime target. Raft logs and snapshots are colocated for container restart recovery. |
+| Pyroscope | System | Continuous profiling backend; bounded Longhorn storage with 24-hour retention, serial compaction, and memory headroom above its Go runtime target. Raft logs and snapshots share the persistent volume. |
 | OpenTelemetry Collector | System | Two-replica OTLP gateway and affinity-routed processing tiers for metrics and traces. |
 | ExternalDNS for UniFi | System | Reconciles internal DNS records from Kubernetes Ingress hosts and annotated Services. |
 
@@ -686,7 +690,7 @@ These services are not just "apps"; they are the platform other apps depend on.
 
 | App | What it does | Notable dependencies |
 | --- | --- | --- |
-| [DevFeed](kubernetes/projects/applications/apps/devfeed/README.md) | Developer news on 0.0.52 with individual search content-type filters, restored feed navigation, managed publisher logos, background sitemap snapshots and lighter public-page loading; daily Must Reads, weekly streak progress, compact lists and improved mobile navigation; avatar uploads, reading leaderboards, improved Dev Card navigation, admin reader-profile and activity views, enabled X sign-up attribution, HTTPS redirects and stronger reader/admin content security policies; per-user language preferences, feed sorting, reading streaks and shareable Dev Cards; managed topic logos with bounded SVG conversion and 32/64/96-pixel variants; PgBouncer connection reuse, redundant web/APIs, dedicated background workers and a search indexer; OAuth MCP agent connections, native OpenTelemetry metrics and refreshed Grafana dashboards, probes, logs, traces and profiles; automatic pre-upgrade [migration hooks](kubernetes/projects/applications/apps/devfeed/migrations.md). | PostgreSQL, Typesense, shared Valkey Sentinel, Chimely, dedicated Codex and internal imgproxy, R2 article images and topic logos, Zitadel, public Cloudflare Tunnel and internal Traefik. |
+| [DevFeed](kubernetes/projects/applications/apps/devfeed/README.md) | Developer news on 0.1.1 with source/article lifecycle boards, sign-in recovery and SSO sign-out, public API/OAuth/MCP discovery and tier-based partner imports; tag discovery and follows, collection sharing, contextual partner promotions, the partners.devfeed.tech portal and enabled adaptive polling; individual search content-type filters, restored feed navigation, managed publisher logos, background sitemap snapshots and lighter public-page loading; daily Must Reads, weekly streak progress, compact lists and improved mobile navigation; avatar uploads, reading leaderboards, improved Dev Card navigation, admin reader-profile and activity views, enabled X sign-up attribution, HTTPS redirects and stronger reader/admin content security policies; per-user language preferences, feed sorting, reading streaks and shareable Dev Cards; managed topic logos with bounded SVG conversion and 32/64/96-pixel variants; PgBouncer connection reuse, redundant web/APIs, dedicated background workers and a search indexer; OAuth MCP agent connections, native OpenTelemetry metrics and refreshed Grafana dashboards, probes, logs, traces and profiles; automatic pre-upgrade [migration hooks](kubernetes/projects/applications/apps/devfeed/migrations.md). | PostgreSQL, Typesense, shared Valkey Sentinel, Chimely, dedicated Codex and internal imgproxy, R2 article images and topic logos, Zitadel, public Cloudflare Tunnel and internal Traefik. |
 | Firefly III | Personal finance application with a monthly active window; the in-cluster scaler owns web replicas and daily-cron suspension. | PostgreSQL pooler, NFS upload PVC, internal Traefik ingress, scoped Home Assistant API access. |
 | [Hyperlocal Kitchen](kubernetes/projects/applications/apps/hyperlocal-kitchen/README.md) | Community pickup/home-delivery marketplace with admin UI, separate APIs, worker, and gated migrations. | PostgreSQL pooler, persistent Redis, Zitadel, SOPS, Harbor, Cloudflare Tunnel with long random hostnames. |
 | Harbor | Local registry and proxy/cache registry. | PostgreSQL, Valkey, NFS storage, monitoring. |
@@ -697,7 +701,7 @@ These services are not just "apps"; they are the platform other apps depend on.
 | Wardn AI | Paused agent platform: API, frontend, worker, WhatsApp bridge, and dedicated PostgreSQL pooler at zero replicas. | PostgreSQL, Wardn Hub, NFS and Longhorn storage, internal Traefik ingress. |
 | Wardn AI Website | Public product website for Wardn AI. | Harbor image, Cloudflare Tunnel. |
 | Wardn Hub | Public registry with API, frontend, and scoring online; consolidated worker and Codex temporarily paused at zero replicas, with refresh hook skipped and login state retained. | PostgreSQL, OpenTelemetry, Harbor, Cloudflare Tunnel, NFS build cache, Longhorn Codex state. |
-| [Zitadel](kubernetes/projects/applications/apps/zitadel/README.md) | Central identity provider on v4.19.4 with signed Login UI cookies and a custom GitHub registration retry. | PostgreSQL, SOPS secrets, Cloudflare Tunnel. |
+| [Zitadel](kubernetes/projects/applications/apps/zitadel/README.md) | Central identity provider on v4.19.4 with signed Login UI cookies, a custom GitHub registration retry and an isolated DevFeed virtual instance at auth.devfeed.tech. | PostgreSQL, SOPS secrets, Cloudflare Tunnel. |
 | Wardn License Server | Private entitlement issuer, Dodo webhook worker, and administration console. | PostgreSQL, Zitadel, Harbor, Dodo, Cloudflare Tunnel. |
 
 ### Database Project
@@ -724,7 +728,7 @@ These services are not just "apps"; they are the platform other apps depend on.
 | Shoko | Anime metadata and library management for Jellyfin/Shokofin. |
 | Jellyfin | Media server using custom image work and PostgreSQL-oriented experiments. |
 | Jellyseerr / Seerr | Media request portal backed by Jellyfin. |
-| FlareSolverr | Browser-challenge helper for selected indexers and the DevFeed solver worker (2Gi memory cap). |
+| FlareSolverr | Browser-challenge helper for selected indexers and the DevFeed solver worker (2Gi memory cap, CPU bursts allowed). |
 | media-storage | Shared NFS CSI declarations for the completed library and downloads. |
 
 The media stack is intentionally split between download storage and completed
@@ -772,8 +776,8 @@ poolers.
 Each of the three PostgreSQL instances requests and limits memory to 3Gi,
 reserving 9Gi across the cluster so any replica can become primary. CPU remains
 uncapped with a 250m request per instance.
-Each instance has a 20Gi data PVC and a separate 4Gi WAL PVC, for 72Gi of
-provisioned volumes and 216Gi of nominal capacity with three Longhorn replicas.
+Each instance has a 32Gi data PVC and a separate 4Gi WAL PVC, for 108Gi of
+provisioned volumes and 324Gi of nominal capacity with three Longhorn replicas.
 
 This gives the lab one place to manage:
 
@@ -850,6 +854,11 @@ OpenTelemetry gateways route traces by trace ID and metrics by stream ID into
 two stateful processing replicas, which retain errors and slow traces while
 sampling routine trace traffic before Tempo.
 
+Loki alerts also check successful WAL progress under incoming traffic. Follow
+the [stale NFS WAL runbook](docs/runbooks/loki-stale-nfs-wal.md) for Fleet-managed
+recovery that retains WAL and log data, verifies fresh logs, and accounts for
+permanent collector drops.
+
 ### Storage coupling
 
 Longhorn is the default Kubernetes storage class for replicated cluster-managed
@@ -887,7 +896,8 @@ completed media are separate UNAS Shared Drives mounted through NFS CSI.
 Selected file-oriented application
 claims use retained directories below the shared NAS export; database-backed
 claims stay on Longhorn. Prometheus uses two independent retained Longhorn
-claims. Retained rollback storage is documented with its owning app.
+claims. Tempo and Pyroscope each use a retained 2Gi Longhorn claim with 24-hour
+retention. Retained rollback storage is documented with its owning app.
 Other monitoring components still use retained NFS where
 that capacity tradeoff is acceptable. NFS has weaker latency and failure
 semantics than local block storage:
@@ -930,11 +940,31 @@ stock dashboards, with Prometheus 3.15.0, Grafana 13.2.3 and Alertmanager 0.34.1
 | Metrics | Two upstream Prometheus scrapers, Thanos Query, and ServiceMonitor resources. |
 | Dashboards | Grafana dashboards from labeled ConfigMaps. |
 | Alerts | PrometheusRules and AlertmanagerConfig resources. |
-| Logs | Clustered Alloy pod/event collection and two Loki gateways; Loki storage remains single-replica. |
-| Traces | Two OpenTelemetry gateways, two tail-sampling processors, and Tempo. |
-| Profiles | Pyroscope. |
-| Network flows | Cilium/Hubble where enabled. |
+| Logs | Node-local Alloy container/K3s/kernel collection, clustered Kubernetes event collection and two Loki gateways; Loki storage remains single-replica. |
+| Traces | Two OpenTelemetry gateways, two tail-sampling processors, and Tempo with a 2Gi Longhorn claim. |
+| Profiles | Pyroscope with a 2Gi Longhorn claim; Raft state and profiles survive pod replacement. |
+| Network flows | Cilium agent/operator metrics and bounded Hubble flow aggregates. |
 | Hardware health | node-exporter, Raspberry Pi throttling metrics, smartctl exporter, UPS exporter. |
+
+[Slack notifications](docs/runbooks/slack-notifications.md) correlate explicitly
+related delivery failures and DevFeed availability burns, show each member's
+firing/resolved status and source, and explain why Alertmanager sent an update.
+The four-hour repeat remains unchanged; Alloy permanent-loss incidents bridge
+brief quiet gaps with a ten-minute recovery hold without adding an initial rule
+pending period. Local capture validation exercises routing and rendering without
+posting test messages to Slack.
+
+The [incident coverage runbook](docs/runbooks/incident-coverage.md) describes
+the container-log handover, host journal boundaries, native etcd metrics and
+Cilium/Hubble scrapes. File positions survive collector restarts on the same
+node; pending write batches remain in memory. Kernel journals on quiet nodes
+may contain no recent entries, so collector health and actual log delivery are
+checked separately.
+
+[Trace and profile persistence](docs/runbooks/observability-persistence.md)
+keeps both backends' data on bounded persistent volumes, with 24-hour retention
+and one writer per backend. Longhorn replication protects storage across pod
+replacement; both services remain single-instance backends with a restart gap.
 
 The shared **imgproxy / Overview** dashboard compares DevFeed and ShipyardHQ,
 with application and instance filters and private 60-second metric scrapes.
@@ -1073,7 +1103,8 @@ completed job. Follow with live range queries across the affected time window.
 
 Tempo configuration and image changes also run an ARM64 `Tempo validation`
 workflow on pull requests. It starts the pinned image with the repository
-configuration and checks an OTLP trace round trip before Fleet deployment.
+configuration and checks an OTLP trace round trip and retained data recovery
+after container replacement before Fleet deployment.
 Run the same check locally with Docker:
 
 ```sh
@@ -1083,6 +1114,24 @@ python3 scripts/validate-tempo.py
 
 See the [Tempo runbook](kubernetes/projects/system/apps/tempo/README.md) for
 configuration migration and rollout verification.
+
+Pyroscope changes run a separate ARM64 `Pyroscope validation` workflow. Its
+Docker check exercises profile ingestion, Raft snapshot/log recovery and the
+same historical query after replacing the container with its volume retained:
+
+```sh
+python3 -m pip install --requirement .github/requirements/pyroscope.txt
+python3 scripts/validate-pyroscope.py
+```
+
+Slack routing and template changes run an ARM64 `Alertmanager notification
+validation` workflow. It exercises mixed statuses, permanent-loss visibility,
+bounded messages and group changes against a local capture receiver:
+
+```sh
+python3 -m pip install --requirement .github/requirements/alertmanager.txt
+python3 scripts/validate-alertmanager-notifications.py
+```
 
 Ansible:
 
@@ -1099,6 +1148,8 @@ Kubernetes:
 python scripts/check-kubernetes-resource-bounds.py
 # PostgreSQL alert scenarios (requires promtool and PyYAML):
 python scripts/check-postgresql-observability.py
+# Loki stalled-WAL alert scenarios (requires promtool and PyYAML):
+python scripts/check-loki-observability.py
 kubectl apply --dry-run=server -f kubernetes/projects/<project>/apps/<app>/
 ```
 
@@ -1263,7 +1314,7 @@ App and component deep dives:
 | [kubernetes/projects/system/apps/pyroscope/README.md](kubernetes/projects/system/apps/pyroscope/README.md) | Pyroscope profiling. |
 | [kubernetes/projects/system/apps/rancher-backup/README.md](kubernetes/projects/system/apps/rancher-backup/README.md) | Rancher backup. |
 | [kubernetes/projects/system/apps/rancher-generated-resource-defaults/README.md](kubernetes/projects/system/apps/rancher-generated-resource-defaults/README.md) | Resource defaults for Rancher/Fleet-generated containers without chart values. |
-| [kubernetes/projects/system/apps/rancher-monitoring/README.md](kubernetes/projects/system/apps/rancher-monitoring/README.md) | Rancher monitoring stack. |
+| [kubernetes/projects/system/apps/rancher-monitoring/README.md](kubernetes/projects/system/apps/rancher-monitoring/README.md) | Upstream kube-prometheus-stack with Rancher UI integration. |
 | [kubernetes/projects/system/apps/sops-secrets-operator/README.md](kubernetes/projects/system/apps/sops-secrets-operator/README.md) | SOPS secrets operator. |
 | [kubernetes/projects/system/apps/system-helm-repositories/README.md](kubernetes/projects/system/apps/system-helm-repositories/README.md) | System Helm repository registrations. |
 | [kubernetes/projects/system/apps/tempo/README.md](kubernetes/projects/system/apps/tempo/README.md) | Tempo tracing backend. |
@@ -1305,7 +1356,7 @@ Runbooks and architecture decisions:
 
 DevFeed production telemetry now uses build-derived release labels and alerts on
 shared Alloy/Loki delivery loss. The shared PostgreSQL cluster retains three
-20Gi data and 4Gi WAL claims (216Gi nominal Longhorn replica capacity). See the
+32Gi data and 4Gi WAL claims (324Gi nominal Longhorn replica capacity). See the
 [PostgreSQL operating notes](kubernetes/projects/database/apps/postgresql/README.md)
 and [Loki delivery notes](kubernetes/projects/system/apps/loki/README.md).
 

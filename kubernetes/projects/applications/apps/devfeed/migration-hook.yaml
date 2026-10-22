@@ -12,8 +12,8 @@ metadata:
     app.kubernetes.io/name: devfeed-migrate
     app.kubernetes.io/part-of: devfeed
 spec:
-  backoffLimit: 5
-  activeDeadlineSeconds: 900
+  backoffLimit: 1
+  activeDeadlineSeconds: 840
   template:
     metadata:
       labels:
@@ -36,7 +36,7 @@ spec:
       containers:
         - name: migrate
           # renovate: datasource=docker depName=ghcr.io/abhi1693/devfeed.tech/backend
-          image: registry.home/ghcr.io/abhi1693/devfeed.tech/backend:0.0.52@sha256:5217dc6e52f196c1f9d6f7bfb121f2736f53bcac3e2965d5dc4563f82961ce60
+          image: registry.home/ghcr.io/abhi1693/devfeed.tech/backend:0.1.1@sha256:607c540414d8c218835b4ac447a5f84143acef1f97ac747867778db178583268
           imagePullPolicy: IfNotPresent
           resources:
             requests:
@@ -54,9 +54,27 @@ spec:
               drop:
                 - ALL
           command:
-            - devfeed
-            - db
-            - upgrade
+            - python
+            - -c
+            - |
+              from sqlalchemy import event
+              from devfeed_core.db import get_engine
+              from devfeed_cli.main import run
+
+              def migration_connection(connection, _record):
+                  autocommit = connection.autocommit
+                  connection.autocommit = True
+                  try:
+                      with connection.cursor() as cursor:
+                          cursor.execute("SET statement_timeout = '600s'")
+                          cursor.execute("SET lock_timeout = '30s'")
+                  finally:
+                      connection.autocommit = autocommit
+
+              # Run after the application's normal 30-second connect listener.
+              # Only this short-lived migration process gets the larger budget.
+              event.listen(get_engine(), "connect", migration_connection)
+              raise SystemExit(run(["db", "upgrade"]))
           envFrom:
             - configMapRef:
                 name: devfeed

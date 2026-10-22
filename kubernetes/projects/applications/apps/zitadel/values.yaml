@@ -89,6 +89,10 @@ ingress:
       paths:
         - path: /
           pathType: Prefix
+    - host: auth.devfeed.tech
+      paths:
+        - path: /
+          pathType: Prefix
 login:
   enabled: true
   replicaCount: 2
@@ -136,7 +140,7 @@ login:
   resources:
     requests:
       cpu: 70m
-      memory: 153Mi
+      memory: 146Mi
     limits:
       memory: 256Mi
   nodeSelector:
@@ -151,7 +155,7 @@ login:
 resources:
   requests:
     cpu: 50m
-    memory: 156Mi
+    memory: 186Mi
   limits:
     memory: 768Mi
 nodeSelector:

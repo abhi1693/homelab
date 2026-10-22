@@ -6,9 +6,17 @@ title: Rancher Monitoring to Upstream Prometheus Migration
 
 ## Status and scope
 
-The chart cutover and subsequent upgrade to upstream chart `91.8.2` are deployed.
-See [modernization acceptance](#modernization-acceptance) for the current result;
-the earlier sections below record the staged migration checkpoints.
+The chart cutover is complete. Both active CRD and runtime HelmOps select upstream
+`prometheus-community/kube-prometheus-stack` `92.2.0`. The separate maintained
+`rancher-monitoring-dashboards` `110.0.1+up0.1.4` chart provides Rancher UI
+integration. The existing `rancher-monitoring` release, resource and directory
+names preserve storage bindings, selectors and consumers; they do not select the
+retired Rancher runtime chart.
+
+The sections below record dated migration checkpoints, including the
+`91.8.2` [modernization acceptance](#modernization-acceptance-2026-10-01).
+Those measurements are historical acceptance evidence rather than an inventory
+of the current chart version.
 
 The preparation stage was deployed through Fleet on 2026-10-01, in commits
 `71b48289` and `aef22f70`. All 23 system bundles became Ready, and monitoring
@@ -328,9 +336,10 @@ Prometheus rule sets and Alertmanager; Slack counters reached five accepted
 notifications and zero failures as upgrade warnings resolved. This confirms
 webhook acceptance, not a human read of the Slack channel.
 
-### Modernization acceptance
+### Modernization acceptance (2026-10-01)
 
-- Runtime chart 91.8.2 is deployed; Grafana reports 13.2.3 with a healthy database.
+- At this checkpoint, runtime chart `91.8.2` was deployed; Grafana reported
+  `13.2.3` with a healthy database.
   Both Prometheus and Alertmanager replicas, both Thanos replicas, the operator,
   kube-state-metrics and all eight node exporters are Ready.
 - All 80 baseline Grafana UIDs survive; the new Nodes Overview brings the total

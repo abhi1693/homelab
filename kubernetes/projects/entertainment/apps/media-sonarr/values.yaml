@@ -20,8 +20,9 @@ podOptions:
     kubernetes.io/arch: arm64
 resources:
   requests:
-    cpu: 100m
-    memory: 355Mi
+    # Keep schedulable within heavy-media placement; imports can burst above this.
+    cpu: 500m
+    memory: 487Mi
   limits:
     # TrueCharts: omit the inherited 1500m CPU cap; imports may burst.
     cpu: 0

@@ -53,6 +53,23 @@ Prometheus alerts cover reduced replica counts, fewer than two resolved
 processing backends, gateway and downstream delivery failures, and saturated
 queues. Both tiers expose collector metrics on port `8888`.
 
+Delivery failure notifications include the collector pod, exporter, approximate
+rolling ten-minute count, and first checks. With the pinned Collector's exporter
+helper, `send_failed_*` records a failed outcome after the retry handler returns;
+it is not an individual retry counter. Read collector errors to distinguish
+non-retryable failures, exhausted retry windows, shutdown, and cancellation.
+For metric exports, compare both Prometheus destinations before concluding that
+both copies are lost. Counts at the gateway and processor stages must not be
+added as distinct telemetry loss.
+
+Queue saturation notifications report current utilization after five minutes
+above 80%; queue pressure is a risk signal, not a permanent-loss count. The
+Prometheus failure and queue rules share `incident: metric-delivery`, while the
+Tempo export failure uses `incident: trace-delivery`. Mixed gateway metrics and
+trace rules retain separate grouping because they do not establish which
+downstream backend failed. Correlation labels support investigation; they do not
+prove causality or suppress final delivery failures.
+
 Applications continue to send telemetry to:
 
 - `http://opentelemetry-collector.cattle-monitoring-system.svc.cluster.local:4318`

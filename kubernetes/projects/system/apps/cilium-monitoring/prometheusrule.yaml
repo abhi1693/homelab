@@ -1,0 +1,69 @@
+---
+apiVersion: monitoring.coreos.com/v1
+kind: PrometheusRule
+metadata:
+  name: cilium-incident-coverage
+  labels:
+    app.kubernetes.io/name: cilium-monitoring
+    app.kubernetes.io/part-of: rancher-monitoring
+    home-lab.io/project-slug: system
+spec:
+  groups:
+    - name: cilium.incident-coverage
+      rules:
+        - alert: CiliumAgentMetricsUnavailable
+          expr: |-
+            max by (node) (kube_node_info)
+            unless on (node)
+            max by (node) (up{job="cilium-agent"} == 1)
+          for: 10m
+          labels:
+            severity: warning
+            namespace: kube-system
+          annotations:
+            summary: Cilium agent metrics are unavailable
+            description: Cilium agent metrics on {{ $labels.node }} have been unavailable for 10 minutes. Check the Cilium DaemonSet, listener on port 9962, and Prometheus discovery.
+        - alert: CiliumOperatorMetricsUnavailable
+          expr: |-
+            (sum(up{job="cilium-operator"}) or vector(0))
+            < scalar(kube_deployment_spec_replicas{namespace="kube-system",deployment="cilium-operator"})
+          for: 10m
+          labels:
+            severity: warning
+            namespace: kube-system
+          annotations:
+            summary: Cilium operator metrics are incomplete
+            description: Fewer Cilium operator metrics targets are healthy than configured replicas for 10 minutes. Check operator readiness, listener on port 9963, and Prometheus discovery.
+        - alert: HubbleMetricsUnavailable
+          expr: |-
+            max by (node) (kube_node_info)
+            unless on (node)
+            max by (node) (up{job="hubble"} == 1)
+          for: 10m
+          labels:
+            severity: warning
+            namespace: kube-system
+          annotations:
+            summary: Hubble flow metrics are unavailable
+            description: Hubble metrics on {{ $labels.node }} have been unavailable for 10 minutes. Check Hubble configuration, the Cilium agent, and the listener on port 9965.
+        - alert: CiliumControllersFailing
+          expr: max by (node) (cilium_controllers_failing) > 0
+          for: 10m
+          labels:
+            severity: warning
+            namespace: kube-system
+          annotations:
+            summary: Cilium controllers are persistently failing
+            description: Cilium on {{ $labels.node }} has failing controllers for 10 minutes. Inspect Cilium status and node-local agent logs before changing network configuration.
+        - alert: HubbleEventsLost
+          expr: |-
+            sum by (node, source) (
+              rate(hubble_lost_events_total{source=~"perf_event_ring_buffer|observer_events_queue"}[5m])
+            ) > 1
+          for: 10m
+          labels:
+            severity: warning
+            namespace: kube-system
+          annotations:
+            summary: Hubble is losing incident observation events
+            description: Hubble on {{ $labels.node }} is losing more than one event per second from {{ $labels.source }} for 10 minutes. Flow metrics may be incomplete; inspect CPU and event-queue pressure.

@@ -1,0 +1,58 @@
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: etcd-metrics
+  namespace: cattle-monitoring-system
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: etcd-metrics-authentication
+rules:
+  - apiGroups: [authentication.k8s.io]
+    resources: [tokenreviews]
+    verbs: [create]
+  - apiGroups: [authorization.k8s.io]
+    resources: [subjectaccessreviews]
+    verbs: [create]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: etcd-metrics-authentication
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: etcd-metrics-authentication
+subjects:
+  - kind: ServiceAccount
+    name: etcd-metrics
+    namespace: cattle-monitoring-system
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: etcd-metrics-scrape
+  namespace: cattle-monitoring-system
+rules:
+  # The proxy maps the HTTP method to this named resource authorization check.
+  # Granting get permits GET /metrics, without allowing POST or other methods.
+  - apiGroups: [""]
+    resources: [services/proxy]
+    resourceNames: [etcd-metrics]
+    verbs: [get]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: etcd-metrics-scrape
+  namespace: cattle-monitoring-system
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: Role
+  name: etcd-metrics-scrape
+subjects:
+  - kind: ServiceAccount
+    name: rancher-monitoring-prometheus
+    namespace: cattle-monitoring-system

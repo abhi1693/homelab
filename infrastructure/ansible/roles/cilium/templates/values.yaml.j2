@@ -7,6 +7,10 @@ bgpControlPlane:
 routingMode: {{ cilium.routing_mode | to_json }}
 tunnelProtocol: {{ cilium.tunnel_protocol | to_json }}
 kubeProxyReplacement: true
+rollOutCiliumPods: true
+prometheus:
+  enabled: {{ cilium.metrics.agent_enabled | lower }}
+  port: {{ cilium.metrics.agent_port }}
 updateStrategy:
   type: RollingUpdate
   rollingUpdate:
@@ -47,6 +51,13 @@ loadBalancer:
   serviceTopology: {{ cilium.service_topology | lower }}
 hubble:
   enabled: {{ cilium.hubble.enabled | lower }}
+  eventBufferCapacity: {{ cilium.hubble.event_buffer_capacity | to_json }}
+  metrics:
+    port: {{ cilium.metrics.hubble_port }}
+    enabled:
+{% for metric in cilium.hubble.metrics %}
+      - {{ metric | to_json }}
+{% endfor %}
   relay:
     enabled: {{ cilium.hubble.relay.enabled | lower }}
   ui:
@@ -72,6 +83,9 @@ ipam:
       - {{ cilium.cluster_pool_ipv4_pod_cidr_list | to_json }}
 operator:
   replicas: {{ cilium.operator_replicas }}
+  prometheus:
+    enabled: {{ cilium.metrics.operator_enabled | lower }}
+    port: {{ cilium.metrics.operator_port }}
   updateStrategy:
     type: RollingUpdate
     rollingUpdate:

@@ -22,10 +22,14 @@ operator lifecycle.
 | `system-helm-repositories` | Registers system chart repositories. | Makes Rancher, Jetstack, ExternalDNS, and related charts available. |
 | `metallb` | Installs the MetalLB controller and Layer 2 speakers. | Keeps LAN service VIP ownership inside the cluster and independent of WAN state. |
 | `metallb-config` | Declares explicit LAN VIP pools and the `eth0` Layer 2 advertisement. | Prevents accidental allocation while giving Traefik and app services stable addresses. |
+| `cilium` | Owns the existing Cilium Helm release after Ansible bootstrap. | Reconciles network configuration and bounded Hubble metrics through Fleet. |
+| `cilium-monitoring` | Scrapes Cilium agents, operators and Hubble. | Adds network and policy evidence without indexing endpoint IPs or DNS queries. |
+| `etcd-metrics` | Authenticated TLS proxies for native loopback etcd metrics. | Exposes leader, disk latency and database health without opening the etcd client API. |
 | `csi-driver-nfs` | Installs the upstream NFS CSI driver and the retained shared-NAS StorageClass. | Gives existing NAS shares CSI lifecycle and creates isolated directories for explicitly opted-in file workloads without replacing Longhorn block storage. |
 | `rancher-monitoring` | Prometheus, Grafana, Alertmanager, dashboards, and rules. | Primary metrics, dashboards, and alerting plane. |
 | `rancher-generated-resource-defaults` | Adds narrow resource defaults for Rancher/Fleet-generated containers. | Bounds upstream workloads that expose no chart resource values without changing explicit sizing. |
-| `alloy-logs` | Two clustered collectors on distinct nodes. | Sends all-namespace pod logs and Kubernetes events to Loki with distributed source ownership. |
+| `alloy-logs` | Two clustered Kubernetes event collectors on distinct nodes. | Preserves event collection while node collectors own container files. |
+| `alloy-node-logs` | An Alloy DaemonSet with persistent node-local positions. | Sends container files and K3s/kernel journals to Loki. |
 | `loki` | Log backend. | Stores and queries logs. |
 | `tempo` | Trace backend. | Stores OpenTelemetry traces and exposes trace query APIs. |
 | `pyroscope` | Profiling backend. | Supports continuous profiling experiments. |

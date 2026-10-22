@@ -1,0 +1,104 @@
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  labels:
+    app.kubernetes.io/name: devfeed-partner
+    app.kubernetes.io/part-of: devfeed
+  name: devfeed-partner
+  namespace: devfeed
+spec:
+  replicas: 2
+  revisionHistoryLimit: 2
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: devfeed-partner
+      app.kubernetes.io/part-of: devfeed
+  strategy:
+    rollingUpdate:
+      maxSurge: 1
+      maxUnavailable: 0
+    type: RollingUpdate
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: devfeed-partner
+        app.kubernetes.io/part-of: devfeed
+        devfeed-faro: 'true'
+        devfeed-telemetry: 'true'
+    spec:
+      affinity:
+        podAntiAffinity:
+          requiredDuringSchedulingIgnoredDuringExecution:
+          - labelSelector:
+              matchLabels:
+                app.kubernetes.io/name: devfeed-partner
+            topologyKey: kubernetes.io/hostname
+      automountServiceAccountToken: false
+      containers:
+      - env:
+        - name: DEVFEED_PARTNER_API_URL
+          value: http://devfeed-partner-api:8004
+        - name: DEVFEED_PARTNER_BASE_URL
+          value: https://partners.devfeed.tech
+        - name: DEVFEED_FARO_ENABLED
+          value: 'true'
+        envFrom:
+        - configMapRef:
+            name: devfeed-telemetry
+        - secretRef:
+            name: devfeed-faro
+        # renovate: datasource=docker depName=ghcr.io/abhi1693/devfeed.tech/partner
+        image: registry.home/ghcr.io/abhi1693/devfeed.tech/partner:0.1.1@sha256:77c0906d909c2a82f47ff3ccbc5b2f24db22532c562bbd16759fb75f629b54b6
+        imagePullPolicy: IfNotPresent
+        livenessProbe:
+          periodSeconds: 30
+          tcpSocket:
+            port: 3000
+        name: partner
+        ports:
+        - containerPort: 9100
+          name: metrics
+        - containerPort: 3000
+        readinessProbe:
+          periodSeconds: 10
+          tcpSocket:
+            port: 3000
+        resources:
+          limits:
+            memory: 512Mi
+          requests:
+            cpu: 100m
+            memory: 128Mi
+        securityContext:
+          allowPrivilegeEscalation: false
+          capabilities:
+            drop:
+            - ALL
+          readOnlyRootFilesystem: true
+          runAsGroup: 1000
+          runAsNonRoot: true
+          runAsUser: 1000
+        volumeMounts:
+        - mountPath: /app/apps/partner/.next/cache
+          name: next-cache
+        - mountPath: /tmp
+          name: tmp
+      imagePullSecrets:
+      - name: harbor-registry
+      nodeSelector:
+        kubernetes.io/arch: arm64
+      securityContext:
+        fsGroup: 1000
+        fsGroupChangePolicy: OnRootMismatch
+        seccompProfile:
+          type: RuntimeDefault
+      serviceAccountName: devfeed
+      terminationGracePeriodSeconds: 180
+      volumes:
+      - emptyDir:
+          sizeLimit: 256Mi
+        name: tmp
+      - emptyDir:
+          sizeLimit: 256Mi
+        name: next-cache
