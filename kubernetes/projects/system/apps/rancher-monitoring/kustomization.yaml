@@ -1,0 +1,77 @@
+---
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+resources:
+  - namespaces.yaml
+  - alertmanager-slack.yaml
+  - alertmanager-slack-secrets.sops.yaml
+  - alertmanager-ingress.yaml
+  - grafana-llm-provisioning.yaml
+  - grafana-llm-secrets.sops.yaml
+  - nfs-migration-pvcs.yaml
+  - prometheus-longhorn-pvcs.yaml
+  - prometheus-write-services.yaml
+  - prometheus-write-networkpolicy.yaml
+  - thanos-query.yaml
+  - helmops.yaml
+  - prometheus-ingress.yaml
+  - application-logs-dashboard.yaml
+  - capacity-planning-dashboard.yaml
+  - faro-rum-overview-dashboard.yaml
+  - faro-rum-errors-dashboard.yaml
+  - faro-rum-sessions-dashboard.yaml
+  - faro-rum-actions-dashboard.yaml
+  - faro-rum-http-dashboard.yaml
+  - faro-rum-geolocation-dashboard.yaml
+  - faro-dashboard.yaml
+  - cloudflare-tunnel-dashboard.yaml
+  - cloudflare-tunnel-rules.yaml
+  - traefik-dashboard.yaml
+  - loki-single-binary-dashboard.yaml
+  - longhorn-dashboard.yaml
+  - job-rules.yaml
+  - capacity-planning-rules.yaml
+  - raspberry-pi-dashboard.yaml
+  - raspberry-pi-rules.yaml
+  - smartctl-dashboard.yaml
+  - smartctl-exporter-scrape.yaml
+  - smartctl-rules.yaml
+  - traefik-podmonitor.yaml
+  - longhorn-servicemonitor.yaml
+  - longhorn-networkpolicy.yaml
+  - longhorn-rules.yaml
+configMapGenerator:
+  - name: rancher-monitoring-crd-values
+    files:
+      - crd-values.yaml=upstream-crd-values.yaml
+  - name: rancher-monitoring-values
+    files:
+      - values.yaml=upstream-values.yaml
+  - name: rancher-monitoring-dashboards-values
+    files:
+      - dashboards-values.yaml
+generatorOptions:
+  labels:
+    app.kubernetes.io/name: rancher-monitoring
+    app.kubernetes.io/part-of: rancher-monitoring
+    home-lab.io/project-slug: system
+    home-lab.io/fleet-values: "true"
+configurations:
+  - kustomizeconfig.yaml
+patches:
+  - target:
+      kind: ConfigMap
+      labelSelector: home-lab.io/fleet-values=true
+    patch: |-
+      - op: add
+        path: /metadata/namespace
+        value: fleet-local
+  - target:
+      group: fleet.cattle.io
+      version: v1alpha1
+      kind: HelmOp
+      labelSelector: app.kubernetes.io/part-of=rancher-monitoring
+    patch: |-
+      - op: add
+        path: /metadata/namespace
+        value: fleet-local

@@ -1,0 +1,89 @@
+---
+apiVersion: fleet.cattle.io/v1alpha1
+kind: HelmOp
+metadata:
+  name: harbor
+  labels:
+    app.kubernetes.io/name: harbor
+    app.kubernetes.io/part-of: harbor
+    home-lab.io/project-slug: applications
+spec:
+  forceSyncGeneration: 2
+  defaultNamespace: harbor
+  dependsOn:
+    - name: rancher-project-applications
+    - name: applications-helm-repositories
+    - name: postgresql
+    - name: postgresql-networkpolicy
+    - name: postgresql-pooler-pdb
+    - name: valkey
+    - name: valkey-networkpolicy
+  labels:
+    app.kubernetes.io/part-of: harbor
+    home-lab.io/project-slug: applications
+  targets:
+    - name: default
+      clusterGroup: default
+  targetRestrictions:
+    - name: default
+      clusterGroup: default
+  diff:
+    comparePatches:
+      - apiVersion: apps/v1
+        kind: Deployment
+        name: harbor-core
+        namespace: harbor
+        jsonPointers:
+          - /spec/template/metadata/annotations/checksum~1configmap
+          - /spec/template/metadata/annotations/checksum~1secret
+          - /spec/template/metadata/annotations/checksum~1secret-jobservice
+      - apiVersion: apps/v1
+        kind: Deployment
+        name: harbor-jobservice
+        namespace: harbor
+        jsonPointers:
+          - /spec/template/metadata/annotations/checksum~1configmap
+          - /spec/template/metadata/annotations/checksum~1configmap-env
+          - /spec/template/metadata/annotations/checksum~1secret
+          - /spec/template/metadata/annotations/checksum~1secret-core
+      - apiVersion: apps/v1
+        kind: Deployment
+        name: harbor-registry
+        namespace: harbor
+        jsonPointers:
+          - /spec/template/metadata/annotations/checksum~1configmap
+          - /spec/template/metadata/annotations/checksum~1secret
+          - /spec/template/metadata/annotations/checksum~1secret-core
+          - /spec/template/metadata/annotations/checksum~1secret-jobservice
+      - apiVersion: v1
+        kind: Secret
+        name: harbor-core
+        namespace: harbor
+        jsonPointers:
+          - /data
+      - apiVersion: v1
+        kind: Secret
+        name: harbor-registry-htpasswd
+        namespace: harbor
+        jsonPointers:
+          - /data
+  correctDrift:
+    enabled: true
+    keepFailHistory: true
+  downstreamResources:
+    - kind: ConfigMap
+      name: harbor-values
+  helm:
+    releaseName: harbor
+    repo: https://helm.goharbor.io
+    chart: harbor
+    # renovate: datasource=helm depName=harbor registryUrl=https://helm.goharbor.io
+    version: 1.19.2
+    timeoutSeconds: 900
+    takeOwnership: true
+    valuesFrom:
+      - configMapKeyRef:
+          name: harbor-values
+          namespace: fleet-local
+          key: values.yaml
+    waitForJobs: true

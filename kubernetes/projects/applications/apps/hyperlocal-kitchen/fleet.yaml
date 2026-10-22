@@ -13,7 +13,8 @@ dependsOn:
 helm:
   takeOwnership: true
   timeoutSeconds: 900
-  waitForJobs: true
+  # Migrations stay suspended while the application is shut down.
+  waitForJobs: false
 diff:
   comparePatches:
     - apiVersion: v1

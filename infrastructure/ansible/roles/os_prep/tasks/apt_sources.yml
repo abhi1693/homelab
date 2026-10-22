@@ -1,0 +1,35 @@
+---
+- name: Validate the inventory-managed APT transport policy paths
+  ansible.builtin.assert:
+    that:
+      - item.path is match('^/etc/apt/(sources\.list|sources\.list\.d/[a-zA-Z0-9_.-]+\.(sources|list))$')
+      - item.regexp | length > 0
+      - item.replace is match('^https://')
+    fail_msg: APT transport policy must target an APT source file and replace only the configured URI with HTTPS.
+  loop: "{{ os_prep.apt_https_sources | default([]) }}"
+  loop_control:
+    label: "{{ item.path }}"
+
+- name: Inspect configured APT source files
+  ansible.builtin.stat:
+    path: "{{ item.path }}"
+    get_checksum: false
+  loop: "{{ os_prep.apt_https_sources | default([]) }}"
+  loop_control:
+    label: "{{ item.path }}"
+  register: os_prep_apt_source_files
+
+- name: Use HTTPS for the configured official Debian archive URIs
+  ansible.builtin.replace:
+    path: "{{ item.item.path }}"
+    regexp: "{{ item.item.regexp }}"
+    replace: "{{ item.item.replace }}"
+  loop: "{{ os_prep_apt_source_files.results }}"
+  loop_control:
+    label: "{{ item.item.path }}"
+  when: item.stat.exists
+  register: os_prep_apt_transport_update
+
+- name: Validate the resulting APT transport policy
+  ansible.builtin.include_tasks: apt_sources_validation.yml
+  when: not ansible_check_mode or not os_prep_apt_transport_update.changed

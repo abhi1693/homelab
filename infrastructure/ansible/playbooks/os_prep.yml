@@ -1,8 +1,26 @@
 ---
-- name: Run os_prep entrypoint
+- name: Select the OS maintenance order from current database placement
   hosts: k3s_nodes
   become: true
+  gather_facts: false
+  any_errors_fatal: true
+
+  tasks:
+    - name: Order selected OS plan and apply targets without changing cluster state
+      ansible.builtin.include_role:
+        name: os_prep
+        tasks_from: os_updates_order
+        rolespec_validate: false
+      run_once: true
+      when: os_prep_entrypoint | default('main') in ['os_updates_plan', 'os_updates']
+
+- name: Run os_prep entrypoint
+  hosts: "{{ 'os_prep_maintenance' if os_prep_entrypoint | default('main') in ['os_updates_plan', 'os_updates'] else 'k3s_nodes' }}"
+  order: inventory
+  become: true
   gather_facts: true
+  serial: "{{ 1 if os_prep_selected_entrypoint in ['os_updates_plan', 'os_updates', 'os_updates_validation'] else '100%' }}"
+  any_errors_fatal: "{{ os_prep_selected_entrypoint in ['os_updates_plan', 'os_updates', 'os_updates_validation'] }}"
 
   vars:
     os_prep_selected_entrypoint: "{{ os_prep_entrypoint | default('main') }}"
@@ -11,7 +29,7 @@
     - name: Assert os_prep entrypoint is supported
       ansible.builtin.assert:
         that:
-          - os_prep_selected_entrypoint in ['main', 'validation']
+          - os_prep_selected_entrypoint in ['main', 'validation', 'os_updates_plan', 'os_updates', 'os_updates_validation']
         fail_msg: "Unsupported os_prep entrypoint {{ os_prep_selected_entrypoint }}"
         success_msg: "Running os_prep entrypoint {{ os_prep_selected_entrypoint }}"
 
@@ -31,3 +49,4 @@
   post_tasks:
     - name: Reboot after os_prep if requested by handlers
       ansible.builtin.meta: flush_handlers
+      when: os_prep_selected_entrypoint == 'main'

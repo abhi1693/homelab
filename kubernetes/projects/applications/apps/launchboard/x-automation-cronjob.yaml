@@ -1,3 +1,4 @@
+---
 apiVersion: batch/v1
 kind: CronJob
 metadata:
@@ -8,7 +9,9 @@ metadata:
     app.kubernetes.io/component: x-automation
     app.kubernetes.io/part-of: launchboard
 spec:
+  suspend: true
   schedule: "*/15 * * * *"
+  startingDeadlineSeconds: 600
   concurrencyPolicy: Forbid
   successfulJobsHistoryLimit: 1
   failedJobsHistoryLimit: 3

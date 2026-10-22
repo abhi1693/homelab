@@ -19,6 +19,45 @@ argument_specs:
             default: []
             description:
               - Common operating system packages to install.
+          minimum_packages:
+            type: dict
+            required: false
+            description:
+              - Installed package names and minimum acceptable Debian versions.
+          distrusted_ca_sha256:
+            type: list
+            elements: str
+            required: false
+            description:
+              - SHA-256 fingerprints that must be absent from the host TLS trust store.
+          maintenance_recovery_timeout:
+            type: int
+            required: false
+            default: 1800
+            description:
+              - Maximum seconds to wait for OS recovery and standalone maintenance validation.
+              - Must be at least 600 seconds; preflight retains its 600-second timeout.
+          package_replacements:
+            type: dict
+            required: false
+            description:
+              - Package removals allowed only when the named replacement is installed in the same transaction.
+          apt_https_sources:
+            type: list
+            elements: dict
+            required: false
+            description:
+              - Source files and exact URI replacements that enforce HTTPS transport.
+            options:
+              path:
+                type: path
+                required: true
+              regexp:
+                type: str
+                required: true
+              replace:
+                type: str
+                required: true
       node_identity:
         type: dict
         required: false

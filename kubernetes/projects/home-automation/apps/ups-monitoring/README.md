@@ -48,6 +48,18 @@ The configuration init container is bounded at `5m`/`16Mi` requests and
 `100m`/`64Mi` limits; the three long-running containers retain their existing
 workload-specific envelopes.
 
+NUT receives only `upsmon.conf` through a read-only file `subPath` mount. The
+init container keeps its writable directory mount. This isolates the shared
+directory from [NUT's startup permission changes](https://github.com/instantlinux/docker-tools/blob/a8788ef98aab3c7cec0b87debf2095a4a34c96b9/images/nut-upsd/entrypoint.sh#L70-L71)
+(`chgrp` and `chmod 640 /etc/nut/*`), which otherwise
+remove directory traversal permission and break initialization after a node
+reboot. The generated files retain their private permissions and the init
+container retains UID/GID 1000 with all capabilities dropped.
+
+Run `scripts/run-pre-commit-validation.sh kubernetes-tests` from the repository
+root to exercise initial and repeated initialization, including the old shared
+directory failure. These tests use local fixtures and require no UPS hardware.
+
 PeaNUT reads `/config/settings.yml`, seeded from the `ups-monitoring` ConfigMap
 in [configmap.yaml](configmap.yaml).
 The active `/config` directory is an `emptyDir`, so dashboard-side UI edits do

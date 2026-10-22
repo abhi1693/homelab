@@ -9,7 +9,7 @@ metadata:
     app.kubernetes.io/part-of: shipyardhq
 spec:
   revisionHistoryLimit: 2
-  replicas: 3
+  replicas: 4
   minReadySeconds: 15
   progressDeadlineSeconds: 4200
   selector:
@@ -309,7 +309,7 @@ spec:
               protocol: TCP
           resources:
             requests:
-              cpu: 125m
+              cpu: 220m
               ephemeral-storage: 2Gi
               memory: 1280Mi
             limits:
@@ -506,8 +506,8 @@ spec:
               value: postgresql://$(POSTGRES_USER):$(POSTGRES_PASSWORD)@postgresql-pooler-shipyardhq-rw.postgresql.svc.cluster.local:5432/$(POSTGRES_DB)?sslmode=disable
           resources:
             requests:
-              cpu: 80m
-              memory: 572Mi
+              cpu: 310m
+              memory: 496Mi
             limits:
               memory: 896Mi
           securityContext:

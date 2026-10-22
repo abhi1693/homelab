@@ -44,3 +44,10 @@
       - not os_prep_reboot_required.stat.exists
     fail_msg: "Host still reports a pending reboot"
     success_msg: "No pending reboot detected"
+
+- name: Validate the inventory-managed host security baseline
+  ansible.builtin.include_tasks: security_validation.yml
+
+- name: Validate the inventory-managed APT source transport policy
+  ansible.builtin.include_tasks: apt_sources_validation.yml
+  when: ansible_facts.pkg_mgr == 'apt'

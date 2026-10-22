@@ -1,0 +1,33 @@
+---
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+resources:
+  - helmop.yaml
+  - ingress.yaml
+  - networkpolicy.yaml
+  - secrets.sops.yaml
+configMapGenerator:
+  - name: alloy-faro-sourcemap-resolver
+    namespace: cattle-monitoring-system
+    files:
+      - sourcemap-resolver.py
+    options:
+      disableNameSuffixHash: true
+  - name: alloy-faro-values
+    files:
+      - values.yaml
+generatorOptions:
+  labels:
+    app.kubernetes.io/name: alloy-faro
+    app.kubernetes.io/part-of: rancher-monitoring
+    home-lab.io/project-slug: system
+configurations:
+  - kustomizeconfig.yaml
+patches:
+  - target:
+      kind: ConfigMap
+      name: alloy-faro-values
+    patch: |-
+      - op: add
+        path: /metadata/namespace
+        value: fleet-local

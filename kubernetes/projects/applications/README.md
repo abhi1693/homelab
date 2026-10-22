@@ -23,7 +23,7 @@ secret contract each app expects.
 | `applications-helm-repositories` | Registers chart repositories used by this project. | None | Rancher ClusterRepo. |
 | `firefly-iii-storage` | Persistent storage support for Firefly III. | None | NFS CSI upload PVC. |
 | `firefly-iii` | Personal finance app. | Internal Traefik at `finance.home`. | PostgreSQL pooler, NFS upload PVC, SOPS Secret. |
-| `hyperlocal-kitchen` | Community pickup/home-delivery marketplace and admin portal. | Cloudflare Tunnel with long random admin/member API hostnames. | PostgreSQL pooler, persistent Redis, Zitadel, SOPS, Harbor images. |
+| `hyperlocal-kitchen` | Paused marketplace and admin portal: UI, APIs, worker, Redis, and dedicated PostgreSQL pooler at zero replicas; migrations suspended and data retained. | Retained Cloudflare Tunnel admin/member API hostnames have no running backend. | PostgreSQL pooler, persistent Redis, Zitadel, SOPS, Harbor images. |
 | `harbor` | Local registry and proxy/cache registry. | Internal Traefik at `registry.home`. | PostgreSQL, Valkey, retained NFS storage, monitoring. |
 | `personal-blog` | Public personal blog. | Cloudflare Tunnel at `blog.abhimanyu-saharan.com`. | Harbor image, Sanity webhook secret, ConfigMap. |
 | `portfolio` | Public portfolio site. | Cloudflare Tunnel at `abhimanyu-saharan.com`. | Harbor image, runtime config. |

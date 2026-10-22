@@ -1,0 +1,67 @@
+---
+- name: Inspect the existing EEPROM update policy and pending reboot state
+  ansible.builtin.command:
+    argv:
+      - python3
+      - -c
+      - |
+        import json
+        from pathlib import Path
+        import re
+        import subprocess
+        import time
+
+        status = subprocess.run([
+            'rpi-eeprom-update', '-j', '-m', '/dev/stdout',
+        ], text=True, capture_output=True)
+        if status.returncode not in (0, 1) or '{' not in status.stdout:
+            raise RuntimeError(f'Cannot inspect EEPROM state: {status.stderr.strip()}')
+        state = json.loads(status.stdout[status.stdout.index('{'):])
+        if state.get('EXITCODE') not in ('EXIT_SUCCESS', 'EXIT_UPDATE_REQUIRED'):
+            raise RuntimeError('The EEPROM status utility reported a failure')
+        if min(int(state.get('BOOTLOADER_CURRENT', 0)), int(state.get('BOOTLOADER_LATEST', 0))) <= 0:
+            raise RuntimeError('The EEPROM status utility did not report meaningful versions')
+        enabled = subprocess.run([
+            'systemctl', 'is-enabled', 'rpi-eeprom-update.service',
+        ], text=True, capture_output=True)
+        service = subprocess.check_output([
+            'systemctl', 'show', 'rpi-eeprom-update.service',
+            '--property=ActiveState,SubState,Result,ExecMainStatus',
+        ], text=True)
+        service = dict(line.split('=', 1) for line in service.splitlines() if '=' in line)
+        if service.get('ActiveState') in ('activating', 'deactivating'):
+            raise RuntimeError('The existing automatic EEPROM update service is still running')
+        if service.get('Result') != 'success' or service.get('ExecMainStatus') != '0':
+            raise RuntimeError('The existing automatic EEPROM update service failed')
+        state['service_enabled'] = enabled.stdout.strip()
+        state['service_state'] = service
+        state['pending_files'] = [name for name in (
+            'pieeprom.upd', 'pieeprom.sig', 'recovery.bin', 'vl805.bin', 'vl805.sig',
+        ) if Path('/boot/firmware', name).exists()]
+        now = time.time()
+        boot_epoch = now - time.clock_gettime(time.CLOCK_BOOTTIME)
+        pending_marker = Path('/run/rpi-eeprom-update-pending')
+        state['pending_marker'] = None
+        if pending_marker.exists():
+            marker = re.fullmatch(r'(immediate|recovery) ([0-9]+)', pending_marker.read_text().strip())
+            if marker is None:
+                raise RuntimeError('The upstream EEPROM reboot marker has an unrecognized format')
+            recorded_at = int(marker.group(2))
+            if not boot_epoch - 1 <= recorded_at <= now + 5:
+                raise RuntimeError('The upstream EEPROM reboot marker is not from the current boot')
+            state['pending_marker'] = {'mode': marker.group(1), 'recorded_at': recorded_at}
+        state['reboot_pending'] = bool(state['pending_files'] or state['pending_marker'])
+        state['pending_staged_this_boot'] = state['reboot_pending'] and all(
+            Path('/boot/firmware', name).stat().st_mtime >= boot_epoch - 1
+            for name in state['pending_files'])
+        print(json.dumps(state))
+  register: os_prep_os_firmware_state
+  changed_when: false
+  check_mode: false
+  retries: 60
+  delay: 5
+  until: os_prep_os_firmware_state.rc == 0
+
+- name: Report EEPROM versions without changing the automatic update policy
+  ansible.builtin.debug:
+    msg: "{{ os_prep_os_firmware_state.stdout | from_json }}"

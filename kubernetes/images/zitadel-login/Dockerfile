@@ -1,5 +1,6 @@
-FROM node:26-bookworm AS build
-ARG ZITADEL_REF=101343ad87aef7b0eea7c3522d519308e0ea9547
+FROM node:26.12.1-bookworm@sha256:5c4012d11d9857c42713ba511fbc19645cac1706bb710d51d42b0d301dff7f88 AS build
+ARG ZITADEL_REF=8afa5dd37a8e723efb9eace8d09fd5c1cccef694
+SHELL ["/bin/bash", "-o", "pipefail", "-c"]
 RUN apt-get update && apt-get install -y --no-install-recommends python3 ca-certificates && rm -rf /var/lib/apt/lists/*
 WORKDIR /src
 RUN curl --fail --location --retry 3 "https://codeload.github.com/zitadel/zitadel/tar.gz/${ZITADEL_REF}" | tar -xz --strip-components=1
@@ -13,7 +14,7 @@ RUN pnpm install --frozen-lockfile
 RUN pnpm nx run @zitadel/login:build
 RUN cd apps/login && pnpm exec vitest run src/lib/server/retry-not-found.test.ts
 
-FROM node:26-alpine
+FROM node:26.12.1-alpine@sha256:40cd011b55415bc894e45b02fdd5a5dfde056921b7d23a64c74f80497af48797
 WORKDIR /app
 RUN apk upgrade --no-cache && \
     rm -rf /usr/local/lib/node_modules/npm /usr/local/lib/node_modules/corepack && \

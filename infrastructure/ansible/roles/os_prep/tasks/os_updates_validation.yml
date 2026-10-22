@@ -1,0 +1,128 @@
+---
+- name: Require cluster health for standalone OS validation
+  ansible.builtin.include_tasks: os_updates_health.yml
+  vars:
+    os_prep_os_health_phase: validation
+  when: os_prep_selected_entrypoint | default('') == 'os_updates_validation'
+
+- name: Check package-manager consistency
+  ansible.builtin.command: dpkg --audit
+  register: os_prep_os_dpkg_audit
+  changed_when: false
+  check_mode: false
+
+- name: Read the package holds after OS maintenance
+  ansible.builtin.command: apt-mark showhold
+  register: os_prep_os_holds_after
+  changed_when: false
+  check_mode: false
+
+- name: Assert existing package holds are preserved
+  ansible.builtin.assert:
+    that:
+      - os_prep_os_holds_after.stdout_lines | sort == os_prep_os_holds_before.stdout_lines | sort
+  when: os_prep_os_holds_before is defined
+
+- name: Assert no package configuration remains incomplete
+  ansible.builtin.assert:
+    that:
+      - os_prep_os_dpkg_audit.stdout | trim == ''
+    fail_msg: Some Debian packages remain unpacked or incompletely configured.
+
+- name: Check for remaining installed-package updates
+  ansible.builtin.command: apt-get --simulate --no-install-recommends dist-upgrade
+  environment:
+    LC_ALL: C
+  register: os_prep_os_remaining_updates
+  changed_when: false
+  check_mode: false
+
+- name: Assert all available installed-package updates have been applied
+  ansible.builtin.assert:
+    that:
+      - os_prep_os_remaining_updates.stdout | regex_findall('(?m)^(?:Inst|Remv)\s+') | length == 0
+    fail_msg: The current APT package metadata still has unapplied updates or removals.
+
+- name: Inspect the running and installed kernel
+  ansible.builtin.include_tasks: os_updates_kernel.yml
+
+- name: Assert the running kernel matches the installed boot kernel
+  ansible.builtin.assert:
+    that:
+      - >-
+        (os_prep_os_kernel_state.stdout | from_json).running_kernel ==
+        (os_prep_os_kernel_state.stdout | from_json).expected_kernel
+    success_msg: "Running kernel matches the installed boot image: {{ os_prep_os_kernel_state.stdout }}"
+    fail_msg: The running kernel does not match the installed Raspberry Pi kernel package.
+
+- name: Check for a remaining reboot request
+  ansible.builtin.stat:
+    path: /var/run/reboot-required
+  register: os_prep_os_reboot_after
+
+- name: Assert no reboot remains pending
+  ansible.builtin.assert:
+    that:
+      - not os_prep_os_reboot_after.stat.exists
+
+- name: Read the K3s version after OS maintenance
+  ansible.builtin.command: /usr/local/bin/k3s --version
+  register: os_prep_os_k3s_version
+  changed_when: false
+  check_mode: false
+
+- name: Assert the K3s version is preserved
+  ansible.builtin.assert:
+    that:
+      - os_prep_os_k3s_version.stdout_lines[0].split()[2] == k3s.version
+
+- name: Read K3s binary and configuration checksums after maintenance
+  ansible.builtin.stat:
+    path: "{{ item }}"
+    checksum_algorithm: sha256
+  loop:
+    - /usr/local/bin/k3s
+    - /etc/rancher/k3s/config.yaml
+    - /etc/rancher/k3s/registries.yaml
+    - /etc/default/rpi-eeprom-update
+  register: os_prep_os_files_after
+
+- name: Assert OS maintenance preserved the K3s binary and configuration
+  ansible.builtin.assert:
+    that:
+      - item.stat.exists == os_prep_os_files_before.results[index].stat.exists
+      - item.stat.checksum | default('') == os_prep_os_files_before.results[index].stat.checksum | default('')
+    fail_msg: "OS maintenance unexpectedly changed {{ item.item }}"
+  loop: "{{ os_prep_os_files_after.results }}"
+  loop_control:
+    index_var: index
+    label: "{{ item.item }}"
+  when: os_prep_os_files_before is defined
+
+- name: Validate the host CA security baseline after OS maintenance
+  ansible.builtin.include_tasks: security_validation.yml
+
+- name: Validate the inventory-managed APT source transport policy
+  ansible.builtin.include_tasks: apt_sources_validation.yml
+
+- name: Inspect the automatic firmware update result
+  ansible.builtin.include_tasks: os_updates_firmware.yml
+
+- name: Assert no automatic firmware update still requires a reboot
+  ansible.builtin.assert:
+    that:
+      - not (os_prep_os_firmware_state.stdout | from_json).reboot_pending
+    fail_msg: Firmware update state still requires a reboot after the bounded sequence; leave remaining nodes untouched.
+
+- name: Assert the existing automatic firmware policy is preserved
+  ansible.builtin.assert:
+    that:
+      - (os_prep_os_firmware_state.stdout | from_json).service_enabled == os_prep_os_firmware_service_before
+  when: os_prep_os_firmware_service_before is defined
+
+- name: Report the bootloader version result without overriding its update policy
+  ansible.builtin.debug:
+    msg:
+      before: "{{ os_prep_os_firmware_version_before | default('not recorded') }}"
+      current: "{{ (os_prep_os_firmware_state.stdout | from_json).BOOTLOADER_CURRENT }}"
+      latest_in_configured_channel: "{{ (os_prep_os_firmware_state.stdout | from_json).BOOTLOADER_LATEST }}"

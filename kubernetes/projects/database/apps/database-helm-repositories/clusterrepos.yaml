@@ -10,6 +10,7 @@ metadata:
 spec:
   enabled: true
   url: oci://registry-1.docker.io/bitnamicharts/valkey
+  refreshInterval: 900
 ---
 apiVersion: catalog.cattle.io/v1
 kind: ClusterRepo

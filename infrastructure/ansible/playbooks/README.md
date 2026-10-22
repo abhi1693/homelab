@@ -12,7 +12,7 @@ subsystem.
 | Playbook | Scope |
 | --- | --- |
 | `site.yml` | Full bootstrap sequence. |
-| `os_prep.yml` | Base OS preparation. |
+| `os_prep.yml` | Base OS preparation, package plans, rolling OS upgrades and reboots, and persistent security validation. |
 | `rpi_prep.yml` | Raspberry Pi-specific preparation. |
 | `k3s_server.yml` | Serial K3s server changes with Node, etcd, and platform recovery gates. |
 | `k3s_server_tools.yml` | Prepare the checksum-pinned etcd client before server maintenance; no restarts. |
@@ -46,6 +46,21 @@ Run a validation entrypoint:
 ```sh
 ansible-playbook playbooks/cilium.yml -e cilium_entrypoint=validation
 ```
+
+Upgrade OS packages after reviewing the transaction, starting with a worker canary:
+
+```sh
+ansible-playbook playbooks/os_prep.yml -e os_prep_entrypoint=os_updates_plan
+os_update_canary=worker-2 # Choose a worker without a database primary in the plan.
+ansible-playbook playbooks/os_prep.yml -e os_prep_entrypoint=os_updates --limit "$os_update_canary"
+ansible-playbook playbooks/os_prep.yml -e os_prep_entrypoint=os_updates
+ansible-playbook playbooks/os_prep.yml -e os_prep_entrypoint=os_updates_validation
+```
+
+The [OS role instructions](../roles/os_prep/README.md) explain primary placement,
+serial host ordering, bounded recovery waits, HTTPS source policy,
+verified downloads, transaction checks, reboot recovery gates, persistent security
+baselines, and container trust stores.
 
 Update only the bootstrap server's Cilium CLI:
 

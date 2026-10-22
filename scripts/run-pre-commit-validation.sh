@@ -42,7 +42,10 @@ validate_ansible() {
     export ANSIBLE_VARS_ENABLED=host_group_vars
     ansible-playbook --syntax-check playbooks/site.yml
     ansible-lint --profile min
-    python3 -m unittest discover -s roles/k3s_server/tests -v
+    for role_test_directory in roles/*/tests; do
+      [[ -d "${role_test_directory}" ]] || continue
+      python3 -m unittest discover -s "${role_test_directory}" -v
+    done
   )
 }
 
@@ -73,6 +76,15 @@ validate_kubernetes() {
     -strict \
     -ignore-missing-schemas \
     "$@"
+}
+
+validate_kubernetes_tests() {
+  require_command python3
+
+  for app_test_directory in kubernetes/projects/*/apps/*/tests kubernetes/fleet/*/tests; do
+    [[ -d "${app_test_directory}" ]] || continue
+    python3 -m unittest discover -s "${app_test_directory}" -v
+  done
 }
 
 validate_terraform() {
@@ -131,6 +143,9 @@ case "${1:-}" in
     shift
     validate_kubernetes "$@"
     ;;
+  kubernetes-tests)
+    validate_kubernetes_tests
+    ;;
   terraform)
     validate_terraform
     ;;
@@ -144,7 +159,7 @@ case "${1:-}" in
     ;;
   *)
     printf '%s\n' \
-      "usage: $0 {ansible|yaml|kubernetes-resource-bounds|renovate-policy|kubernetes|terraform|shell|dockerfiles} [files ...]" >&2
+      "usage: $0 {ansible|yaml|kubernetes-resource-bounds|renovate-policy|kubernetes|kubernetes-tests|terraform|shell|dockerfiles} [files ...]" >&2
     exit 2
     ;;
 esac

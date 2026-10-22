@@ -1,0 +1,93 @@
+---
+- name: Require fresh metadata for the OS maintenance plan
+  ansible.builtin.assert:
+    that:
+      - not ansible_check_mode
+      - ansible_facts.distribution == 'Debian'
+      - ansible_facts.distribution_major_version == '13'
+      - ansible_facts.pkg_mgr == 'apt'
+      - os_prep.package_replacements | default({}) is mapping
+    fail_msg: >-
+      Use this Debian 13 workflow without --check so APT metadata can be refreshed.
+      Use os_prep_entrypoint=os_updates_plan to simulate changes without installing or rebooting.
+
+- name: Check that the package database has no incomplete operations
+  ansible.builtin.command: dpkg --audit
+  register: os_prep_os_preflight_audit
+  changed_when: false
+
+- name: Require a consistent package database before maintenance
+  ansible.builtin.assert:
+    that:
+      - os_prep_os_preflight_audit.stdout | trim == ''
+    fail_msg: Complete or repair the existing dpkg transaction before upgrading this node.
+
+- name: Check available space on root and boot filesystems
+  ansible.builtin.command:
+    argv:
+      - python3
+      - -c
+      - |
+        import json
+        import os
+        import sys
+
+        minimums = json.loads(sys.argv[1])
+        space = {}
+        for path, minimum in minimums.items():
+            fs = os.statvfs(path)
+            available = fs.f_bavail * fs.f_frsize
+            space[path] = {'available_bytes': available, 'minimum_bytes': int(minimum)}
+        print(json.dumps(space))
+        if any(p['available_bytes'] < p['minimum_bytes'] for p in space.values()):
+            raise SystemExit('Insufficient free filesystem space for OS maintenance')
+      - "{{ os_prep.maintenance_minimum_free_bytes | default({'/': 2147483648, '/boot/firmware': 104857600}) | to_json }}"
+  register: os_prep_os_preflight_space
+  changed_when: false
+
+- name: Report host filesystem capacity before the transaction
+  ansible.builtin.debug:
+    msg: "{{ os_prep_os_preflight_space.stdout | from_json }}"
+
+- name: Converge the inventory-managed APT source transport policy
+  ansible.builtin.include_tasks: apt_sources.yml
+
+- name: Refresh current Debian package metadata
+  ansible.builtin.apt:
+    update_cache: true
+    cache_valid_time: 0
+    auto_install_module_deps: false
+
+- name: Simulate the full installed-package update
+  ansible.builtin.command:
+    argv:
+      - apt-get
+      - --simulate
+      - --no-install-recommends
+      - dist-upgrade
+  environment:
+    LC_ALL: C
+  register: os_prep_os_transaction
+  changed_when: false
+
+- name: Record proposed installs and removals
+  ansible.builtin.set_fact:
+    os_prep_os_proposed_removals: "{{ os_prep_os_transaction.stdout | regex_findall('(?m)^Remv[ ]+([^ \n]+)') }}"
+    os_prep_os_proposed_installs: "{{ os_prep_os_transaction.stdout | regex_findall('(?m)^Inst[ ]+([^ \n]+)') }}"
+
+- name: Reject removals without an inventory-managed replacement policy
+  ansible.builtin.assert:
+    that:
+      - os_prep_os_proposed_removals | difference(os_prep.package_replacements | default({}) | list) | length == 0
+    fail_msg: The simulated transaction removes a package outside the configured replacement policy.
+
+- name: Require each removed package to have its configured replacement installed
+  ansible.builtin.assert:
+    that:
+      - os_prep.package_replacements[item] in os_prep_os_proposed_installs
+    fail_msg: "Removing {{ item }} requires installing its configured replacement in the same transaction."
+  loop: "{{ os_prep_os_proposed_removals }}"
+
+- name: Report the package transaction from refreshed metadata
+  ansible.builtin.debug:
+    msg: "{{ os_prep_os_transaction.stdout_lines }}"

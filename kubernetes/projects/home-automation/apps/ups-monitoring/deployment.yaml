@@ -1,3 +1,4 @@
+---
 apiVersion: apps/v1
 kind: Deployment
 metadata:
@@ -160,7 +161,10 @@ spec:
               mountPath: /run/secrets
               readOnly: true
             - name: nut-local-config
-              mountPath: /etc/nut/local
+              # Keep upstream's /etc/nut/* chmod away from the shared volume root.
+              mountPath: /etc/nut/local/upsmon.conf
+              subPath: upsmon.conf
+              readOnly: true
         - name: peanut
           # renovate: datasource=github-releases depName=Brandawg93/PeaNUT
           image: registry.home/docker.io/brandawg93/peanut:6.0.0

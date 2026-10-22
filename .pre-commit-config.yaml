@@ -44,6 +44,13 @@ repos:
         files: ^kubernetes/.*\.ya?ml$
         exclude: ^kubernetes/images/|(?:^|/)(?:fleet|values|crd-values|upstream-values|upstream-crd-values|dashboards-values|kustomizeconfig)\.yaml$|/examples/|/chart/(?:Chart|values)\.yaml$|/chart/templates/
 
+      - id: validate-kubernetes-tests
+        name: Validate Kubernetes app regressions
+        entry: scripts/run-pre-commit-validation.sh kubernetes-tests
+        language: system
+        pass_filenames: false
+        files: ^(?:kubernetes/.*\.(?:ya?ml|py|sh)|scripts/run-pre-commit-validation\.sh)$
+
       - id: validate-terraform
         name: Validate Terraform
         entry: scripts/run-pre-commit-validation.sh terraform

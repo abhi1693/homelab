@@ -31,7 +31,7 @@ spec:
       containers:
       - name: login
         # renovate: datasource=docker depName=ghcr.io/abhi1693/home-lab-zitadel-login
-        image: registry.home/ghcr.io/abhi1693/home-lab-zitadel-login:4.19.4-idp-retry1@sha256:6a08219dd72da25409be8bc93544cfd68d720f82269a29f43ae6717957889d0c
+        image: registry.home/ghcr.io/abhi1693/home-lab-zitadel-login:4.20.0-idp-retry1-ae469a9@sha256:42292186a5b895de691988ce8f562ee06746708f5a38bf0f7070afbf147df835
         ports:
         - name: http
           containerPort: 3000

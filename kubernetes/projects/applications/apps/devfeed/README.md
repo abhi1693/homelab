@@ -537,6 +537,7 @@ Alloy/Loki, OTel/Tempo and Pyroscope continue collecting logs, traces and profil
 Logs and Faro browser telemetry preserve original values without automatic
 redaction. Frontends alone consume the encrypted Faro collector key. Private
 blackbox probes continue checking public HTTPS and internal service readiness.
+The shared public probe omits Launchboard while that application is paused.
 
 Run `python3 scripts/check-devfeed-observability.py` to validate dashboard PromQL
 and alert scenarios, followed by manifest checks and server-side dry runs. Metric

@@ -113,8 +113,8 @@ declared app-side maximum connection demand.
 | `devfeed_chimely` | `devfeed-rw` | Chimely-managed | 20 | 24 |
 | `jellyfin` | `jellyfin-rw` | 14 | 30 | 32 |
 | `shipyardhq` | `shipyardhq-rw` | 20 | 28 | 32 |
-| `kitchen` | `hyperlocal-kitchen-rw` | 3 processes, maximum 45 connections | 48 | 52 |
-| `launchboard` | `launchboard-rw` | 4 | 8 | 10 |
+| `kitchen` | `hyperlocal-kitchen-rw` | paused | 0 | 52 |
+| `launchboard` | `launchboard-rw` | paused | 0 | 10 |
 | `harbor` | `harbor-rw` | chart-managed | 24 | 36 |
 | `netbox` | direct | implicit | n/a | 10 |
 | `wardn_hub` | `wardn-hub-rw` | implicit | 12 | 12 |
@@ -128,6 +128,12 @@ declared app-side maximum connection demand.
 role remain retained in the shared cluster. Restoring its single instance
 provides six backend slots.
 
+`hyperlocal-kitchen-rw` is also paused at zero instances with the Kitchen
+application. Its database, role, and credentials remain retained. Restoring two
+session pooler instances provides 48 backend slots for three backend processes
+with a normal maximum demand of 45 connections. Its dedicated PDB is omitted
+while paused; restore that budget with the pooler when resuming Kitchen.
+
 Jellyfin caps its Npgsql pool at 14 connections. Each session-mode PgBouncer
 replica has 15 backend slots, so either replica can absorb the application's
 entire connection budget even if Service hashing is uneven. The two replicas'
@@ -140,9 +146,12 @@ limiting its direct connection path to two sessions. Even if the 28 pooler
 backend slots are all occupied, two role connections remain available for
 short-lived build and reconnect activity.
 `launchboard` has a dedicated retained database and role; it does not read or
-write ShipyardHQ's database. Its two session-mode poolers expose eight backend
-slots against a four-connection app pool, leaving two direct role connections
-for migrations and reconnect activity.
+write ShipyardHQ's database. Its pooler is paused at zero instances with the web
+application and automation. Its dedicated PDB is omitted until resumption.
+Restoring two session-mode poolers exposes eight backend slots against a
+four-connection app pool, leaving two direct role connections for migrations
+and reconnect activity. Follow the application
+[resumption procedure](../../../applications/apps/launchboard/README.md#shutdown-state).
 ZITADEL caps each of its two replicas at eight open connections. Each
 session-pool replica can therefore absorb the full 16-connection steady-state
 budget even when service load balancing is uneven. The two poolers expose 32
@@ -295,6 +304,7 @@ Volume expansion cannot be rolled back by shrinking the PVC. Retain all claims
 and database records; this change does not introduce an analysis-history deletion policy.
 
 Hyperlocal Kitchen has a retained `kitchen` database and role with SOPS-managed
-credentials. Its two session poolers each allow 24 backend connections; the
-role limit of 52 leaves four slots for direct migrations and schema checks.
+credentials. Its dedicated pooler is currently at zero instances. When active,
+two session pooler instances each allow 24 backend connections; the role limit
+of 52 leaves four slots for direct migrations and schema checks.
 See `kubernetes/projects/applications/apps/hyperlocal-kitchen/README.md`.

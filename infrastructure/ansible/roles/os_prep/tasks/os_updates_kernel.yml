@@ -1,0 +1,42 @@
+---
+- name: Inspect the installed Raspberry Pi kernel and firmware boot image
+  ansible.builtin.command:
+    argv:
+      - python3
+      - -c
+      - |
+        import hashlib
+        import json
+        from pathlib import Path
+        import platform
+        import re
+        import subprocess
+
+        running = platform.release()
+        flavor = re.search(r'\+rpt-rpi-(2712|v8)$', running)
+        if not flavor:
+            raise RuntimeError(f'Unsupported Raspberry Pi kernel flavor: {running}')
+        suffix = flavor.group(1)
+        def package_field(name, field):
+            return subprocess.check_output([
+                'dpkg-query', '--show', '--showformat=$' + '{' + field + '}', name,
+            ], text=True).strip()
+        dependencies = package_field(f'linux-image-rpi-{suffix}', 'Depends')
+        expected = re.findall(r'linux-image-([^\s(,|]+)', dependencies)
+        if len(expected) != 1:
+            raise RuntimeError(f'Cannot select one installed kernel from {dependencies}')
+        expected = expected[0]
+        packaged_image = Path(f'/boot/vmlinuz-{expected}')
+        firmware_image = Path('/boot/firmware') / ('kernel_2712.img' if suffix == '2712' else 'kernel8.img')
+        def sha256(path):
+            return hashlib.file_digest(path.open('rb'), 'sha256').hexdigest()
+        if sha256(packaged_image) != sha256(firmware_image):
+            raise RuntimeError('The firmware boot image differs from the installed kernel')
+        print(json.dumps({
+            'running_kernel': running, 'expected_kernel': expected,
+            'firmware_package_version': package_field('raspi-firmware', 'Version'),
+            'firmware_kernel_image': str(firmware_image),
+        }))
+  register: os_prep_os_kernel_state
+  changed_when: false
+  check_mode: false

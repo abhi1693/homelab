@@ -23,7 +23,7 @@ podOptions:
 resources:
   requests:
     cpu: 330m
-    memory: 397Mi
+    memory: 333Mi
   limits:
     # TrueCharts: omit the inherited 1500m CPU cap; indexer work may burst.
     cpu: 0

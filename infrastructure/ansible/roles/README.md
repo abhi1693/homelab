@@ -6,7 +6,7 @@ This directory contains the reusable bootstrap roles for the lab.
 
 | Role | What | Why |
 | --- | --- | --- |
-| `os_prep` | Base host setup and shared packages, including NFS client utilities. | Establishes common OS assumptions and storage clients before K3s is installed. |
+| [`os_prep`](os_prep/README.md) | Base host setup, shared packages, security baselines, and rolling OS upgrades. | Maintains host packages and trust, with recovery gates around OS reboots. |
 | `rpi_prep` | Raspberry Pi-specific setup. | Handles Pi-specific kernel, kubelet, and hardware telemetry concerns. |
 | `k3s_server` | K3s server config. | Creates the control-plane configuration, API arguments, audit policy, registry mirrors, and secrets settings. |
 | `k3s_agent` | K3s agent config. | Joins worker nodes to the server API endpoint with matching kubelet and registry settings. |

@@ -1,0 +1,25 @@
+---
+- name: Assert managed Debian source URIs use HTTPS
+  ansible.builtin.command:
+    argv:
+      - python3
+      - -c
+      - |
+        import json
+        from pathlib import Path
+        import re
+        import sys
+
+        checked = []
+        for policy in json.loads(sys.argv[1]):
+            path = Path(policy['path'])
+            if not path.exists():
+                continue
+            if re.search(policy['regexp'], path.read_text()):
+                raise RuntimeError(f'Managed Debian archive URI still uses HTTP in {path}')
+            checked.append(str(path))
+        print(json.dumps({'https_source_files_checked': checked}))
+      - "{{ os_prep.apt_https_sources | default([]) | to_json }}"
+  register: os_prep_apt_transport_validation
+  changed_when: false
+  check_mode: false

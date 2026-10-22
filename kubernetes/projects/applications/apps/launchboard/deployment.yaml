@@ -10,7 +10,7 @@ metadata:
     app.kubernetes.io/part-of: launchboard
 spec:
   revisionHistoryLimit: 2
-  replicas: 1
+  replicas: 0
   progressDeadlineSeconds: 1200
   selector:
     matchLabels:

@@ -6,17 +6,17 @@ ZITADEL is the central identity provider for cluster applications.
 - Ingress class: `cloudflare-tunnel`
 - Database: shared CNPG PostgreSQL through `postgresql-pooler-zitadel-rw`
 - Secrets: SOPS-managed `zitadel-masterkey`, `zitadel-env`, `zitadel-login-env`, and `zitadel-postgresql`
-- Core: upstream v4.19.4, pinned by image digest
-- Chart: official `ghcr.io/zitadel/zitadel-charts/zitadel` OCI artifact, version 10.3.0
+- Core: upstream v4.20.0, pinned by image digest
+- Chart: official `ghcr.io/zitadel/zitadel-charts/zitadel` OCI artifact, version 10.4.0
 
 The chart's `wait-for-zitadel` init container is bounded through
 `tools.wait4x.resources` at `10m`/`32Mi` requests and `100m`/`64Mi` limits.
 Setup and cleanup jobs use the ARM64 `alpine/k8s:1.35.6` image through the local
 registry cache. The Alpine shell is required by the chart's helper commands; review client
 compatibility when the cluster or helper image changes.
-Each ZITADEL server requests `40m` CPU and each Login UI replica requests
-`40m`; the combined `160m` reservation stays well above the observed 7-day
-aggregate p99 while both workloads remain CPU-burstable.
+Each of the two ZITADEL servers requests `50m` CPU, and each of the four
+Login UI replicas requests `70m`. The combined reservation is `380m`; these
+workloads remain CPU-burstable.
 
 Each of the two ZITADEL servers is capped at eight open and four idle database
 connections. The resulting 16-connection app budget fits within either
@@ -52,29 +52,44 @@ SOPS-managed `zitadel-env` secret and must be changed at first login.
 The ZITADEL master key is intentionally stored in `zitadel-masterkey`. Losing
 that key makes encrypted ZITADEL data unrecoverable.
 
-The Login UI runs the digest-pinned `home-lab-zitadel-login:4.19.4-idp-retry1`
+The Login UI runs the digest-pinned `home-lab-zitadel-login:4.20.0-idp-retry1-<commit>`
 image. It retries only session lookup after successful GitHub account creation
 and linking, covering transient user projection delay. See
 [the image source](../../../../images/zitadel-login/README.md) for regression
-tests, dependency pins, and rollback. The core server remains upstream v4.19.4.
+tests, dependency pins, and rollback. The core server uses upstream v4.20.0.
 
 ## Upgrade operations
 
-Fleet runs the chart init/setup hooks before replacing the server and Login UI.
-The v4.15.3 to v4.19.4 upgrade includes database migrations; verify a successful
-CNPG backup and continuous archiving before rollout. A core downgrade requires
-a separate database compatibility review rather than just reverting image tags.
+Publish the custom Login image through its native ARM64 build, vulnerability
+scan, retry tests, and Node/Next.js runtime trust/startup checks before updating either
+Login deployment. First update core and the chart-managed Login together,
+then wait for successful hooks and Fleet readiness before updating the dedicated
+DevFeed Login. Both Login deployments must finish on the same verified digest;
+core uses its separate upstream digest.
+
+Fleet runs the chart init/setup hooks before replacing its server and Login UI;
+`waitForJobs: true` gates the Helm release. Verify a successful CNPG backup and
+continuous archiving before rollout. A core downgrade requires a separate
+database compatibility review.
+
+The v4.20.0 upgrade adds proof signing for verification, identity linking, and
+device flows using the existing per-instance Login cookie secret. In-flight
+flows may need to be repeated. List APIs now default to 100 results with a
+maximum of 1000; callers must paginate. The refreshed Go and Node runtimes
+reject the compromised CA chains. See the
+[upstream v4.20.0 release notes](https://github.com/zitadel/zitadel/releases/tag/v4.20.0)
+and [preceding v4.19.5 notes](https://github.com/zitadel/zitadel/releases/tag/v4.19.5).
 
 Login UI replicas share `ZITADEL_SESSION_COOKIE_SECRET` through
 `login.sessionCookieSecretName: zitadel-login-env`. The SOPS-managed value must
 be at least 32 characters. All replicas must use the same secret; comma-separated
-keys support rotation. Existing unsigned Login UI cookies are rejected after
-upgrade, requiring a fresh sign-in; application sessions and issued tokens remain
-valid. Keep this secret separate from the core environment and app OIDC secrets.
+keys support rotation. Preserve the existing value during image upgrades so
+replicas can validate each other's signed cookies and proofs. Keep this secret
+separate from the core environment and app OIDC secrets.
 
 After rollout, check successful init/setup jobs, Fleet desired/applied deployment
-IDs, two ready replicas of both workloads, and the public OIDC discovery and
-Login UI readiness endpoints. Verify app callbacks and fresh GitHub registration
+IDs, two ready core replicas and two ready replicas of each Login deployment,
+and both public issuers' OIDC discovery, JWKS, and Login UI readiness endpoints. Verify app callbacks and fresh GitHub registration
 before retiring the custom registration retry. See the
 [upstream cookie-signing upgrade notes](https://github.com/zitadel/zitadel/releases/tag/v4.19.2).
 

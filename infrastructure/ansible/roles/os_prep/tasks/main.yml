@@ -1,4 +1,8 @@
 ---
+- name: Converge the inventory-managed APT source transport policy
+  ansible.builtin.include_tasks: apt_sources.yml
+  when: ansible_facts.pkg_mgr == 'apt'
+
 - name: Update apt cache
   ansible.builtin.apt:
     update_cache: true

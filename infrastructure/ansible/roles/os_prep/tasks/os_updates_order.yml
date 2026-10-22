@@ -1,0 +1,76 @@
+---
+- name: Locate current database primaries before selecting the maintenance order
+  ansible.builtin.command:
+    argv:
+      - python3
+      - -c
+      - |
+        import json
+        import subprocess
+        import sys
+
+        inventory = json.loads(sys.argv[1])
+        selected = json.loads(sys.argv[2])
+        servers = json.loads(sys.argv[3])
+        workers = json.loads(sys.argv[4])
+        if any(not isinstance(node, str) or not node for node in inventory.values()):
+            raise RuntimeError('Every inventory node_identity.hostname must be a nonempty string')
+        if len(set(inventory.values())) != len(inventory):
+            raise RuntimeError('Inventory node_identity.hostname values must be unique')
+        if any(host not in servers + workers for host in selected):
+            raise RuntimeError('Every maintenance target must be a K3s server or worker')
+        by_node = {node: host for host, node in inventory.items()}
+
+        def kube(*args):
+            return json.loads(subprocess.check_output([
+                '/usr/local/bin/k3s', 'kubectl', '--request-timeout=15s',
+                *args, '-o', 'json',
+            ], text=True))
+
+        primaries = []
+        for cluster in kube('get', 'clusters.postgresql.cnpg.io', '-A')['items']:
+            meta, status = cluster['metadata'], cluster.get('status', {})
+            namespace, name = meta['namespace'], meta['name']
+            primary = status.get('currentPrimary')
+            if not primary or status.get('targetPrimary', primary) != primary:
+                raise RuntimeError(f'Cluster {namespace}/{name} has no stable current primary')
+            pod = kube('-n', namespace, 'get', 'pod', primary)
+            pod_meta, node = pod['metadata'], pod.get('spec', {}).get('nodeName')
+            owners = pod_meta.get('ownerReferences', [])
+            if (pod_meta.get('deletionTimestamp')
+                    or pod_meta.get('labels', {}).get('cnpg.io/cluster') != name
+                    or not any(owner.get('kind') == 'Cluster' and owner.get('uid') == meta['uid']
+                               for owner in owners)):
+                raise RuntimeError(f'Current primary {namespace}/{primary} is not a live instance of its Cluster')
+            if node not in by_node:
+                raise RuntimeError(f'Current primary {namespace}/{primary} has no unique inventory node mapping')
+            primaries.append({'cluster': namespace + '/' + name, 'pod': primary,
+                              'node': node, 'host': by_node[node]})
+        primary_hosts = {primary['host'] for primary in primaries}
+        ordered = ([host for host in selected if host in servers]
+                   + [host for host in selected if host in workers and host not in primary_hosts]
+                   + [host for host in selected if host in workers and host in primary_hosts])
+        if len(ordered) != len(selected) or set(ordered) != set(selected):
+            raise RuntimeError('Maintenance ordering must preserve the selected host set')
+        print(json.dumps({'current_primaries': primaries, 'selected_host_order': ordered}))
+      - "{{ dict(groups['k3s_nodes'] | zip(groups['k3s_nodes'] | map('extract', hostvars, ['node_identity', 'hostname']))) | to_json }}"
+      - "{{ ansible_play_hosts_all | to_json }}"
+      - "{{ groups['k3s_servers'] | to_json }}"
+      - "{{ groups['k3s_workers'] | to_json }}"
+  environment:
+    KUBECONFIG: /etc/rancher/k3s/k3s.yaml
+  delegate_to: "{{ groups['k3s_servers'] | first }}"
+  register: os_prep_os_order
+  changed_when: false
+  check_mode: false
+
+- name: Report database placement and the selected maintenance order
+  ansible.builtin.debug:
+    msg: "{{ os_prep_os_order.stdout | from_json }}"
+
+- name: Preserve the selected hosts in database-aware maintenance order
+  ansible.builtin.add_host:
+    name: "{{ item }}"
+    groups: os_prep_maintenance
+  loop: "{{ (os_prep_os_order.stdout | from_json).selected_host_order }}"
+  changed_when: false

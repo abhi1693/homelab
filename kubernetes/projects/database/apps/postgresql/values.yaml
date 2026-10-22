@@ -627,7 +627,7 @@ poolers:
                 memory: 56Mi
               limits:
                 memory: 192Mi
-  - instances: 2
+  - instances: 0
     monitoring:
       enabled: true
       podMonitor:
@@ -679,7 +679,7 @@ poolers:
   - name: launchboard-rw
     type: rw
     poolMode: session
-    instances: 2
+    instances: 0
     monitoring:
       enabled: true
       podMonitor:

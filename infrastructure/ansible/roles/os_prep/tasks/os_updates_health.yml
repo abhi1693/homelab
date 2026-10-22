@@ -1,0 +1,152 @@
+---
+- name: Validate the bounded OS maintenance recovery timeout
+  ansible.builtin.assert:
+    that:
+      - >-
+        (os_prep.maintenance_recovery_timeout | default(1800)) is integer and
+        (os_prep.maintenance_recovery_timeout | default(1800)) >= 600
+    fail_msg: os_prep.maintenance_recovery_timeout must be an integer of at least 600 seconds.
+
+- name: Require the local K3s service to be active
+  ansible.builtin.command: >- # noqa command-instead-of-module
+    systemctl is-active {{ 'k3s' if inventory_hostname in groups['k3s_servers'] else 'k3s-agent' }}
+  register: os_prep_os_service
+  changed_when: false
+  check_mode: false
+  retries: "{{ 60 if os_prep_os_health_phase == 'recovery' else 1 }}"
+  delay: 5
+  until: os_prep_os_service.rc == 0 and os_prep_os_service.stdout | trim == 'active'
+
+- name: Reuse established API etcd storage database and platform health gates
+  ansible.builtin.include_role:
+    name: k3s_server
+    tasks_from: health
+    rolespec_validate: false
+  vars:
+    k3s_server_health_phase: "{{ os_prep_os_health_phase }}"
+    k3s_server_health_timeout: >-
+      {{ os_prep.maintenance_recovery_timeout | default(1800)
+         if os_prep_os_health_phase in ['recovery', 'validation'] else 600 }}
+    k3s_server_baseline_members: "{{ os_prep_os_baseline_members | default([]) }}"
+    k3s_server_etcdctl_k3s_version: "{{ hostvars[groups['k3s_servers'] | first].k3s_server_etcdctl_k3s_version }}"
+    k3s_server_etcdctl_version: "{{ hostvars[groups['k3s_servers'] | first].k3s_server_etcdctl_version }}"
+    k3s_server_health_deployments: "{{ hostvars[groups['k3s_servers'] | first].k3s_server_health_deployments }}"
+    k3s_server_health_gitrepos: "{{ hostvars[groups['k3s_servers'] | first].k3s_server_health_gitrepos }}"
+    k3s_server_health_daemonsets: >-
+      {{ hostvars[groups['k3s_servers'] | first].k3s_server_health_daemonsets
+         if inventory_hostname in groups['k3s_servers'] else
+         hostvars[groups['k3s_servers'] | first].k3s_server_health_daemonsets |
+         reject('equalto', 'kube-system/kube-vip-ds') | list }}
+
+- name: Preserve the server etcd membership before updating packages
+  ansible.builtin.set_fact:
+    os_prep_os_baseline_members: "{{ (k3s_server_health_result.stdout | from_json).members }}"
+  when:
+    - os_prep_os_health_phase == 'preflight'
+
+- name: Require every application workload controller to be ready
+  ansible.builtin.command:
+    argv:
+      - python3
+      - -c
+      - |
+        import json
+        import subprocess
+
+        controllers = json.loads(subprocess.check_output([
+            '/usr/local/bin/k3s', 'kubectl', '--request-timeout=15s', 'get',
+            'deployments,statefulsets,daemonsets', '-A', '-o', 'json',
+        ], text=True))['items']
+        failures = []
+        counts = {}
+        for obj in controllers:
+            kind, spec, status = obj['kind'], obj['spec'], obj.get('status', {})
+            name = obj['metadata']['namespace'] + '/' + obj['metadata']['name']
+            counts[kind] = counts.get(kind, 0) + 1
+            generation = obj['metadata'].get('generation', 1)
+            if obj['metadata'].get('deletionTimestamp') or status.get('observedGeneration', 0) < generation:
+                failures.append(f'{kind} {name} has not observed its desired generation')
+                continue
+            if kind == 'DaemonSet':
+                desired = status.get('desiredNumberScheduled', 0)
+                keys = ['numberReady', 'numberAvailable', 'currentNumberScheduled']
+                strategy = spec.get('updateStrategy', {})
+                updated = status.get('updatedNumberScheduled', 0)
+            else:
+                desired = spec.get('replicas', 1)
+                keys = ['readyReplicas', 'availableReplicas', 'replicas']
+                strategy = spec.get('updateStrategy', {}) if kind == 'StatefulSet' else {}
+                updated = status.get('updatedReplicas', 0)
+            if any(status.get(key, 0) != desired for key in keys):
+                failures.append(f'{kind} {name} has not recovered all {desired} desired replicas')
+            partition = strategy.get('rollingUpdate', {}).get('partition', 0) if kind == 'StatefulSet' else 0
+            if strategy.get('type') != 'OnDelete' and updated < max(0, desired - partition):
+                failures.append(f'{kind} {name} has not finished its configured rolling update')
+        if failures:
+            raise RuntimeError('; '.join(failures))
+        print(json.dumps({'ready_workload_controllers': counts}))
+  environment:
+    KUBECONFIG: /etc/rancher/k3s/k3s.yaml
+  delegate_to: "{{ groups['k3s_servers'] | reject('equalto', inventory_hostname) | first }}"
+  register: os_prep_os_controller_health
+  changed_when: false
+  check_mode: false
+  retries: "{{ 60 if os_prep_os_health_phase == 'recovery' else 1 }}"
+  delay: 5
+  until: os_prep_os_controller_health.rc == 0
+
+- name: Require all Ready nodes and a fresh worker lease from the server API
+  ansible.builtin.command:
+    argv:
+      - python3
+      - -c
+      - |
+        from datetime import datetime, timezone
+        import json
+        import subprocess
+        import sys
+
+        target, expected_version, previous_lease = sys.argv[1:]
+        def kube(*args):
+            return json.loads(subprocess.check_output([
+                '/usr/local/bin/k3s', 'kubectl', '--request-timeout=10s',
+                *args, '-o', 'json',
+            ], text=True))
+        nodes = {n['metadata']['name']: n for n in kube('get', 'nodes')['items']}
+        if target not in nodes:
+            raise RuntimeError(f'The target Node {target} is absent')
+        for name, node in nodes.items():
+            conditions = {c['type']: c['status'] for c in node['status']['conditions']}
+            if conditions.get('Ready') != 'True' or node['spec'].get('unschedulable'):
+                raise RuntimeError(f'Node {name} is not Ready and schedulable')
+            if any(conditions.get(c) == 'True' for c in (
+                    'MemoryPressure', 'DiskPressure', 'PIDPressure', 'NetworkUnavailable')):
+                raise RuntimeError(f'Node {name} reports pressure or unavailable networking')
+        if nodes[target]['status']['nodeInfo']['kubeletVersion'] != expected_version:
+            raise RuntimeError('The target kubelet version differs from the inventory pin')
+        renewed = kube('-n', 'kube-node-lease', 'get', 'lease', target)['spec']['renewTime']
+        age = (datetime.now(timezone.utc)
+               - datetime.fromisoformat(renewed.replace('Z', '+00:00'))).total_seconds()
+        if not 0 <= age <= 40 or renewed == previous_lease:
+            raise RuntimeError(f'Waiting for a fresh renewed worker lease: age={age:.1f}s')
+        print(json.dumps({'target': target, 'ready_nodes': len(nodes), 'lease': renewed}))
+      - "{{ node_identity.hostname }}"
+      - "{{ k3s.version }}"
+      - "{{ os_prep_os_worker_lease | default('') if os_prep_os_health_phase == 'recovery' else '' }}"
+  environment:
+    KUBECONFIG: /etc/rancher/k3s/k3s.yaml
+  delegate_to: "{{ groups['k3s_servers'] | first }}"
+  register: os_prep_os_worker_health
+  changed_when: false
+  check_mode: false
+  retries: "{{ 60 if os_prep_os_health_phase == 'recovery' else 1 }}"
+  delay: 5
+  until: os_prep_os_worker_health.rc == 0
+  when: inventory_hostname in groups['k3s_workers']
+
+- name: Preserve the fresh worker lease before updating packages
+  ansible.builtin.set_fact:
+    os_prep_os_worker_lease: "{{ (os_prep_os_worker_health.stdout | from_json).lease }}"
+  when:
+    - inventory_hostname in groups['k3s_workers']
+    - os_prep_os_health_phase == 'preflight'

@@ -91,6 +91,21 @@ ansible-playbook playbooks/k3s_server.yml -e k3s_server_entrypoint=validation
 The [home inventory](inventories/home/) owns server and worker hostnames,
 addresses, and role membership.
 
+The `os_updates_plan` entrypoint converges inventory-managed Debian sources to
+HTTPS, refreshes current APT metadata, and reports the package transaction without
+changing installed packages. `os_updates` verifies all package downloads before
+upgrading packages from the existing Debian 13 repositories, including the
+Raspberry Pi kernel and firmware, and reboots one host at a time when required.
+The plan reports current database primaries; apply leaves their worker hosts
+until the other selected workers are updated. Recovery permits a bounded
+30-minute wait for storage replicas, configurable in the inventory.
+It checks the planned package transaction before changing it and requires every
+application controller and the cluster recovery gates to pass before advancing.
+The companion `os_updates_validation` entrypoint checks installed state without changing
+packages or restarting hosts. See the [rolling OS update workflow](roles/os_prep/README.md#rolling-os-updates).
+Persistent package floors, distrusted CA fingerprints, and allowed package
+replacements live in the inventory and are checked during routine validation.
+
 The `k3s_agent` play processes workers in inventory order with `serial: 1` and
 stops all remaining batches if one worker fails. After pending restart handlers
 run, it requires the local service to be active, a fresh Kubernetes Node lease,

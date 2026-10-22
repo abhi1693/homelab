@@ -1,0 +1,61 @@
+---
+- name: Validate the inventory-managed security baseline configuration
+  ansible.builtin.assert:
+    that:
+      - os_prep.minimum_packages | default({}) is mapping
+      - os_prep.distrusted_ca_sha256 | default([]) is sequence
+      - os_prep.distrusted_ca_sha256 | default([]) is not string
+    fail_msg: Package minimum versions must be a mapping and distrusted CA fingerprints must be a list.
+
+- name: Validate distrusted certificate fingerprint syntax
+  ansible.builtin.assert:
+    that:
+      - item is match('^[a-fA-F0-9]{64}$')
+  loop: "{{ os_prep.distrusted_ca_sha256 | default([]) }}"
+
+- name: Read package versions covered by the security baseline
+  ansible.builtin.command:
+    argv:
+      - dpkg-query
+      - --show
+      - --showformat=${Version}
+      - "{{ item.key }}"
+    expand_argument_vars: false
+  loop: "{{ os_prep.minimum_packages | default({}) | dict2items }}"
+  register: os_prep_security_package_versions
+  changed_when: false
+  check_mode: false
+
+- name: Assert installed package versions meet the configured security baseline
+  ansible.builtin.command:
+    argv:
+      - dpkg
+      - --compare-versions
+      - "{{ item.stdout }}"
+      - ge
+      - "{{ item.item.value }}"
+  loop: "{{ os_prep_security_package_versions.results }}"
+  loop_control:
+    label: "{{ item.item.key }} >= {{ item.item.value }}"
+  changed_when: false
+  check_mode: false
+
+- name: Inspect the roots loaded by a fresh host TLS context
+  ansible.builtin.command:
+    argv: >-
+      {{ ['python3', '-c',
+          'import hashlib,json,ssl,sys; roots=ssl.create_default_context().get_ca_certs(binary_form=True); '
+          ~ 'fingerprints={hashlib.sha256(cert).hexdigest() for cert in roots}; '
+          ~ 'print(json.dumps({"root_count":len(roots),"distrusted_roots":sorted(fingerprints.intersection(sys.argv[1:]))}))']
+         + (os_prep.distrusted_ca_sha256 | default([]) | map('lower') | list) }}
+  register: os_prep_security_ca_roots
+  changed_when: false
+  check_mode: false
+
+- name: Assert the host trust store excludes configured distrusted roots
+  ansible.builtin.assert:
+    that:
+      - (os_prep_security_ca_roots.stdout | from_json).root_count > 0
+      - (os_prep_security_ca_roots.stdout | from_json).distrusted_roots | length == 0
+    fail_msg: The fresh host trust store is empty or still includes an inventory-distrusted certificate.
+    success_msg: "Host trust store satisfies the configured baseline: {{ os_prep_security_ca_roots.stdout }}"

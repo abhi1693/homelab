@@ -5,6 +5,30 @@ Fleet deployment of application commit
 support and pinned by digest. The production Zitadel callback is registered
 alongside the existing local development callbacks.
 
+## Shutdown state
+
+The admin UI, member API, admin API, worker, and Redis are shut down with all
+five Deployments at zero replicas. The dedicated CNPG pooler
+`postgresql-pooler-hyperlocal-kitchen-rw` is retained at zero instances. Its
+PodDisruptionBudget is omitted from the pooler PDB bundle while shut down, so
+the disruption controller does not report `NoPods` for an inactive pooler.
+The migration Job is suspended and
+Fleet's `helm.waitForJobs` is disabled so a suspended migration cannot block
+reconciliation or run on a fresh installation.
+
+The `kitchen` database and role, encrypted credentials, namespace, Services,
+Ingress, and Redis PVC remain retained. Both public hostnames have no running
+backend while this shutdown state is desired in Git.
+
+To resume through GitOps, restore one replica in each of the five Deployment
+manifests and two Kitchen pooler instances in the PostgreSQL chart values.
+Restore the dedicated pooler PDB with `minAvailable: 1` in
+`kubernetes/projects/database/apps/postgresql-pooler-pdb/pdb.yaml`, selecting
+`cnpg.io/poolerName: postgresql-pooler-hyperlocal-kitchen-rw`. Unsuspend the migration Job and restore
+`helm.waitForJobs: true` in `fleet.yaml`. Validate and publish these changes
+together, then verify the migration, schema gates, pooler, application readiness,
+and public endpoints before treating the application as available.
+
 ## Endpoints and authentication
 
 - Admin: `https://kitchen-admin-af01fda18c31ce91fd5401ca6fbe71ad.abhimanyu-saharan.com`
@@ -36,7 +60,8 @@ same-origin gateway. The member API has its own long hostname.
 
 ## Runtime and persistence
 
-One pod each runs the member API, admin API, admin UI, worker, and Redis.
+Normal active sizing is one pod each for the member API, admin API, admin UI,
+worker, and Redis; all five are currently scaled to zero.
 All images target ARM64. Python runs as UID 10001, Next.js as UID 1000, and Redis
 as UID 999. Containers drop capabilities, disable service-account tokens, and
 use read-only root filesystems with writable temporary directories.
@@ -44,8 +69,9 @@ use read-only root filesystems with writable temporary directories.
 The existing shared CNPG cluster owns a new retained `kitchen` database and
 non-superuser `kitchen` role. It uses the same database password as the local
 `.env`, encrypted for the home-lab SOPS recipient. No local database rows are
-copied: this prepares a fresh database in the lab. An isolated pair of session
-poolers supplies 48 backend slots with a role limit of 52. SQLAlchemy's default
+copied: this prepares a fresh database in the lab. When active, an isolated pair
+of session poolers supplies 48 backend slots with a role limit of 52; the
+poolers are currently scaled to zero. SQLAlchemy's default
 maximum is 15 per process: three steady backend processes need at most 45;
 rolling an API adds another temporary process, whose connections can queue at
 the pooler. Migrations use the direct database Service.
@@ -56,8 +82,9 @@ and reachable only from the APIs and worker. Secrets and Harbor pull credentials
 are in `secrets.sops.yaml`. Non-secret app settings match local `.env`, with
 cluster database/Redis addresses, HTTPS origins, and secure cookies substituted.
 
-`migration-job.yaml` runs `alembic upgrade head` as an ordinary versioned Job;
-Fleet waits for it. Each backend process also waits until the database's Alembic
+When active, `migration-job.yaml` runs `alembic upgrade head` as an ordinary
+versioned Job and Fleet waits for it. It is suspended during shutdown.
+Each backend process also waits until the database's Alembic
 heads match the image before it starts. The APIs use `/ready` and `/health`
 probes. Redis uses `redis-cli ping`; Next.js uses TCP probes because the login
 page itself depends on the admin API.
@@ -116,10 +143,14 @@ Once the cluster API is reachable, use read-only checks:
 kubectl -n fleet-local get gitrepo home-lab-applications home-lab-database
 kubectl -n fleet-local get bundles | rg 'hyperlocal-kitchen|postgresql'
 kubectl -n hyperlocal-kitchen get jobs,pods,deployments,pvc,ingress
-kubectl -n hyperlocal-kitchen logs job/hyperlocal-kitchen-migrate-168f2c8
-curl -fsS https://kitchen-api-af01fda18c31ce91fd5401ca6fbe71ad.abhimanyu-saharan.com/ready
-curl -fsS https://kitchen-admin-af01fda18c31ce91fd5401ca6fbe71ad.abhimanyu-saharan.com/api/v1/auth/config
+kubectl -n postgresql get pooler postgresql-pooler-hyperlocal-kitchen-rw
+kubectl -n hyperlocal-kitchen get endpointslices
 ```
+
+For the current shutdown, require zero desired/running Deployment and pooler
+replicas, no active migration pods, the suspended Job, no ready Service
+endpoints, and the original Redis PVC still bound. After resuming, check the
+migration logs and both public health/authentication endpoints as well.
 
 Server-side dry runs require the target namespaces and CRDs to exist. First
 validate `namespace.yaml`, then validate rendered built-in resources and the

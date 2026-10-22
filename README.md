@@ -124,6 +124,10 @@ tools. It installs the remaining pinned tools in
 
 Run narrower validation from the subsystem you are changing when needed.
 
+`scripts/run-pre-commit-validation.sh kubernetes-tests` runs app regressions from
+Kubernetes project and Fleet bundle `tests` directories, including configuration
+initialization across container and node restarts.
+
 Ansible bootstrap checks:
 
 ```sh
@@ -132,6 +136,12 @@ ansible-galaxy collection install -r collections/requirements.yml
 ansible-playbook --syntax-check playbooks/site.yml
 ansible-playbook playbooks/k3s_server.yml -e k3s_server_entrypoint=validation
 ```
+
+Use the [rolling OS update workflow](infrastructure/ansible/roles/os_prep/README.md#rolling-os-updates)
+for HTTPS Debian sources, verified package downloads, worker canaries, serial
+Debian and Raspberry Pi kernel upgrades, ordering around database primaries,
+and bounded recovery after each reboot.
+Persistent package and CA trust baselines are checked during routine validation.
 
 Rancher chart upgrades have a [scheduling preflight](infrastructure/ansible/README.md)
 that blocks an unschedulable surge while the three replicas require separate
@@ -618,7 +628,7 @@ Important bootstrap roles:
 
 | Role | What it does |
 | --- | --- |
-| `os_prep` | Base operating-system preparation. |
+| `os_prep` | Base operating-system preparation, persistent host security baselines, and rolling OS upgrades with reboot recovery gates. |
 | `rpi_prep` | Raspberry Pi-specific host setup and telemetry helpers. |
 | `k3s_server` | Serial K3s server configuration with Node, etcd consensus, and platform recovery gates; explicit bootstrap mode and a separately prepared pinned etcd client. |
 | `k3s_agent` | K3s worker/agent configuration with one-at-a-time execution and post-restart Node lease, version, and readiness gates. |
@@ -692,7 +702,8 @@ These services are not just "apps"; they are the platform other apps depend on.
 | --- | --- | --- |
 | [DevFeed](kubernetes/projects/applications/apps/devfeed/README.md) | Developer news on 0.1.1 with source/article lifecycle boards, sign-in recovery and SSO sign-out, public API/OAuth/MCP discovery and tier-based partner imports; tag discovery and follows, collection sharing, contextual partner promotions, the partners.devfeed.tech portal and enabled adaptive polling; individual search content-type filters, restored feed navigation, managed publisher logos, background sitemap snapshots and lighter public-page loading; daily Must Reads, weekly streak progress, compact lists and improved mobile navigation; avatar uploads, reading leaderboards, improved Dev Card navigation, admin reader-profile and activity views, enabled X sign-up attribution, HTTPS redirects and stronger reader/admin content security policies; per-user language preferences, feed sorting, reading streaks and shareable Dev Cards; managed topic logos with bounded SVG conversion and 32/64/96-pixel variants; PgBouncer connection reuse, redundant web/APIs, dedicated background workers and a search indexer; OAuth MCP agent connections, native OpenTelemetry metrics and refreshed Grafana dashboards, probes, logs, traces and profiles; automatic pre-upgrade [migration hooks](kubernetes/projects/applications/apps/devfeed/migrations.md). | PostgreSQL, Typesense, shared Valkey Sentinel, Chimely, dedicated Codex and internal imgproxy, R2 article images and topic logos, Zitadel, public Cloudflare Tunnel and internal Traefik. |
 | Firefly III | Personal finance application with a monthly active window; the in-cluster scaler owns web replicas and daily-cron suspension. | PostgreSQL pooler, NFS upload PVC, internal Traefik ingress, scoped Home Assistant API access. |
-| [Hyperlocal Kitchen](kubernetes/projects/applications/apps/hyperlocal-kitchen/README.md) | Community pickup/home-delivery marketplace with admin UI, separate APIs, worker, and gated migrations. | PostgreSQL pooler, persistent Redis, Zitadel, SOPS, Harbor, Cloudflare Tunnel with long random hostnames. |
+| [Hyperlocal Kitchen](kubernetes/projects/applications/apps/hyperlocal-kitchen/README.md) | Paused marketplace and admin portal: UI, APIs, worker, Redis, and dedicated pooler at zero replicas; migrations suspended and data retained. | PostgreSQL pooler, persistent Redis, Zitadel, SOPS, Harbor, retained Cloudflare Tunnel hostnames. |
+| [Launchboard](kubernetes/projects/applications/apps/launchboard/README.md) | Paused pay-to-rank product and People leaderboard: web and dedicated pooler at zero replicas, X automation suspended, database and configuration retained. | PostgreSQL, SOPS, Harbor, retained Cloudflare Tunnel hostnames. |
 | Harbor | Local registry and proxy/cache registry. | PostgreSQL, Valkey, NFS storage, monitoring. |
 | [SonarQube MCP Server](kubernetes/projects/applications/apps/sonarqube-mcp-server/README.md) | Read-only SonarCloud MCP access for DevFeed at `https://sonar.mcp.home/mcp`. | SonarCloud, per-client user tokens, Harbor, internal Traefik, local CA. |
 | Personal Blog | Public blog deployment. | Harbor image, Cloudflare Tunnel, Sanity revalidation secret. |
@@ -701,7 +712,7 @@ These services are not just "apps"; they are the platform other apps depend on.
 | Wardn AI | Paused agent platform: API, frontend, worker, WhatsApp bridge, and dedicated PostgreSQL pooler at zero replicas. | PostgreSQL, Wardn Hub, NFS and Longhorn storage, internal Traefik ingress. |
 | Wardn AI Website | Public product website for Wardn AI. | Harbor image, Cloudflare Tunnel. |
 | Wardn Hub | Public registry with API, frontend, and scoring online; consolidated worker and Codex temporarily paused at zero replicas, with refresh hook skipped and login state retained. | PostgreSQL, OpenTelemetry, Harbor, Cloudflare Tunnel, NFS build cache, Longhorn Codex state. |
-| [Zitadel](kubernetes/projects/applications/apps/zitadel/README.md) | Central identity provider on v4.19.4 with signed Login UI cookies, a custom GitHub registration retry and an isolated DevFeed virtual instance at auth.devfeed.tech. | PostgreSQL, SOPS secrets, Cloudflare Tunnel. |
+| [Zitadel](kubernetes/projects/applications/apps/zitadel/README.md) | Central identity provider on v4.20.0 with signed Login UI cookies, a custom GitHub registration retry and an isolated DevFeed virtual instance at auth.devfeed.tech. | PostgreSQL, SOPS secrets, Cloudflare Tunnel. |
 | Wardn License Server | Private entitlement issuer, Dodo webhook worker, and administration console. | PostgreSQL, Zitadel, Harbor, Dodo, Cloudflare Tunnel. |
 
 ### Database Project
@@ -713,6 +724,10 @@ These services are not just "apps"; they are the platform other apps depend on.
 | Valkey | Shared Valkey replication and Sentinel for queues and caches. |
 | Database network policies | Boundary policies for database access. |
 | PostgreSQL pooler PDBs | Availability policy for app-specific poolers. |
+
+The [database Helm repository bundle](kubernetes/projects/database/apps/database-helm-repositories/README.md)
+refreshes the Bitnami Valkey OCI catalog every 15 minutes so transient download
+errors receive regular recovery attempts through Rancher reconciliation.
 
 ### Entertainment Project
 
@@ -810,9 +825,10 @@ reduces external registry dependency and makes ARM64 image choices visible.
 Harbor's own component images are a bootstrap exception: they pull directly
 from GHCR so the registry can recover without depending on `registry.home`.
 
-Zitadel Login images publish immutable `v4.19.4-idp-retry1-<commit>` tags after
-native ARM64 builds, runtime vulnerability scans, and smoke tests. Deploying a
-new build requires a separate Fleet values change.
+Zitadel Login images publish immutable `4.20.0-idp-retry1-<commit>` tags after
+native ARM64 builds, runtime vulnerability scans, and smoke tests that enforce
+the Node and Next.js security floors, CA distrust policy, and non-root server startup.
+Deploying a new build requires a separate Fleet values change.
 
 Renovate checks non-foundational application, build, CI, and Coder dependencies
 and automerges enabled updates directly into the default branch without opening
@@ -1090,6 +1106,14 @@ matching check against relevant staged files; context-wide checks such as
 Ansible, Renovate policy, and Terraform validation run when their subsystem
 changes.
 
+The [Infrastructure regressions](.github/workflows/infrastructure-regressions.yml)
+workflow also runs Ansible syntax, lint, and discovered role tests plus Kubernetes
+app regression tests on relevant pull requests and pushes to `master`. It reuses
+the local validation runner and pinned Python dependencies. Its fixtures require
+no SSH access, SOPS keys, or Kubernetes credentials. Triggers include Ansible,
+app test directories, the tested UPS Deployment, and shared validation inputs;
+add each new app suite's tested manifest or script paths to the workflow filters.
+
 Subsystem-specific checks remain useful during development.
 
 Validate Renovate dashboard joins and retained-job counts with `promtool`:
@@ -1361,8 +1385,18 @@ shared Alloy/Loki delivery loss. The shared PostgreSQL cluster retains three
 and [Loki delivery notes](kubernetes/projects/system/apps/loki/README.md).
 
 The public [`abhi1693/homelab`](https://github.com/abhi1693/homelab) mirror is
-published by `.github/workflows/mirror-public.yml`. It removes private inventories,
-network configuration, GitHub metadata other than the public mirror's existing
-`.github/FUNDING.yml`, Secret/ConfigMap YAML, and SOPS files,
-including excluded files left over from earlier public snapshots. YAML cleanup
-and verification stop on read errors; the mirror retains its own Git history.
+published by `.github/workflows/mirror-public.yml` from regular tracked files at
+one source commit. Its text-only export removes private inventories, network
+configuration, unrendered Helm generators, actual Secret/ConfigMap/SOPS/SealedSecret
+resources, certificate/key material, credentials, and stale excluded files.
+Declarative certificate resources and resource references remain public; private
+credential-fingerprint annotations are omitted. It preserves the public mirror's
+existing `.github/FUNDING.yml` byte for byte and excludes other GitHub metadata.
+Read, decode, parse, or credential-scan errors stop publication before a public
+commit; a checksummed Gitleaks scan has no baseline or local/inline ignore escape.
+Every reachable public commit, branch and tag is checked with the same artifact
+policy and credential scanner, so a clean tip cannot hide deleted private files.
+One publisher runs at a time, and push credentials exist only in its final step.
+The public mirror has separate history; the private source history is never
+rewritten. See the [public mirror security runbook](docs/runbooks/public-mirror-security.md)
+for policy, regression commands and incident history cleanup.
