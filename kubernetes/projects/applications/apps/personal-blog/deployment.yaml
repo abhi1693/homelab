@@ -23,6 +23,7 @@ spec:
   template:
     metadata:
       annotations:
+        home-lab.io/credential-revision: "1858798b831040729b8e83c97cbab71e"
         home-lab.io/faro-secret-revision: "2026-07-01-browser-key-data"
       labels:
         app.kubernetes.io/name: personal-blog
@@ -57,8 +58,8 @@ spec:
               app.kubernetes.io/component: web
       containers:
         - name: web
-          # renovate: datasource=github-releases depName=abhi1693/personal-blog
-          image: registry.home/ghcr.io/abhi1693/personal-blog:0.3.17
+          # renovate: datasource=docker depName=ghcr.io/abhi1693/personal-blog
+          image: registry.home/ghcr.io/abhi1693/personal-blog:0.3.18@sha256:fdee20672745063d799a9df809e882654d71ee59632fd7741dccb3543800475f
           imagePullPolicy: IfNotPresent
           envFrom:
             - secretRef:
@@ -77,7 +78,7 @@ spec:
               protocol: TCP
           resources:
             requests:
-              cpu: 110m
+              cpu: 100m
               memory: 673Mi
             limits:
               memory: 1152Mi

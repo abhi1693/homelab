@@ -37,8 +37,8 @@ spec:
         fsGroupChangePolicy: OnRootMismatch
       initContainers:
         - name: wait-for-api-rollout
-          # renovate: datasource=github-releases depName=abhi1693/wardn-hub
-          image: registry.home/ghcr.io/abhi1693/wardn-hub-backend:0.2.181
+          # renovate: datasource=docker depName=ghcr.io/abhi1693/wardn-hub-backend
+          image: registry.home/ghcr.io/abhi1693/wardn-hub-backend:0.2.182@sha256:7cb87a9c3b55c7e33cb532d6196bf25304f06774895305daa1ed8775e43d92c3
           imagePullPolicy: IfNotPresent
           command:
             - python
@@ -71,8 +71,8 @@ spec:
                 name: wardn-hub-github
       containers:
         - name: build-next-app
-          # renovate: datasource=github-releases depName=abhi1693/wardn-hub
-          image: registry.home/ghcr.io/abhi1693/wardn-hub-frontend:0.2.181
+          # renovate: datasource=docker depName=ghcr.io/abhi1693/wardn-hub-frontend
+          image: registry.home/ghcr.io/abhi1693/wardn-hub-frontend:0.2.182@sha256:fa457b02297dbd6ed405777b22b2d4023b1f18dfaa0a5d29b419c3c8d2c65a8f
           imagePullPolicy: IfNotPresent
           command:
             - /bin/sh
@@ -81,7 +81,7 @@ spec:
             - |
               set -eu
 
-              cache_version=next-build-v7
+              cache_version=next-build-v8
               cache_root=/app/hub/frontend/.next-build-cache
               artifact_root="$cache_root/artifacts"
               build_root=/app/hub/frontend/.next
@@ -91,20 +91,21 @@ spec:
 
               source_key="$(
                 {
-                  for path in app components hooks lib public; do
+                  for path in app components hooks lib public ../../packages; do
                     [ -d "$path" ] && find "$path" -type f -print0
                   done
-                  for path in next.config.ts package.json postcss.config.mjs proxy.ts tsconfig.json; do
+                  for path in next.config.ts package.json postcss.config.mjs proxy.ts tsconfig.json docker-build-next.sh scripts/prepare-faro-sourcemaps.mjs ../../package.json ../../package-lock.json; do
                     [ -f "$path" ] && printf '%s\0' "$path"
                   done
                 } | sort -z | xargs -0 sha256sum | sha256sum | awk '{print $1}'
               )"
               env_key="$(
                 env | LC_ALL=C sort \
-                  | grep -E '^(NEXT_PUBLIC_|WARDN_HUB_API_INTERNAL_BASE_URL)=' \
+                  | grep -E '^(NEXT_PUBLIC_[A-Za-z0-9_]+|WARDN_HUB_API_INTERNAL_BASE_URL)=' \
                   | sha256sum | awk '{print $1}'
               )"
-              build_key="$(printf '%s\n%s\n%s\n' "$cache_version" "$source_key" "$env_key" | sha256sum | awk '{print $1}')"
+              runtime_key="$(node --version)"
+              build_key="$(printf '%s\n%s\n%s\n%s\n%s\n' "$cache_version" "$source_key" "$env_key" "$APP_VERSION" "$runtime_key" | sha256sum | awk '{print $1}')"
               artifact="$artifact_root/$build_key.tar.gz"
               ready="$artifact_root/$build_key.ready"
 
@@ -120,7 +121,7 @@ spec:
 
               echo "Building Wardn Hub Next.js artifact $build_key..."
               clear_build_root
-              npm run build
+              ./docker-build-next.sh
               rm -rf "$standalone_app/public" "$standalone_app/.next/static"
               mkdir -p "$standalone_app/.next"
               if [ -d public ]; then

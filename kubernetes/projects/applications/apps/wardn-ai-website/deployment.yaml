@@ -55,8 +55,8 @@ spec:
               app.kubernetes.io/component: frontend
       containers:
         - name: frontend
-          # renovate: datasource=github-releases depName=abhi1693/wardn-ai-website
-          image: registry.home/ghcr.io/abhi1693/wardn-ai-website:0.1.1
+          # renovate: datasource=docker depName=ghcr.io/abhi1693/wardn-ai-website
+          image: registry.home/ghcr.io/abhi1693/wardn-ai-website:0.1.2@sha256:4a6b21041ecc7d00f2200674b8966f5887ab70f07dfbeaf1d184ee6cc28f9355
           imagePullPolicy: IfNotPresent
           ports:
             - name: http

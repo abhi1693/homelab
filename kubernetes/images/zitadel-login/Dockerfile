@@ -10,6 +10,8 @@ COPY retry-not-found.ts retry-not-found.test.ts apps/login/src/lib/server/
 RUN python3 /tmp/patch-register.py
 ENV NX_DAEMON=false NX_NO_CLOUD=true NEXT_TELEMETRY_DISABLED=1
 COPY pnpm-workspace.yaml pnpm-lock.yaml ./
+COPY check-dependency-policy.py dependency-policy.json /tmp/
+RUN python3 /tmp/check-dependency-policy.py --workspace /src/pnpm-workspace.yaml --lockfile /src/pnpm-lock.yaml --policy /tmp/dependency-policy.json
 RUN pnpm install --frozen-lockfile
 RUN pnpm nx run @zitadel/login:build
 RUN cd apps/login && pnpm exec vitest run src/lib/server/retry-not-found.test.ts

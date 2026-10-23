@@ -32,7 +32,7 @@ spec:
       containers:
         - name: gateway
           # renovate: datasource=docker depName=ghcr.io/abhi1693/ha-sensors-gateway
-          image: registry.home/ghcr.io/abhi1693/ha-sensors-gateway:0.2.0@sha256:22702400d8f3ccac21951814aa9fa0f5eb46585e524345263380cde11d7fd42f
+          image: registry.home/ghcr.io/abhi1693/ha-sensors-gateway:0.2.1@sha256:5797c54f2b05254f95dc1e19b5692652413e5cb433023b43482d88f281fb24fc
           imagePullPolicy: IfNotPresent
           env:
             - name: UPSTREAM_URL

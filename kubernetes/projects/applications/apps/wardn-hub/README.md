@@ -157,6 +157,31 @@ limit. The higher cap preserves room above repeated near-`2Gi` review bursts
 while still bounding runaway sessions; the recommendation profile can continue
 tuning requests, but the memory limit stays in this manifest.
 
+## Scoring upgrades
+
+Upgrade the scoring service separately from the Hub backend and frontend. Its
+source and release workflows require native ARM64 SBOM generation, strict
+HIGH/CRITICAL and secret scans, and a real HTTP/scoring smoke against an isolated
+read-only registry fixture. The smoke verifies Python 3.12.15, source/image/API
+version parity, non-root identity, native extensions, signed scoring results and
+unsigned webhook rejection, without writing to a registry.
+
+Scoring 0.1.7 uses the private repository-owned
+`ghcr.io/abhi1693/wardn-hub-scoring/runtime` package. Its normal Actions token
+publishes the image; the earlier flat package remains available for rollback.
+GitHub artifact attestations are unavailable for this user-owned private source
+repository on the current account plan. Verify the exact successful release
+reports and hash-checked embedded BuildKit provenance for image subject, source
+revision and workflow run. This does not claim a separate signed GitHub artifact
+attestation. Native scan, SBOM, smoke and immutable-promotion gates remain required.
+
+Pin the published scoring image by immutable digest after those checks. Renovate tracks the published Docker tags and
+retains digest pins. Preserve the existing Hub backend init-container pin during
+a scoring-only upgrade. After Fleet converges, verify both health endpoints,
+OpenAPI version, unsigned webhook rejection, zero restarts and the existing
+paused worker/Codex state. Exercise signed production scoring only through
+normal Hub events; keep synthetic signed requests in the isolated CI fixture.
+
 ## Observability
 
 The backend API and application worker export OpenTelemetry traces over OTLP
@@ -175,3 +200,26 @@ Application traces and cluster-wide container logs/resource metrics remain
 available through the shared observability stack. The Codex thread-saturation
 alert remains because it uses shared cAdvisor metrics, not the retired scrape.
 Codex log export remains disabled and user prompts remain redacted.
+
+## Runtime image cohort and frontend cache
+
+The backend, frontend and Codex app-server images form one application-version
+cohort across all 14 image references, including init containers, release hooks
+and paused deployments. Pin a verified immutable digest for each component in
+the same GitOps change. Keep Scoring's independently released main image and
+all paused replica settings intact. The Renovate policy guard rejects mixed
+versions, missing digests and inconsistent component digests. Renovate follows
+published Docker tags, groups the cohort, and requires review before merge;
+grouping alone does not prove release completeness. Verify all three native
+release reports and signed provenance before selecting their digests.
+
+The frontend image uses `./docker-build-next.sh` for its full locked Next build
+and Faro source-map preparation. Deploy that helper command with the new image.
+Builder, restore and cleanup use identical `next-build-v8` keys: application
+sources, build/Faro helpers, root and workspace dependency files, local packages,
+public frontend variables, the internal API base URL, application version and
+Node version. Private credentials are excluded from the key inputs.
+
+Validate these contracts with
+`python3 -m unittest discover -s kubernetes/projects/applications/apps/wardn-hub/tests -v`
+and `python3 scripts/check-renovate-policy.py`.

@@ -34,8 +34,8 @@ spec:
           type: RuntimeDefault
       containers:
         - name: migrate
-          # renovate: datasource=github-releases depName=abhi1693/wardn-license-server
-          image: registry.home/ghcr.io/abhi1693/wardn-license-server-backend:0.1.1
+          # renovate: datasource=docker depName=ghcr.io/abhi1693/wardn-license-server-backend
+          image: registry.home/ghcr.io/abhi1693/wardn-license-server-backend:0.1.2@sha256:309edffcc16ffc117a37dd3edf858282e928fae24191e67143d709e2be80e517
           imagePullPolicy: IfNotPresent
           command:
             - alembic

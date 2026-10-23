@@ -18,6 +18,8 @@ spec:
     type: Recreate
   template:
     metadata:
+      annotations:
+        kubectl.kubernetes.io/restartedAt: '2026-10-23T07:37:29Z'
       labels:
         app.kubernetes.io/name: devfeed-codex
         app.kubernetes.io/part-of: devfeed
@@ -37,7 +39,7 @@ spec:
       containers:
         - name: codex
           # renovate: datasource=docker depName=ghcr.io/abhi1693/devfeed.tech/codex
-          image: registry.home/ghcr.io/abhi1693/devfeed.tech/codex:0.1.1@sha256:6ae554040d6b4881663f9db957273e8b771d8182d1b43850326a109f6e7d6c1f
+          image: registry.home/ghcr.io/abhi1693/devfeed.tech/codex:0.1.2@sha256:9dcb5e12d64ea4e519ad11ba5aad7c8e31fb69627dcfca89c0d4658fd97b833c
           imagePullPolicy: IfNotPresent
           args:
             - app-server
@@ -110,7 +112,7 @@ spec:
             failureThreshold: 60
         - name: log-retention
           # renovate: datasource=docker depName=ghcr.io/abhi1693/devfeed.tech/codex
-          image: registry.home/ghcr.io/abhi1693/devfeed.tech/codex:0.1.1@sha256:6ae554040d6b4881663f9db957273e8b771d8182d1b43850326a109f6e7d6c1f
+          image: registry.home/ghcr.io/abhi1693/devfeed.tech/codex:0.1.2@sha256:9dcb5e12d64ea4e519ad11ba5aad7c8e31fb69627dcfca89c0d4658fd97b833c
           imagePullPolicy: IfNotPresent
           command:
             - node
@@ -176,7 +178,7 @@ spec:
       initContainers:
         - name: remove-legacy-logs
           # renovate: datasource=docker depName=ghcr.io/abhi1693/devfeed.tech/codex
-          image: registry.home/ghcr.io/abhi1693/devfeed.tech/codex:0.1.1@sha256:6ae554040d6b4881663f9db957273e8b771d8182d1b43850326a109f6e7d6c1f
+          image: registry.home/ghcr.io/abhi1693/devfeed.tech/codex:0.1.2@sha256:9dcb5e12d64ea4e519ad11ba5aad7c8e31fb69627dcfca89c0d4658fd97b833c
           imagePullPolicy: IfNotPresent
           command:
             - node
@@ -206,7 +208,7 @@ spec:
               readOnly: true
         - name: chatgpt-login
           # renovate: datasource=docker depName=ghcr.io/abhi1693/devfeed.tech/codex
-          image: registry.home/ghcr.io/abhi1693/devfeed.tech/codex:0.1.1@sha256:6ae554040d6b4881663f9db957273e8b771d8182d1b43850326a109f6e7d6c1f
+          image: registry.home/ghcr.io/abhi1693/devfeed.tech/codex:0.1.2@sha256:9dcb5e12d64ea4e519ad11ba5aad7c8e31fb69627dcfca89c0d4658fd97b833c
           imagePullPolicy: IfNotPresent
           env:
             - name: CODEX_SQLITE_HOME

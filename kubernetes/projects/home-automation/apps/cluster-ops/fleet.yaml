@@ -6,6 +6,7 @@ labels:
   app.kubernetes.io/part-of: home-automation
   home-lab.io/project-slug: home-automation
 dependsOn:
+  - name: recommender-state-backups
   - name: rancher-project-home-automation
   - name: cluster-ops-crds
 diff:
@@ -17,4 +18,5 @@ diff:
       jsonPointers:
         - /spec/volumeName
 helm:
+  timeoutSeconds: 2400
   takeOwnership: true

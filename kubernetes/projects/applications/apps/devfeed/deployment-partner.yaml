@@ -49,7 +49,7 @@ spec:
         - secretRef:
             name: devfeed-faro
         # renovate: datasource=docker depName=ghcr.io/abhi1693/devfeed.tech/partner
-        image: registry.home/ghcr.io/abhi1693/devfeed.tech/partner:0.1.1@sha256:77c0906d909c2a82f47ff3ccbc5b2f24db22532c562bbd16759fb75f629b54b6
+        image: registry.home/ghcr.io/abhi1693/devfeed.tech/partner:0.1.2@sha256:91ef50d78ac81577a7b0498065ff65bf258bbe217d5e423cc052fa3b2ed08240
         imagePullPolicy: IfNotPresent
         livenessProbe:
           periodSeconds: 30

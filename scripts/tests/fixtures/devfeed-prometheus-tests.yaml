@@ -133,3 +133,103 @@ tests:
       value: 100
     - labels: '{service="web"}'
       value: 50
+- name: read-model lag requires sustained backlog and recovers independently of HTTP readiness
+  interval: 1m
+  input_series:
+  - series: devfeed_read_model_oldest_event_age_seconds{namespace="devfeed",kind="pipeline"}
+    values: 120+0x5 0+0x6
+  alert_rule_test:
+  - eval_time: 4m
+    alertname: DevFeedReadModelLag
+    exp_alerts: []
+  - eval_time: 5m
+    alertname: DevFeedReadModelLag
+    exp_alerts:
+    - exp_labels:
+        severity: warning
+        namespace: devfeed
+        app: devfeed
+        kind: pipeline
+      exp_annotations:
+        summary: DevFeed administration read models are behind
+        description: Pipeline or report demand has remained over 60 seconds old for five minutes. Inspect the dedicated publisher,
+          reserved PgBouncer pool and unacknowledged events before increasing capacity.
+        dashboard_url: http://grafana.home/d/devfeed-operations
+  - eval_time: 6m
+    alertname: DevFeedReadModelLag
+    exp_alerts: []
+- name: fresh reports do not trigger the read-model lag alert
+  interval: 1m
+  input_series:
+  - series: devfeed_read_model_oldest_event_age_seconds{namespace="devfeed",kind="reports"}
+    values: 20+0x15
+  alert_rule_test:
+  - eval_time: 10m
+    alertname: DevFeedReadModelLag
+    exp_alerts: []
+- name: a stalled publisher alerts while a successful publisher stays healthy
+  interval: 1m
+  input_series:
+  - series: devfeed_background_last_success_seconds{namespace="devfeed",cycle="read-models.pipeline"}
+    values: 0+0x15
+  - series: devfeed_background_last_success_seconds{namespace="devfeed",cycle="read-models.reports"}
+    values: 0+60x15
+  - series: kube_deployment_spec_replicas{namespace="devfeed",deployment="devfeed-read-model-pipeline"}
+    values: 1+0x15
+  - series: kube_deployment_spec_replicas{namespace="devfeed",deployment="devfeed-read-model-reports"}
+    values: 1+0x15
+  alert_rule_test:
+  - eval_time: 4m
+    alertname: DevFeedReadModelPublisherStalled
+    exp_alerts: []
+  - eval_time: 9m
+    alertname: DevFeedReadModelPublisherStalled
+    exp_alerts:
+    - exp_labels:
+        severity: warning
+        namespace: devfeed
+        app: devfeed
+        cycle: read-models.pipeline
+      exp_annotations:
+        summary: DevFeed administration publisher has stopped succeeding
+        description: The publisher has no successful cycle within three minutes. Inspect worker health, current leases, database
+          waits and calculation failures; ready HTTP pods do not prove report freshness.
+        dashboard_url: http://grafana.home/d/devfeed-operations
+- name: missing publisher telemetry remains alerting after staleness and recovers when it returns
+  interval: 1m
+  input_series:
+  - series: kube_deployment_spec_replicas{namespace="devfeed",deployment="devfeed-read-model-pipeline"}
+    values: 1+0x15
+  - series: devfeed_background_last_success_seconds{namespace="devfeed",cycle="read-models.pipeline"}
+    values: 0+0x2 stale _x6 660+60x4
+  alert_rule_test:
+  - eval_time: 6m
+    alertname: DevFeedReadModelPublisherStalled
+    exp_alerts: []
+  - eval_time: 9m
+    alertname: DevFeedReadModelPublisherStalled
+    exp_alerts:
+    - exp_labels:
+        severity: warning
+        namespace: devfeed
+        app: devfeed
+        cycle: read-models.pipeline
+      exp_annotations:
+        summary: DevFeed administration publisher has stopped succeeding
+        description: The publisher has no successful cycle within three minutes. Inspect worker health, current leases, database
+          waits and calculation failures; ready HTTP pods do not prove report freshness.
+        dashboard_url: http://grafana.home/d/devfeed-operations
+  - eval_time: 11m
+    alertname: DevFeedReadModelPublisherStalled
+    exp_alerts: []
+- name: intentionally paused publishers do not alert on their old heartbeat
+  interval: 1m
+  input_series:
+  - series: kube_deployment_spec_replicas{namespace="devfeed",deployment="devfeed-read-model-pipeline"}
+    values: 0+0x15
+  - series: devfeed_background_last_success_seconds{namespace="devfeed",cycle="read-models.pipeline"}
+    values: 0+0x15
+  alert_rule_test:
+  - eval_time: 10m
+    alertname: DevFeedReadModelPublisherStalled
+    exp_alerts: []

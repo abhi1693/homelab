@@ -66,3 +66,17 @@ through a Cilium policy.
 - When adding a target, update both the policy and the matching RBAC allowlist.
 - Do not manually patch the live cluster for normal policy changes; encode them
   in Git and let Fleet reconcile.
+
+## Pre-start state restore point
+
+The `rack-state-backups` prerequisite must pass current storage validation
+before this Recreate app is stopped. Its first init backs up its own stopped
+state from read-only source and verifies an isolated full restore before the
+normal init/main process starts. See [the backup contract](../rack-state-backups/README.md).
+No temporary scale commit, backup Job, source claim rename, credential change
+or automatic restore is used. Keep the original source PVC and policy intact.
+
+Release 0.1.4 uses the verified immutable Python 3.14.9 image and requires its
+first stopped-state JSON restore point before the controller starts. Physical
+control policy, existing state identity and optional Home Assistant boundary
+remain unchanged; rollout verification uses metadata and GET-only health/metrics.

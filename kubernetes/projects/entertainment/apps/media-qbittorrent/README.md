@@ -530,3 +530,22 @@ retain the payload until exact episode-file and byte-size verification passes.
 For node-load alerts, productive-worker tuning, and process-table diagnosis,
 follow
 [`docs/runbooks/node-saturation-and-zombie-processes.md`](../../../../../docs/runbooks/node-saturation-and-zombie-processes.md).
+
+## Pre-start state restore points
+
+The controller and Ryokan use independent, verified state backups before their
+Recreate pod starts. See [the backup contract](../media-state-backups/README.md) for ordering,
+retention, bounded node scratch, failure behavior, and offline restoration.
+The existing qBittorrent core catalog backup remains independent.
+
+## Controller runtime 0.2.13
+
+The controller and Ryokan import reconciler use the same verified immutable
+0.2.13 index `sha256:cd54a54c19a2ef40e450b1e53759a10c206eea3247263f6a15d5b67fa793db18`. Native ARM64
+release checks cover controller/reconciler behavior, package/version parity,
+SQLite/TLS and nonroot ownership, strict scans and an SBOM; the signed GitHub
+attestation is verified against source `343b677f` before Fleet changes. The
+runtime uses Python 3.14.9 and omits pip/ensurepip. Existing policy, source PVCs,
+Recreate behavior and media credentials stay in place. First init creates a
+retained restore-verified point before either new writer starts; Ryokan core
+remains 1.9.12 during this cohort.

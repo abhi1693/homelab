@@ -1,8 +1,51 @@
 # DevFeed
 
 Fleet-managed developer news platform. All application workloads use release
-**0.1.1** with verified ARM64 image digests. Approval and publication require an
+**0.1.2** with verified ARM64 image digests. Approval and publication require an
 explicit article page-kind classification; missing or uncertain classifications stay blocked.
+
+The one-time [report statistics Job](report-day-statistics-job.yaml) collects UTC
+completion-day expression statistics for article analysis, topic analysis and
+research verification. This metadata lets PostgreSQL estimate daily report groups
+without sorting wide job-usage rows. It uses one connection through the existing
+reserved read-model pool, keeps the 10-second statement and 30-second report
+budgets unchanged, and verifies the released query's default plans without
+executing them. It changes planner metadata; table data and schema `0034` remain
+unchanged. Existing statistics must match their exact table, expression, kind and
+owner before reuse. Retire the completed regular Job after its result, default
+query performance and all 27 report freshness gates are verified.
+This one-time maintenance targets the three populated job tables; empty or
+unpopulated statistics fail closed. Fractional distinct-count estimates are
+resolved against the analyzed table row estimate before checking report plans.
+
+The initial cutover installs schema `0034` and backfills the pipeline projection.
+This availability revision requires that pipeline to be complete under the current
+serving policy. It retires the one-time pre-upgrade backfill hook so a failed saved
+report cannot hold compatible core APIs and the two durable publishers behind old
+images that reject schema `0034`. The normal migration hook remains unchanged.
+
+Report completion is a separate, mandatory gate before queue resumption: require
+all 27 default reports under the current policy, complete freshness checks, healthy
+core services and Fleet convergence before installing the owned new-image resume
+Job. Partial report publication does not satisfy those gates. Keep all thirteen
+RQ worker Deployments and the scheduler at zero, preserving their normal commands
+and probes. A later Fleet revision restores the original fifteen worker replicas
+and scheduler only after owned resume succeeds, followed by ordinary-work observation.
+Follow the [phased cutover](read-model-rollout.md); previous 0.1.1 applications reject schema
+`0034`. Keep the reserved four publisher connections separate from the twenty
+interactive slots and verify live global connection headroom at each phase.
+
+Publisher probes check the owned private heartbeat directory and the existing
+180-second marker age directly, without loading the analysis or database stack.
+Their five-second execution budgets and all polling and failure thresholds remain
+unchanged. The [probe regressions](tests/test_read_model_probes.py) execute the
+manifest commands with the verbatim released runtime-file helper.
+
+The [maintenance tests](../../../../../scripts/devfeed-maintenance/README.md)
+run actual queue workers on an isolated ARM64 fixture before installing a drain
+Job. Long-running article jobs and synchronous solver dependencies must finish
+before the old workers are scaled down; stopping the scheduler alone does not
+stop queue consumption.
 
 Renovate tracks stable `X.Y.Z` Docker tags for all twelve DevFeed images on GHCR,
 grouping runtime, init-container, and migration-hook updates while refreshing
@@ -12,16 +55,24 @@ Kubernetes continues pulling the pinned images through Harbor.
 Reader language preferences support one or more languages, defaulting to English.
 My feed and Latest retain source/content filters and offer Most liked sorting.
 Source/topic discovery is paginated and restricted to the selected article languages.
-Web, Chrome and Edge share the reader. Chrome and Edge 0.1.22 packages belong to
-the DevFeed 0.1.1 release. Browser-store publication is tracked separately from
+Web, Chrome and Edge share the reader. Chrome and Edge 0.1.23 packages belong to
+the DevFeed 0.1.2 release. Browser-store publication is tracked separately from
 the website deployment.
 Sources added by import, the admin form, or CLI share discovery and review. Imports
 remain pending until reviewed; full-auto mode uses AI review and approval enables polling.
-The pre-upgrade hook applies and verifies schema `0033` before replacing application workloads.
+The schema migration hook remains after the completed pipeline's one-time backfill
+hook is retired. Durable publishers continue report work before queue resumption.
 Release 0.0.41 applied migrations `0018` and `0019`; the migration job mounts the
 operator-managed historical topic-kind map needed to canonicalize stored topic data.
 
-Release 0.1.1 uses source `418b1512ba59a4f2dbb9a3b9b8749a49352f358e` and the
+Release 0.1.2 uses source `4bedaeb9a6419f25f59d46eeb45b9242071f1aa2` and the
+[verified release image manifest](https://github.com/abhi1693/devfeed.tech/releases/download/v0.1.2/image-manifest.json)
+for all twelve ARM64 image pins. It adds saved My feed columns and reader layouts,
+alongside the administration read models. Resume the owned pause only through
+the schema `0034` / 0.1.2 Fleet resume Job, then restore the original workers and
+scheduler together and observe ordinary work for more than thirty minutes.
+
+Release 0.1.1 used source `418b1512ba59a4f2dbb9a3b9b8749a49352f358e` and the
 [verified release image manifest](https://github.com/abhi1693/devfeed.tech/releases/download/v0.1.1/image-manifest.json)
 for all twelve ARM64 image pins. It adds source and article lifecycle boards,
 independently retryable processing, sign-in recovery, coordinated SSO sign-out,
@@ -759,6 +810,13 @@ errors and DevFeed durable job logs remain available; temporarily increase only 
 specific module through GitOps when debugging. Changing the filter replaces the
 single Codex pod; in-flight sessions can reconnect/retry through durable jobs.
 
+For temporary relief from Codex memory-limit reclaim and major page-fault storms,
+update the pod template's `kubectl.kubernetes.io/restartedAt` timestamp in
+`deployment-codex.yaml` and let Fleet replace the pod. This interrupts in-flight
+sessions and releases process memory without changing limits. Verify container
+memory, major page-fault rate and node disk I/O after replacement; recurrence
+requires investigating process memory growth and session concurrency.
+
 ### 0.0.29 release verification and rollback
 
 The six image references and migration hook come from the successful `v0.0.29` CI
@@ -846,3 +904,19 @@ The 2026-10-20 cutover mapped 34 ZITADEL users and 36 social identity links.
 It retained 33 existing DevFeed account UUIDs, three partner memberships and
 one administrator-preferences record. The source users were kept for rollback;
 existing browser sessions require a fresh sign-in with the new issuer.
+
+## Release 0.1.2 maintenance boundary
+
+The completed Fleet Job `devfeed-0-1-2-drain-84632622db` performed the owned
+warm drain using 0.1.1 and a bounded four-hour pause. It observed all fifteen
+replacement workers suspended, empty active execution transport and actual solver
+bridge exit. The following Fleet revision removed all fifteen worker Pods.
+This cutover retires that completed Job and its immutable ConfigMap; their source
+and validation remain in Git history, while the owned resume state stays in Redis.
+
+Keep all thirteen RQ worker Deployments and the scheduler at zero through schema
+`0034`, backfill and active core/read-model verification. Clear only the matching
+owned pause through the new-image resume Job with zero RQ consumers. Then restore
+the original fifteen worker replicas and scheduler together, verify full runtime
+health, and observe ordinary work for more than thirty minutes. Keep the normal
+worker health probes unchanged. Follow the [phased rollout](read-model-rollout.md).

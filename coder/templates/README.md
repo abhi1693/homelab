@@ -126,7 +126,35 @@ state remain on the persistent home PVC.
 
 ## Validation
 
-Run Terraform formatting and validation for every template directory:
+Run the repository Terraform hook to initialize the pinned modules and providers,
+check formatting, and validate all six templates:
+
+```sh
+scripts/run-pre-commit-validation.sh terraform
+```
+
+Initialize before validating after a module version change: an existing module
+cache can still contain an older API. The five repository-cloning templates use
+`coder/git-clone` v2 and preserve shallow cloning with
+`extra_args = ["--depth=1"]`; its removed v1 `depth` input is unsupported. Review
+module upgrade notes and run this hook before accepting a module major update.
+
+The [Terraform validation workflow](../../.github/workflows/terraform-validation.yml)
+runs the same full hook on template, lock file, validation script, and policy
+changes in pull requests and `master`/`renovate/**` pushes. Terraform dependency
+updates within this catalog require passing checks before branch automerge.
+CI pins a stable Terraform CLI and rejects versions older than `1.17.0`, whose
+[release fixes CVE-2026-111943](https://github.com/hashicorp/terraform/releases/tag/v1.17.0)
+with Go `1.26.10`. Before changing the CLI pin, verify the official release and
+compiled Go version for both AMD64 and ARM64. Before initialization, CI also
+observes the actual Terraform CLI version, native `linux_arm64` host/platform,
+and embedded Go build metadata from that same binary. It requires Terraform
+`>=1.17.0` and stable Go `1.26.10+`, `1.27.3+`, or a newer stable Go1 minor.
+The observer emits the observed versions and binary SHA256; network version
+checks and Go toolchain downloads are disabled. CI initializes modules on each
+run, without reusing a persisted module cache or applying Terraform resources.
+
+Individual formatting and validation commands are also available:
 
 ```sh
 terraform -chdir=coder/templates/nodejs-22 fmt -check

@@ -76,3 +76,6 @@ resources:
   - deployment-partner.yaml
   - deployment-partner-api.yaml
   - partner-secrets.sops.yaml
+  - deployment-read-model-pipeline.yaml
+  - deployment-read-model-reports.yaml
+  - report-day-statistics-job.yaml

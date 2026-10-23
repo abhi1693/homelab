@@ -6,6 +6,9 @@
     fail_msg: cilium validation must run on the initial K3s server where k3s_node.cluster_init=true.
     success_msg: "Validating Cilium from the bootstrap K3s server"
 
+- name: Check Cilium kernel BTF compatibility
+  ansible.builtin.import_tasks: kernel_btf.yml
+
 - name: Check Cilium and bundled Traefik manifest files
   ansible.builtin.stat:
     path: "{{ item }}"

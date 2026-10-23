@@ -1,1 +1,5 @@
 catalog.yaml
+README.md
+scripts/
+tests/
+__pycache__/

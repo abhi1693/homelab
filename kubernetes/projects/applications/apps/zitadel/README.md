@@ -52,7 +52,7 @@ SOPS-managed `zitadel-env` secret and must be changed at first login.
 The ZITADEL master key is intentionally stored in `zitadel-masterkey`. Losing
 that key makes encrypted ZITADEL data unrecoverable.
 
-The Login UI runs the digest-pinned `home-lab-zitadel-login:4.20.0-idp-retry1-<commit>`
+The Login UI runs the digest-pinned `home-lab-zitadel-login:4.20.0-idp-retry2-ddd2af6`
 image. It retries only session lookup after successful GitHub account creation
 and linking, covering transient user projection delay. See
 [the image source](../../../../images/zitadel-login/README.md) for regression
@@ -62,14 +62,28 @@ tests, dependency pins, and rollback. The core server uses upstream v4.20.0.
 
 Publish the custom Login image through its native ARM64 build, vulnerability
 scan, retry tests, and Node/Next.js runtime trust/startup checks before updating either
-Login deployment. First update core and the chart-managed Login together,
-then wait for successful hooks and Fleet readiness before updating the dedicated
-DevFeed Login. Both Login deployments must finish on the same verified digest;
-core uses its separate upstream digest.
+Login deployment. Verify the published index, ARM manifest/config, source/run
+provenance and runtime SBOM. Derive the operating-system inventory from the final
+runtime image; the Debian builder and Alpine runtime are separate stages.
 
-Fleet runs the chart init/setup hooks before replacing its server and Login UI;
-`waitForJobs: true` gates the Helm release. Verify a successful CNPG backup and
-continuous archiving before rollout. A core downgrade requires a separate
+For a Login dependency update, change both Login image pins to the same verified
+digest in one GitOps change. Preserve the current Core image, chart, resource
+budgets, namespaces and cookie/TLS key references. Render and compare the chart
+before server-side admission dry runs of the two candidate Deployments. Offline
+Helm rendering generates a synthetic Login TLS key because lookup has no live
+cluster context; exclude that synthetic Secret from admission and retain the
+live checksum in the candidate Deployment. The actual Helm upgrade reuses the
+existing key through lookup. A separate resource recommendation can advance
+Core's template and Pod identities; refresh the pre-rollout snapshot against
+that reviewed source change instead of reverting it or pausing automation.
+
+Fleet can recreate the normal chart init/setup hooks during an upgrade;
+`waitForJobs: true` gates the Helm release. Verify their unchanged Pod specs and
+successful completion, Fleet desired/applied IDs, and at least 120 seconds of
+readiness with zero restarts on all four new Login Pods. A Login-only update
+preserves the current Core Deployment/template and its two Pod identities.
+Verify a successful CNPG backup and continuous archiving before rollout.
+A Core upgrade or downgrade requires a separate
 database compatibility review.
 
 The v4.20.0 upgrade adds proof signing for verification, identity linking, and
@@ -89,8 +103,10 @@ separate from the core environment and app OIDC secrets.
 
 After rollout, check successful init/setup jobs, Fleet desired/applied deployment
 IDs, two ready core replicas and two ready replicas of each Login deployment,
-and both public issuers' OIDC discovery, JWKS, and Login UI readiness endpoints. Verify app callbacks and fresh GitHub registration
-before retiring the custom registration retry. See the
+and both public issuers' OIDC discovery, JWKS, and Login UI readiness endpoints.
+Authenticated callback and fresh-registration checks are separate operator
+checks when changing or retiring the registration retry; anonymous probes do
+not establish session continuity. See the
 [upstream cookie-signing upgrade notes](https://github.com/zitadel/zitadel/releases/tag/v4.19.2).
 
 ## DevFeed virtual instance

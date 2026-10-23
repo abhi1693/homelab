@@ -48,7 +48,7 @@ spec:
       containers:
       - name: mcp
         # renovate: datasource=docker depName=ghcr.io/abhi1693/devfeed.tech/mcp
-        image: registry.home/ghcr.io/abhi1693/devfeed.tech/mcp:0.1.1@sha256:e5fa8c639741ec8a8c006df73522cc7e2528c1d515d8851475f76f4854ef825b
+        image: registry.home/ghcr.io/abhi1693/devfeed.tech/mcp:0.1.2@sha256:2350e88dd3656d67d773840816e5e1f9a308ee4746edf26c3b20c3ab777807e4
         imagePullPolicy: IfNotPresent
         resources:
           requests:

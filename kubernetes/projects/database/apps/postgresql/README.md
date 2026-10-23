@@ -109,7 +109,8 @@ declared app-side maximum connection demand.
 
 | Role | Pooler | App-side budget | Backend capacity | Role limit |
 | --- | --- | ---: | ---: | ---: |
-| `devfeed` | `devfeed-rw` | 13 steady processes; one connection each | 20 | 24 |
+| `devfeed` | `devfeed-rw` | Interactive APIs and ordinary background workers | 20 | 40 |
+| `devfeed` | `devfeed-read-model-rw` | Two single-calculation publishers | 4 | 40 (shared role) |
 | `devfeed_chimely` | `devfeed-rw` | Chimely-managed | 20 | 24 |
 | `jellyfin` | `jellyfin-rw` | 14 | 30 | 32 |
 | `shipyardhq` | `shipyardhq-rw` | 20 | 28 | 32 |
@@ -123,6 +124,16 @@ declared app-side maximum connection demand.
 | `firefly` | `firefly-iii-rw` | implicit | 4 | 10 |
 | `zitadel` | `zitadel-rw` | 16 | 32 | 32 |
 | `home_assistant` | `home-assistant-rw` | implicit | 10 | 12 |
+
+DevFeed preserves its twenty interactive slots and adds four separately bounded
+publisher slots. Simultaneous pooler rollouts can temporarily use thirty plus
+six slots; one direct migration remains below the shared role limit of forty.
+That role ceiling does not reserve global PostgreSQL capacity: authentication
+pools consume additional slots. Do not roll both poolers simultaneously; this
+release reloads existing parameters and provisions the new pool separately.
+Recheck live global headroom, include authentication connections, and follow
+the [phased read-model cutover](../../../applications/apps/devfeed/read-model-rollout.md)
+before deploying schema `0034`.
 
 `wardn-ai-rw` is paused at zero instances alongside Wardn AI. Its database and
 role remain retained in the shared cluster. Restoring its single instance

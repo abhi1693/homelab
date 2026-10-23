@@ -61,7 +61,7 @@ The web UI is available at `http://requests.anime.media.home`.
 Ryokan mounts `/downloads` so it can read qBittorrent's reported anime torrent
 paths, and `/media/anime` as the NAS-backed anime library.
 
-Ryokan 1.9.12 stores a durable checkpoint after each file reaches its final
+Since 1.9.12, Ryokan stores a durable checkpoint after each file reaches its final
 library path. If the process restarts while a multi-file grab is still pending,
 the next pass verifies and resumes completed files instead of copying or
 recycling them again. It also finishes deferred replacement bookkeeping after
@@ -189,3 +189,46 @@ separately rather than deleting database files during an alert response.
 - **Low-resolution posters:** verify `/data` is not full, then run **Rebuild
   metadata cache**. AniList `/cover/small/` assets are only about 100 pixels
   wide; healthy hydrated covers use the high-resolution artwork cache.
+
+## Pre-start state restore points
+
+The first init container backs up the stopped SQLite database, private key,
+artwork and import-reconciler state before credential sync or either writer
+starts. See [the shared backup contract](../media-state-backups/README.md).
+No additional quiesce commit or backup Job is used.
+
+Core 1.9.13 follows the accepted qBit 0.2.13 rollout. Both qBit consumers retain
+the same verified image while Ryokan and the credential-sync runtime update.
+The first init makes a new complete stopped SQLite/configuration/key restore
+point for this target cohort before credential sync and both writers start.
+
+## Credential init runtime
+
+The credential-sync init uses the same immutable, independently verified public
+[Python image](../media-state-backups/public-helper-image.json) as the backup
+helper, with `/usr/bin/python -c` and its existing numeric UID/GID 568. The
+standard-library script, required Secret key references, security context and
+`/data` mount are unchanged. It needs only `os`, `sqlite3`, `time` and `pathlib`;
+there is no startup installer or network request. The stopped-source backup
+still runs first, before credential sync changes any SQLite rows or schema.
+
+A runtime-pin update requires upstream signature verification, native platform
+manifests/configurations, recognized OS inventory/SBOM, strict zero high/critical
+and secret findings, and execution of the exact credential script in a
+read-only, capability-free, no-network UID568 image fixture. Tests cover absent
+state, missing required inputs, both indexer branches, the additive column
+migration, policy/credential idempotency and complete row/schema rollback on
+failure. `updated_at` remains deliberately refreshed by the existing script;
+idempotency does not mean freezing operational timestamps.
+
+```bash
+python3 -m unittest discover -s kubernetes/projects/entertainment/apps/media-ryokan/tests -v
+python3 kubernetes/projects/entertainment/apps/media-ryokan/scripts/verify-credential-runtime.py
+```
+
+The native Docker test uses a private `/data` tmpfs and runs the script bytes
+unchanged. Local repository tests relocate only the database path into a new
+disposable fixture. Production acceptance requires both init containers to exit
+successfully, expected image identities, the retained source/key metadata and
+healthy anonymous login/assets; no synthetic production credentials or writes
+are used for verification.

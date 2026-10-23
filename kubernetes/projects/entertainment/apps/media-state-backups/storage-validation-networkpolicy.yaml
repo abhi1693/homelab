@@ -1,0 +1,19 @@
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: media-state-backups-validation
+  namespace: media
+  labels:
+    app.kubernetes.io/name: media-state-backups-validation
+    app.kubernetes.io/part-of: media-stack
+    home-lab.io/project-slug: entertainment
+spec:
+  podSelector:
+    matchLabels:
+      app.kubernetes.io/name: media-state-backups-validation
+  policyTypes:
+    - Ingress
+    - Egress
+  ingress: []
+  egress: []

@@ -1,0 +1,93 @@
+---
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: recommender-state-backups-storage-validation
+  namespace: cluster-ops
+  labels:
+    app.kubernetes.io/name: recommender-state-backups
+    app.kubernetes.io/part-of: state-backups
+    home-lab.io/project-slug: home-automation
+  annotations:
+    helm.sh/hook: post-install,post-upgrade
+    helm.sh/hook-weight: '10'
+    helm.sh/hook-delete-policy: before-hook-creation
+spec:
+  parallelism: 1
+  completions: 1
+  backoffLimit: 1
+  activeDeadlineSeconds: 180
+  ttlSecondsAfterFinished: 86400
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: recommender-state-backups
+        app.kubernetes.io/part-of: state-backups
+        home-lab.io/project-slug: home-automation
+    spec:
+      restartPolicy: Never
+      automountServiceAccountToken: false
+      enableServiceLinks: false
+      nodeSelector:
+        kubernetes.io/arch: arm64
+      securityContext:
+        runAsNonRoot: true
+        seccompProfile:
+          type: RuntimeDefault
+      containers:
+        - name: validate-destination
+          # renovate: datasource=docker depName=cgr.dev/chainguard/python
+          image: cgr.dev/chainguard/python:latest@sha256:93c92d4ee2d0a4e540ec4de4e708267b45c2551a3c836fdf3e174a05017a76de
+          imagePullPolicy: IfNotPresent
+          command:
+            - /usr/bin/python
+            - -B
+            - /backup-helper/backup_state.py
+          args:
+            - --validate-destination
+            - --app
+            - recommender
+            - --destination
+            - /backups
+            - --pod-uid
+            - $(POD_UID)
+            - --timeout
+            - '120'
+          env:
+            - name: POD_UID
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.uid
+            - name: PYTHONDONTWRITEBYTECODE
+              value: '1'
+          resources:
+            requests:
+              cpu: 10m
+              memory: 32Mi
+            limits:
+              cpu: 100m
+              memory: 64Mi
+          securityContext:
+            runAsNonRoot: true
+            runAsUser: 65532
+            runAsGroup: 65532
+            readOnlyRootFilesystem: true
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop:
+                - ALL
+          volumeMounts:
+            - name: helper
+              mountPath: /backup-helper
+              readOnly: true
+            - name: destination
+              mountPath: /backups
+          terminationMessagePolicy: File
+      volumes:
+        - name: helper
+          configMap:
+            name: media-prestart-backup-c24c14a3317c
+            defaultMode: 292
+        - name: destination
+          persistentVolumeClaim:
+            claimName: recommender-state-backup-nfs

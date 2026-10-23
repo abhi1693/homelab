@@ -36,8 +36,8 @@ spec:
         kubernetes.io/arch: arm64
       initContainers:
         - name: wait-for-api-rollout
-          # renovate: datasource=github-releases depName=abhi1693/wardn-hub
-          image: registry.home/ghcr.io/abhi1693/wardn-hub-backend:0.2.181
+          # renovate: datasource=docker depName=ghcr.io/abhi1693/wardn-hub-backend
+          image: registry.home/ghcr.io/abhi1693/wardn-hub-backend:0.2.182@sha256:7cb87a9c3b55c7e33cb532d6196bf25304f06774895305daa1ed8775e43d92c3
           imagePullPolicy: IfNotPresent
           command:
             - python
@@ -70,8 +70,8 @@ spec:
                 name: wardn-hub-github
       containers:
         - name: scoring
-          # renovate: datasource=docker depName=ghcr.io/abhi1693/wardn-hub-scoring
-          image: registry.home/ghcr.io/abhi1693/wardn-hub-scoring:0.1.3
+          # renovate: datasource=docker depName=ghcr.io/abhi1693/wardn-hub-scoring/runtime
+          image: registry.home/ghcr.io/abhi1693/wardn-hub-scoring/runtime:0.1.7@sha256:58bc45a9cdc1047d30423a44b3b3d6714f02653971f09f32c9965e3d2648602d
           imagePullPolicy: IfNotPresent
           env:
             - name: WARDN_HUB_SCORING_DRY_RUN

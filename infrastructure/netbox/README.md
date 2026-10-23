@@ -46,6 +46,12 @@ support, or retired classification in `workload-catalog-exclusions.yaml`.
 Additional catalogs under `platform-catalogs/` cover Ansible-owned platforms.
 The validator reports current application and controller counts.
 
+The restore-point prerequisites are classified with their existing applications:
+`media-state-backups` is shared support for `media-stack`, while
+`rack-state-backups` and `recommender-state-backups` are components of `rack-ops`
+and `cluster-ops`. Their retained claims, helper configuration, and storage
+acceptance Jobs do not constitute independent services.
+
 Detailed catalogs can record retained stores, stable endpoints, and named
 dependencies without duplicating Pods, ReplicaSets, Pod IPs, completed Jobs,
 Secrets, health history, or runtime metrics.
@@ -69,6 +75,9 @@ unique keys, deterministic workload and store identities, complete project-app
 directory coverage, and an app-local `.fleetignore` entry so
 catalog metadata is never rendered as a Kubernetes resource. A newly added app
 directory fails validation until it has a catalog or a reviewed classification.
+Real repository inventory follows the Git index, including staged new apps and
+excluding unrelated untracked work. A Git inventory error blocks validation;
+isolated schema fixtures outside Git use their fixture tree.
 The
 `Workload catalog validation` workflow runs the same check on relevant changes.
 Renovate tracks the pinned validation dependencies and every PyPI plugin pin in

@@ -2,29 +2,23 @@
 
 Fleet-managed deployment for ShipyardHQ.
 
-Application release `1.5.40` fixes live-clock prerender errors on leaderboards
-and member pages, keeps guide parameter access behind Suspense, and prevents
-default-plan loading from swallowing framework control-flow errors. The HTTP
-observer cleans up response listeners and correlates failed responses and render
-errors with request IDs and Cloudflare Ray values. The original tunnel reset's
-application cause remains unproven.
+Application release `1.5.41` refreshes compatible locked packages and moves the
+runtime to Node 26.12.1. It retains the preceding rendering, framework
+control-flow and request-observer fixes. Next.js 16.4.2, React 19.3.1,
+Clerk 7.9.19 and Prisma 7.10.1 remain within their supported major versions.
+All 82 Prisma migrations and the database schema are unchanged.
 
-The release refreshes 53 compatible direct package constraints, including Next.js
-16.4.2, React 19.3.1, Clerk 7.9.17, and Prisma 7.10.1. Major-version migrations and
-prereleases are excluded. Prisma Client is regenerated without schema changes or
-new migrations. The production npm audit reports zero vulnerabilities; the
-existing lint-only glob-chain advisories remain excluded from the container.
-
-Source commit `494795bf` passed all 514 tests, ESLint, application and tooling
-TypeScript checks, formatting validation, the production build, desktop/mobile
-public-route and CSS checks, and repeated authenticated member flows. GitHub Tests
-and Security Checks passed.
-[Release CI](https://github.com/abhi1693/shipyardhq/actions/runs/38949547313)
-passed the ARM64 image build, runtime smoke checks, and security scan with zero
-high/critical vulnerabilities and zero secrets.
-All six image references pin index digest
-`sha256:26baceb033c263c7c89ae90cadc30ecbe339e61f18d5b92779271344b0cd9549`,
-verified identical at GHCR and the internal mirror.
+Source commit `8059e3d6` passed the application suite, nine release-contract
+checks, dependency-security checks, lint and application/tooling type checks.
+[Release CI](https://github.com/abhi1693/shipyardhq/actions/runs/39908177849)
+passed native ARM64 build, SBOM, strict scan and actual isolated PostgreSQL,
+production-build, HTTP/assets, authentication-boundary and native-library smoke
+checks before immutable promotion. The index's signed GitHub attestation was
+verified against the exact source tag and shared signer workflow. All six image
+references pin index digest
+`sha256:2d183579c6f045f002e6d795b0d82fa0a3f54da2ddcbd6643a40adb3ef73fa55`.
+Fleet acceptance also checks the live mirror index and native configuration,
+zero restarts, database migration state, public assets and desktop/mobile views.
 
 Next.js 16.4.2 and React 19.3.1 retain Cache Components with Partial Prefetching;
 the public layout requires static shells and per-link prefetches with
@@ -39,9 +33,11 @@ The preceding 1.5.32 release gives historical leaderboard payloads a fixed
 longer leaves obsolete generations in Valkey indefinitely. The active version
 marker remains persistent.
 
-The image uses Node.js 22.23.2 on Alpine 3.24 with npm 11.19.1 with patched bundled brace-expansion 5.0.12, undici 6.28.1,
+The image uses Node.js 26.12.1 on Alpine 3.24 with npm 11.19.1 with patched bundled brace-expansion 5.0.12, undici 6.28.1,
 and http-cache-semantics 4.3.0,
 and Alpine security updates. This replaces the vulnerable Debian base and bundled npm tools.
+Prisma CLI and client engines are checksum-verified during the image build;
+Fleet migration and generation commands do not download engines at startup.
 GNU tar preserves Fleet artifact compatibility. The native ARM64 CI smoke check
 loads Sharp, the profiler, Next.js SWC, and Tailwind, generates Prisma, tests
 cache retention, and round-trips an artifact using Fleet's exact tar options.
@@ -51,13 +47,8 @@ findings without available fixes; no scan exception is enabled.
 For release 1.5.32, a read-only production Prisma profile of a populated
 historical month's cache-miss queries completed in 473 ms.
 
-On upgrade, apply a one-time `EXPIRE 86400 NX` to existing payload keys in
-`production:leaderboard:periodic:historical:v1:*` and
-`production:leaderboard:periodic:historical:v2:*` in Valkey DB 20, using bounded
-`SCAN` batches. This preserves values and existing expirations. Do not expire
-the `production:leaderboard:periodic:historical:version` marker. Verify a newly
-written payload has a positive TTL no greater than 86400 seconds before the
-migration, then verify no payload keys remain without expiration afterward.
+The earlier 1.5.32 cache migration had a separate payload-expiration action.
+This patch retains that TTL behavior and does not repeat that migration.
 
 `npm run build` packages public and static assets into the standalone output
 after removing public source maps. Both the Docker entrypoint and Fleet builder
@@ -67,11 +58,11 @@ check stylesheet HTTP responses and desktop/mobile rendering after rollout.
 
 The web, worker, builder, ingestion, and cache-cleanup images share the same
 release. There are no database schema changes. To roll back, revert this release
-change through Git, restoring all four image-pin manifests to 1.5.39, and let
+change through Git, restoring all four image-pin manifests to 1.5.40, and let
 Fleet build or reuse the matching artifact before rolling the pods. Rollback
 restores the previous application and dependency versions; no database rollback
 is needed.
-Historical leaderboard TTL behavior is unchanged by 1.5.40.
+Historical leaderboard TTL behavior is unchanged by 1.5.41.
 
 The custom web, worker, and image-proxy Deployments retain two ReplicaSet
 revisions; Git and Fleet history remain the primary rollback path.
@@ -181,11 +172,23 @@ release. Running web pods keep using their local extracted bundle if a newer
 artifact is later written to the PVC; new artifacts are consumed through normal
 Deployment rollouts.
 
-The cache key includes source files, application and Node.js versions, build-time
-environment, and a cache-format
-version. The `shipyardhq-next-build-cache-cleanup` CronJob recomputes the
+The shared `next-build-v12` cache key includes source files, application and
+Node.js versions, and the build-time environment. Builder, restore init, and
+cleanup hash complete variable names under `CLERK_`, `CLOUDFLARE_`, `DODO_`,
+`GA_`, `GOOGLE_`, `IMGPROXY_`, `MONTHLY_WINNER_`, `NEXT_PUBLIC_`, and `R2_`,
+along with the existing exact build controls. Configuration changes invalidate
+the previous artifact before web replacement. Unrelated runtime credentials
+stay outside this key; tests use synthetic values and emit only hashes.
+
+The `shipyardhq-next-build-cache-cleanup` CronJob recomputes the
 current cache key every three days, verifies that the matching `.tar.gz` and
 `.ready` files exist, and then removes only non-current cached build artifacts.
+
+Validate the actual environment-hash blocks from all three manifests with:
+
+```sh
+python3 -m unittest discover -s kubernetes/projects/applications/apps/shipyardhq/tests -v
+```
 
 Product detail routes keep the application default prerender list so hot product
 pages are generated during the first build for a release, while ISR and

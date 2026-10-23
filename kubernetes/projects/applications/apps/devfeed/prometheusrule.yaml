@@ -234,3 +234,30 @@ spec:
         description: Check Probe discovery and the redundant blackbox exporter pods; missing telemetry is not success.
         runbook_url: https://github.com/abhi1693/devfeed.tech/blob/v0.1.0/packages/core/OBSERVABILITY.md
         dashboard_url: http://grafana.home/d/devfeed-operations
+  - name: devfeed.read-models
+    interval: 30s
+    rules:
+    - alert: DevFeedReadModelLag
+      expr: max by (kind) (devfeed_read_model_oldest_event_age_seconds{namespace="devfeed"}) > 60
+      for: 5m
+      labels:
+        severity: warning
+        namespace: devfeed
+        app: devfeed
+      annotations:
+        summary: DevFeed administration read models are behind
+        description: Pipeline or report demand has remained over 60 seconds old for five minutes. Inspect the dedicated publisher,
+          reserved PgBouncer pool and unacknowledged events before increasing capacity.
+        dashboard_url: http://grafana.home/d/devfeed-operations
+    - alert: DevFeedReadModelPublisherStalled
+      expr: ((time() - max by (cycle) (devfeed_background_last_success_seconds{namespace="devfeed",cycle=~"read-models[.](pipeline|reports)"}) > 180) or (max by (cycle) (label_replace(kube_deployment_spec_replicas{namespace="devfeed",deployment=~"devfeed-read-model-(pipeline|reports)"} > 0, "cycle", "read-models.$1", "deployment", "devfeed-read-model-(pipeline|reports)")) unless on (cycle) max by (cycle) (devfeed_background_last_success_seconds{namespace="devfeed",cycle=~"read-models[.](pipeline|reports)"}))) and on (cycle) max by (cycle) (label_replace(kube_deployment_spec_replicas{namespace="devfeed",deployment=~"devfeed-read-model-(pipeline|reports)"} > 0, "cycle", "read-models.$1", "deployment", "devfeed-read-model-(pipeline|reports)"))
+      for: 5m
+      labels:
+        severity: warning
+        namespace: devfeed
+        app: devfeed
+      annotations:
+        summary: DevFeed administration publisher has stopped succeeding
+        description: The publisher has no successful cycle within three minutes. Inspect worker health, current leases, database
+          waits and calculation failures; ready HTTP pods do not prove report freshness.
+        dashboard_url: http://grafana.home/d/devfeed-operations

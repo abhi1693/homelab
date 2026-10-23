@@ -35,7 +35,7 @@ repos:
         entry: scripts/run-pre-commit-validation.sh renovate-policy
         language: system
         pass_filenames: false
-        files: ^(?:kubernetes/projects/.*\.ya?ml|scripts/check-renovate-policy\.py)$
+        files: ^(?:kubernetes/projects/.*\.ya?ml|scripts/(?:check-(?:renovate-policy|terraform-toolchain)\.py|run-pre-commit-validation\.sh|tests/test_terraform(?:_merge_policy|_toolchain)\.py)|\.github/workflows/terraform-validation\.yml)$
 
       - id: validate-kubernetes
         name: Validate Kubernetes manifests
@@ -56,7 +56,7 @@ repos:
         entry: scripts/run-pre-commit-validation.sh terraform
         language: system
         pass_filenames: false
-        files: ^coder/templates/.*\.tf$
+        files: ^(?:coder/templates/.*(?:\.tf|/\.terraform\.lock\.hcl)|scripts/run-pre-commit-validation\.sh|\.github/workflows/terraform-validation\.yml)$
 
       - id: validate-shell
         name: Validate shell scripts

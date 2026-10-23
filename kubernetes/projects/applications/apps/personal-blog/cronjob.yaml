@@ -9,6 +9,7 @@ metadata:
     app.kubernetes.io/part-of: personal-blog
 spec:
   schedule: "0 18 * * 5"
+  timeZone: Asia/Kolkata
   concurrencyPolicy: Forbid
   successfulJobsHistoryLimit: 3
   failedJobsHistoryLimit: 0

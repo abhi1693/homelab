@@ -20,3 +20,15 @@ spec:
     - {key: home-k3s/media/batch/cronjob/qbittorrent-downloads-layout, namespace: media, apiGroup: batch, kind: CronJob, name: qbittorrent-downloads-layout, sourcePath: kubernetes/projects/entertainment/apps/media-qbittorrent/downloads-layout-cronjob.yaml}
     - {key: home-k3s/media/batch/cronjob/qbittorrent-state-backup, namespace: media, apiGroup: batch, kind: CronJob, name: qbittorrent-state-backup, sourcePath: kubernetes/projects/entertainment/apps/media-qbittorrent/state-backup-cronjob.yaml}
     - {key: home-k3s/media/batch/cronjob/qbittorrent-tracker-refresh, namespace: media, apiGroup: batch, kind: CronJob, name: qbittorrent-tracker-refresh, sourcePath: kubernetes/projects/entertainment/apps/media-qbittorrent/tracker-refresh-cronjob.yaml}
+  persistentStores:
+    - key: home-k3s/media/pvc/qbittorrent-smart-queues-backup-nfs
+      namespace: media
+      type: pvc
+      name: qbittorrent-smart-queues-backup-nfs
+      storageClass: nfs-shared-retain
+      capacity: 1Gi
+      accessModes: [ReadWriteMany]
+      retention: retain
+      backup: Verified state archives before each app writer starts; three completed points are retained. NAS dataset protection remains external.
+      dataClassification: sensitive
+      sourcePath: kubernetes/projects/entertainment/apps/media-state-backups/controller-backup-pvc.yaml

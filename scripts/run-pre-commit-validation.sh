@@ -66,6 +66,8 @@ validate_renovate_policy() {
   require_command python3
 
   python3 scripts/check-renovate-policy.py
+  python3 -m unittest discover -s scripts/tests -p 'test_terraform*.py' -v
+  python3 -m unittest discover -s kubernetes/images/zitadel-login/tests -v
 }
 
 validate_kubernetes() {

@@ -51,7 +51,7 @@ spec:
       terminationGracePeriodSeconds: 180
       containers:
       - name: api
-        image: registry.home/ghcr.io/abhi1693/devfeed.tech/backend:0.1.1@sha256:607c540414d8c218835b4ac447a5f84143acef1f97ac747867778db178583268
+        image: registry.home/ghcr.io/abhi1693/devfeed.tech/backend:0.1.2@sha256:77d8cadbcc9e78701d06912ef0e54b7f96947e6f4625ef864b6f814c77478133
         imagePullPolicy: IfNotPresent
         resources:
           requests:
@@ -143,7 +143,7 @@ spec:
             app.kubernetes.io/part-of: devfeed
       initContainers:
       - name: wait-for-schema
-        image: registry.home/ghcr.io/abhi1693/devfeed.tech/backend:0.1.1@sha256:607c540414d8c218835b4ac447a5f84143acef1f97ac747867778db178583268
+        image: registry.home/ghcr.io/abhi1693/devfeed.tech/backend:0.1.2@sha256:77d8cadbcc9e78701d06912ef0e54b7f96947e6f4625ef864b6f814c77478133
         imagePullPolicy: IfNotPresent
         securityContext:
           runAsNonRoot: true

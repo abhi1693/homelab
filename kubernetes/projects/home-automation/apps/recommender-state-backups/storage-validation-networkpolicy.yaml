@@ -1,0 +1,19 @@
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: recommender-state-backups-validation
+  namespace: cluster-ops
+  labels:
+    app.kubernetes.io/name: recommender-state-backups
+    app.kubernetes.io/part-of: state-backups
+    home-lab.io/project-slug: home-automation
+spec:
+  podSelector:
+    matchLabels:
+      app.kubernetes.io/name: recommender-state-backups
+  policyTypes:
+    - Ingress
+    - Egress
+  ingress: []
+  egress: []

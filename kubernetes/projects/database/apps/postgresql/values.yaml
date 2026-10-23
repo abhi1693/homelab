@@ -424,7 +424,9 @@ cluster:
     - name: devfeed
       ensure: present
       login: true
-      connectionLimit: 24
+      # 30 interactive + 6 projector backends during simultaneous pooler rolls,
+      # one direct migration, and three spare administrative/recovery connections.
+      connectionLimit: 40
       superuser: false
       createdb: false
       createrole: false
@@ -1087,6 +1089,8 @@ poolers:
     parameters:
       max_client_conn: '60'
       default_pool_size: '10'
+      max_db_connections: '10'
+      max_user_connections: '10'
       # Keep one warm backend per pool; retire only excess unused connections.
       min_pool_size: "1"
       server_idle_timeout: "120"
@@ -1113,6 +1117,60 @@ poolers:
               - labelSelector:
                   matchLabels:
                     cnpg.io/poolerName: postgresql-pooler-devfeed-rw
+                matchLabelKeys:
+                  - pod-template-hash
+                topologyKey: kubernetes.io/hostname
+        containers:
+          - name: pgbouncer
+            # renovate: datasource=docker depName=ghcr.io/cloudnative-pg/pgbouncer
+            image: registry.home/ghcr.io/cloudnative-pg/pgbouncer:1.26.0
+            resources:
+              requests:
+                cpu: 50m
+                memory: 56Mi
+              limits:
+                memory: 192Mi
+
+  - name: devfeed-read-model-rw
+    type: rw
+    poolMode: session
+    instances: 2
+    monitoring:
+      enabled: true
+      podMonitor:
+        enabled: true
+    parameters:
+      # Pipeline and report processes each calculate one item at a time.
+      max_client_conn: '8'
+      default_pool_size: '2'
+      max_db_connections: '2'
+      max_user_connections: '2'
+      # Keep one warm backend per pool; retire only excess unused connections.
+      min_pool_size: "1"
+      server_idle_timeout: "120"
+    template:
+      metadata:
+        labels:
+          app.kubernetes.io/part-of: postgresql
+          home-lab.io/client: devfeed
+      spec:
+        nodeSelector:
+          kubernetes.io/arch: arm64
+        topologySpreadConstraints:
+          - maxSkew: 1
+            topologyKey: kubernetes.io/hostname
+            whenUnsatisfiable: DoNotSchedule
+            labelSelector:
+              matchLabels:
+                cnpg.io/poolerName: postgresql-pooler-devfeed-read-model-rw
+            matchLabelKeys:
+              - pod-template-hash
+        affinity:
+          podAntiAffinity:
+            requiredDuringSchedulingIgnoredDuringExecution:
+              - labelSelector:
+                  matchLabels:
+                    cnpg.io/poolerName: postgresql-pooler-devfeed-read-model-rw
                 matchLabelKeys:
                   - pod-template-hash
                 topologyKey: kubernetes.io/hostname

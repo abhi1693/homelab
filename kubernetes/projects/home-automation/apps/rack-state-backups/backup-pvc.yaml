@@ -1,0 +1,19 @@
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: rack-state-backup-nfs
+  namespace: rack-ops
+  annotations:
+    helm.sh/resource-policy: keep
+  labels:
+    app.kubernetes.io/name: rack-state-backups
+    app.kubernetes.io/part-of: state-backups
+    home-lab.io/project-slug: home-automation
+spec:
+  accessModes:
+    - ReadWriteMany
+  storageClassName: nfs-shared-retain
+  resources:
+    requests:
+      storage: 1Gi

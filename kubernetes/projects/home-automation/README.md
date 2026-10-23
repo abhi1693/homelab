@@ -23,6 +23,7 @@ Keeping these services in one project makes the boundary clear.
 | `cloudflare-tunnel-ingress-controller` | Runs the Cloudflare Tunnel ingress controller. | Public app ingress, Cloudflare credentials. |
 | `cloudflare-tunnel-ingress-controller-networkpolicy` | Applies network boundaries for tunnel connector traffic. | Public ingress to explicitly allowlisted app services, including the Wardn AI website. |
 | `cluster-ops` | Runs worker-hosted cluster operation controllers, including K8s Recommendation Engine profile runners. | Kubernetes API, Prometheus, Fleet-managed app state. |
+| `recommender-state-backups` | Validates a retained NFS destination before a later Recommender pre-start backup rollout. | Namespace-local acceptance Job, immutable shared helper, existing `cluster-ops` namespace ownership. |
 | `cups` | Shares the HP Deskjet 2510 over LAN IPP at `printer.home:631`. | USB printer on `k8s-rpi1`, Longhorn state, explicit node placement; manual client setup. |
 | `home-assistant` | Home automation runtime with commit-pinned source from `abhi1693/home-assistant` and a code-server sidecar. | Family desktop dashboard, UniFi Protect camera wall, Atomberg fans, media integrations, Longhorn config PVC, PostgreSQL Recorder. |
 | `home-assistant-go2rtc` | Runs the authenticated WebRTC relay used by Home Assistant camera entities. | Cluster-only signaling API, fixed MetalLB LAN media candidate, and exact Protect RTSPS egress. |
@@ -31,6 +32,7 @@ Keeping these services in one project makes the boundary clear.
 | `netbox` | Source-of-truth app for IPAM, infrastructure inventory, cabling, DNS, and lifecycle documentation; UniFi Network clients are excluded. | Direct PostgreSQL write service, Valkey data, NFS media, and custom image plugins. |
 | `netbox-mcp-server` | Exposes authenticated per-user NetBox operations through MCP. | ARM64 runtime, internal NetBox service, Traefik TLS, local CA trust, and strict network policy. |
 | `rack-ops-controllers` | Worker-hosted rack controller plus node-local helpers. | Kubernetes API, Home Assistant webhooks, NFS state, smart queues, thermal policy. |
+| `rack-state-backups` | Validates a retained NFS destination before a later Rack controller pre-start backup rollout. | Namespace-local acceptance Job, immutable shared helper, existing `rack-ops` namespace ownership. |
 | `ups-monitoring` | NUT, PeaNUT dashboard, exporter, Grafana dashboard, and alerts. | USB UPS on a specific node, Home Assistant integration, monitoring. |
 
 ## Coupling Patterns

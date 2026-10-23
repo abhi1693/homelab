@@ -5,6 +5,7 @@ from __future__ import annotations
 
 import argparse
 import re
+import subprocess
 import sys
 from pathlib import Path
 
@@ -50,6 +51,38 @@ RESERVED_CUSTOM_OBJECT_FIELDS = {
 
 def relative(path: Path) -> str:
     return path.resolve().relative_to(REPOSITORY_ROOT).as_posix()
+
+
+def tracked_paths() -> set[str] | None:
+    """Use the real Git index; isolated non-Git schema fixtures use their tree."""
+    if not (REPOSITORY_ROOT / ".git").exists():
+        return None
+    try:
+        result = subprocess.run(
+            ["git", "-C", str(REPOSITORY_ROOT), "ls-files", "--cached", "-z"],
+            capture_output=True,
+            check=False,
+        )
+    except OSError as error:
+        raise ValueError("Git-owned catalog inventory is unavailable") from error
+    if result.returncode:
+        raise ValueError("Git-owned catalog inventory is unavailable")
+    return {path.decode("utf-8", errors="strict") for path in result.stdout.split(b"\0") if path}
+
+
+def catalog_paths(paths: set[str] | None) -> list[Path]:
+    return sorted(
+        {path for pattern in CATALOG_GLOBS for path in REPOSITORY_ROOT.glob(pattern)
+         if paths is None or relative(path) in paths}
+    )
+
+
+def app_directories(paths: set[str] | None) -> set[str]:
+    if paths is None:
+        return {relative(path) for path in REPOSITORY_ROOT.glob(APP_DIR_GLOB) if path.is_dir()}
+    return {"/".join(parts[:5]) for path in paths
+            if len(parts := path.split("/")) >= 6
+            and parts[:2] == ["kubernetes", "projects"] and parts[3] == "apps"}
 
 
 def expected_key(cluster: str, item_type: str, item: dict[str, object]) -> str:
@@ -125,13 +158,15 @@ def validate_catalogs(
         "endpoints": {},
         "dependencies": {},
     }
-    catalogs = sorted(
-        {path for pattern in CATALOG_GLOBS for path in REPOSITORY_ROOT.glob(pattern)}
-    )
+    try:
+        paths = tracked_paths()
+    except (UnicodeDecodeError, ValueError) as error:
+        return [str(error)]
+    catalogs = catalog_paths(paths)
     if not catalogs:
         return [f"no catalogs matched {CATALOG_GLOBS}"]
 
-    project_catalogs = set(REPOSITORY_ROOT.glob(PROJECT_CATALOG_GLOB))
+    project_catalogs = {path for path in catalogs if path.match(PROJECT_CATALOG_GLOB)}
     catalog_directories = {relative(path.parent) for path in project_catalogs}
     exclusions_document = yaml.safe_load(exclusions_path.read_text(encoding="utf-8"))
     exclusions = exclusions_document.get("spec", {}).get("exclusions", [])
@@ -151,13 +186,9 @@ def validate_catalogs(
     overlap = sorted(catalog_directories & excluded_paths)
     if overlap:
         errors.append(f"cataloged application directories also excluded: {overlap}")
-    app_directories = {
-        relative(path)
-        for path in REPOSITORY_ROOT.glob(APP_DIR_GLOB)
-        if path.is_dir()
-    }
-    uncovered = sorted(app_directories - catalog_directories - excluded_paths)
-    stale_exclusions = sorted(excluded_paths - app_directories)
+    app_paths = app_directories(paths)
+    uncovered = sorted(app_paths - catalog_directories - excluded_paths)
+    stale_exclusions = sorted(excluded_paths - app_paths)
     if uncovered:
         errors.append(f"unclassified project app directories: {uncovered}")
     if stale_exclusions:
@@ -247,9 +278,11 @@ def main() -> int:
         for error in errors:
             print(f"- {error}", file=sys.stderr)
         return 1
-    catalogs = sorted(
-        {path for pattern in CATALOG_GLOBS for path in REPOSITORY_ROOT.glob(pattern)}
-    )
+    try:
+        catalogs = catalog_paths(tracked_paths())
+    except (UnicodeDecodeError, ValueError):
+        print("Git-owned catalog inventory is unavailable", file=sys.stderr)
+        return 1
     workload_count = sum(
         len(yaml.safe_load(path.read_text(encoding="utf-8"))["spec"]["workloads"])
         for path in catalogs

@@ -5,6 +5,7 @@ labels:
   app.kubernetes.io/part-of: media-stack
   home-lab.io/project-slug: entertainment
 dependsOn:
+  - name: media-state-backups
   - name: rancher-project-entertainment
   - name: media-storage
   - name: qbittorrent
@@ -19,4 +20,5 @@ diff:
       jsonPointers:
         - /spec/volumeName
 helm:
+  timeoutSeconds: 2400
   takeOwnership: true

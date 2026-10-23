@@ -8,6 +8,7 @@ metadata:
     app.kubernetes.io/part-of: media-stack
     home-lab.io/project-slug: entertainment
 spec:
+  progressDeadlineSeconds: 2400
   revisionHistoryLimit: 2
   replicas: 1
   strategy:
@@ -45,12 +46,90 @@ spec:
         seccompProfile:
           type: RuntimeDefault
       initContainers:
-        - name: sync-qbittorrent-credentials
-          # renovate: datasource=docker depName=docker.io/library/python
-          image: registry.home/docker.io/library/python:3.15-alpine
+        - name: backup-state-before-start
+          # renovate: datasource=docker depName=cgr.dev/chainguard/python
+          image: cgr.dev/chainguard/python:latest@sha256:93c92d4ee2d0a4e540ec4de4e708267b45c2551a3c836fdf3e174a05017a76de
           imagePullPolicy: IfNotPresent
           command:
-            - python3
+            - /usr/bin/python
+            - /backup-helper/backup_state.py
+          args:
+            - --app
+            - ryokan
+            - --source
+            - /source
+            - --destination
+            - /backups
+            - --work
+            - /work
+            - --pod-uid
+            - $(POD_UID)
+            - --cohort
+            - qbit-0.2.13-ryokan-1.9.13
+            - --source-pvc
+            - ryokan-data
+            - --source-pvc-uid
+            - 3592d0d7-92fe-47f9-abe6-01fa52c2b71b
+            - --timeout
+            - '1800'
+            - --retention
+            - '3'
+            - --scratch-reserve-bytes
+            - '536870912'
+            - --max-source-bytes
+            - '8589934592'
+            - --max-work-bytes
+            - '25769803776'
+            - --max-archive-bytes
+            - '10737418240'
+          env:
+            - name: POD_UID
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.uid
+            - name: PYTHONDONTWRITEBYTECODE
+              value: '1'
+            - name: PYTHONUNBUFFERED
+              value: '1'
+            - name: TMPDIR
+              value: /work
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            runAsNonRoot: true
+            runAsUser: 568
+            runAsGroup: 568
+            capabilities:
+              drop:
+                - ALL
+          resources:
+            requests:
+              cpu: 100m
+              memory: 128Mi
+              ephemeral-storage: 24Gi
+            limits:
+              cpu: 1000m
+              memory: 512Mi
+              ephemeral-storage: 24Gi
+          volumeMounts:
+            - name: data
+              mountPath: /source
+              readOnly: true
+            - name: prestart-backup-helper
+              mountPath: /backup-helper
+              readOnly: true
+            - name: prestart-backup-work
+              mountPath: /work
+            - name: prestart-backup-destination
+              mountPath: /backups
+          terminationMessagePolicy: File
+        - name: sync-qbittorrent-credentials
+          # Reviewed with media-state-backups/public-helper-image.json.
+          # renovate: datasource=docker depName=cgr.dev/chainguard/python
+          image: cgr.dev/chainguard/python:latest@sha256:93c92d4ee2d0a4e540ec4de4e708267b45c2551a3c836fdf3e174a05017a76de
+          imagePullPolicy: IfNotPresent
+          command:
+            - /usr/bin/python
             - -c
             - |
               import os
@@ -228,7 +307,7 @@ spec:
       containers:
         - name: ryokan
           # renovate: datasource=docker depName=ghcr.io/abhi1693/ryokan
-          image: registry.home/ghcr.io/abhi1693/ryokan:1.9.12@sha256:fb402dc4054a5ccd2146475d6b7fba550c4a27cba4247753432b27b4148ed6d3
+          image: registry.home/ghcr.io/abhi1693/ryokan:1.9.13@sha256:15e43bf5e84cde3abd955263c493764828ff8e400b788708b5719fdbb0242782
           imagePullPolicy: IfNotPresent
           envFrom:
             - configMapRef:
@@ -279,7 +358,7 @@ spec:
               mountPath: /tmp
         - name: import-reconciler
           # renovate: datasource=docker depName=ghcr.io/abhi1693/qbittorrent-smart-queues
-          image: registry.home/ghcr.io/abhi1693/qbittorrent-smart-queues:0.2.12
+          image: registry.home/ghcr.io/abhi1693/qbittorrent-smart-queues:0.2.13@sha256:cd54a54c19a2ef40e450b1e53759a10c206eea3247263f6a15d5b67fa793db18
           imagePullPolicy: IfNotPresent
           command:
             - python
@@ -341,6 +420,16 @@ spec:
               subPath: anime
               readOnly: true
       volumes:
+        - name: prestart-backup-helper
+          configMap:
+            name: media-prestart-backup-c24c14a3317c
+            defaultMode: 292
+        - name: prestart-backup-work
+          emptyDir:
+            sizeLimit: 24Gi
+        - name: prestart-backup-destination
+          persistentVolumeClaim:
+            claimName: ryokan-prestart-backup-nfs
         - name: data
           persistentVolumeClaim:
             claimName: ryokan-data

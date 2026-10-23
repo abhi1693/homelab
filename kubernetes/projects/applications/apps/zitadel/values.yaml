@@ -101,7 +101,7 @@ login:
     repository: registry.home/ghcr.io/abhi1693/home-lab-zitadel-login
     # Bounded GitHub registration session retry; core stays on upstream v4.20.0.
     # renovate: datasource=docker depName=ghcr.io/abhi1693/home-lab-zitadel-login
-    tag: 4.20.0-idp-retry1-ae469a9@sha256:42292186a5b895de691988ce8f562ee06746708f5a38bf0f7070afbf147df835
+    tag: 4.20.0-idp-retry2-ddd2af6@sha256:0d5fbf1e9c5fedf28487d1f529b5b46f2d31e5a3e815564c9a98a0475e1b60d3
     pullPolicy: IfNotPresent
   service:
     type: ClusterIP
@@ -155,7 +155,7 @@ login:
 resources:
   requests:
     cpu: 50m
-    memory: 168Mi
+    memory: 163Mi
   limits:
     memory: 768Mi
 nodeSelector:

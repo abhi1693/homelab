@@ -143,6 +143,30 @@ Debian and Raspberry Pi kernel upgrades, ordering around database primaries,
 and bounded recovery after each reboot.
 Persistent package and CA trust baselines are checked during routine validation.
 
+Upgrade applications one at a time through Git and Fleet. Capture workload,
+database/storage, Fleet, and public-route health first. For first-party apps,
+merge validated source changes and publish the native ARM64 patch image through
+CI before changing its GitOps pin; verify the scan, SBOM, provenance, tag, and
+digest. Image update automation must track published containers rather than
+the GitHub release event that starts their build.
+The [application release runbook](docs/runbooks/application-release-upgrades.md)
+covers runner capacity, GHCR package ownership and Actions access, immutable
+release failures, coupled image cohorts and live acceptance checks.
+
+Blog runtime credential changes follow a [staged GitOps cutover](docs/runbooks/personal-blog-credential-cutover.md):
+encrypted provider-response recovery, Secret materialization before the normal
+image/revision rollout, private Pod environment proof, and exact old-key retirement.
+The required Sanity preview token remains intact while privileged recovery access
+is unavailable; its rotation status remains explicitly blocked.
+
+Keep paused replicas and suspended jobs paused. Wait for matching Fleet desired
+and applied bundle IDs, healthy replacement pods, the expected runtime/image,
+and live application checks before moving to the next app. Record compatibility
+holds and unavailable vendor fixes rather than bypassing validation. The
+[Portfolio workflow](kubernetes/projects/applications/apps/portfolio/README.md#upgrades)
+shows the checks for a stateless public app; stateful apps also require their
+documented database migrations and backup/restore gates.
+
 Rancher chart upgrades have a [scheduling preflight](infrastructure/ansible/README.md)
 that blocks an unschedulable surge while the three replicas require separate
 control-plane nodes.
@@ -158,7 +182,15 @@ NetBox workload catalog validation:
 ```sh
 python -m pip install --requirement .github/requirements/workload-catalog.txt
 python scripts/validate-workload-catalog.py
+python -m unittest discover --start-directory .github/tests --pattern test_workload_catalog.py -v
 ```
+
+Catalog CI checks every project app-directory change in pull requests and
+`master`/`renovate/**` pushes. New apps need a catalog or reviewed classification
+before merge. Retained backup PVCs belong in their owning application catalogs;
+completed destination-validation Jobs remain component configuration.
+Catalog inventory follows tracked and staged paths; unrelated untracked work
+does not become part of the repository catalog.
 
 Coder template checks:
 
@@ -547,6 +579,14 @@ For a CLI-only update, run `playbooks/cilium.yml -e cilium_entrypoint=cli` from
 `infrastructure/ansible/`; this entrypoint changes the CLI on the bootstrap
 server without rendering values or touching the Cilium dataplane.
 
+Cilium stays at **1.20.1** on the current Raspberry Pi kernels. Bootstrap and
+read-only role validation share a guard that rejects **1.20.2 and later** when
+any node lacks `/sys/kernel/btf/vmlinux`; newer patch or minor versions cannot
+skip that guard. Keep this hold until an upstream compatibility fix is verified
+against the actual kernels. The normal Ansible validation hook runs the
+[role's local version-boundary fixtures](infrastructure/ansible/roles/cilium/README.md)
+without contacting cluster hosts.
+
 ## Layer 2 LoadBalancer VIPs
 
 The cluster uses MetalLB address pools and Layer 2 advertisements for service
@@ -700,7 +740,7 @@ These services are not just "apps"; they are the platform other apps depend on.
 
 | App | What it does | Notable dependencies |
 | --- | --- | --- |
-| [DevFeed](kubernetes/projects/applications/apps/devfeed/README.md) | Developer news on 0.1.1 with source/article lifecycle boards, sign-in recovery and SSO sign-out, public API/OAuth/MCP discovery and tier-based partner imports; tag discovery and follows, collection sharing, contextual partner promotions, the partners.devfeed.tech portal and enabled adaptive polling; individual search content-type filters, restored feed navigation, managed publisher logos, background sitemap snapshots and lighter public-page loading; daily Must Reads, weekly streak progress, compact lists and improved mobile navigation; avatar uploads, reading leaderboards, improved Dev Card navigation, admin reader-profile and activity views, enabled X sign-up attribution, HTTPS redirects and stronger reader/admin content security policies; per-user language preferences, feed sorting, reading streaks and shareable Dev Cards; managed topic logos with bounded SVG conversion and 32/64/96-pixel variants; PgBouncer connection reuse, redundant web/APIs, dedicated background workers and a search indexer; OAuth MCP agent connections, native OpenTelemetry metrics and refreshed Grafana dashboards, probes, logs, traces and profiles; automatic pre-upgrade [migration hooks](kubernetes/projects/applications/apps/devfeed/migrations.md). | PostgreSQL, Typesense, shared Valkey Sentinel, Chimely, dedicated Codex and internal imgproxy, R2 article images and topic logos, Zitadel, public Cloudflare Tunnel and internal Traefik. |
+| [DevFeed](kubernetes/projects/applications/apps/devfeed/README.md) | Developer news on 0.1.2 with saved My feed columns, reader layouts and independently budgeted administration read-model publishers on schema 0034; source/article lifecycle boards, sign-in recovery and SSO sign-out, public API/OAuth/MCP discovery and tier-based partner imports; tag discovery and follows, collection sharing, contextual partner promotions, the partners.devfeed.tech portal and enabled adaptive polling; individual search content-type filters, restored feed navigation, managed publisher logos, background sitemap snapshots and lighter public-page loading; daily Must Reads, weekly streak progress, compact lists and improved mobile navigation; avatar uploads, reading leaderboards, improved Dev Card navigation, admin reader-profile and activity views, enabled X sign-up attribution, HTTPS redirects and stronger reader/admin content security policies; per-user language preferences, feed sorting, reading streaks and shareable Dev Cards; managed topic logos with bounded SVG conversion and 32/64/96-pixel variants; PgBouncer connection reuse, redundant web/APIs, dedicated background workers and a search indexer; OAuth MCP agent connections, native OpenTelemetry metrics and refreshed Grafana dashboards, probes, logs, traces and profiles; automatic pre-upgrade [migration hooks](kubernetes/projects/applications/apps/devfeed/migrations.md). | PostgreSQL, Typesense, shared Valkey Sentinel, Chimely, dedicated Codex and internal imgproxy, R2 article images and topic logos, Zitadel, public Cloudflare Tunnel and internal Traefik. |
 | Firefly III | Personal finance application with a monthly active window; the in-cluster scaler owns web replicas and daily-cron suspension. | PostgreSQL pooler, NFS upload PVC, internal Traefik ingress, scoped Home Assistant API access. |
 | [Hyperlocal Kitchen](kubernetes/projects/applications/apps/hyperlocal-kitchen/README.md) | Paused marketplace and admin portal: UI, APIs, worker, Redis, and dedicated pooler at zero replicas; migrations suspended and data retained. | PostgreSQL pooler, persistent Redis, Zitadel, SOPS, Harbor, retained Cloudflare Tunnel hostnames. |
 | [Launchboard](kubernetes/projects/applications/apps/launchboard/README.md) | Paused pay-to-rank product and People leaderboard: web and dedicated pooler at zero replicas, X automation suspended, database and configuration retained. | PostgreSQL, SOPS, Harbor, retained Cloudflare Tunnel hostnames. |
@@ -825,13 +865,13 @@ reduces external registry dependency and makes ARM64 image choices visible.
 Harbor's own component images are a bootstrap exception: they pull directly
 from GHCR so the registry can recover without depending on `registry.home`.
 
-Zitadel Login images publish immutable `4.20.0-idp-retry1-<commit>` tags after
+Zitadel Login images publish immutable `4.20.0-idp-retry2-<commit>` tags after
 native ARM64 builds, runtime vulnerability scans, and smoke tests that enforce
 the Node and Next.js security floors, CA distrust policy, and non-root server startup.
 Deploying a new build requires a separate Fleet values change.
 
 Renovate checks non-foundational application, build, CI, and Coder dependencies
-and automerges enabled updates directly into the default branch without opening
+and automerges most enabled updates directly into the default branch without opening
 PRs, while manifests keep Harbor pull paths. Home-built images use GHCR source paths
 through the Harbor GHCR proxy cache, for example
 `registry.home/ghcr.io/abhi1693/...`. Cluster-foundational versions such as
@@ -842,6 +882,30 @@ Valkey chart upgrades also require a guarded `OnDelete` rollout, and completed
 Rack Ops bootstrap Jobs require an explicit new Job revision; Renovate excludes
 those two manifests to preserve their operational contracts.
 
+Wardn Hub image updates form a reviewed backend/frontend/Codex cohort. All 14
+image references must share one release version and one immutable digest per
+component; `scripts/check-renovate-policy.py` rejects partial updates. Its grouped
+Renovate PR requires native release and signed-provenance verification before
+merge. Scoring keeps its own independent release.
+
+ShipyardHQ shares a `next-build-v12` cache contract across its builder hook,
+web restore init, and cleanup CronJob. Complete build-variable prefixes, including
+`NEXT_PUBLIC_` and `CLERK_`, invalidate the cached artifact when configuration
+changes; the normal builder hook completes before replacement web pods restore it.
+The [cache regression tests](kubernetes/projects/applications/apps/shipyardhq/tests/test_build_cache_key.py)
+execute each manifest's hash block with synthetic inputs.
+
+Wardn License Server also tracks published backend/frontend Docker images as a
+reviewed group, covering the API, console and direct-writer migration hook.
+Release events start publication, so both native-checked immutable images must
+be verified before merging an update. The private source workflow disables
+unsupported GitHub artifact attestations; existing pins stay unchanged until a
+verified release update. Other enabled dependencies retain branch automerge.
+The release's strict License guard keeps all three image references on one
+stable version, binds API/frontend/migration containers to their correct image
+components and requires one immutable digest per component.
+
+
 PostgreSQL retains a dedicated `app` bootstrap role and database aligned with
 CNPG's generated credentials. Existing clusters missing that role/database use
 the [staged bootstrap owner repair](docs/runbooks/postgresql-bootstrap-owner-repair.md)
@@ -850,6 +914,13 @@ before switching the monitoring database back to `app`.
 PostgreSQL poolers retain one warm backend per database/user pool and release
 excess unused server connections after 120 seconds to preserve connection headroom. Long-running queries and client-attached sessions are unaffected;
 see the [PgBouncer operating notes](kubernetes/projects/database/apps/postgresql/README.md#pgbouncer-connection-budgets).
+
+DevFeed 0.1.2 reserves four additional publisher connections separately from its
+twenty interactive slots. RQ workers and the scheduler remain at zero through
+migration and read-model validation. Clear the owned pause before a later Fleet
+revision restores the original workers and scheduler together. Use the
+[phased read-model cutover](kubernetes/projects/applications/apps/devfeed/read-model-rollout.md)
+and fresh global connection counts; keep both poolers from rolling together.
 
 ### Ingress coupling
 
@@ -1084,7 +1155,11 @@ should not become the normal deployment mechanism.
 ## Validation
 
 Container publication uses centrally maintained security gates for SBOMs, provenance
-and runtime scanning. See [repository automation](.github/README.md).
+and runtime scanning. See [repository automation](.github/README.md). The personal
+blog tracks final published Docker images, so a source release cannot select an
+image before its native real-CMS build and security/runtime gates pass. Its
+existing single-image branch-update policy remains enabled; acceptance verifies
+the exact ARM64 index/config, signed provenance, public posts/feeds and assets.
 
 Pre-commit is the repository-wide validation runner. On Linux, bootstrap its
 Python and native tooling, install the hook, and run the complete suite with:
@@ -1106,13 +1181,30 @@ matching check against relevant staged files; context-wide checks such as
 Ansible, Renovate policy, and Terraform validation run when their subsystem
 changes.
 
+The [Terraform validation workflow](.github/workflows/terraform-validation.yml)
+also runs the full formatting, backend-disabled initialization, and validation
+hook for all Coder templates on relevant pull requests and `master`/`renovate/**`
+pushes. Coder Terraform updates require passing checks before Renovate branch
+automerge; module upgrades must migrate removed inputs and validate against the
+pinned module API. Before initialization, hosted ARM64 CI observes the actual
+CLI version, platform, binary SHA256, and embedded Go compiler version, and
+rejects releases below the reviewed Terraform and Go security floors.
+
 The [Infrastructure regressions](.github/workflows/infrastructure-regressions.yml)
 workflow also runs Ansible syntax, lint, and discovered role tests plus Kubernetes
 app regression tests on relevant pull requests and pushes to `master`. It reuses
 the local validation runner and pinned Python dependencies. Its fixtures require
 no SSH access, SOPS keys, or Kubernetes credentials. Triggers include Ansible,
-app test directories, the tested UPS Deployment, and shared validation inputs;
+app test directories, DevFeed and PostgreSQL cutover manifests, the tested UPS
+Deployment, and shared validation inputs;
 add each new app suite's tested manifest or script paths to the workflow filters.
+
+The [DevFeed maintenance validation](.github/workflows/devfeed-maintenance.yml)
+workflow exercises queue draining with the deployed immutable ARM64 backend and
+an isolated Redis Unix socket. It checks active-job completion, solver handoff,
+supervised worker replacement, pause ownership and failure recovery before a
+Fleet maintenance Job is installed. It has no production credentials or network
+access inside the fixture; see the [maintenance tests](scripts/devfeed-maintenance/README.md).
 
 Subsystem-specific checks remain useful during development.
 
@@ -1400,3 +1492,30 @@ One publisher runs at a time, and push credentials exist only in its final step.
 The public mirror has separate history; the private source history is never
 rewritten. See the [public mirror security runbook](docs/runbooks/public-mirror-security.md)
 for policy, regression commands and incident history cleanup.
+
+Media controller upgrades use [verified pre-start restore points](kubernetes/projects/entertainment/apps/media-state-backups/README.md) on dedicated retained NFS claims; the SQLite snapshot uses bounded node scratch before application init or schema writes. Backup helpers use an independently public, immutable [Chainguard Python pin](kubernetes/projects/entertainment/apps/media-state-backups/public-helper-image.json), so storage acceptance has no dependency on app-owned registry credentials. Persisted receipts use the explicit [NAS storage policy](kubernetes/projects/entertainment/apps/media-state-backups/backup-storage-policy.json): mapped UID 977:GID 988, protected directories 0770/files 0660 (or stricter 0700/0600), with claim root 0777 recorded separately and no owner-only or encryption claim.
+
+Every Git-tracked project application `fleet.yaml`, including new prerequisites,
+must be discovered exactly once by the local
+[project GitRepo paths](kubernetes/fleet/fleet-project-gitrepos/README.md). A generic
+registration regression checks explicit paths and globs; backup contract tests
+check dependency ordering and storage safety.
+
+Restore-point writer image updates retain Renovate branch automerge with
+[passing branch checks](kubernetes/projects/applications/apps/renovate/README.md#restore-point-writer-branch-checks).
+Dynamic regressions bind both qBit pins, Recommender clone/main pins and backup
+cohort labels to actual writer versions before a Renovate branch can merge.
+
+Ryokan credential sync uses the same verified standard-library runtime as its backup helper, retaining its existing transaction and Secret references after the backup gate.
+
+Recommender's namespace-local [storage prerequisite](kubernetes/projects/home-automation/apps/recommender-state-backups/README.md)
+is registered with the home-automation GitRepo in the same change. It validates
+one retained NFS destination in `cluster-ops` before the separately reviewed
+application backup init and image rollout; source state and namespace ownership
+remain with the existing app.
+
+Rack's namespace-local [storage prerequisite](kubernetes/projects/home-automation/apps/rack-state-backups/README.md)
+is registered with the home-automation GitRepo in the same change. It validates
+one retained NFS destination in `rack-ops` before the separately reviewed controller
+backup init and image rollout; existing source state, device policy and namespace
+ownership remain with the application.

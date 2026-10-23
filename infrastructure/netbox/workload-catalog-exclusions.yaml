@@ -85,6 +85,10 @@ spec:
       disposition: support
       application: media-stack
       reason: Shared PV, PVC, namespace, and credential declarations are referenced by media applications.
+    - path: kubernetes/projects/entertainment/apps/media-state-backups
+      disposition: support
+      application: media-stack
+      reason: Retained restore-point claims and storage acceptance support the qBittorrent controller and Ryokan.
     - path: kubernetes/projects/home-automation/apps/cloudflare-tunnel-ingress-controller-networkpolicy
       disposition: component
       application: cloudflare-tunnel-ingress-controller
@@ -105,6 +109,14 @@ spec:
       disposition: component
       application: netbox
       reason: Namespace, database, and registry secrets support NetBox.
+    - path: kubernetes/projects/home-automation/apps/rack-state-backups
+      disposition: component
+      application: rack-ops
+      reason: Retained backup storage, helper configuration, and storage acceptance support Rack Ops.
+    - path: kubernetes/projects/home-automation/apps/recommender-state-backups
+      disposition: component
+      application: cluster-ops
+      reason: Retained backup storage, helper configuration, and storage acceptance support the Cluster Ops Recommendation Engine.
     - path: kubernetes/projects/system/apps/cert-manager-local-ca
       disposition: component
       application: cert-manager

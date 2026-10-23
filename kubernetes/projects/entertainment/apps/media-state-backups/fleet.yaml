@@ -1,0 +1,28 @@
+---
+name: media-state-backups
+defaultNamespace: media
+labels:
+  app.kubernetes.io/name: media-state-backups
+  app.kubernetes.io/part-of: media-stack
+  home-lab.io/project-slug: entertainment
+dependsOn:
+  - name: rancher-project-entertainment
+  - name: media-storage
+helm:
+  takeOwnership: true
+  waitForJobs: true
+  timeoutSeconds: 300
+diff:
+  comparePatches:
+    - apiVersion: v1
+      kind: PersistentVolumeClaim
+      name: qbittorrent-smart-queues-backup-nfs
+      namespace: media
+      jsonPointers:
+        - /spec/volumeName
+    - apiVersion: v1
+      kind: PersistentVolumeClaim
+      name: ryokan-prestart-backup-nfs
+      namespace: media
+      jsonPointers:
+        - /spec/volumeName

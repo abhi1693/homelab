@@ -10,6 +10,7 @@ metadata:
     home-lab.io/project-slug: entertainment
 spec:
   replicas: 1
+  progressDeadlineSeconds: 2400
   revisionHistoryLimit: 2
   strategy:
     type: Recreate
@@ -62,10 +63,91 @@ spec:
         runAsUser: 65532
         seccompProfile:
           type: RuntimeDefault
+      initContainers:
+        - name: backup-state-before-start
+          # renovate: datasource=docker depName=cgr.dev/chainguard/python
+          image: cgr.dev/chainguard/python:latest@sha256:93c92d4ee2d0a4e540ec4de4e708267b45c2551a3c836fdf3e174a05017a76de
+          imagePullPolicy: IfNotPresent
+          command:
+            - /usr/bin/python
+            - /backup-helper/backup_state.py
+          args:
+            - --app
+            - controller
+            - --source
+            - /source
+            - --destination
+            - /backups
+            - --work
+            - /work
+            - --pod-uid
+            - $(POD_UID)
+            - --cohort
+            - qbit-0.2.13-ryokan-1.9.12
+            - --source-pvc
+            - qbittorrent-smart-queues-state-nfs
+            - --source-pvc-uid
+            - 11d5d382-8201-4ed9-9843-d3ecabda328a
+            - --timeout
+            - '1800'
+            - --retention
+            - '3'
+            - --scratch-reserve-bytes
+            - '33554432'
+            - --max-source-bytes
+            - '67108864'
+            - --max-work-bytes
+            - '268435456'
+            - --max-archive-bytes
+            - '134217728'
+          env:
+            - name: POD_UID
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.uid
+            - name: PYTHONDONTWRITEBYTECODE
+              value: '1'
+            - name: PYTHONUNBUFFERED
+              value: '1'
+            - name: TMPDIR
+              value: /work
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            runAsNonRoot: true
+            runAsUser: 65532
+            runAsGroup: 65532
+            capabilities:
+              drop:
+                - ALL
+          resources:
+            requests:
+              cpu: 100m
+              memory: 128Mi
+              ephemeral-storage: 256Mi
+            limits:
+              cpu: 1000m
+              memory: 512Mi
+              ephemeral-storage: 256Mi
+          volumeMounts:
+            - name: smart-queues-state
+              mountPath: /source
+              readOnly: true
+            - name: prestart-backup-helper
+              mountPath: /backup-helper
+              readOnly: true
+            - name: prestart-backup-work
+              mountPath: /work
+            - name: prestart-backup-destination
+              mountPath: /backups
+            - name: prestart-no-api-token
+              mountPath: /var/run/secrets/kubernetes.io/serviceaccount
+              readOnly: true
+          terminationMessagePolicy: File
       containers:
         - name: qbittorrent-smart-queues
           # renovate: datasource=docker depName=ghcr.io/abhi1693/qbittorrent-smart-queues
-          image: registry.home/ghcr.io/abhi1693/qbittorrent-smart-queues:0.2.12
+          image: registry.home/ghcr.io/abhi1693/qbittorrent-smart-queues:0.2.13@sha256:cd54a54c19a2ef40e450b1e53759a10c206eea3247263f6a15d5b67fa793db18
           imagePullPolicy: IfNotPresent
           ports:
             - name: metrics
@@ -574,6 +656,20 @@ spec:
             - name: smart-queues-state
               mountPath: /state
       volumes:
+        - name: prestart-backup-helper
+          configMap:
+            name: media-prestart-backup-c24c14a3317c
+            defaultMode: 292
+        - name: prestart-backup-work
+          emptyDir:
+            sizeLimit: 256Mi
+        - name: prestart-backup-destination
+          persistentVolumeClaim:
+            claimName: qbittorrent-smart-queues-backup-nfs
+        - name: prestart-no-api-token
+          emptyDir:
+            medium: Memory
+            sizeLimit: 1Mi
         - name: media-downloads
           persistentVolumeClaim:
             claimName: media-downloads-unas

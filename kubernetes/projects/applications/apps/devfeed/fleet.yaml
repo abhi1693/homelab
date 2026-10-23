@@ -11,7 +11,7 @@ dependsOn:
   - name: csi-driver-nfs-helmop
 helm:
   takeOwnership: true
-  timeoutSeconds: 900
+  timeoutSeconds: 3600
 diff:
   comparePatches:
     - apiVersion: v1

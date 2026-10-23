@@ -1,0 +1,21 @@
+{
+  "image": "cgr.dev/chainguard/python:latest@sha256:93c92d4ee2d0a4e540ec4de4e708267b45c2551a3c836fdf3e174a05017a76de",
+  "pythonFloor": "3.12",
+  "entrypoint": "/usr/bin/python",
+  "children": {
+    "amd64": "sha256:09e818b09a9d0a843389029887eb3d60e364c81e56f03f9c94199d237f8a0802",
+    "arm64": "sha256:22294786e60a8fc23148c10b45e06c38accc1bc54608ae684f5892ecd00823ad"
+  },
+  "configDigests": {
+    "amd64": "sha256:b65100240b224b9d9c6dbf721882e0a45593297cd6b017e094db04247e9b8c6b",
+    "arm64": "sha256:4102924aa4c0408c767cc08bbb0ca5f2351e74c14ec9b22491524865fe063699"
+  },
+  "upstreamDocumentation": "https://images.chainguard.dev/directory/image/python/overview",
+  "scanPolicy": "HIGH/CRITICAL including unfixed zero; all-severity secrets zero; independent OS inventory/SBOM; no startup installers",
+  "actualPython": "3.15.0",
+  "actualSQLite": "3.54.1",
+  "actualOpenSSL": "4.0.3",
+  "recognizedOSPackagesPerArch": 30,
+  "sbomComponentsPerArch": 31,
+  "helperSHA256": "c24c14a3317cbbd4cdbd2e152fb5639191da6d7d7ad45e4608bd4b2d3a50938d"
+}

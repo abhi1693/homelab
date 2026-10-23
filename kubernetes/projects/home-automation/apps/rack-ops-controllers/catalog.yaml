@@ -25,3 +25,15 @@ spec:
     - {key: home-k3s/rack-ops/apps/daemonset/rpi-shutdown-k8s-rpi6, namespace: rack-ops, apiGroup: apps, kind: DaemonSet, name: rpi-shutdown-k8s-rpi6, sourcePath: kubernetes/projects/home-automation/apps/rack-ops-controllers/smart-queues-rpi-shutdown.yaml}
     - {key: home-k3s/rack-ops/apps/daemonset/rpi-shutdown-k8s-rpi7, namespace: rack-ops, apiGroup: apps, kind: DaemonSet, name: rpi-shutdown-k8s-rpi7, sourcePath: kubernetes/projects/home-automation/apps/rack-ops-controllers/smart-queues-rpi-shutdown.yaml}
     - {key: home-k3s/rack-ops/apps/daemonset/rpi-shutdown-k8s-rpi8, namespace: rack-ops, apiGroup: apps, kind: DaemonSet, name: rpi-shutdown-k8s-rpi8, sourcePath: kubernetes/projects/home-automation/apps/rack-ops-controllers/smart-queues-rpi-shutdown.yaml}
+  persistentStores:
+    - key: home-k3s/rack-ops/pvc/rack-state-backup-nfs
+      namespace: rack-ops
+      type: pvc
+      name: rack-state-backup-nfs
+      storageClass: nfs-shared-retain
+      capacity: 1Gi
+      accessModes: [ReadWriteMany]
+      retention: retain
+      backup: Verified rack-state archives before each app writer starts; three completed points are retained. NAS dataset protection remains external.
+      dataClassification: restricted
+      sourcePath: kubernetes/projects/home-automation/apps/rack-state-backups/backup-pvc.yaml

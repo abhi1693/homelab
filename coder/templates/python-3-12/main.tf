@@ -423,7 +423,7 @@ module "git_clone" {
   url         = data.coder_parameter.repo_url.value
   base_dir    = local.workspace_home
   folder_name = "work"
-  depth       = 1
+  extra_args  = ["--depth=1"]
 
   depends_on = [data.coder_external_auth.github]
 }

@@ -27,7 +27,7 @@ enforces JSON-only requests, a 2 MiB batch limit, strict path validation,
 duplicate-key rejection, a per-capability rate limit, a fixed upstream, bounded
 responses, secret-free logs, a non-root read-only container, and NetworkPolicies
 that permit only Cloudflare connector ingress and Home Assistant egress. The
-deployment pins the multi-architecture `v0.2.0` image by tag and OCI index
+deployment pins the multi-architecture `0.2.1` image by tag and OCI index
 digest, and its startup, readiness, and liveness probes require a successful
 `GET /healthz` response from a request handler.
 
@@ -47,3 +47,23 @@ kubectl apply --dry-run=server -k .
 
 Gateway unit, lint, formatting, and container tests run in the source
 repository's CI workflow for every source change.
+
+## Upgrades
+
+Source PRs and release publication both require native AMD64 and ARM64 image
+builds, SBOMs, strict HIGH/CRITICAL vulnerability and secret scans, and isolated
+runtime HTTP tests. The smoke checks source/image version parity, the exact
+Python version, non-root identity, pip absence, health probes and forwarding of
+one permitted read command. Blocked controls and unknown capabilities must not
+reach its loopback-only test upstream.
+
+Verify the immutable release digest, exact source revision, provenance and shared
+workflow attestation before updating this Deployment. Renovate tracks published
+images within the `0.2.x` series, including digest pins. After Fleet's desired
+and applied IDs match, verify readiness, zero restarts and the live Python/app
+version. Check `/healthz` and an unknown path from inside the pod, requiring
+`200` and `404` respectively. Preserve the existing public non-webhook denial
+responses at the Cloudflare boundary. Exercise real
+device capabilities only through normal Companion App traffic. Keep the Home
+Assistant image, ingress boundaries and encrypted capability configuration
+unchanged during a gateway-only update.

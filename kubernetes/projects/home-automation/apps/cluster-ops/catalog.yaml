@@ -16,3 +16,15 @@ spec:
   gitPath: kubernetes/projects/home-automation/apps/cluster-ops
   workloads:
     - {key: home-k3s/cluster-ops/apps/deployment/k8s-recommendation-engine-controller-manager, namespace: cluster-ops, apiGroup: apps, kind: Deployment, name: k8s-recommendation-engine-controller-manager, desiredReplicas: 1, sourcePath: kubernetes/projects/home-automation/apps/cluster-ops/controller-manager.yaml}
+  persistentStores:
+    - key: home-k3s/cluster-ops/pvc/recommender-state-backup-nfs
+      namespace: cluster-ops
+      type: pvc
+      name: recommender-state-backup-nfs
+      storageClass: nfs-shared-retain
+      capacity: 16Gi
+      accessModes: [ReadWriteMany]
+      retention: retain
+      backup: Verified recommendation-state archives before each app writer starts; three completed points are retained. NAS dataset protection remains external.
+      dataClassification: sensitive
+      sourcePath: kubernetes/projects/home-automation/apps/recommender-state-backups/backup-pvc.yaml

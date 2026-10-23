@@ -1,0 +1,13 @@
+{
+  "schema_version": 1,
+  "policy_id": "home-lab-nas-mapped-state-backups-v1",
+  "receipt_format": 1,
+  "mapped_owner": {"uid": 977, "gid": 988},
+  "protected_directory_modes": ["0700", "0770"],
+  "protected_file_modes": ["0600", "0660"],
+  "claim_root_mode": "record-separately",
+  "owner_only": false,
+  "encryption_claimed": false,
+  "max_receipt_bytes": 8192,
+  "owners": ["qbittorrent-smart-queues", "ryokan", "k8s-recommendation-engine", "rack-ops"]
+}

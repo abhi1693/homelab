@@ -29,6 +29,7 @@ spec:
     - kubernetes/projects/entertainment/apps/media-ryokan-networkpolicy
     - kubernetes/projects/entertainment/apps/media-shoko
     - kubernetes/projects/entertainment/apps/media-sonarr
+    - kubernetes/projects/entertainment/apps/media-state-backups
     - kubernetes/projects/entertainment/apps/media-storage
   correctDrift:
     enabled: true

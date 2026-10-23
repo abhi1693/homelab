@@ -51,8 +51,8 @@ spec:
                 topologyKey: kubernetes.io/hostname
       containers:
         - name: api
-          # renovate: datasource=github-releases depName=abhi1693/wardn-license-server
-          image: registry.home/ghcr.io/abhi1693/wardn-license-server-backend:0.1.1
+          # renovate: datasource=docker depName=ghcr.io/abhi1693/wardn-license-server-backend
+          image: registry.home/ghcr.io/abhi1693/wardn-license-server-backend:0.1.2@sha256:309edffcc16ffc117a37dd3edf858282e928fae24191e67143d709e2be80e517
           imagePullPolicy: IfNotPresent
           envFrom:
             - configMapRef:
@@ -157,8 +157,8 @@ spec:
                 topologyKey: kubernetes.io/hostname
       containers:
         - name: frontend
-          # renovate: datasource=github-releases depName=abhi1693/wardn-license-server
-          image: registry.home/ghcr.io/abhi1693/wardn-license-server-frontend:0.1.1
+          # renovate: datasource=docker depName=ghcr.io/abhi1693/wardn-license-server-frontend
+          image: registry.home/ghcr.io/abhi1693/wardn-license-server-frontend:0.1.2@sha256:183d0cb1b0508a455a496250f5e7142992c9449e29ffa8a1e6b457e95c715243
           imagePullPolicy: IfNotPresent
           env:
             - name: LICENSE_SERVER_API_URL

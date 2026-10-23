@@ -1,0 +1,19 @@
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: rack-state-backups-validation
+  namespace: rack-ops
+  labels:
+    app.kubernetes.io/name: rack-state-backups
+    app.kubernetes.io/part-of: state-backups
+    home-lab.io/project-slug: home-automation
+spec:
+  podSelector:
+    matchLabels:
+      app.kubernetes.io/name: rack-state-backups
+  policyTypes:
+    - Ingress
+    - Egress
+  ingress: []
+  egress: []

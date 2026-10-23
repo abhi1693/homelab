@@ -56,7 +56,7 @@ spec:
       containers:
         - name: user-api
           # renovate: datasource=docker depName=ghcr.io/abhi1693/devfeed.tech/user-api
-          image: registry.home/ghcr.io/abhi1693/devfeed.tech/user-api:0.1.1@sha256:956c208a6d0d6326c5c48c625abb788ece7b43b625c1b683eb524fa100f2b58d
+          image: registry.home/ghcr.io/abhi1693/devfeed.tech/user-api:0.1.2@sha256:f17d20660ba49d00ee8d2a3d6eea15211b6d74fa6e3e15ecd2723429a8154eef
           imagePullPolicy: IfNotPresent
           resources:
             requests:
@@ -166,7 +166,7 @@ spec:
       initContainers:
         - name: wait-for-inbox
           # renovate: datasource=docker depName=ghcr.io/abhi1693/devfeed.tech/user-api
-          image: registry.home/ghcr.io/abhi1693/devfeed.tech/user-api:0.1.1@sha256:956c208a6d0d6326c5c48c625abb788ece7b43b625c1b683eb524fa100f2b58d
+          image: registry.home/ghcr.io/abhi1693/devfeed.tech/user-api:0.1.2@sha256:f17d20660ba49d00ee8d2a3d6eea15211b6d74fa6e3e15ecd2723429a8154eef
           imagePullPolicy: IfNotPresent
           resources:
             requests:
@@ -198,7 +198,7 @@ spec:
               else: raise SystemExit('Inbox provisioning not ready')
         - name: wait-for-schema
           # renovate: datasource=docker depName=ghcr.io/abhi1693/devfeed.tech/backend
-          image: registry.home/ghcr.io/abhi1693/devfeed.tech/backend:0.1.1@sha256:607c540414d8c218835b4ac447a5f84143acef1f97ac747867778db178583268
+          image: registry.home/ghcr.io/abhi1693/devfeed.tech/backend:0.1.2@sha256:77d8cadbcc9e78701d06912ef0e54b7f96947e6f4625ef864b6f814c77478133
           imagePullPolicy: IfNotPresent
           securityContext:
             runAsNonRoot: true

@@ -70,7 +70,7 @@ spec:
         - secretRef:
             name: devfeed-image-storage
         # renovate: datasource=docker depName=ghcr.io/abhi1693/devfeed.tech/partner-api
-        image: registry.home/ghcr.io/abhi1693/devfeed.tech/partner-api:0.1.1@sha256:0fe87e220ce4ade061a7affdf4481fe0d1af3bcdcb9c9ae67e2afadce921b872
+        image: registry.home/ghcr.io/abhi1693/devfeed.tech/partner-api:0.1.2@sha256:fd13319a54e252e0b5c766b7070239d95592a05b53cf3a4bb0845fd2b641ba45
         imagePullPolicy: IfNotPresent
         livenessProbe:
           failureThreshold: 3
@@ -139,7 +139,7 @@ spec:
         - secretRef:
             name: devfeed-database
         # renovate: datasource=docker depName=ghcr.io/abhi1693/devfeed.tech/backend
-        image: registry.home/ghcr.io/abhi1693/devfeed.tech/backend:0.1.1@sha256:607c540414d8c218835b4ac447a5f84143acef1f97ac747867778db178583268
+        image: registry.home/ghcr.io/abhi1693/devfeed.tech/backend:0.1.2@sha256:77d8cadbcc9e78701d06912ef0e54b7f96947e6f4625ef864b6f814c77478133
         imagePullPolicy: IfNotPresent
         name: wait-for-schema
         resources:

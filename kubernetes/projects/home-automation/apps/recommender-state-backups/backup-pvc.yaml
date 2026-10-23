@@ -1,0 +1,19 @@
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: recommender-state-backup-nfs
+  namespace: cluster-ops
+  annotations:
+    helm.sh/resource-policy: keep
+  labels:
+    app.kubernetes.io/name: recommender-state-backups
+    app.kubernetes.io/part-of: state-backups
+    home-lab.io/project-slug: home-automation
+spec:
+  accessModes:
+    - ReadWriteMany
+  storageClassName: nfs-shared-retain
+  resources:
+    requests:
+      storage: 16Gi

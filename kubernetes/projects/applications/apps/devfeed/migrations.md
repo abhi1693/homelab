@@ -24,6 +24,21 @@ last-run result, disappearance of the successful Job, live schema revision and
 index validity, Fleet convergence and application readiness. Keep retained PVCs,
 credentials and content through upgrades and cleanup.
 
+## Release 0.1.2: schema 0034
+
+Follow the [phased read-model cutover](read-model-rollout.md). The additive
+migration installs transactional capture, projections and saved reports; its
+two standard review indexes briefly block review writes. A separate pre-upgrade
+hook initially builds the pipeline and default reports. After current-policy
+pipeline completion is proved, retire that one-time hook to restore core API
+availability while durable publishers finish reports. All 27 fresh current-policy
+reports remain mandatory before queue resume, worker restoration or publication.
+Reserve publisher database capacity and quiesce existing
+background writers first. Previous 0.1.1 applications reject schema `0034`, so
+readiness drops across this explicit maintenance boundary. Preserve the schema
+and roll forward with compatible images; no historical recovery replay is part
+of this rollout.
+
 ## Release 0.1.1: schema 0033
 
 The matching backend hook applies migrations `0027` through `0033`: processing-history

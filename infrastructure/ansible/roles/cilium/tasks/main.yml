@@ -53,24 +53,8 @@
     fail_msg: Expected Cilium and bundled Traefik inputs to be fully configured.
     success_msg: "Cilium and bundled Traefik inputs are configured"
 
-- name: Check kernel BTF support on every node before Cilium 1.20.2
-  ansible.builtin.stat:
-    path: /sys/kernel/btf/vmlinux
-  delegate_to: "{{ item }}"
-  loop: "{{ groups['k3s_nodes'] }}"
-  register: cilium_node_btf
-  when: cilium.version == '1.20.2'
-
-- name: Reject Cilium 1.20.2 on nodes without kernel BTF
-  ansible.builtin.assert:
-    that:
-      - item.stat.exists
-    fail_msg: >-
-      Cilium 1.20.2 cannot initialize its socket load-balancing datapath on
-      {{ item.item }} without /sys/kernel/btf/vmlinux; keep Cilium 1.20.1.
-      See https://github.com/cilium/cilium/issues/48778.
-  loop: "{{ cilium_node_btf.results }}"
-  when: cilium.version == '1.20.2'
+- name: Check Cilium kernel BTF compatibility
+  ansible.builtin.import_tasks: kernel_btf.yml
 
 - name: Wait for local K3s API before installing Cilium
   ansible.builtin.wait_for:

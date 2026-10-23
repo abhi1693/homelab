@@ -16,3 +16,15 @@ spec:
   gitPath: kubernetes/projects/entertainment/apps/media-ryokan
   workloads:
     - {key: home-k3s/media/apps/deployment/ryokan, namespace: media, apiGroup: apps, kind: Deployment, name: ryokan, desiredReplicas: 1, sourcePath: kubernetes/projects/entertainment/apps/media-ryokan/deployment.yaml}
+  persistentStores:
+    - key: home-k3s/media/pvc/ryokan-prestart-backup-nfs
+      namespace: media
+      type: pvc
+      name: ryokan-prestart-backup-nfs
+      storageClass: nfs-shared-retain
+      capacity: 64Gi
+      accessModes: [ReadWriteMany]
+      retention: retain
+      backup: Verified database and key archives before each app writer starts; three completed points are retained. NAS dataset protection remains external.
+      dataClassification: restricted
+      sourcePath: kubernetes/projects/entertainment/apps/media-state-backups/ryokan-backup-pvc.yaml

@@ -192,8 +192,18 @@ without BTF, leaving new pods unable to get networking even while the Cilium
 DaemonSet reports Ready. All eight current nodes lack
 `/sys/kernel/btf/vmlinux`. Upstream tracks this as
 [cilium/cilium#48778](https://github.com/cilium/cilium/issues/48778); the
-documented workaround is to downgrade to 1.20.1. The role rejects 1.20.2
-when any cluster node lacks kernel BTF.
+documented workaround is to downgrade to 1.20.1. Both the role's bootstrap and
+read-only validation entrypoints reject **1.20.2 and later**, including later
+patch and minor releases, when any cluster node lacks kernel BTF. The shared
+gate has no bypass; relax it only after an upstream compatibility fix and the
+actual host kernels are verified. Local role fixtures exercise the production
+Ansible condition across legacy, current, and future version boundaries. From
+the repository root, run:
+
+```sh
+python3 -m unittest discover -s infrastructure/ansible/roles/cilium/tests -v
+```
+
 Rancher owns the compatible Fleet, webhook and Turtles versions; do not
 upgrade those independently.
 Cilium's inventory pins the live cluster name, disabled BGP control plane,

@@ -122,3 +122,17 @@ The current exclusions are intentional:
 - Home Assistant also stores chart values inside `HelmChart.spec.valuesContent`,
   an embedded block scalar that cannot be safely patched as a standalone values
   document
+
+## Pre-start state restore point
+
+The `recommender-state-backups` prerequisite must pass current storage validation
+before this Recreate app is stopped. Its first init backs up its own stopped
+state from read-only source and verifies an isolated full restore before the
+normal init/main process starts. See [the backup contract](../recommender-state-backups/README.md).
+No temporary scale commit, backup Job, source claim rename, credential change
+or automatic restore is used. Keep the original source PVC and policy intact.
+
+Release 0.3.6 pins the clone init and controller to the same verified immutable
+image. The first backup init completes before Git credentials are used or the
+controller opens its existing SQLite state; the retained source claim and
+application profile/RBAC/network policy definitions stay intact.

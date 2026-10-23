@@ -9,6 +9,7 @@ metadata:
     home-lab.io/project-slug: home-automation
 spec:
   replicas: 1
+  progressDeadlineSeconds: 2400
   revisionHistoryLimit: 2
   strategy:
     type: Recreate
@@ -56,10 +57,92 @@ spec:
         runAsUser: 65532
         seccompProfile:
           type: RuntimeDefault
+      initContainers:
+        - name: backup-state-before-start
+          # renovate: datasource=docker depName=cgr.dev/chainguard/python
+          image: cgr.dev/chainguard/python:latest@sha256:93c92d4ee2d0a4e540ec4de4e708267b45c2551a3c836fdf3e174a05017a76de
+          imagePullPolicy: IfNotPresent
+          command:
+            - /usr/bin/python
+            - -B
+            - /backup-helper/backup_state.py
+          args:
+            - --app
+            - rack
+            - --source
+            - /source
+            - --destination
+            - /backups
+            - --work
+            - /work
+            - --pod-uid
+            - $(POD_UID)
+            - --cohort
+            - rack-ops-0.1.4
+            - --source-pvc
+            - rack-ops-state-nfs
+            - --source-pvc-uid
+            - a12276a3-9a26-4f7b-8730-e50e821fcfeb
+            - --timeout
+            - '1800'
+            - --retention
+            - '3'
+            - --max-source-bytes
+            - '67108864'
+            - --max-work-bytes
+            - '268435456'
+            - --max-archive-bytes
+            - '134217728'
+            - --scratch-reserve-bytes
+            - '33554432'
+          env:
+            - name: POD_UID
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.uid
+            - name: PYTHONDONTWRITEBYTECODE
+              value: '1'
+            - name: PYTHONUNBUFFERED
+              value: '1'
+            - name: TMPDIR
+              value: /work
+          resources:
+            requests:
+              cpu: 100m
+              memory: 128Mi
+              ephemeral-storage: 256Mi
+            limits:
+              cpu: 1000m
+              memory: 512Mi
+              ephemeral-storage: 256Mi
+          securityContext:
+            runAsUser: 65532
+            runAsGroup: 65532
+            runAsNonRoot: true
+            readOnlyRootFilesystem: true
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop:
+                - ALL
+          volumeMounts:
+            - name: state
+              mountPath: /source
+              readOnly: true
+            - name: prestart-backup-helper
+              mountPath: /backup-helper
+              readOnly: true
+            - name: prestart-backup-work
+              mountPath: /work
+            - name: prestart-backup-destination
+              mountPath: /backups
+            - name: prestart-no-api-token
+              mountPath: /var/run/secrets/kubernetes.io/serviceaccount
+              readOnly: true
+          terminationMessagePolicy: File
       containers:
         - name: rack-ops
           # renovate: datasource=docker depName=ghcr.io/abhi1693/rack-ops
-          image: registry.home/ghcr.io/abhi1693/rack-ops:0.1.3
+          image: registry.home/ghcr.io/abhi1693/rack-ops:0.1.4@sha256:21d37184811ac09a32f7c87ea60d5b2f2569164e5cde27834aa96206eca8122f
           imagePullPolicy: IfNotPresent
           env:
             - name: PYTHONDONTWRITEBYTECODE
@@ -129,6 +212,20 @@ spec:
             - name: state
               mountPath: /state
       volumes:
+        - name: prestart-backup-helper
+          configMap:
+            name: media-prestart-backup-c24c14a3317c
+            defaultMode: 292
+        - name: prestart-backup-work
+          emptyDir:
+            sizeLimit: 256Mi
+        - name: prestart-backup-destination
+          persistentVolumeClaim:
+            claimName: rack-state-backup-nfs
+        - name: prestart-no-api-token
+          emptyDir:
+            medium: Memory
+            sizeLimit: 1Mi
         - name: config
           configMap:
             name: rack-ops-policy

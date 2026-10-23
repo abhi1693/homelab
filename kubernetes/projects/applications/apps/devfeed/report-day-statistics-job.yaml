@@ -1,0 +1,272 @@
+---
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: devfeed-report-day-statistics-v1
+  namespace: devfeed
+  labels:
+    app.kubernetes.io/name: devfeed-report-day-statistics-v1
+    app.kubernetes.io/part-of: devfeed
+spec:
+  backoffLimit: 0
+  activeDeadlineSeconds: 300
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: devfeed-report-day-statistics-v1
+        app.kubernetes.io/part-of: devfeed
+        devfeed-read-model-client: 'true'
+    spec:
+      serviceAccountName: devfeed
+      automountServiceAccountToken: false
+      imagePullSecrets:
+      - name: harbor-registry
+      nodeSelector:
+        kubernetes.io/arch: arm64
+      securityContext:
+        fsGroup: 10001
+        fsGroupChangePolicy: OnRootMismatch
+        seccompProfile:
+          type: RuntimeDefault
+      restartPolicy: Never
+      terminationGracePeriodSeconds: 30
+      containers:
+      - name: statistics
+        # renovate: datasource=docker depName=ghcr.io/abhi1693/devfeed.tech/admin-api
+        image: registry.home/ghcr.io/abhi1693/devfeed.tech/admin-api:0.1.2@sha256:4daf229aa9681d20723b2d3cc41d08bbaca5c07496b15b89d1bdd71149b629f6
+        imagePullPolicy: IfNotPresent
+        resources:
+          requests:
+            cpu: 100m
+            memory: 256Mi
+          limits:
+            memory: 1Gi
+        securityContext:
+          runAsNonRoot: true
+          runAsUser: 10001
+          runAsGroup: 10001
+          allowPrivilegeEscalation: false
+          readOnlyRootFilesystem: true
+          capabilities:
+            drop:
+            - ALL
+        envFrom:
+        - configMapRef:
+            name: devfeed
+        - secretRef:
+            name: devfeed-read-model-database
+        env:
+        - name: DEVFEED_DATABASE_URL
+          valueFrom:
+            secretKeyRef:
+              name: devfeed-read-model-database
+              key: DEVFEED_READ_MODEL_DATABASE_URL
+        - name: DEVFEED_DATABASE_POOL_ENABLED
+          value: 'false'
+        - name: PYTHONDONTWRITEBYTECODE
+          value: '1'
+        - name: PYTHONUNBUFFERED
+          value: '1'
+        volumeMounts:
+        - name: tmp
+          mountPath: /tmp
+        command:
+        - python
+        - -c
+        - |
+          import json
+          import math
+          import os
+          from datetime import datetime, time, timedelta, timezone
+
+          from devfeed_core.config import get_settings
+          from devfeed_core.db import create_database_engine
+          from devfeed_core.version import SCHEMA_REVISION, __version__
+          from sqlalchemy import text
+
+          TABLES = (
+              "article_analysis_jobs",
+              "topic_analysis_jobs",
+              "research_verification_jobs",
+          )
+          EXPRESSION = "date(timezone('UTC'::text, finished_at))"
+
+
+          class MaintenanceError(Exception):
+              pass
+
+
+          def require(value, check):
+              if not value:
+                  raise MaintenanceError(check)
+
+
+          def validate_identity(row, relation, owner):
+              require(row["relation"] == relation, "statistics.relation")
+              require(row["owner"] == owner, "statistics.owner")
+              require(row["keys"] == "", "statistics.columns")
+              require(list(row["kinds"]) == ["e"], "statistics.kind")
+              require(row["expression"] == EXPRESSION, "statistics.expression")
+
+
+          def day_bound(count, rows):
+              require(rows > 0, "statistics.nonempty_target")
+              require(count is not None and (count > 0 or -1 <= count < 0), "statistics.populated")
+              days = count if count > 0 else -count * rows
+              require(0 < days <= 3660, "statistics.day_cardinality")
+              return math.ceil(days)
+
+
+          def statistics(connection, name):
+              return (
+                  connection.execute(
+                      text("""
+                  SELECT s.stxrelid AS relation, s.stxowner AS owner,
+                         s.stxkeys::text AS keys, s.stxkind AS kinds,
+                         pg_get_expr(s.stxexprs, s.stxrelid) AS expression
+                  FROM pg_statistic_ext s JOIN pg_namespace n ON n.oid = s.stxnamespace
+                  WHERE n.nspname = 'public' AND s.stxname = :name
+              """),
+                      {"name": name},
+                  )
+                  .mappings()
+                  .one_or_none()
+              )
+
+
+          def walk(node):
+              yield node
+              for child in node.get("Plans", []):
+                  yield from walk(child)
+
+
+          def main():
+              require((__version__, SCHEMA_REVISION) == ("0.1.2", "0034"), "runtime.identity")
+              url = os.environ.get("DEVFEED_READ_MODEL_DATABASE_URL")
+              require(bool(url), "database.reserved_url")
+              settings = get_settings().model_copy(
+                  update={
+                      "database_url": url,
+                      "database_pool_enabled": False,
+                  }
+              )
+              engine = create_database_engine(settings)
+              try:
+                  with engine.begin() as connection:
+                      connection.exec_driver_sql("SET LOCAL statement_timeout = '30s'")
+                      connection.exec_driver_sql("SET LOCAL lock_timeout = '500ms'")
+                      require(
+                          connection.scalar(text("SELECT version_num FROM alembic_version")) == "0034",
+                          "database.schema",
+                      )
+                      owner = connection.scalar(text("SELECT oid FROM pg_roles WHERE rolname = current_user"))
+                      targets = []
+                      # Validate every existing identity and owner before any metadata DDL.
+                      for table in TABLES:
+                          relation = connection.execute(
+                              text("""
+                              SELECT c.oid, c.relowner FROM pg_class c
+                              JOIN pg_namespace n ON n.oid = c.relnamespace
+                              WHERE n.nspname = 'public' AND c.relname = :table AND c.relkind = 'r'
+                          """),
+                              {"table": table},
+                          ).one()
+                          require(relation.relowner == owner, "database.table_owner")
+                          name = "devfeed_" + table.removesuffix("_jobs") + "_finished_day_v1"
+                          existing = statistics(connection, name)
+                          if existing is not None:
+                              validate_identity(existing, relation.oid, owner)
+                          targets.append((table, name, relation.oid, existing is not None))
+                      for table, name, relation, exists in targets:
+                          if not exists:
+                              connection.exec_driver_sql(
+                                  f"CREATE STATISTICS public.{name} "
+                                  f"ON (date(timezone('UTC', finished_at))) FROM public.{table}"
+                              )
+                          connection.exec_driver_sql(f"ANALYZE public.{table} (finished_at)")
+                          validate_identity(statistics(connection, name), relation, owner)
+                      distinct = {}
+                      for table, name, relation, _ in targets:
+                          row = connection.execute(
+                              text("""
+                              SELECT e.n_distinct, c.reltuples FROM pg_stats_ext_exprs e
+                              JOIN pg_class c ON c.oid = :relation
+                              WHERE e.schemaname = 'public' AND e.statistics_name = :name
+                                AND e.tablename = :table AND e.expr = :expression AND NOT e.inherited
+                          """),
+                              {"relation": relation, "name": name, "table": table, "expression": EXPRESSION},
+                          ).one_or_none()
+                          require(row is not None, "statistics.populated")
+                          distinct[table] = day_bound(row[0], row[1])
+                      # Compile the released query unchanged; EXPLAIN does not execute its aggregation.
+                      from devfeed_admin_api.automation import analysis_token_activity
+
+                      class Capture:
+                          def execute(self, statement):
+                              self.statement = statement
+                              return self
+
+                          def mappings(self):
+                              return []
+
+                      now = datetime.now(timezone.utc)
+                      for days in (7, 30):
+                          start = datetime.combine(
+                              now.date() - timedelta(days=days - 1), time.min, tzinfo=timezone.utc
+                          )
+                          capture = Capture()
+                          analysis_token_activity(capture, start, now)
+                          query = str(
+                              capture.statement.compile(
+                                  dialect=connection.dialect,
+                                  compile_kwargs={"literal_binds": True},
+                              )
+                          )
+                          plan = connection.exec_driver_sql("EXPLAIN (FORMAT JSON) " + query).scalar_one()[0][
+                              "Plan"
+                          ]
+                          seen = set()
+                          for node in walk(plan):
+                              if node["Node Type"] != "Aggregate":
+                                  continue
+                              relations = {n["Relation Name"] for n in walk(node) if "Relation Name" in n}
+                              if len(relations) == 1 and relations <= set(TABLES):
+                                  table = relations.pop()
+                                  require(node["Plan Rows"] <= distinct[table], "planner.day_cardinality")
+                                  seen.add(table)
+                          require(seen == set(TABLES), "planner.report_tables")
+                  print(
+                      json.dumps(
+                          {
+                              "status": "verified",
+                              "statistics": 3,
+                              "report_plans": [7, 30],
+                              "schema": "0034",
+                              "table_data_changed": False,
+                          }
+                      )
+                  )
+              finally:
+                  engine.dispose()
+
+
+          if __name__ == "__main__":
+              try:
+                  main()
+              except Exception as error:
+                  print(
+                      json.dumps(
+                          {
+                              "status": "failed",
+                              "error_type": type(error).__name__,
+                              "check": str(error)
+                              if isinstance(error, MaintenanceError)
+                              else "database.operation",
+                          }
+                      )
+                  )
+                  raise SystemExit(1) from None
+      volumes:
+      - name: tmp
+        emptyDir:
+          sizeLimit: 256Mi

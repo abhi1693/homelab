@@ -1,0 +1,21 @@
+---
+- name: Require kernel BTF for Cilium 1.20.2 and later
+  when: cilium.version is ansible.builtin.version('1.20.2', '>=')
+  block:
+    - name: Check kernel BTF support on every node
+      ansible.builtin.stat:
+        path: /sys/kernel/btf/vmlinux
+      delegate_to: "{{ item }}"
+      loop: "{{ groups['k3s_nodes'] }}"
+      register: cilium_node_btf
+
+    - name: Reject Cilium versions requiring unavailable kernel BTF
+      ansible.builtin.assert:
+        that:
+          - item.stat.exists
+        fail_msg: >-
+          Cilium {{ cilium.version }} requires kernel BTF on {{ item.item }}
+          at /sys/kernel/btf/vmlinux; keep Cilium 1.20.1 on these nodes until
+          an upstream compatibility fix is verified.
+          See https://github.com/cilium/cilium/issues/48778.
+      loop: "{{ cilium_node_btf.results }}"

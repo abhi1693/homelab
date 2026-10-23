@@ -7,6 +7,7 @@ labels:
   home-lab.io/project-slug: entertainment
   home-lab.io/lockfile-cleanup: enabled
 dependsOn:
+  - name: media-state-backups
   - name: metallb-config
   - name: rancher-project-entertainment
   - name: media-storage
@@ -19,4 +20,5 @@ diff:
       jsonPointers:
         - /spec/volumeName
 helm:
+  timeoutSeconds: 2400
   takeOwnership: true

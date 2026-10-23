@@ -1,0 +1,23 @@
+---
+name: rack-state-backups
+defaultNamespace: rack-ops
+createNamespace: true
+labels:
+  app.kubernetes.io/name: rack-state-backups
+  app.kubernetes.io/part-of: state-backups
+  home-lab.io/project-slug: home-automation
+dependsOn:
+  - name: rancher-project-home-automation
+  - name: media-storage
+diff:
+  comparePatches:
+    - apiVersion: v1
+      kind: PersistentVolumeClaim
+      name: rack-state-backup-nfs
+      namespace: rack-ops
+      jsonPointers:
+        - /spec/volumeName
+helm:
+  takeOwnership: true
+  waitForJobs: true
+  timeoutSeconds: 300

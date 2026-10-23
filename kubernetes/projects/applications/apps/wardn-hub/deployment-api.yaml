@@ -59,8 +59,8 @@ spec:
               app.kubernetes.io/component: api
       initContainers:
         - name: migrate-db
-          # renovate: datasource=github-releases depName=abhi1693/wardn-hub
-          image: registry.home/ghcr.io/abhi1693/wardn-hub-backend:0.2.181
+          # renovate: datasource=docker depName=ghcr.io/abhi1693/wardn-hub-backend
+          image: registry.home/ghcr.io/abhi1693/wardn-hub-backend:0.2.182@sha256:7cb87a9c3b55c7e33cb532d6196bf25304f06774895305daa1ed8775e43d92c3
           imagePullPolicy: IfNotPresent
           command:
             - alembic
@@ -108,8 +108,8 @@ spec:
             runAsUser: 999
       containers:
         - name: api
-          # renovate: datasource=github-releases depName=abhi1693/wardn-hub
-          image: registry.home/ghcr.io/abhi1693/wardn-hub-backend:0.2.181
+          # renovate: datasource=docker depName=ghcr.io/abhi1693/wardn-hub-backend
+          image: registry.home/ghcr.io/abhi1693/wardn-hub-backend:0.2.182@sha256:7cb87a9c3b55c7e33cb532d6196bf25304f06774895305daa1ed8775e43d92c3
           imagePullPolicy: IfNotPresent
           envFrom:
             - configMapRef:
@@ -156,7 +156,7 @@ spec:
           resources:
             requests:
               cpu: 100m
-              memory: 280Mi
+              memory: 252Mi
             limits:
               cpu: "1"
               memory: 384Mi

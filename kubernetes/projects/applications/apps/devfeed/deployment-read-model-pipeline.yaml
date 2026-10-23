@@ -1,0 +1,144 @@
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: devfeed-read-model-pipeline
+  namespace: devfeed
+  labels:
+    app.kubernetes.io/name: devfeed-read-model-pipeline
+    app.kubernetes.io/part-of: devfeed
+spec:
+  replicas: 1
+  revisionHistoryLimit: 2
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: devfeed-read-model-pipeline
+      app.kubernetes.io/part-of: devfeed
+  strategy:
+    type: Recreate
+  template:
+    metadata:
+      annotations:
+        devfeed.tech/ai-content-not-before: disabled
+        devfeed.tech/read-model-policy: schema-0034
+      labels:
+        devfeed-telemetry: 'true'
+        app.kubernetes.io/name: devfeed-read-model-pipeline
+        app.kubernetes.io/part-of: devfeed
+        devfeed-redis-client: 'true'
+        devfeed-read-model-client: 'true'
+    spec:
+      serviceAccountName: devfeed
+      automountServiceAccountToken: false
+      imagePullSecrets:
+      - name: harbor-registry
+      nodeSelector:
+        kubernetes.io/arch: arm64
+      securityContext:
+        fsGroup: 10001
+        fsGroupChangePolicy: OnRootMismatch
+        seccompProfile:
+          type: RuntimeDefault
+      terminationGracePeriodSeconds: 180
+      containers:
+      - name: pipeline
+        # renovate: datasource=docker depName=ghcr.io/abhi1693/devfeed.tech/admin-api
+        image: registry.home/ghcr.io/abhi1693/devfeed.tech/admin-api:0.1.2@sha256:4daf229aa9681d20723b2d3cc41d08bbaca5c07496b15b89d1bdd71149b629f6
+        imagePullPolicy: IfNotPresent
+        ports:
+        - name: metrics
+          containerPort: 9100
+        resources:
+          requests:
+            cpu: 100m
+            memory: 256Mi
+          limits:
+            memory: 1Gi
+        securityContext:
+          runAsNonRoot: true
+          runAsUser: 10001
+          runAsGroup: 10001
+          allowPrivilegeEscalation: false
+          readOnlyRootFilesystem: true
+          capabilities:
+            drop:
+            - ALL
+        envFrom:
+        - configMapRef:
+            name: devfeed-telemetry
+        - configMapRef:
+            name: devfeed
+        - configMapRef:
+            name: devfeed-automation
+        - secretRef:
+            name: devfeed-image-storage
+        - secretRef:
+            name: devfeed-database
+        - secretRef:
+            name: devfeed-read-model-database
+        env:
+        - name: DEVFEED_READ_MODEL_BATCH_SIZE
+          value: '100'
+        - name: DEVFEED_READ_MODEL_POLL_SECONDS
+          value: '1'
+        volumeMounts:
+        - name: tmp
+          mountPath: /tmp
+        readinessProbe:
+          exec:
+            command:
+            - python
+            - -c
+            - |
+              import time
+              from devfeed_core.runtime_files import runtime_marker
+              try:
+                  age = time.time() - runtime_marker('pipeline-heartbeat').stat().st_mtime
+              except FileNotFoundError:
+                  raise SystemExit(1) from None
+              raise SystemExit(1 if age > 180 else 0)
+          periodSeconds: 30
+          timeoutSeconds: 5
+          failureThreshold: 3
+        livenessProbe:
+          exec:
+            command:
+            - python
+            - -c
+            - |
+              import time
+              from devfeed_core.runtime_files import runtime_marker
+              try:
+                  age = time.time() - runtime_marker('pipeline-heartbeat').stat().st_mtime
+              except FileNotFoundError:
+                  raise SystemExit(1) from None
+              raise SystemExit(1 if age > 180 else 0)
+          periodSeconds: 30
+          timeoutSeconds: 5
+          failureThreshold: 3
+        startupProbe:
+          exec:
+            command:
+            - python
+            - -c
+            - |
+              import time
+              from devfeed_core.runtime_files import runtime_marker
+              try:
+                  age = time.time() - runtime_marker('pipeline-heartbeat').stat().st_mtime
+              except FileNotFoundError:
+                  raise SystemExit(1) from None
+              raise SystemExit(1 if age > 180 else 0)
+          periodSeconds: 10
+          timeoutSeconds: 5
+          failureThreshold: 90
+        command:
+        - python
+        - -m
+        - devfeed_admin_api.projection_worker
+        - --kind
+        - pipeline
+      volumes:
+      - name: tmp
+        emptyDir:
+          sizeLimit: 256Mi
