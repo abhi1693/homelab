@@ -1,0 +1,26 @@
+---
+name: clickhouse
+defaultNamespace: clickhouse
+labels:
+  app.kubernetes.io/part-of: clickhouse
+  home-lab.io/project-slug: database
+dependsOn:
+- name: rancher-project-database
+- name: csi-driver-nfs-helmop
+helm:
+  takeOwnership: true
+  timeoutSeconds: 1800
+diff:
+  comparePatches:
+  - apiVersion: v1
+    kind: PersistentVolumeClaim
+    namespace: clickhouse
+    name: clickhouse-data
+    jsonPointers:
+    - /spec/volumeName
+  - apiVersion: v1
+    kind: PersistentVolumeClaim
+    namespace: clickhouse
+    name: clickhouse-backups
+    jsonPointers:
+    - /spec/volumeName

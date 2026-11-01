@@ -1,7 +1,8 @@
 # Incident coverage
 
-The system project collects node-local container files, K3s server/agent and
-kernel journals, native embedded-etcd metrics, and Cilium/Hubble metrics.
+The system project collects node-local container files, the complete retained
+system journal, Kubernetes API audit files, selected OS package/bootstrap files,
+native embedded-etcd metrics, and Cilium/Hubble metrics.
 Deployment and configuration changes go through Git and Fleet. Do not restart
 K3s, mutate the CNI through its CLI, or change namespace ownership for this work.
 
@@ -14,23 +15,194 @@ host. Root is needed to read root-owned CRI files; the container drops all
 capabilities, has a read-only root filesystem and does not use privileged mode,
 host networking or host PID access. Kubernetes discovery is limited to pods.
 
-K3s server and agent units and the kernel transport have separate journal
-readers. JSON bodies retain journal details for investigation; boot IDs, pod
+K3s server and agent units and the kernel transport retain their separate journal
+readers and cursors. An additional reader forwards every other journal record,
+excluding those three sources to preserve one authoritative path. JSON bodies
+retain journal details for investigation; boot IDs, pod
 UIDs, request IDs and trace IDs are not index labels. Both volatile and persistent
 journal directories are mounted. Remote collection preserves entries already
 delivered before a node fails. It cannot recover entries lost before collection
-from a volatile journal, host loss, file deletion or rotation. Initial journal
-backfill is bounded; a quiet kernel need not have a recent log entry.
+from a volatile journal, host loss, file deletion or rotation. Readers include
+all locally retained history, even when a bad boot clock puts it outside the
+normal timestamp window. Retention and disk quotas bound the source history;
+a quiet kernel need not have a recent log entry.
 
 Positions and journal cursors live at `/var/lib/alloy-node-logs` on each node.
-This is not a durable delivery queue: Loki write batches remain in memory with
-bounded retries. Check permanent drops, rejections and host disk usage. Do not
+These positions are separate from the OTel payload queue, which fsyncs outgoing
+records into the Ansible-managed 4GiB local filesystem at
+`/var/lib/alloy-node-logs/otel`. Its combined 64MiB serialized queue budget
+(56MiB bulk, 8MiB OS/kernel) leaves
+filesystem/compaction headroom and applies source backpressure earlier during
+backend outages. Independent OS/kernel and bulk queues have one replay consumer
+each and share the existing 250m CPU ceiling, keeping current OS evidence separate
+from bulk catch-up. Check final export failures, enqueue failures, rejections and
+host disk usage. Do not
 claim complete delivery solely from healthy pods or successful metrics scrapes.
 Loki remains a single backend with the existing storage failure boundary.
 
 [`alloy-logs`](../../kubernetes/projects/system/apps/alloy-logs/README.md) retains
 two clustered replicas for Kubernetes events. Container files have one collection
-path after handover. Kubernetes audit logging remains a separate host decision.
+path after handover. API audit uses a separate filelog reader and the narrow
+`/var/log/kubernetes-audit` host alias; worker aliases are empty directories.
+
+## OS source inventory and investigation
+
+| Source | Owner and collection path | Correlation and limits |
+| --- | --- | --- |
+| Kernel, K3s, systemd services, networking, DNS/time clients, authentication and shutdown | Ansible owns journald persistence; Fleet Alloy reads the retained system journal | Original body, boot ID, actual systemd unit, priority, source/observed time. Dynamic units remain metadata rather than index labels. |
+| API audit | K3s writes existing Metadata-level audit; Alloy filelog reads active and rotated files | Audit ID, request timestamp, verb, stage and unchanged JSON body. |
+| APT, dpkg, unattended upgrades, cloud-init and selected bootstrap/clone logs | Explicit Alloy file allowlist under the read-only OS log mount | Original body and file path. Records without parsed producer time explicitly use observed time. Compressed history is excluded. |
+| Container stdout/stderr | Existing node-local file reader and CRI parser | Existing selectors, component IDs and positions are preserved. Pod discovery still depends on the API; orphan/rotated-file discovery after downtime remains a separate gap. |
+| Kubernetes events and Faro | Existing collectors | Their ownership and body formats remain unchanged. Their current delivery semantics are separate from the node OTel queue. |
+
+`/var/log/syslog`, `kern.log` and `auth.log` mirror journal sources and are not
+read a second time. Binary login/accounting files, compressed file history,
+device-local switch/PoE/NAS/UPS events, and logs never emitted to these sources
+are not covered by this OS pipeline. Inventory another explicit source when
+an incident needs one; do not infer its contents from a healthy collector.
+
+Use **OS / Host Metrics** (stable UID `os-incident-evidence`) for host CPU,
+memory, disk, I/O, network, uptime and readiness. It reads only Prometheus and
+links to the separate **OS / Logs** dashboard (`os-logs`) with node/time selection.
+
+In **OS / Logs**, select a node and one source:
+
+- **System journal** includes kernel, K3s, OS services, authentication and sudo.
+  Use Service to focus a program or unit, such as `kernel`, `k3s`,
+  `ssh` or `sudo`.
+- **Kubernetes API audit** shows requests as readable action/resource/actor/
+  stage/HTTP-result messages. RequestReceived is an attempt, not confirmation
+  of success.
+- **OS files and saved journals** includes package/setup files and imported
+  native journal snapshots. Original saved-journal messages are decoded for
+  display; plain files remain readable even though they are not JSON.
+
+Search is case-sensitive plain text, with an empty value showing all
+messages. Level recognizes native journal priority, explicit application levels
+inside MESSAGE and audit HTTP errors. Records without a known level remain
+Unspecified. Select multiple levels to combine them, or choose All levels. Filters run
+on the complete message; the table displays a
+320-character excerpt. Click Message for the unchanged original and surrounding
+records for that node/source. There are no static explanation panels.
+
+All times in the log dashboard are UTC. **Event time** is the producer's original
+timestamp when available. **Stored time** is the Loki timestamp used by the time
+picker. These normally agree, but saved journals are stored at import time and
+out-of-range journal/audit source times are stored at collection time. Their
+original event time and a readable Time context remain in the same row.
+Plain OS files without a separately parsed producer time show Unknown event
+time; dates can still be present in the message. An old timestamp alone does
+not establish a faulty clock or a new incident. Full boot/monotonic identity
+remains in original records for investigations that need it.
+
+The default log window is 30 minutes and automatic refresh is off. The browser
+requests at most 100 records from the selected source. Select Errors in Level
+to inspect the actual error messages, then use Service and Search to focus the
+records. The primary host view stays responsive while an explicit long log
+search runs.
+
+Grafana requires authentication. Original bodies are preserved without
+redaction, including records that cannot be parsed for presentation. Source
+coverage is monitored independently by informational host canaries and the
+existing logging rules; healthy metrics do not certify every quiet reader.
+
+Useful LogQL queries:
+
+```logql
+{cluster="local",source="journal",node="k8s-rpi3"} | json
+{cluster="local",source="journal",node="k8s-rpi3"} | json | _BOOT_ID="BOOT_ID"
+{cluster="local",source="journal",node="k8s-rpi3"} | json | PRIORITY=~"[0-4]"
+{cluster="local",source="journal",node="k8s-rpi3"} | json | _SYSTEMD_UNIT="systemd-timesyncd.service"
+{cluster="local",source="journal",node="k8s-rpi3"} | clock_timestamp_adjusted="true"
+{cluster="local",source="audit",node="k8s-rpi3"} | json
+{cluster="local",source="os-file",node="k8s-rpi3"}
+```
+
+For journal/audit records whose source time is older than 14 days or more than
+10 minutes in the future, the OTel pipeline explicitly uses observed time for
+the Loki timestamp. It preserves `source_timestamp_unix_nano`,
+`clock_timestamp_adjusted` and `clock_timestamp_adjustment_reason` as structured
+metadata. This makes clock-damaged evidence queryable without claiming the
+replacement time is the original event time. A historical record can trigger
+the age rule without proving a faulty clock. Compare boot identity and native
+monotonic timestamps when reconstructing ordering. Alloy's journal API does not
+expose every native journal address field; the original retained journal is the
+authority for missing monotonic metadata.
+
+Every node emits an informational `home-lab-log-canary` journal record once a
+minute through an Ansible-managed timer. Two read-only checkers query its last
+five minutes through the actual Loki gateway. Prometheus compares returned node
+coverage against `kube_node_info`, checks query failures and monitors the
+payload filesystem capacity reported by canaries. A missing canary detects an
+OS-source-to-query gap; it does not certify every quiet reader or archive.
+The checker/Prometheus/Alertmanager path still shares cluster dependencies.
+
+## Evidence when Loki or Kubernetes is unavailable
+
+```sh
+python3 scripts/collect-os-incident.py --node k8s-rpi3 --boot 0
+python3 scripts/collect-os-incident.py --node k8s-rpi3 --boot=-1
+python3 scripts/collect-os-incident.py --since '2026-10-26 10:00:00 UTC' --until '2026-10-26 11:00:00 UTC'
+```
+
+The helper uses SSH directly, does not call Kubernetes, and saves original
+journal JSON including boot/monotonic timestamps plus bounded host/time/network/
+disk/pressure evidence. It writes a private directory outside the repository,
+compresses records, records capture failures/truncation, and prints only status
+and paths. Default limits are 256MiB per command and 120 seconds per remote
+capture. An unreachable host is an explicit evidence gap. Keep the manifest
+with the captures; these records are not redacted and must not be committed.
+
+Before reducing journal retention, preserve incident evidence. The initial
+rollout captured all eight current boot journals outside Git before changing
+the journald policy. This is an incident snapshot, not a backup/restore plan.
+
+## Diagnosis and validation contract
+
+Build a timeline of impact, last normal operation, first abnormal host/device
+event, system response and recovery. Correlate the same node/boot/time range
+with metrics, traces, image/kernel/package versions and Git/Fleet/Ansible
+changes. Separate initiating faults from consequences such as Longhorn rebuild
+load. Record confirmed facts, competing explanations and the next capture/test
+that distinguishes them; do not infer the original rpi3 connectivity cause from
+its later clock/certificate delay or successful recovery.
+
+`python3 kubernetes/projects/system/apps/alloy-node-logs/test_pipeline.py`
+uses the pinned Alloy/Loki versions locally. It reconciles identifiable records
+through real OTLP queries, mixed source identities, clock jumps, retained old
+replay, backend HTTP 503 and collector SIGKILL. Original source files are removed
+before restart to establish payload recovery separately from source rereading.
+Local x86 validation is not ARM64 performance proof or a production outage test.
+
+The source-to-queue handoff still has journal-bridge/Stanza/parser memory
+windows; persistent payload queues do not make cursor advancement atomic.
+Permanent node/disk loss, full/broken queue storage, permanent HTTP errors,
+source rotation/deletion, API discovery gaps and source-side journal rate
+limiting can lose evidence. Local journald retention is capped at 512MiB and
+seven days, with a 2GiB free-space reserve and 30-second sync interval; the
+actual retained duration can be shorter. Existing journal cursors do not replay
+records already skipped before this change. A separate controlled backfill is
+needed for those records:
+
+```sh
+python3 scripts/prepare-os-log-backfill.py --bundle /tmp/PRIVATE-BUNDLE --output /tmp/PRIVATE-REPLAY
+cd infrastructure/ansible
+ansible-playbook playbooks/os_log_backfill.yml -e os_log_backfill_directory=/tmp/PRIVATE-REPLAY
+```
+
+Preparation rejects failed/truncated captures and validates native cursor,
+realtime, monotonic, boot and host identity fields. It selects K3s/kernel records
+only, preserving original JSON bytes, and writes a private checksum/count
+manifest. Ansible stages immutable root-only files, capped at 256MiB per node,
+without resetting any source cursor. Their `source="os-file"` query timestamps
+are explicitly observed time; use `| json` to read native original timestamps
+and boot identity. The historical copy can overlap records delivered earlier;
+its count is not a count of uniquely recovered loss. Query and reconcile the
+manifest before removing files or staging another snapshot. Keep local replay
+files within the incident retention budget.
+
+Loki remains single-backend/NAS-dependent, with
+14-day central retention and no newly claimed independent disaster recovery.
 
 ## Container-log handover
 

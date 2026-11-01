@@ -36,17 +36,6 @@ spec:
         - protocol: TCP
           port: 12321
     - from:
-        - namespaceSelector:
-            matchLabels:
-              kubernetes.io/metadata.name: rack-ops
-          podSelector:
-            matchLabels:
-              app.kubernetes.io/instance: qbittorrent-smart-queues
-              app.kubernetes.io/name: qbittorrent-smart-queues
-      ports:
-        - protocol: TCP
-          port: 8123
-    - from:
         - ipBlock:
             cidr: 0.0.0.0/0
             except:

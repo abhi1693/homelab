@@ -16,25 +16,17 @@ resources:
   - topic-kind-map.yaml
   - deployment-admin-api.yaml
   - deployment-admin.yaml
-  - deployment-worker-article-analysis.yaml
-  - deployment-worker-topic-analysis.yaml
-  - deployment-worker-research-verification.yaml
-  - deployment-worker-source-analysis.yaml
-  - deployment-worker-ai.yaml
-  - deployment-worker-relationships.yaml
+  - deployment-worker-high.yaml
+  - deployment-worker-default.yaml
+  - deployment-worker-low.yaml
   - deployment-api.yaml
   - deployment-chimely.yaml
   - deployment-codex.yaml
-  - deployment-worker-notification.yaml
   - deployment-scheduler.yaml
   - deployment-user-api.yaml
   - deployment-mcp.yaml
   - service-mcp.yaml
   - deployment-web.yaml
-  - deployment-worker-ingestion.yaml
-  - deployment-worker-source-discovery.yaml
-  - deployment-worker-article-enrichment.yaml
-  - deployment-worker-source-enrichment.yaml
   - deployment-worker-images.yaml
   - inbox-scripts.yaml
   - ingress.yaml
@@ -63,7 +55,6 @@ resources:
   - devfeed-operations.yaml
   - prometheusrule.yaml
   - probes.yaml
-  - faro-secrets.sops.yaml
   - analytics-secrets.sops.yaml
   - x-conversion-secrets.sops.yaml
   - configmap-images.yaml
@@ -76,6 +67,7 @@ resources:
   - deployment-partner.yaml
   - deployment-partner-api.yaml
   - partner-secrets.sops.yaml
-  - deployment-read-model-pipeline.yaml
-  - deployment-read-model-reports.yaml
-  - report-day-statistics-job.yaml
+  - networkpolicy-clickhouse.yaml
+  - clickhouse-secrets.sops.yaml
+  - configmap-clickhouse-client.yaml
+  - deployment-analytics-importer.yaml

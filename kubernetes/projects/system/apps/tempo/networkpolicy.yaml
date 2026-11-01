@@ -23,10 +23,6 @@ spec:
             matchLabels:
               app.kubernetes.io/name: opentelemetry-processor
               app.kubernetes.io/component: telemetry-processor
-        - podSelector:
-            matchLabels:
-              app.kubernetes.io/name: alloy
-              app.kubernetes.io/instance: alloy-faro
       ports:
         - protocol: TCP
           port: 4317

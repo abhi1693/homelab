@@ -23,6 +23,12 @@ spec:
               kubernetes.io/metadata.name: cattle-monitoring-system
           podSelector:
             matchLabels:
+              app.kubernetes.io/name: alloy-os-log-monitor
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: cattle-monitoring-system
+          podSelector:
+            matchLabels:
               app.kubernetes.io/name: alloy
               app.kubernetes.io/instance: alloy-logs
         - namespaceSelector:
@@ -32,13 +38,6 @@ spec:
             matchLabels:
               app.kubernetes.io/name: alloy
               app.kubernetes.io/instance: alloy-node-logs
-        - namespaceSelector:
-            matchLabels:
-              kubernetes.io/metadata.name: cattle-monitoring-system
-          podSelector:
-            matchLabels:
-              app.kubernetes.io/name: alloy
-              app.kubernetes.io/instance: alloy-faro
         - namespaceSelector:
             matchLabels:
               kubernetes.io/metadata.name: cattle-monitoring-system

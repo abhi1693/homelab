@@ -44,7 +44,7 @@ cloudflared:
     repository: registry.home/docker.io/cloudflare/cloudflared
     pullPolicy: IfNotPresent
     # renovate: datasource=github-releases depName=cloudflare/cloudflared
-    tag: 2026.10.0
+    tag: 2026.10.3
   podSecurityContext:
     runAsGroup: 65532
     runAsNonRoot: true
@@ -73,8 +73,8 @@ cloudflared:
     minAvailable: 2
   resources:
     requests:
-      cpu: 40m
-      memory: 48Mi
+      cpu: 25m
+      memory: 80Mi
     limits:
       memory: 112Mi
 serviceMonitor:
@@ -115,6 +115,6 @@ securityContext:
 resources:
   requests:
     cpu: 10m
-    memory: 48Mi
+    memory: 80Mi
   limits:
     memory: 112Mi

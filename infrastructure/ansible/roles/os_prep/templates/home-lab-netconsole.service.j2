@@ -1,0 +1,18 @@
+[Unit]
+Description=Forward critical kernel messages to independent LAN nodes
+Wants=network-online.target
+After=network-online.target
+Before=k3s.service k3s-agent.service
+
+[Service]
+Type=oneshot
+RemainAfterExit=yes
+ExecStartPre=/usr/sbin/modprobe netconsole
+ExecStart=/usr/bin/python3 /usr/local/libexec/home-lab-node-recovery configure
+NoNewPrivileges=yes
+ProtectHome=yes
+PrivateTmp=yes
+TimeoutStartSec=30s
+
+[Install]
+WantedBy=multi-user.target

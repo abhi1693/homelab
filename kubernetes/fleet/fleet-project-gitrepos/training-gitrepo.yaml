@@ -1,0 +1,22 @@
+---
+apiVersion: fleet.cattle.io/v1alpha1
+kind: GitRepo
+metadata:
+  name: home-lab-training
+  namespace: fleet-local
+  labels:
+    app.kubernetes.io/name: home-lab-training
+    app.kubernetes.io/part-of: fleet
+    home-lab.io/project-slug: training
+spec:
+  repo: https://github.com/abhi1693/home-lab.git
+  branch: master
+  clientSecretName: home-lab-apps-github
+  pollingInterval: 1h0m0s
+  paths:
+  - kubernetes/projects/training/apps/instructor-prerequisites
+  - kubernetes/projects/training/apps/instructor-netbox
+  correctDrift:
+    enabled: true
+    force: true
+    keepFailHistory: true

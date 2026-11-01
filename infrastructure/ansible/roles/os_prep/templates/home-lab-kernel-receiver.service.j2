@@ -1,0 +1,23 @@
+[Unit]
+Description=Bounded remote kernel evidence receiver
+Wants=network-online.target
+After=network-online.target
+
+[Service]
+Type=simple
+DynamicUser=yes
+ExecStart=/usr/bin/python3 /usr/local/libexec/home-lab-node-recovery receive
+Restart=on-failure
+RestartSec=5s
+NoNewPrivileges=yes
+ProtectSystem=strict
+ProtectHome=yes
+PrivateTmp=yes
+RestrictAddressFamilies=AF_INET
+MemoryMax=64M
+CPUQuota=10%
+LogRateLimitIntervalSec=30s
+LogRateLimitBurst=10000
+
+[Install]
+WantedBy=multi-user.target

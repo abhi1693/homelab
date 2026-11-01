@@ -1,0 +1,24 @@
+# Managed by Ansible os_prep logging.
+[Unit]
+Description=Emit an informational host logging canary
+After=systemd-journald.service
+RequiresMountsFor=/var/lib/alloy-node-logs/otel
+
+[Service]
+Type=oneshot
+ExecStart=/usr/local/libexec/home-lab-log-canary
+SyslogIdentifier=home-lab-log-canary
+# UID 0 can stat the root-only queue directory; no capabilities or writes needed.
+User=root
+CapabilityBoundingSet=
+NoNewPrivileges=yes
+PrivateTmp=yes
+PrivateDevices=yes
+ProtectSystem=strict
+ProtectHome=yes
+ProtectKernelTunables=yes
+ProtectKernelModules=yes
+ProtectControlGroups=yes
+RestrictAddressFamilies=AF_UNIX
+MemoryMax=32M
+TimeoutStartSec=10

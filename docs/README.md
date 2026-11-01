@@ -32,7 +32,6 @@ hide inside a manifest comment:
 | `runbooks/README.md` | Standard format for new runbooks. |
 | `runbooks/alertmanager-firing-alert-triage.md` | Live Alertmanager inventory, synthetic-alert interpretation, and evidence-preserving failed-Job cleanup. |
 | `runbooks/completed-torrent-import-recovery.md` | Safe recovery for completed torrents blocked by Arr mappings, including copy-first Sonarr pack-title repair and exact-hash cleanup. |
-| `runbooks/devfeed-identity-migration.md` | DevFeed virtual-instance user import, social identity mapping, transactional database cutover and rollback. |
 | `runbooks/fleet-namespace-psa-labels.md` | Procedure for namespace ownership and Pod Security Admission label changes under Fleet. |
 | `runbooks/kubernetes-cpu-overcommit.md` | N-1 CPU request capacity diagnosis and evidence-backed request sizing. |
 | `runbooks/kubernetes-resource-policy.md` | Production requests, limits, generated-container defaults, validation, and Longhorn exceptions. |
@@ -58,6 +57,12 @@ READMEs describe the current setup, dependencies, configuration, and validation.
 Keep rationale only while its constraint still applies. Link to the owning app
 or source repository instead of repeating configuration tables and feature lists.
 Completed rollout reports, measurements, retired services, and rejected
-experiments normally belong in Git history. Keep a dated recovery guide only
-when retained data or artifacts still require it; label its scope and link to it
-from current instructions. Past maintenance approval is not standing authority.
+experiments normally belong in Git history. Remove completed one-off runbooks
+and request manifests. Document any remaining recovery-data contract in the
+owning app README. Past maintenance approval is not standing authority.
+
+Treat the owning manifests, inventory and build-policy files as the source for
+versions, replicas and resource settings. Prefer links to those files over
+duplicated pins that automation can change. Keep CI run reports, successful
+rollout counts, dated performance samples and one-time recovery totals out of
+READMEs; retain only the constraints and reusable operating steps they establish.

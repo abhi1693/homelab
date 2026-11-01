@@ -13,7 +13,7 @@ headers such as `Cross-Origin-Opener-Policy` to apply to this non-local origin.
 Current choices:
 
 - chart: `oci://ghcr.io/netbox-community/netbox-chart/netbox`
-- chart version: `8.3.63`
+- chart version: `8.3.92`
 - NetBox version: `v4.6.9`
 - image: `registry.home/ghcr.io/abhi1693/home-lab-netbox:4.6.9-f3db127`
 - namespace: `netbox`
@@ -124,8 +124,20 @@ kubectl -n netbox create secret generic netbox-metatype-importer-config \
 
 ## HA model
 
-NetBox uses one web replica, one worker replica, and no PDB because a singleton
+NetBox uses one web replica, no worker replica, and no PDB because a singleton
 web service cannot preserve availability during voluntary disruption. Its
 Services, ingress, PVC, PostgreSQL database and role, and Valkey data are
 declaratively managed. PostgreSQL remains a shared three-instance CloudNativePG
 cluster.
+
+
+## Background worker disabled
+
+The worker is disabled after verifying no queued or active jobs. Normal
+inventory UI/API operations remain available. Queued jobs, imports, scripts and
+plugin background work wait until worker.enabled is restored to true.
+The direct housekeeping CronJob remains enabled. Existing failed-job records
+are retained; disabling the worker does not delete Redis queues.
+
+The web container and its mkdir-only init each request 50m CPU, so the init
+does not inflate the web pod's scheduler reservation.

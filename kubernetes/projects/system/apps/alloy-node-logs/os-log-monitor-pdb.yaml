@@ -1,0 +1,16 @@
+---
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: alloy-os-log-monitor
+  namespace: cattle-monitoring-system
+  labels:
+    app.kubernetes.io/name: alloy-os-log-monitor
+    app.kubernetes.io/component: log-delivery
+    app.kubernetes.io/part-of: rancher-monitoring
+    home-lab.io/project-slug: system
+spec:
+  minAvailable: 1
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: alloy-os-log-monitor

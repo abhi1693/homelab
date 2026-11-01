@@ -1,0 +1,14 @@
+---
+# One-time repair of the verified completed action lost by the old raw bundle.
+# The UID and migration marker prevent this seed from resetting a newer ledger.
+ledgerBootstrap:
+  migrateExisting: false
+  uid: 94b1576a-e83b-44bc-9b1f-6615bdd394c1
+  resourceVersion: '204054025'
+  state:
+    phase: completed
+    actions:
+      - node: k8s-rpi7
+        at: 1793295068.954398
+        id: 00afb9b7-252b-4cce-8db1-30e72139b6d1
+    action_id: 00afb9b7-252b-4cce-8db1-30e72139b6d1

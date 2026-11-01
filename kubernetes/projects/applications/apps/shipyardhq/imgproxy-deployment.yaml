@@ -9,7 +9,7 @@ metadata:
     app.kubernetes.io/part-of: shipyardhq
 spec:
   revisionHistoryLimit: 2
-  replicas: 4
+  replicas: 2
   minReadySeconds: 15
   selector:
     matchLabels:
@@ -78,11 +78,11 @@ spec:
               protocol: TCP
           resources:
             requests:
-              cpu: 10m
-              memory: 180Mi
+              cpu: 25m
+              memory: 160Mi
             limits:
               cpu: 200m
-              memory: 192Mi
+              memory: 384Mi
           startupProbe:
             httpGet:
               path: /health

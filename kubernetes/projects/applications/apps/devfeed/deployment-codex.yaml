@@ -39,7 +39,7 @@ spec:
       containers:
         - name: codex
           # renovate: datasource=docker depName=ghcr.io/abhi1693/devfeed.tech/codex
-          image: registry.home/ghcr.io/abhi1693/devfeed.tech/codex:0.1.2@sha256:9dcb5e12d64ea4e519ad11ba5aad7c8e31fb69627dcfca89c0d4658fd97b833c
+          image: registry.home/ghcr.io/abhi1693/devfeed.tech/codex:0.1.8@sha256:cf3627f9c27d461a9e3670611b90cf0154b797dd2bcd713fb17f7b0a8bcaf1ee
           imagePullPolicy: IfNotPresent
           args:
             - app-server
@@ -49,10 +49,10 @@ spec:
             - history.persistence="none"
           resources:
             requests:
-              cpu: 100m
-              memory: 512Mi
+              cpu: 150m
+              memory: 384Mi
             limits:
-              memory: 2Gi
+              memory: 3072Mi
           securityContext:
             runAsNonRoot: true
             runAsUser: 10001
@@ -112,7 +112,7 @@ spec:
             failureThreshold: 60
         - name: log-retention
           # renovate: datasource=docker depName=ghcr.io/abhi1693/devfeed.tech/codex
-          image: registry.home/ghcr.io/abhi1693/devfeed.tech/codex:0.1.2@sha256:9dcb5e12d64ea4e519ad11ba5aad7c8e31fb69627dcfca89c0d4658fd97b833c
+          image: registry.home/ghcr.io/abhi1693/devfeed.tech/codex:0.1.8@sha256:cf3627f9c27d461a9e3670611b90cf0154b797dd2bcd713fb17f7b0a8bcaf1ee
           imagePullPolicy: IfNotPresent
           command:
             - node
@@ -120,8 +120,8 @@ spec:
             - /var/lib/codex-runtime
           resources:
             requests:
-              cpu: 25m
-              memory: 64Mi
+              cpu: 10m
+              memory: 32Mi
             limits:
               memory: 128Mi
           securityContext:
@@ -178,7 +178,7 @@ spec:
       initContainers:
         - name: remove-legacy-logs
           # renovate: datasource=docker depName=ghcr.io/abhi1693/devfeed.tech/codex
-          image: registry.home/ghcr.io/abhi1693/devfeed.tech/codex:0.1.2@sha256:9dcb5e12d64ea4e519ad11ba5aad7c8e31fb69627dcfca89c0d4658fd97b833c
+          image: registry.home/ghcr.io/abhi1693/devfeed.tech/codex:0.1.8@sha256:cf3627f9c27d461a9e3670611b90cf0154b797dd2bcd713fb17f7b0a8bcaf1ee
           imagePullPolicy: IfNotPresent
           command:
             - node
@@ -208,7 +208,7 @@ spec:
               readOnly: true
         - name: chatgpt-login
           # renovate: datasource=docker depName=ghcr.io/abhi1693/devfeed.tech/codex
-          image: registry.home/ghcr.io/abhi1693/devfeed.tech/codex:0.1.2@sha256:9dcb5e12d64ea4e519ad11ba5aad7c8e31fb69627dcfca89c0d4658fd97b833c
+          image: registry.home/ghcr.io/abhi1693/devfeed.tech/codex:0.1.8@sha256:cf3627f9c27d461a9e3670611b90cf0154b797dd2bcd713fb17f7b0a8bcaf1ee
           imagePullPolicy: IfNotPresent
           env:
             - name: CODEX_SQLITE_HOME

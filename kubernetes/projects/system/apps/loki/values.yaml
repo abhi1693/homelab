@@ -11,12 +11,22 @@ loki:
     path_prefix: /var/loki
     replication_factor: 1
   ingester:
+    # Filesystem mode otherwise substitutes its ~2h41m store-query lookback,
+    # overriding the querier window and hiding older unflushed replay. Remove
+    # this filesystem-only setting as part of any object-storage migration.
+    query_store_max_look_back_period: 336h
     wal:
       enabled: true
       dir: /var/loki/wal
       # Flush in-memory chunks during a graceful Fleet replacement as well as
       # retaining the WAL for replay. Never remove WAL files to recover ESTALE.
       flush_on_shutdown: true
+      # Leave headroom within the 2Gi monolithic process limit during recovery.
+      replay_memory_ceiling: 1GB
+  querier:
+    # Retained host evidence replayed after an outage must be queryable before
+    # its ingester chunks flush to storage.
+    query_ingesters_within: 336h
   compactor:
     retention_enabled: true
     delete_request_store: filesystem
@@ -40,6 +50,32 @@ loki:
     volume_enabled: true
     reject_old_samples: true
     reject_old_samples_max_age: 336h
+    allow_structured_metadata: true
+    # Preserve the existing LogQL selectors while canonical OTel resource
+    # attributes and high-cardinality identity remain structured metadata.
+    otlp_config:
+      resource_attributes:
+        ignore_defaults: true
+        attributes_config:
+          - action: index_label
+            attributes:
+              - cluster
+              - node
+              - source
+              - unit
+              - job
+              - namespace
+              - pod
+              - container
+              - app
+              - part_of
+              - component
+              - service
+              - severity
+    # A recovering queue may deliver old records alongside current traffic.
+    # Separate old time buckets instead of increasing ingester chunk lifetime.
+    shard_streams:
+      time_sharding_enabled: true
 
 singleBinary:
   replicas: 1
@@ -55,18 +91,21 @@ singleBinary:
     whenScaled: Retain
   resources:
     requests:
-      cpu: 250m
+      cpu: 100m
       memory: 768Mi
     limits:
-      memory: 2Gi
+      memory: 2560Mi
   nodeSelector:
     kubernetes.io/arch: arm64
-    node-role.kubernetes.io/control-plane: "true"
-  tolerations:
-    - key: CriticalAddonsOnly
-      operator: Equal
-      value: "true"
-      effect: NoExecute
+  # Keep replay and NAS-backed WAL traffic away from embedded-etcd hosts.
+  affinity:
+    nodeAffinity:
+      requiredDuringSchedulingIgnoredDuringExecution:
+        nodeSelectorTerms:
+          - matchExpressions:
+              - key: node-role.kubernetes.io/control-plane
+                operator: DoesNotExist
+  tolerations: []
 
 read:
   replicas: 0

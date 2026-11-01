@@ -53,3 +53,15 @@ Rollback by reverting the application registration and manifests in Git and
 letting Fleet reconcile. No namespace is created or relabeled by this app.
 
 Upstream: https://github.com/SonarSource/sonarqube-mcp-server/tree/1.19.0.2785
+
+## Resource review — 28 October 2026
+
+Values use the 28 October historical review in
+[the resource policy](../../../../../docs/runbooks/kubernetes-resource-policy.md#2026-10-28-historical-resource-review).
+CPU reservations cover measured sustained demand with headroom; existing burst
+policies remain in place. Memory caps preserve the observed fourteen-day peaks
+and extra headroom where OOM records show clipping.
+
+| Container / value path | CPU request | Memory request | Memory limit |
+| --- | --- | --- | --- |
+| `devfeed/sonarqube-mcp-server/server` | 100m → 25m | 256Mi → 320Mi | 768Mi → 768Mi |

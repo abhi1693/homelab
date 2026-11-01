@@ -28,6 +28,14 @@ spec:
     enabled: true
     force: true
     keepFailHistory: true
+  diff:
+    comparePatches:
+      - apiVersion: apps/v1
+        kind: Deployment
+        name: qbittorrent
+        namespace: media
+        jsonPointers:
+          - /spec/replicas
   downstreamResources:
     - kind: ConfigMap
       name: qbittorrent-values

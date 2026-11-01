@@ -1,0 +1,55 @@
+---
+- name: Inspect all selected hosts and discover independent receivers
+  hosts: k3s_nodes
+  become: true
+  gather_facts: true
+  any_errors_fatal: true
+  tasks:
+    - name: Gather receiver network identity without storing physical MACs in Git
+      ansible.builtin.setup:
+        gather_subset: ['!all', network]
+      delegate_to: "{{ item }}"
+      delegate_facts: true
+      loop: "{{ groups['k3s_servers'] }}"
+      run_once: true
+
+    - name: Inspect recovery prerequisites without changing the node
+      ansible.builtin.include_role:
+        name: os_prep
+        tasks_from: recovery_preflight
+        rolespec_validate: false
+
+- name: Start kernel receivers before enabling any senders
+  hosts: k3s_servers
+  become: true
+  gather_facts: false
+  serial: 1
+  any_errors_fatal: true
+  tasks:
+    - name: Install and start receiver configuration
+      ansible.builtin.include_role:
+        name: os_prep
+        tasks_from: recovery_receiver
+        rolespec_validate: false
+      when: node_recovery_entrypoint | default('main') == 'main'
+
+- name: Enable and validate recovery one selected node at a time
+  hosts: k3s_nodes
+  become: true
+  gather_facts: false
+  serial: 1
+  any_errors_fatal: true
+  tasks:
+    - name: Apply the host recovery policy
+      ansible.builtin.include_role:
+        name: os_prep
+        tasks_from: recovery
+        rolespec_validate: false
+      when: node_recovery_entrypoint | default('main') == 'main'
+
+    - name: Validate recovery policy without modifying it
+      ansible.builtin.include_role:
+        name: os_prep
+        tasks_from: recovery_validation
+        rolespec_validate: false
+      when: not ansible_check_mode

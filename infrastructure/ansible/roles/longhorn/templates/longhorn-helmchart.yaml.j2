@@ -26,6 +26,7 @@ spec:
       resizerReplicaCount: {{ longhorn.csi_controller_replicas }}
       snapshotterReplicaCount: {{ longhorn.csi_controller_replicas }}
     defaultSettings:
+      nodeDrainPolicy: {{ longhorn.node_drain_policy }}
       defaultDataPath: {{ longhorn.default_data_path }}
       taintToleration: {{ longhorn.taint_toleration | quote }}
       defaultDataLocality: {{ longhorn.default_data_locality }}
@@ -44,6 +45,7 @@ spec:
       allowVolumeCreationWithDegradedAvailability: {{ longhorn.allow_volume_creation_with_degraded_availability | lower }}
       replicaFileSyncHttpClientTimeout: {{ longhorn.replica_file_sync_http_client_timeout }}
       concurrentReplicaRebuildPerNodeLimit: {{ longhorn.concurrent_replica_rebuild_per_node_limit }}
+      snapshotHeavyTaskConcurrentLimit: {{ longhorn.snapshot_heavy_task_concurrent_limit }}
       concurrentAutomaticEngineUpgradePerNodeLimit: {{ longhorn.concurrent_automatic_engine_upgrade_per_node_limit }}
       guaranteedInstanceManagerCPU: {{ longhorn.guaranteed_instance_manager_cpu }}
       systemManagedCSIComponentsResourceLimits: {{ longhorn.resources.system_managed_csi_components | to_json | to_json }}

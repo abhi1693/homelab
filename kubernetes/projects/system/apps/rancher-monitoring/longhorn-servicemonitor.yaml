@@ -21,3 +21,8 @@ spec:
       path: /metrics
       interval: 60s
       scrapeTimeout: 15s
+      # Internal client/queue timings have no provisioned dashboard/rule users.
+      metricRelabelings:
+        - sourceLabels: [__name__]
+          regex: longhorn_(rest_client_(rate_limiter_latency|request_latency)|workqueue_(queue_duration|work_duration))_seconds_(bucket|sum|count)
+          action: drop

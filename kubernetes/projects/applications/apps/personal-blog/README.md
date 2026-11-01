@@ -7,9 +7,9 @@ remain the primary rollback path.
 
 The public hostname is `blog.abhimanyu-saharan.com`.
 
-The deployment pins release `0.3.18` and its immutable index from
+The deployment pins release `0.3.19` and its immutable index from
 `registry.home/ghcr.io/abhi1693/personal-blog` (Linux/ARM64), using Node.js
-26.12.1 and Next.js 16.4.2 with packaged application and Faro version defaults.
+26.12.1 and Next.js 16.4.2 with packaged application version defaults.
 It serves the RFC 4287 Atom feed at `/posts/atom.xml` and preserves the RSS 2.0
 feed at `/posts/rss.xml`, including existing RSS GUIDs and publication dates.
 Both feeds are advertised by page metadata and revalidated on Sanity changes.
@@ -64,10 +64,10 @@ metadata rejection stops capture before any credential creation or propagation.
 Old-key retirement requires removal from the complete account key list and the
 provider's documented invalid-key response; generic HTTP failures cannot pass.
 
-Sanity's required Viewer token, Studio and authenticated Draft Mode preview stay
-intact. Its rotation is blocked until a fresh privileged project recovery session
-is verified; the saved owner session returned 401. Resend's previously failed
-sender-domain status is a newsletter limitation, not a claim about web readiness.
+Sanity's Viewer token supports Studio and authenticated Draft Mode preview.
+Verify privileged project recovery access before rotating it. Check the Resend
+sender-domain and API-key status independently of application readiness; a
+healthy website does not prove newsletter delivery.
 
 ## Sanity Revalidation Webhook
 
@@ -107,5 +107,21 @@ _type in ["blog.post", "blog.category", "page"]
 ```
 
 The web container requests 100m CPU, with its existing burst capacity retained.
-The [September 19 resource review](../../../../../docs/runbooks/kubernetes-resource-policy.md#2026-09-19-cpu-sizing-review)
-records the seven-day usage and rollout checks.
+
+### Faro retirement
+
+Release `0.3.19` removes the Faro SDK and private source-map collection.
+The retired collector and runtime/build flags are removed. Backend tracing, logs,
+profiling, and application analytics are preserved.
+
+## Final resource review — 28 October 2026
+
+Values use the 28 October historical review in
+[the resource policy](../../../../../docs/runbooks/kubernetes-resource-policy.md#2026-10-28-historical-resource-review).
+CPU reservations cover measured sustained demand with headroom; existing burst
+policies remain in place. Memory caps preserve the observed fourteen-day peaks
+and extra headroom where OOM records show clipping.
+
+| Container / value path | CPU request | Memory request | Memory limit |
+| --- | --- | --- | --- |
+| `personal-blog/personal-blog/web` | 100m → 50m | 673Mi → 384Mi | 1152Mi → 1152Mi |

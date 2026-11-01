@@ -1,0 +1,8 @@
+---
+- name: Require Ubuntu Server 26.04 LTS on ARM64
+  ansible.builtin.assert:
+    that:
+      - ansible_facts.distribution == 'Ubuntu'
+      - ansible_facts.distribution_version == '26.04'
+      - ansible_facts.architecture == 'aarch64'
+    fail_msg: This inventory supports Ubuntu Server 26.04 LTS ARM64 only.

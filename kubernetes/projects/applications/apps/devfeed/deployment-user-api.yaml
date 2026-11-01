@@ -33,6 +33,7 @@ spec:
         devfeed-database-client: 'true'
         devfeed-redis-client: 'true'
         devfeed-inbox-client: 'true'
+        devfeed-clickhouse-client: 'true'
     spec:
       serviceAccountName: devfeed
       automountServiceAccountToken: false
@@ -56,14 +57,14 @@ spec:
       containers:
         - name: user-api
           # renovate: datasource=docker depName=ghcr.io/abhi1693/devfeed.tech/user-api
-          image: registry.home/ghcr.io/abhi1693/devfeed.tech/user-api:0.1.2@sha256:f17d20660ba49d00ee8d2a3d6eea15211b6d74fa6e3e15ecd2723429a8154eef
+          image: registry.home/ghcr.io/abhi1693/devfeed.tech/user-api:0.1.8@sha256:310216bf07aaba90b172c94ae78b35b6e610575a1abccfcf70b5f951af8f38d6
           imagePullPolicy: IfNotPresent
           resources:
             requests:
-              cpu: 100m
+              cpu: 50m
               memory: 256Mi
             limits:
-              memory: 1Gi
+              memory: 512Mi
           securityContext:
             runAsNonRoot: true
             runAsUser: 10001
@@ -86,6 +87,10 @@ spec:
                 name: devfeed-user
             - configMapRef:
                 name: devfeed-oidc-providers
+            - configMapRef:
+                name: devfeed-clickhouse-client
+            - secretRef:
+                name: devfeed-clickhouse-user
           env:
             - name: DEVFEED_PARTNER_TRACKING_KEY
               valueFrom:
@@ -166,7 +171,7 @@ spec:
       initContainers:
         - name: wait-for-inbox
           # renovate: datasource=docker depName=ghcr.io/abhi1693/devfeed.tech/user-api
-          image: registry.home/ghcr.io/abhi1693/devfeed.tech/user-api:0.1.2@sha256:f17d20660ba49d00ee8d2a3d6eea15211b6d74fa6e3e15ecd2723429a8154eef
+          image: registry.home/ghcr.io/abhi1693/devfeed.tech/user-api:0.1.8@sha256:310216bf07aaba90b172c94ae78b35b6e610575a1abccfcf70b5f951af8f38d6
           imagePullPolicy: IfNotPresent
           resources:
             requests:
@@ -198,7 +203,7 @@ spec:
               else: raise SystemExit('Inbox provisioning not ready')
         - name: wait-for-schema
           # renovate: datasource=docker depName=ghcr.io/abhi1693/devfeed.tech/backend
-          image: registry.home/ghcr.io/abhi1693/devfeed.tech/backend:0.1.2@sha256:77d8cadbcc9e78701d06912ef0e54b7f96947e6f4625ef864b6f814c77478133
+          image: registry.home/ghcr.io/abhi1693/devfeed.tech/backend:0.1.8@sha256:1fb3087acd900c6e18cef096df53ae34d19d6226bba58531324f2dcb3786ca3e
           imagePullPolicy: IfNotPresent
           securityContext:
             runAsNonRoot: true

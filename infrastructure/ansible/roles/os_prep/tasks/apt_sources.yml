@@ -19,7 +19,7 @@
     label: "{{ item.path }}"
   register: os_prep_apt_source_files
 
-- name: Use HTTPS for the configured official Debian archive URIs
+- name: Use HTTPS for the configured official Ubuntu archive URIs
   ansible.builtin.replace:
     path: "{{ item.item.path }}"
     regexp: "{{ item.item.regexp }}"

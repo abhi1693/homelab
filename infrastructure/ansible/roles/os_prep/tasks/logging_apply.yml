@@ -1,0 +1,142 @@
+---
+- name: Ensure ext4 tools are installed without upgrading installed packages
+  ansible.builtin.package:
+    name: e2fsprogs
+    state: present
+
+- name: Create the dedicated payload filesystem parent and empty mountpoint
+  ansible.builtin.file:
+    path: "{{ item }}"
+    state: directory
+    owner: root
+    group: root
+    mode: '0700'
+  loop:
+    - /var/lib/alloy-node-logs
+    - "{{ os_prep.logging.queue_directory }}"
+
+- name: Allocate the bounded queue image only when no image exists
+  ansible.builtin.command:
+    argv:
+      - fallocate
+      - --length
+      - "{{ (os_prep.logging.queue_size_mib | int * 1024 * 1024) | string }}"
+      - "{{ os_prep.logging.queue_image }}"
+    creates: "{{ os_prep.logging.queue_image }}"
+  register: os_prep_logging_image_created
+  when: not (os_prep_logging_state.stdout | from_json).image_exists
+
+- name: Format only the newly allocated image without touching existing filesystems  # noqa no-handler
+  ansible.builtin.command:
+    argv:
+      - mkfs.ext4
+      - -q
+      - -m
+      - '0'
+      - -L
+      - alloy-otel-queue
+      - "{{ os_prep.logging.queue_image }}"
+  when: os_prep_logging_image_created is changed
+  changed_when: true
+
+- name: Restrict access to the queue image
+  ansible.builtin.file:
+    path: "{{ os_prep.logging.queue_image }}"
+    owner: root
+    group: root
+    mode: '0600'
+
+- name: Read the escaped systemd mount unit name
+  ansible.builtin.command:
+    argv: [systemd-escape, --path, --suffix=mount, "{{ os_prep.logging.queue_directory }}"]
+  register: os_prep_logging_mount_unit
+  changed_when: false
+  check_mode: false
+
+- name: Install the boot-persistent bounded queue mount
+  ansible.builtin.copy:
+    dest: "/etc/systemd/system/{{ os_prep_logging_mount_unit.stdout }}"
+    owner: root
+    group: root
+    mode: '0644'
+    content: |
+      # Managed by Ansible os_prep logging; never reformat an existing image.
+      [Unit]
+      Description=Bounded Alloy OpenTelemetry payload queue
+      RequiresMountsFor=/var/lib/alloy-node-logs
+      Before=k3s.service k3s-agent.service
+
+      [Mount]
+      What={{ os_prep.logging.queue_image }}
+      Where={{ os_prep.logging.queue_directory }}
+      Type=ext4
+      Options=loop,nodev,nosuid,noexec,noatime
+      TimeoutSec=30
+
+      [Install]
+      WantedBy=local-fs.target
+  register: os_prep_logging_mount_config
+
+- name: Enable and start the queue mount without restarting Kubernetes services
+  ansible.builtin.systemd_service:
+    name: "{{ os_prep_logging_mount_unit.stdout }}"
+    daemon_reload: "{{ os_prep_logging_mount_config is changed }}"
+    enabled: true
+    state: started
+
+- name: Restrict access to the mounted payload filesystem
+  ansible.builtin.file:
+    path: "{{ os_prep.logging.queue_directory }}"
+    owner: root
+    group: root
+    mode: '0700'
+
+- name: Create the collector payload child only inside the mounted filesystem
+  ansible.builtin.file:
+    path: "{{ os_prep.logging.queue_directory }}/data"
+    state: directory
+    owner: root
+    group: root
+    mode: '0700'
+
+- name: Create the persistent journal directory and policy directory
+  ansible.builtin.file:
+    path: "{{ item.path }}"
+    state: directory
+    owner: root
+    group: "{{ item.group }}"
+    mode: "{{ item.mode }}"
+  loop:
+    - {path: /var/log/journal, group: systemd-journal, mode: '2755'}
+    - {path: /etc/systemd/journald.conf.d, group: root, mode: '0755'}
+
+- name: Install explicit persistent bounded journal policy
+  ansible.builtin.template:
+    src: journald-logging.conf.j2
+    dest: /etc/systemd/journald.conf.d/90-home-lab-logging.conf
+    owner: root
+    group: root
+    mode: '0644'
+  register: os_prep_logging_journal_config
+
+# Execute in this stage without flushing any unrelated reboot handlers.
+- name: Restart journald only when its policy changes  # noqa no-handler
+  ansible.builtin.systemd_service:
+    name: systemd-journald.service
+    state: restarted
+  when: os_prep_logging_journal_config is changed
+
+- name: Flush volatile journal entries to persistent storage
+  ansible.builtin.command: journalctl --flush
+  changed_when: false
+  when: not ansible_check_mode
+
+- name: Expose only the audit log directory for read-only node collection
+  ansible.builtin.include_tasks: logging_audit.yml
+
+- name: Generate harmless informational source canaries
+  ansible.builtin.include_tasks: logging_canary.yml
+
+- name: Validate the host logging policy
+  ansible.builtin.include_tasks: logging_validation.yml
+  when: not ansible_check_mode

@@ -2,7 +2,15 @@
 
 Fleet-managed season-ahead automation for the standard Sonarr library.
 
-Episeerr is available at `http://episodes.media.home`. Authentication is
+The [acquisition schedule](../media-acquisition-schedule/README.md) runs one
+replica from 22:00–10:00 Asia/Kolkata (IST), on nights starting Monday–Friday;
+Friday night continues until Saturday at 10:00. Git keeps a paused baseline of
+zero replicas, and the schedule owns only the runtime replica field. Outside
+the window the pod stops while queued work, configuration PVCs, and media remain
+retained. FlareSolverr stays online because DevFeed uses it.
+
+During the acquisition window, Episeerr is available at
+`http://episodes.media.home`. Authentication is
 enabled, the username is `asaharan`, and the configured password is stored only
 in the encrypted `media-episeerr` SopsSecret.
 
@@ -117,3 +125,15 @@ After Fleet reconciles, verify the image is available, the config-seeding init
 container completed, the startup log reports `Episeerr integrations configured`,
 the Jellyfin Webhook plugin is active, and a test request carries both transient
 Episeerr tags before using the policy for existing series.
+
+## Resource review — 28 October 2026
+
+Values use the 28 October historical review in
+[the resource policy](../../../../../docs/runbooks/kubernetes-resource-policy.md#2026-10-28-historical-resource-review).
+CPU reservations cover measured sustained demand with headroom; existing burst
+policies remain in place. Memory caps preserve the observed fourteen-day peaks
+and extra headroom where OOM records show clipping.
+
+| Container / value path | CPU request | Memory request | Memory limit |
+| --- | --- | --- | --- |
+| `media/episeerr/episeerr` | 25m → 10m | 160Mi → 96Mi | 384Mi → 256Mi |

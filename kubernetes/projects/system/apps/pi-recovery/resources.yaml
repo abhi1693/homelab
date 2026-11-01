@@ -1,0 +1,405 @@
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: pi-recovery
+  labels:
+    app.kubernetes.io/name: pi-recovery
+    app.kubernetes.io/part-of: node-recovery
+    home-lab.io/project-slug: system
+  namespace: cattle-monitoring-system
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: pi-recovery
+  labels:
+    app.kubernetes.io/name: pi-recovery
+    app.kubernetes.io/part-of: node-recovery
+    home-lab.io/project-slug: system
+rules:
+  - apiGroups:
+      - ''
+    resources:
+      - nodes
+    verbs:
+      - get
+      - list
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: pi-recovery
+  labels:
+    app.kubernetes.io/name: pi-recovery
+    app.kubernetes.io/part-of: node-recovery
+    home-lab.io/project-slug: system
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: pi-recovery
+subjects:
+  - kind: ServiceAccount
+    name: pi-recovery
+    namespace: cattle-monitoring-system
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: pi-recovery
+  labels:
+    app.kubernetes.io/name: pi-recovery
+    app.kubernetes.io/part-of: node-recovery
+    home-lab.io/project-slug: system
+  namespace: cattle-monitoring-system
+rules:
+  - apiGroups:
+      - coordination.k8s.io
+    resources:
+      - leases
+    resourceNames:
+      - pi-recovery-lock
+    verbs:
+      - get
+      - update
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: pi-recovery
+  labels:
+    app.kubernetes.io/name: pi-recovery
+    app.kubernetes.io/part-of: node-recovery
+    home-lab.io/project-slug: system
+  namespace: cattle-monitoring-system
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: Role
+  name: pi-recovery
+subjects:
+  - kind: ServiceAccount
+    name: pi-recovery
+    namespace: cattle-monitoring-system
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: pi-recovery
+  labels:
+    app.kubernetes.io/name: pi-recovery
+    app.kubernetes.io/part-of: node-recovery
+    home-lab.io/project-slug: system
+  namespace: cattle-monitoring-system
+spec:
+  replicas: 2
+  revisionHistoryLimit: 2
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxSurge: 0
+      maxUnavailable: 1
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: pi-recovery
+  template:
+    metadata:
+      annotations:
+        home-lab.io/policy-revision: 3-automatic
+      labels:
+        app.kubernetes.io/name: pi-recovery
+        app.kubernetes.io/part-of: node-recovery
+        home-lab.io/project-slug: system
+    spec:
+      serviceAccountName: pi-recovery
+      automountServiceAccountToken: true
+      terminationGracePeriodSeconds: 30
+      nodeSelector:
+        kubernetes.io/arch: arm64
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 10001
+        runAsGroup: 10001
+        seccompProfile:
+          type: RuntimeDefault
+      affinity:
+        podAntiAffinity:
+          requiredDuringSchedulingIgnoredDuringExecution:
+            - labelSelector:
+                matchLabels:
+                  app.kubernetes.io/name: pi-recovery
+              topologyKey: kubernetes.io/hostname
+      containers:
+        - name: receiver
+          # renovate: datasource=docker depName=ghcr.io/abhi1693/pi-recovery
+          image: registry.home/ghcr.io/abhi1693/pi-recovery:0.0.3@sha256:782efc251702f48954f967a4a6cfbfd60ce0d320db3830eeeac1e883ad6e3d70
+          imagePullPolicy: IfNotPresent
+          command:
+            - python3
+            - -u
+            - /app/controller.py
+          ports:
+            - name: http
+              containerPort: 8080
+          env:
+            - name: PYTHONDONTWRITEBYTECODE
+              value: '1'
+            - name: POD_UID
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.uid
+            - name: NODE_NAME
+              valueFrom:
+                fieldRef:
+                  fieldPath: spec.nodeName
+            - name: POD_NAMESPACE
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.namespace
+            - name: APPROVED_KERNEL
+              value: 7.0.0-1020-raspi
+            - name: NODE_EXPORTER_PORT
+              value: '9796'
+            - name: PI_RECOVERY_STATE_KEY
+              value: home-lab.io/recovery-state
+            - name: PI_RECOVERY_MAINTENANCE_KEY
+              value: home-lab.io/maintenance
+          resources:
+            requests:
+              cpu: 10m
+              memory: 32Mi
+            limits:
+              cpu: 100m
+              memory: 96Mi
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities:
+              drop:
+                - ALL
+          volumeMounts:
+            - name: config
+              mountPath: /etc/pi-recovery
+              readOnly: true
+          readinessProbe:
+            httpGet:
+              path: /readyz
+              port: http
+            periodSeconds: 10
+            timeoutSeconds: 2
+          livenessProbe:
+            httpGet:
+              path: /healthz
+              port: http
+            periodSeconds: 30
+            timeoutSeconds: 2
+      volumes:
+        - name: config
+          secret:
+            secretName: pi-recovery-runtime
+            items:
+              - key: config.json
+                path: config.json
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: pi-recovery
+  labels:
+    app.kubernetes.io/name: pi-recovery
+    app.kubernetes.io/part-of: node-recovery
+    home-lab.io/project-slug: system
+  namespace: cattle-monitoring-system
+spec:
+  selector:
+    app.kubernetes.io/name: pi-recovery
+  ports:
+    - name: http
+      port: 8080
+      targetPort: http
+---
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+  name: pi-recovery
+  labels:
+    app.kubernetes.io/name: pi-recovery
+    app.kubernetes.io/part-of: node-recovery
+    home-lab.io/project-slug: system
+    release: rancher-monitoring
+  namespace: cattle-monitoring-system
+spec:
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: pi-recovery
+  endpoints:
+    - port: http
+      interval: 60s
+      scrapeTimeout: 10s
+---
+apiVersion: monitoring.coreos.com/v1
+kind: PrometheusRule
+metadata:
+  name: pi-recovery
+  labels:
+    app.kubernetes.io/name: pi-recovery
+    app.kubernetes.io/part-of: node-recovery
+    home-lab.io/project-slug: system
+    release: rancher-monitoring
+  namespace: cattle-monitoring-system
+spec:
+  groups:
+    - name: home-lab.pi-recovery
+      rules:
+        - alert: RaspberryPiNetworkRecoveryCandidate
+          expr: up{job="node-exporter"} == 0
+          for: 2m
+          labels:
+            severity: none
+            incident: pi-recovery
+          annotations:
+            summary: A Raspberry Pi needs independent network recovery checks
+            description: Recovery candidate only. The webhook must verify node identity, peer health, PoE and directional
+              switch counters before cycling a port.
+        - alert: PiRecoveryInterlocked
+          expr: max(pi_recovery_review_required) == 1
+          for: 1m
+          labels:
+            severity: warning
+          annotations:
+            summary: Automatic Raspberry Pi power recovery is interlocked
+            description: An action failed, has an uncertain result or has remained in progress for over ten minutes. Inspect pi-recovery
+              logs and the persisted action before acknowledging its ID in Git.
+        - alert: PiRecoveryLedgerUnavailable
+          expr: pi_recovery_ledger_read_ok == 0
+          for: 5m
+          labels:
+            severity: warning
+          annotations:
+            summary: Raspberry Pi recovery state cannot be read
+            description: Recovery fails closed while its Kubernetes action ledger is unavailable.
+        - alert: PiRecoveryUnavailable
+          expr: kube_deployment_status_replicas_available{namespace="cattle-monitoring-system",deployment="pi-recovery"}
+            == 0
+          for: 3m
+          labels:
+            severity: warning
+          annotations:
+            summary: Raspberry Pi recovery receiver is unavailable
+            description: No recovery receiver is available; automatic PoE recovery cannot run.
+---
+apiVersion: monitoring.coreos.com/v1alpha1
+kind: AlertmanagerConfig
+metadata:
+  name: pi-recovery
+  labels:
+    app.kubernetes.io/name: pi-recovery
+    app.kubernetes.io/part-of: node-recovery
+    home-lab.io/project-slug: system
+  namespace: cattle-monitoring-system
+spec:
+  route:
+    receiver: pi-recovery
+    continue: true
+    matchers:
+      - name: alertname
+        matchType: =~
+        value: RaspberryPiNetworkRecoveryCandidate|KubeNodeUnreachable
+    groupBy:
+      - alertname
+      - node
+      - instance
+    groupWait: 0s
+    groupInterval: 1m
+    repeatInterval: 2m
+  receivers:
+    - name: pi-recovery
+      webhookConfigs:
+        - url: http://pi-recovery.cattle-monitoring-system.svc:8080/webhook
+          sendResolved: true
+          maxAlerts: 8
+          httpConfig:
+            authorization:
+              type: Bearer
+              credentials:
+                name: pi-recovery-runtime
+                key: webhook-token
+---
+apiVersion: cilium.io/v2
+kind: CiliumNetworkPolicy
+metadata:
+  name: pi-recovery
+  labels:
+    app.kubernetes.io/name: pi-recovery
+    app.kubernetes.io/part-of: node-recovery
+    home-lab.io/project-slug: system
+  namespace: cattle-monitoring-system
+spec:
+  endpointSelector:
+    matchLabels:
+      app.kubernetes.io/name: pi-recovery
+  ingress:
+    - fromEndpoints:
+        - matchLabels:
+            k8s:io.kubernetes.pod.namespace: cattle-monitoring-system
+            k8s:app.kubernetes.io/name: alertmanager
+        - matchLabels:
+            k8s:io.kubernetes.pod.namespace: cattle-monitoring-system
+            k8s:app.kubernetes.io/name: prometheus
+      toPorts:
+        - ports:
+            - port: '8080'
+              protocol: TCP
+    - fromEntities:
+        - host
+        - remote-node
+      toPorts:
+        - ports:
+            - port: '8080'
+              protocol: TCP
+  egress:
+    - toEntities:
+        - kube-apiserver
+      toPorts:
+        - ports:
+            - port: '443'
+              protocol: TCP
+            - port: '6443'
+              protocol: TCP
+    - toEntities:
+        - host
+        - remote-node
+      toPorts:
+        - ports:
+            - port: '22'
+              protocol: TCP
+            - port: '9796'
+              protocol: TCP
+            - port: '10250'
+              protocol: TCP
+    - toCIDR:
+        - 192.168.3.1/32
+      toPorts:
+        - ports:
+            - port: '443'
+              protocol: TCP
+    - toEndpoints:
+        - matchLabels:
+            k8s:io.kubernetes.pod.namespace: cattle-monitoring-system
+            k8s:app.kubernetes.io/name: thanos-query
+      toPorts:
+        - ports:
+            - port: '9090'
+              protocol: TCP
+    - toEndpoints:
+        - matchLabels:
+            k8s:io.kubernetes.pod.namespace: kube-system
+            k8s:k8s-app: kube-dns
+      toPorts:
+        - ports:
+            - port: '53'
+              protocol: UDP
+            - port: '53'
+              protocol: TCP
+          rules:
+            dns:
+              - matchPattern: '*'

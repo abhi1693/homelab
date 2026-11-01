@@ -139,8 +139,8 @@ login:
       scrapeTimeout: 10s
   resources:
     requests:
-      cpu: 70m
-      memory: 168Mi
+      cpu: 25m
+      memory: 224Mi
     limits:
       memory: 256Mi
   nodeSelector:
@@ -154,8 +154,8 @@ login:
           app.kubernetes.io/instance: zitadel
 resources:
   requests:
-    cpu: 50m
-    memory: 163Mi
+    cpu: 25m
+    memory: 256Mi
   limits:
     memory: 768Mi
 nodeSelector:

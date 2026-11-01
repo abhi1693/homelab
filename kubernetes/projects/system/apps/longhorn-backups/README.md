@@ -17,10 +17,12 @@ NAS directory are retained. Preserve the explicit `volumeName`: changing it
 on this bound claim is not a migration. For a replacement cluster, provision a
 retained PV for the same directory and update the binding before reconciliation.
 
-The [archived recovery guide](../../../../../docs/runbooks/storage/longhorn-20260905/README.md)
-identifies the existing backup copies and the manifests needed to access them.
-They are recovery points, not current backups. Do not delete or rewrite their
-backupstore files outside a reviewed retention operation.
+Retained backupstore files are recovery points, not current backups. Before
+recovery, locate and validate the native backupstore on the retained NAS claim
+and any independent offline copies. Rebuilt-node staging paths are not reliable
+recovery sources. Provision supported access through a reviewed Git/Fleet change;
+do not replay historical Snapshot, Backup or SystemBackup requests. Do not delete
+or rewrite backupstore files outside a reviewed retention operation.
 
 ## Before maintenance
 

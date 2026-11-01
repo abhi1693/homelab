@@ -1,0 +1,83 @@
+---
+image:
+  registry: registry.home
+  repository: ghcr.io/netbox-community/netbox
+  # renovate: datasource=docker depName=ghcr.io/netbox-community/netbox
+  tag: v4.7.4
+  digest: sha256:aabd9de6c6435760a3cff6a7a64b15fcc6a26cbf6a8c22c5f4c59e320b6c0a05
+  pullSecrets: &id001
+  - harbor-registry
+replicaCount: 1
+loginRequired: true
+postgresql:
+  enabled: false
+externalDatabase:
+  host: postgresql-rw.postgresql.svc.cluster.local
+  existingSecretKey: password
+  connMaxAge: 0
+valkey:
+  enabled: false
+nodeSelector:
+  kubernetes.io/arch: arm64
+resources:
+  requests:
+    cpu: 250m
+    memory: 1536Mi
+  limits:
+    cpu: '1'
+    memory: 2304Mi
+worker:
+  enabled: true
+  replicaCount: 1
+  nodeSelector:
+    kubernetes.io/arch: arm64
+  resources:
+    requests:
+      cpu: 100m
+      memory: 512Mi
+    limits:
+      cpu: 500m
+      memory: 1Gi
+  waitForBackend:
+    image:
+      registry: registry.home
+      repository: docker.io/rancher/kubectl
+      # renovate: datasource=docker depName=docker.io/rancher/kubectl
+      tag: v1.36.2
+      digest: sha256:e252c9ff5e138dc31ea630c336cb70d6dbff862a72c13667a89431549f5622e7
+      pullSecrets: *id001
+persistence:
+  enabled: false
+housekeeping:
+  enabled: true
+  schedule: 17 2 * * *
+  resources:
+    requests:
+      cpu: 25m
+      memory: 256Mi
+    limits:
+      cpu: 500m
+      memory: 512Mi
+tasksDatabase:
+  sentinels:
+  - valkey.valkey.svc.cluster.local:26379
+  sentinelService: valkey
+cachingDatabase:
+  sentinels:
+  - valkey.valkey.svc.cluster.local:26379
+  sentinelService: valkey
+init:
+  image:
+    registry: registry.home
+    repository: docker.io/library/busybox
+    # renovate: datasource=docker depName=docker.io/library/busybox
+    tag: 1.38.0
+    digest: sha256:365a051f12e05767b598e643676f14a450fb678a75ccf2beb0052c95d5c73b83
+    pullSecrets: *id001
+test:
+  image:
+    repository: registry.home/docker.io/library/busybox
+    # renovate: datasource=docker depName=docker.io/library/busybox
+    tag: 1.38.0@sha256:365a051f12e05767b598e643676f14a450fb678a75ccf2beb0052c95d5c73b83
+updateStrategy:
+  type: Recreate

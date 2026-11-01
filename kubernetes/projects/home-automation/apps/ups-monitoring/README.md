@@ -42,8 +42,8 @@ The deployment uses a `Recreate` update strategy so only one pod tries to own
 the USB device at a time.
 The init container also supplies a minimal `upsmon.conf` with
 `SHUTDOWNCMD "/bin/true"` so a low-battery event does not try to power off a
-host from inside the privileged container. Cluster shutdown is handled separately by the
-[Rack Ops controller](../rack-ops-controllers/README.md).
+host from inside the privileged container. Node shutdown is an explicitly
+authorized operator maintenance action; NUT supplies monitoring and alerts.
 The configuration init container is bounded at `5m`/`16Mi` requests and
 `100m`/`64Mi` limits; the three long-running containers retain their existing
 workload-specific envelopes.

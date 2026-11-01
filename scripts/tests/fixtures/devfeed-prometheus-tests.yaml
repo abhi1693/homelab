@@ -31,8 +31,8 @@ tests:
         service: api
       exp_annotations:
         summary: DevFeed availability is burning its error budget quickly
-        description: Both the 1h and 5m windows exceed the 99.9% SLO fast-burn threshold, with at least 100 requests in 1h.
-          Inspect 5xx routes, recent releases, readiness, database and dependency panels.
+        description: Both the 1h and 5m windows exceed the 99.9% SLO fast-burn threshold, with at least 100 requests
+          in 1h. Inspect 5xx routes, recent releases, readiness, database and dependency panels.
         runbook_url: https://github.com/abhi1693/devfeed.tech/blob/v0.1.0/packages/core/OBSERVABILITY.md
         dashboard_url: http://grafana.home/d/devfeed-operations
   - eval_time: 6h
@@ -45,8 +45,8 @@ tests:
         service: api
       exp_annotations:
         summary: DevFeed availability has sustained error-budget burn
-        description: Both 6h and 30m exceed the slower burn threshold. Low traffic alone does not trigger a burn alert; deployment
-          and synthetic availability checks cover total outages.
+        description: Both 6h and 30m exceed the slower burn threshold. Low traffic alone does not trigger a burn
+          alert; deployment and synthetic availability checks cover total outages.
         runbook_url: https://github.com/abhi1693/devfeed.tech/blob/v0.1.0/packages/core/OBSERVABILITY.md
         dashboard_url: http://grafana.home/d/devfeed-operations
 - name: short error burst does not trigger long-window burn
@@ -80,8 +80,8 @@ tests:
         instance: https://devfeed.tech/
       exp_annotations:
         summary: A DevFeed HTTP availability probe is failing
-        description: Public reader HTTPS or an internal service readiness/login probe failed. Inspect the instance URL, probe
-          HTTP status/TLS/DNS and corresponding deployment. No authenticated account action is performed.
+        description: Public reader HTTPS or an internal service readiness/login probe failed. Inspect the instance
+          URL, probe HTTP status/TLS/DNS and corresponding deployment. No authenticated account action is performed.
         runbook_url: https://github.com/abhi1693/devfeed.tech/blob/v0.1.0/packages/core/OBSERVABILITY.md
         dashboard_url: http://grafana.home/d/devfeed-operations
 - name: application pool timeouts are visible independently of SQL execution errors
@@ -100,8 +100,8 @@ tests:
         service: api
       exp_annotations:
         summary: DevFeed exhausted an application database pool
-        description: Check pool checkout and hold time before increasing connections. PgBouncer readiness does not prove local
-          pool capacity.
+        description: Check pool checkout and hold time before increasing connections. PgBouncer readiness does not
+          prove local pool capacity.
         dashboard_url: http://grafana.home/d/devfeed-operations
 - name: normalize native and Node histograms while excluding notification streams
   interval: 1m
@@ -133,103 +133,141 @@ tests:
       value: 100
     - labels: '{service="web"}'
       value: 50
-- name: read-model lag requires sustained backlog and recovers independently of HTTP readiness
+- name: analytics reconciliation stalls despite healthy HTTP and recovers after a completed cycle
   interval: 1m
   input_series:
-  - series: devfeed_read_model_oldest_event_age_seconds{namespace="devfeed",kind="pipeline"}
-    values: 120+0x5 0+0x6
-  alert_rule_test:
-  - eval_time: 4m
-    alertname: DevFeedReadModelLag
-    exp_alerts: []
-  - eval_time: 5m
-    alertname: DevFeedReadModelLag
-    exp_alerts:
-    - exp_labels:
-        severity: warning
-        namespace: devfeed
-        app: devfeed
-        kind: pipeline
-      exp_annotations:
-        summary: DevFeed administration read models are behind
-        description: Pipeline or report demand has remained over 60 seconds old for five minutes. Inspect the dedicated publisher,
-          reserved PgBouncer pool and unacknowledged events before increasing capacity.
-        dashboard_url: http://grafana.home/d/devfeed-operations
-  - eval_time: 6m
-    alertname: DevFeedReadModelLag
-    exp_alerts: []
-- name: fresh reports do not trigger the read-model lag alert
-  interval: 1m
-  input_series:
-  - series: devfeed_read_model_oldest_event_age_seconds{namespace="devfeed",kind="reports"}
-    values: 20+0x15
+  - series: devfeed_background_last_success_seconds{namespace="devfeed",service="analytics-worker",cycle="analytics.history-import"}
+    values: 0+0x11 720+60x5
+  - series: devfeed_background_last_success_seconds{namespace="devfeed",service="scheduler",cycle="scheduler.tick"}
+    values: 0+60x17
+  - series: up{namespace="devfeed",telemetry="devfeed-application",service="admin-api"}
+    values: 1+0x17
   alert_rule_test:
   - eval_time: 10m
-    alertname: DevFeedReadModelLag
+    alertname: DevFeedBackgroundStalled
     exp_alerts: []
-- name: a stalled publisher alerts while a successful publisher stays healthy
-  interval: 1m
-  input_series:
-  - series: devfeed_background_last_success_seconds{namespace="devfeed",cycle="read-models.pipeline"}
-    values: 0+0x15
-  - series: devfeed_background_last_success_seconds{namespace="devfeed",cycle="read-models.reports"}
-    values: 0+60x15
-  - series: kube_deployment_spec_replicas{namespace="devfeed",deployment="devfeed-read-model-pipeline"}
-    values: 1+0x15
-  - series: kube_deployment_spec_replicas{namespace="devfeed",deployment="devfeed-read-model-reports"}
-    values: 1+0x15
-  alert_rule_test:
-  - eval_time: 4m
-    alertname: DevFeedReadModelPublisherStalled
-    exp_alerts: []
-  - eval_time: 9m
-    alertname: DevFeedReadModelPublisherStalled
-    exp_alerts:
-    - exp_labels:
-        severity: warning
-        namespace: devfeed
-        app: devfeed
-        cycle: read-models.pipeline
-      exp_annotations:
-        summary: DevFeed administration publisher has stopped succeeding
-        description: The publisher has no successful cycle within three minutes. Inspect worker health, current leases, database
-          waits and calculation failures; ready HTTP pods do not prove report freshness.
-        dashboard_url: http://grafana.home/d/devfeed-operations
-- name: missing publisher telemetry remains alerting after staleness and recovers when it returns
-  interval: 1m
-  input_series:
-  - series: kube_deployment_spec_replicas{namespace="devfeed",deployment="devfeed-read-model-pipeline"}
-    values: 1+0x15
-  - series: devfeed_background_last_success_seconds{namespace="devfeed",cycle="read-models.pipeline"}
-    values: 0+0x2 stale _x6 660+60x4
-  alert_rule_test:
-  - eval_time: 6m
-    alertname: DevFeedReadModelPublisherStalled
-    exp_alerts: []
-  - eval_time: 9m
-    alertname: DevFeedReadModelPublisherStalled
-    exp_alerts:
-    - exp_labels:
-        severity: warning
-        namespace: devfeed
-        app: devfeed
-        cycle: read-models.pipeline
-      exp_annotations:
-        summary: DevFeed administration publisher has stopped succeeding
-        description: The publisher has no successful cycle within three minutes. Inspect worker health, current leases, database
-          waits and calculation failures; ready HTTP pods do not prove report freshness.
-        dashboard_url: http://grafana.home/d/devfeed-operations
   - eval_time: 11m
-    alertname: DevFeedReadModelPublisherStalled
+    alertname: DevFeedBackgroundStalled
+    exp_alerts:
+    - exp_labels:
+        severity: critical
+        namespace: devfeed
+        app: devfeed
+        service: analytics-worker
+        cycle: analytics.history-import
+      exp_annotations:
+        summary: A DevFeed background coordinator has stopped completing cycles
+        description: Inspect scheduler, search-indexer and analytics cycle failures, database/query latency, ClickHouse,
+          Typesense and process health. HTTP readiness does not prove current analytical coverage.
+        runbook_url: https://github.com/abhi1693/devfeed.tech/blob/v0.1.0/packages/core/OBSERVABILITY.md
+        dashboard_url: http://grafana.home/d/devfeed-operations
+  - eval_time: 12m
+    alertname: DevFeedBackgroundStalled
     exp_alerts: []
-- name: intentionally paused publishers do not alert on their old heartbeat
+- name: successful idle analytics cycles stay healthy
   interval: 1m
   input_series:
-  - series: kube_deployment_spec_replicas{namespace="devfeed",deployment="devfeed-read-model-pipeline"}
-    values: 0+0x15
-  - series: devfeed_background_last_success_seconds{namespace="devfeed",cycle="read-models.pipeline"}
-    values: 0+0x15
+  - series: devfeed_background_last_success_seconds{namespace="devfeed",service="analytics-worker",cycle="analytics.history-import"}
+    values: 0+60x17
   alert_rule_test:
-  - eval_time: 10m
-    alertname: DevFeedReadModelPublisherStalled
+  - eval_time: 15m
+    alertname: DevFeedBackgroundStalled
+    exp_alerts: []
+- name: high priority pool has independent unavailable-replica detection
+  interval: 1m
+  input_series:
+  - series: kube_deployment_spec_replicas{namespace="devfeed",deployment="devfeed-worker-high"}
+    values: 4+0x8
+  - series: kube_deployment_status_replicas_available{namespace="devfeed",deployment="devfeed-worker-high"}
+    values: 0+0x3 4+0x4
+  - series: kube_deployment_spec_replicas{namespace="devfeed",deployment="devfeed-worker-default"}
+    values: 4+0x8
+  - series: kube_deployment_status_replicas_available{namespace="devfeed",deployment="devfeed-worker-default"}
+    values: 4+0x8
+  - series: kube_deployment_spec_replicas{namespace="devfeed",deployment="devfeed-worker-low"}
+    values: 1+0x8
+  - series: kube_deployment_status_replicas_available{namespace="devfeed",deployment="devfeed-worker-low"}
+    values: 1+0x8
+  alert_rule_test:
+  - eval_time: 2m
+    alertname: DevFeedDeploymentUnavailable
+    exp_alerts: []
+  - eval_time: 3m
+    alertname: DevFeedDeploymentUnavailable
+    exp_alerts:
+    - exp_labels:
+        severity: critical
+        namespace: devfeed
+        app: devfeed
+        deployment: devfeed-worker-high
+      exp_annotations: &id001
+        summary: A DevFeed deployment has no available replicas
+        description: Inspect Deployment conditions, init schema checks, image pulls, readiness and pod events. Preserve
+          each workload's declared replica count in GitOps.
+        runbook_url: https://github.com/abhi1693/devfeed.tech/blob/v0.1.0/packages/core/OBSERVABILITY.md
+        dashboard_url: http://grafana.home/d/devfeed-operations
+  - eval_time: 4m
+    alertname: DevFeedDeploymentUnavailable
+    exp_alerts: []
+- name: default priority pool has independent unavailable-replica detection
+  interval: 1m
+  input_series:
+  - series: kube_deployment_spec_replicas{namespace="devfeed",deployment="devfeed-worker-high"}
+    values: 4+0x8
+  - series: kube_deployment_status_replicas_available{namespace="devfeed",deployment="devfeed-worker-high"}
+    values: 4+0x8
+  - series: kube_deployment_spec_replicas{namespace="devfeed",deployment="devfeed-worker-default"}
+    values: 4+0x8
+  - series: kube_deployment_status_replicas_available{namespace="devfeed",deployment="devfeed-worker-default"}
+    values: 0+0x3 4+0x4
+  - series: kube_deployment_spec_replicas{namespace="devfeed",deployment="devfeed-worker-low"}
+    values: 1+0x8
+  - series: kube_deployment_status_replicas_available{namespace="devfeed",deployment="devfeed-worker-low"}
+    values: 1+0x8
+  alert_rule_test:
+  - eval_time: 2m
+    alertname: DevFeedDeploymentUnavailable
+    exp_alerts: []
+  - eval_time: 3m
+    alertname: DevFeedDeploymentUnavailable
+    exp_alerts:
+    - exp_labels:
+        severity: critical
+        namespace: devfeed
+        app: devfeed
+        deployment: devfeed-worker-default
+      exp_annotations: *id001
+  - eval_time: 4m
+    alertname: DevFeedDeploymentUnavailable
+    exp_alerts: []
+- name: low priority pool has independent unavailable-replica detection
+  interval: 1m
+  input_series:
+  - series: kube_deployment_spec_replicas{namespace="devfeed",deployment="devfeed-worker-high"}
+    values: 4+0x8
+  - series: kube_deployment_status_replicas_available{namespace="devfeed",deployment="devfeed-worker-high"}
+    values: 4+0x8
+  - series: kube_deployment_spec_replicas{namespace="devfeed",deployment="devfeed-worker-default"}
+    values: 4+0x8
+  - series: kube_deployment_status_replicas_available{namespace="devfeed",deployment="devfeed-worker-default"}
+    values: 4+0x8
+  - series: kube_deployment_spec_replicas{namespace="devfeed",deployment="devfeed-worker-low"}
+    values: 1+0x8
+  - series: kube_deployment_status_replicas_available{namespace="devfeed",deployment="devfeed-worker-low"}
+    values: 0+0x3 1+0x4
+  alert_rule_test:
+  - eval_time: 2m
+    alertname: DevFeedDeploymentUnavailable
+    exp_alerts: []
+  - eval_time: 3m
+    alertname: DevFeedDeploymentUnavailable
+    exp_alerts:
+    - exp_labels:
+        severity: critical
+        namespace: devfeed
+        app: devfeed
+        deployment: devfeed-worker-low
+      exp_annotations: *id001
+  - eval_time: 4m
+    alertname: DevFeedDeploymentUnavailable
     exp_alerts: []

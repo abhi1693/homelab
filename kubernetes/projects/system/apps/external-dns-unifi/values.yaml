@@ -70,6 +70,6 @@ txtPrefix: k8s.
 resources:
   requests:
     cpu: 10m
-    memory: 32Mi
+    memory: 80Mi
   limits:
-    memory: 96Mi
+    memory: 128Mi

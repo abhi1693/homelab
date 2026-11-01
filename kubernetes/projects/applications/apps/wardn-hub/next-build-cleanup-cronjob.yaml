@@ -36,7 +36,7 @@ spec:
           containers:
             - name: cleanup-next-build-cache
               # renovate: datasource=docker depName=ghcr.io/abhi1693/wardn-hub-frontend
-              image: registry.home/ghcr.io/abhi1693/wardn-hub-frontend:0.2.182@sha256:fa457b02297dbd6ed405777b22b2d4023b1f18dfaa0a5d29b419c3c8d2c65a8f
+              image: registry.home/ghcr.io/abhi1693/wardn-hub-frontend:0.2.184@sha256:d5da28175a7e8d2a4234c92db618b0318da8d73d15da1df2b3aa2aed967235f8
               imagePullPolicy: IfNotPresent
               command:
                 - /bin/sh
@@ -45,7 +45,7 @@ spec:
                 - |
                   set -eu
 
-                  cache_version=next-build-v8
+                  cache_version=next-build-v9
                   cache_root=/app/hub/frontend/.next-build-cache
                   artifact_root="$cache_root/artifacts"
 
@@ -56,7 +56,7 @@ spec:
                       for path in app components hooks lib public ../../packages; do
                         [ -d "$path" ] && find "$path" -type f -print0
                       done
-                      for path in next.config.ts package.json postcss.config.mjs proxy.ts tsconfig.json docker-build-next.sh scripts/prepare-faro-sourcemaps.mjs ../../package.json ../../package-lock.json; do
+                      for path in next.config.ts package.json postcss.config.mjs proxy.ts tsconfig.json docker-build-next.sh ../../package.json ../../package-lock.json; do
                         [ -f "$path" ] && printf '%s\0' "$path"
                       done
                     } | sort -z | xargs -0 sha256sum | sha256sum | awk '{print $1}'
@@ -64,6 +64,7 @@ spec:
                   env_key="$(
                     env | LC_ALL=C sort \
                       | grep -E '^(NEXT_PUBLIC_[A-Za-z0-9_]+|WARDN_HUB_API_INTERNAL_BASE_URL)=' \
+                      | grep -Ev '^NEXT_PUBLIC_FARO_' \
                       | sha256sum | awk '{print $1}'
                   )"
                   runtime_key="$(node --version)"

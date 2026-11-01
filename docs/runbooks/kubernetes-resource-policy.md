@@ -23,15 +23,79 @@ Prometheus history, with headroom above observed p95/p99 usage. Revisit them
 after workload or replica changes rather than treating them as permanent
 capacity guarantees.
 
+## 2026-10-28 historical resource review
+
+The current audit covers every admitted regular and init container and fourteen
+days of retained workload-owned metrics. Ownership is joined inside historical
+queries so old pod revisions remain visible. CPU and memory bursts use one-minute
+samples; shorter peaks may be missed, so OOM records, startup requirements, and
+existing service-specific floors also constrain limits.
+
+CPU requests cover recent sustained demand with headroom for background workers
+and recent workload p95 for interactive services. CPU remains burstable on the
+existing application hot paths. Memory requests cover recent working-set demand;
+limits cover fourteen-day peaks with headroom, and are increased where peaks or
+OOM records show clipping. Short-history services and unobserved init containers
+are not downsized. PostgreSQL retains primary-failover CPU and a 5Gi memory cap;
+Valkey retains its 4Gi cap, dataset policy, and replica-first OnDelete procedure.
+The DevFeed read-model pipeline is an explicit operator-approved exception: it
+reserves 250m CPU and remains uncapped, accepting slower background progress
+under contention rather than reserving its approximately 854m historical mean.
+Longhorn instance-manager guarantees and bootstrap-owned datapaths are reviewed
+under their existing exceptions rather than changed through unsupported defaults.
+
+Changes land in serial Git/Fleet batches. Verify admitted resources and scheduler-
+effective requests after old pods terminate; a smaller limit alone does not free
+a reservation or reduce current application CPU consumption. Keep PVC identities
+and replica counts unchanged. Do not equate a Git commit or Ready old pod with an
+applied resource change.
+
+## Capacity after the 28 October review
+
+A live snapshot after the import-recovery controller resumed found five ordinary
+workers, each with four CPUs and 15.59GiB allocatable RAM. The three control-plane
+nodes remain tainted; their spare capacity is not ordinary application capacity.
+Scheduler-effective requests include regular containers, init-container maxima,
+native sidecars and Pod overhead, and exclude completed Jobs and unbound Pods.
+
+| Worker capacity / reservation | CPU cores | Memory |
+| --- | --- | --- |
+| Allocatable, five workers | 20 | 77.97GiB |
+| Bound active Pods | 17.435 | 66.10GiB |
+| Remaining before pending workloads | 2.565 | 11.87GiB |
+| Pending rpi7 node-log agent | 0.105 | 0.53GiB |
+
+The pending log agent needs 544MiB on rpi7; only about 472MiB is free there.
+This is a placement constraint despite aggregate spare memory. Do not reduce
+its measured 404MiB p95 / 410MiB peak working set simply to make it schedule.
+The rpi5 NFS CSI and node-exporter Pods also have stale runtime container-name
+reservations after node recovery; their targeted recreation requires the
+repository's break-glass authorization. Fleet dependencies remain blocked until
+CSI returns to eight ready nodes. Application resource commits and actual
+reconciliation must therefore be reported separately.
+Those rpi5 Pods were subsequently recreated with UID guards under explicit
+break-glass authority on 28 October. The rpi7 log agent also scheduled; these
+were incident-time blockers, not remaining capacity grants. See the
+[emergency node recovery procedure](k3s-node-maintenance.md#emergency-runtime-or-unreachable-node-recovery).
+
+One current NetBox web/worker pair requests 1872MiB (1.83GiB) and 100m CPU.
+Seven additional pairs need at least 12.80GiB and 700m CPU before accounting for
+additional database/cache load, jobs or bursts. That already exceeds remaining
+RAM, even before further Medusa growth or ClickHouse. The currently deployed
+Medusa workload is included in the snapshot. More worker capacity or additional
+retirements are required; lower background CPU priority alone cannot create RAM.
+Reservations also exceed four-worker N-1 capacity (16 CPUs / 62.37GiB).
+These are dated scheduler reservations, not measurements of current utilization
+or a guarantee that every configured memory limit can be reached simultaneously.
+
 ## Enforcement
 
 The repository uses three enforcement layers:
 
 1. Direct manifests declare resources on every regular and init container.
    `scripts/check-kubernetes-resource-bounds.py` enforces CPU/memory requests
-   and memory limits in CI. It also requires recommendation-profile
-   `minChangePercent` values to remain below `maxDecreasePercent`, preventing a
-   bounded downsize from being discarded by the material-change gate.
+   and memory limits in CI. Resource changes are reviewed in Git; the retired
+   recommendation engine no longer tunes workloads automatically.
 2. Bootstrap and application charts use native resource values for Cilium,
    Envoy, cert-manager, Longhorn Manager and CSI sidecars, Fleet controllers,
    Traefik, Rancher Monitoring, ZITADEL helper containers, and other supported
@@ -51,11 +115,10 @@ New Pods inherit this limit; existing Pods are not resized. The FlareSolverr
 limit is 2Gi after an OOM and a sampled 1518Mi working-set peak at its former
 1536Mi cap; its current request is 800Mi. The October 21 repair removed its
 1000m CPU cap after sustained browser traffic caused high CFS throttling.
-Sonarr's CPU request is operator-managed at 500m after automatic increases to
-1130m left it unschedulable under the heavy-media placement constraint. Its
-memory tuning remains enabled. Check subsequent scheduled
-cleanup runs and representative browser traffic before considering these
-memory repairs fully proven.
+Sonarr's CPU request is now operator-managed at 625m with a 640Mi memory
+request and 864Mi cap, based on the October 28 historical review. The retired
+recommendation engine cannot change it. Validate imports, cleanup runs and
+representative browser traffic after changing these values.
 
 ## Longhorn Exception
 
@@ -146,7 +209,7 @@ Deploy app changes through Git/Fleet in stages; singleton media resource
 changes cause serving gaps. Recheck scheduler-effective requests, Fleet
 convergence, restarts, playback/import/transfer behavior, and node saturation.
 Review after 24 hours and one week; raise a specific request if contention or
-latency regresses. Do not lower recommendation-engine confidence safeguards.
+latency regresses. Resource changes require operator review through Git/Fleet.
 
 #### Deployment verification
 
@@ -259,3 +322,54 @@ unchanged, and effective requests leave useful worker-node headroom. Revert only
 these request changes through Git if readiness, latency, or burst throughput
 regresses; retained data must not be removed. A lower aggregate reservation does
 not guarantee that every future pod or node-failure placement will fit.
+
+
+### 2026-10-28 follow-up reservation and recovery tuning
+
+Seven-day workload-owner-joined CPU history identified narrow reductions.
+Values below are aggregate reservations at the observed replica counts:
+
+| Workload | Before | After |
+| --- | ---: | ---: |
+| Longhorn node CSI components, eight nodes | 560m | 160m |
+| Fleet local agents, two replicas | 600m | 300m |
+| FlareSolverr | 200m | 75m |
+| Prowlarr | 170m | 100m |
+| NetBox web effective request plus worker | 150m | 50m |
+
+These public workloads release about 995m scheduler CPU. NetBox's mkdir-only
+init was reserving 100m despite a 50m web request; both now request 50m. Its idle
+worker is disabled, releasing another 50m CPU and 336Mi memory, while background
+jobs wait for explicit worker re-enablement. Housekeeping remains a direct
+CronJob. Existing failed RQ jobs are retained.
+
+Fleet agent resources are reconciled with UID/resourceVersion-preconditioned
+patches to the named local provisioning/Fleet Clusters. They do not adopt,
+delete or replace either Cluster. The existing agent memory limits and
+anti-affinity are preserved.
+
+Longhorn's CSI resource JSON is consistent across bootstrap inventory,
+Fleet-managed Settings and its existing HelmChartConfig. CPU burst limits,
+memory envelopes, instance-manager guarantees and replica counts stay intact.
+The heavy snapshot task limit drops from five to one per node; replica rebuild
+admission remains one per node. No running recovery is manually interrupted.
+
+Historical peaks and current queues informed this scope. Reservation reductions
+do not establish N-1 placement; CPU, memory, affinity, PVC attachment and active
+backup scheduling must all be checked after Fleet reconciliation.
+
+### Memory reservation follow-up
+
+Fourteen-day container peaks support reducing PostgreSQL requests from `3Gi`
+to `2560Mi` per instance, Alloy node collectors from `512Mi` to `384Mi`, and
+Cilium Envoy from `96Mi` to `80Mi`. Across three database instances and eight
+nodes this releases `2688Mi` (`2.625Gi`) of reservations, including `2256Mi` on
+application workers at the observed placement. These are scheduler savings;
+actual memory consumption does not fall merely by lowering a request. All
+memory limits remain unchanged. Alloy may exceed its request during replay.
+
+Validate the rendered charts and server-side dry runs, then verify Fleet desired
+and applied revisions, CNPG 3/3 readiness with streaming replication and WAL
+archiving, Envoy 8/8 readiness, and Alloy 8/8 readiness with fresh log delivery.
+Rollback is a Git revert of these request values; do not patch live workloads.
+The remaining worker reservations still exceed four-worker memory capacity.

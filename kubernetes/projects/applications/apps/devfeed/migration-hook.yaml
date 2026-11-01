@@ -20,6 +20,7 @@ spec:
         app.kubernetes.io/name: devfeed-migrate
         app.kubernetes.io/part-of: devfeed
         devfeed-database-client: 'true'
+        devfeed-clickhouse-client: 'true'
     spec:
       serviceAccountName: devfeed
       automountServiceAccountToken: false
@@ -36,7 +37,7 @@ spec:
       containers:
         - name: migrate
           # renovate: datasource=docker depName=ghcr.io/abhi1693/devfeed.tech/backend
-          image: registry.home/ghcr.io/abhi1693/devfeed.tech/backend:0.1.2@sha256:77d8cadbcc9e78701d06912ef0e54b7f96947e6f4625ef864b6f814c77478133
+          image: registry.home/ghcr.io/abhi1693/devfeed.tech/backend:0.1.8@sha256:1fb3087acd900c6e18cef096df53ae34d19d6226bba58531324f2dcb3786ca3e
           imagePullPolicy: IfNotPresent
           resources:
             requests:
@@ -57,9 +58,18 @@ spec:
             - python
             - -c
             - |
+              import asyncio
               from sqlalchemy import event
+              from devfeed_core.analytics import AnalyticsClient
+              from devfeed_core.analytics_article_opens import ArticleOpenAnalytics
+              from devfeed_core.analytics_migrations import ClickHouseMigrationRunner
+              from devfeed_core.config import get_settings
               from devfeed_core.db import get_engine
               from devfeed_cli.main import run
+              from devfeed_core.version import __version__, SCHEMA_REVISION
+
+              if (__version__, SCHEMA_REVISION) != ("0.1.8", "0039"):
+                  raise RuntimeError("Migration requires the verified 0.1.8 / schema 0039 image")
 
               def migration_connection(connection, _record):
                   autocommit = connection.autocommit
@@ -73,14 +83,68 @@ spec:
 
               # Run after the application's normal 30-second connect listener.
               # Only this short-lived migration process gets the larger budget.
-              event.listen(get_engine(), "connect", migration_connection)
-              raise SystemExit(run(["db", "upgrade"]))
+              engine = get_engine()
+              event.listen(engine, "connect", migration_connection)
+
+              # Keep JIT enabled for other roles and databases in the shared cluster.
+              with engine.begin() as connection:
+                  identity = connection.exec_driver_sql(
+                      "SELECT current_user, current_database()"
+                  ).one()
+                  if tuple(identity) != ("devfeed", "devfeed"):
+                      raise RuntimeError("JIT tuning requires the devfeed role and database")
+                  connection.exec_driver_sql(
+                      "ALTER ROLE devfeed IN DATABASE devfeed SET jit = off"
+                  )
+
+              # Role defaults take effect at login; verify using a new direct backend.
+              engine.dispose()
+              with engine.connect() as connection:
+                  if connection.exec_driver_sql("SHOW jit").scalar_one() != "off":
+                      raise RuntimeError("The DevFeed JIT default was not applied")
+              print("PostgreSQL JIT default: off (role=devfeed, database=devfeed)", flush=True)
+              result = run(["db", "upgrade"])
+              if result:
+                  raise SystemExit(result)
+              async def analytics_schema_prepared():
+                  async with AnalyticsClient(get_settings()) as client:
+                      status = await ClickHouseMigrationRunner(client).current()
+                      if status.pending_versions:
+                          return False
+                      cutover, _ = await ArticleOpenAnalytics(client)._cutover()
+                      return cutover is not None
+
+              if asyncio.run(analytics_schema_prepared()):
+                  print("ClickHouse schema and reader boundary already prepared", flush=True)
+                  raise SystemExit(0)
+              raise SystemExit(run(["analytics", "upgrade"]))
           envFrom:
             - configMapRef:
                 name: devfeed
             - secretRef:
                 name: devfeed-database
+            - secretRef:
+                name: devfeed-clickhouse-ingest
           env:
+            # Schema work does not need inference credentials or automation clients.
+            - name: DEVFEED_FULL_AUTOMATION
+              value: 'false'
+            - name: DEVFEED_AI_ENABLED
+              value: 'false'
+            - name: DEVFEED_CODEX_APP_SERVER_URL
+              value: ''
+            - name: DEVFEED_CLICKHOUSE_URL
+              value: http://clickhouse.clickhouse.svc.cluster.local:8123
+            - name: DEVFEED_CLICKHOUSE_DATABASE
+              value: devfeed
+            - name: DEVFEED_CLICKHOUSE_MAX_THREADS
+              value: '2'
+            - name: DEVFEED_CLICKHOUSE_MAX_CONCURRENT_QUERIES
+              value: '2'
+            - name: DEVFEED_CLICKHOUSE_MAX_EXECUTION_SECONDS
+              value: '20'
+            - name: DEVFEED_CLICKHOUSE_MAX_MEMORY_BYTES
+              value: '268435456'
             - name: DEVFEED_TOPIC_KIND_MAP_PATH
               value: /etc/devfeed/topic-kind-map.json
             - name: DEVFEED_DATABASE_URL

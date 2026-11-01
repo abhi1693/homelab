@@ -1,0 +1,13 @@
+---
+apiVersion: helm.cattle.io/v1
+kind: HelmChartConfig
+metadata:
+  name: longhorn
+  namespace: kube-system
+spec:
+  failurePolicy: abort
+  # The reconciler adds values.persistence only after the PVC/PV gate opens.
+  valuesContent: |-
+    defaultSettings:
+      snapshotHeavyTaskConcurrentLimit: 1
+      systemManagedCSIComponentsResourceLimits: '{"csi-attacher":{"requests":{"cpu":"10m","memory":"32Mi"},"limits":{"cpu":"250m","memory":"128Mi"}},"csi-provisioner":{"requests":{"cpu":"10m","memory":"32Mi"},"limits":{"cpu":"250m","memory":"128Mi"}},"csi-resizer":{"requests":{"cpu":"10m","memory":"32Mi"},"limits":{"cpu":"250m","memory":"128Mi"}},"csi-snapshotter":{"requests":{"cpu":"10m","memory":"32Mi"},"limits":{"cpu":"250m","memory":"128Mi"}},"longhorn-csi-plugin":{"requests":{"cpu":"10m","memory":"64Mi"},"limits":{"cpu":"500m","memory":"256Mi"}},"node-driver-registrar":{"requests":{"cpu":"5m","memory":"32Mi"},"limits":{"cpu":"250m","memory":"128Mi"}},"longhorn-liveness-probe":{"requests":{"cpu":"5m","memory":"32Mi"},"limits":{"cpu":"100m","memory":"64Mi"}}}'

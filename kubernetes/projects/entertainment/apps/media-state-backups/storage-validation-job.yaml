@@ -133,7 +133,7 @@ spec:
       volumes:
         - name: helper
           configMap:
-            name: media-prestart-backup-c24c14a3317c
+            name: media-prestart-backup-de667b12ffd8
             defaultMode: 292
         - name: controller-destination
           persistentVolumeClaim:

@@ -22,8 +22,8 @@ podOptions:
     kubernetes.io/arch: arm64
 resources:
   requests:
-    cpu: 300m
-    memory: 407Mi
+    cpu: 100m
+    memory: 512Mi
   limits:
     # TrueCharts: omit the inherited 1500m CPU cap; indexer work may burst.
     cpu: 0
@@ -40,7 +40,7 @@ ingress:
     tls: []
 workload:
   main:
-    replicas: 1
+    replicas: 0
     podSpec:
       automountServiceAccountToken: false
       annotations:

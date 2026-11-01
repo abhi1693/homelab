@@ -27,13 +27,13 @@ python3 -m unittest discover -s infrastructure/ansible/roles/cilium/tests -v
 The normal Ansible pre-commit hook discovers these role tests automatically.
 
 Keep the rendered `templates/values.yaml.j2` and
-[`kubernetes/projects/system/apps/cilium/values.yaml`](../../../../../kubernetes/projects/system/apps/cilium/values.yaml)
+[`kubernetes/projects/system/apps/cilium/values.yaml`](../../../../kubernetes/projects/system/apps/cilium/values.yaml)
 equal. Run `scripts/check-cilium-observability.py` from the repository root
 after editing Cilium inventory, template, or Fleet values. This prevents a
 future bootstrap from silently restoring a different metrics or datapath
 configuration.
 
 Hubble exports bounded incident metrics with a 4095-flow cache. Relay and UI
-stay disabled. See the [Cilium Fleet README](../../../../../kubernetes/projects/system/apps/cilium/README.md)
-for the same-version ownership handoff and rollout procedure. Do not run a
-manual Helm or Cilium upgrade after the handoff.
+stay disabled. See the [Cilium Fleet README](../../../../kubernetes/projects/system/apps/cilium/README.md)
+for runtime ownership and rollout checks. Do not run a manual Helm or Cilium
+upgrade alongside Fleet.

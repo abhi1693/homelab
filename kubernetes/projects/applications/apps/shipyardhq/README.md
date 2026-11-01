@@ -2,25 +2,21 @@
 
 Fleet-managed deployment for ShipyardHQ.
 
-Application release `1.5.41` refreshes compatible locked packages and moves the
-runtime to Node 26.12.1. It retains the preceding rendering, framework
-control-flow and request-observer fixes. Next.js 16.4.2, React 19.3.1,
-Clerk 7.9.19 and Prisma 7.10.1 remain within their supported major versions.
-All 82 Prisma migrations and the database schema are unchanged.
+Application release `1.5.43` updates the maker-focused homepage, preserves
+combined browse filters, redirects the production www host to the canonical
+apex, and improves guide provenance and directory metadata. It introduces no
+database schema changes. Roll back by restoring the prior `1.5.42` image cohort
+in the Deployment and all build/maintenance hooks together through Git and Fleet.
 
-Source commit `8059e3d6` passed the application suite, nine release-contract
-checks, dependency-security checks, lint and application/tooling type checks.
-[Release CI](https://github.com/abhi1693/shipyardhq/actions/runs/39908177849)
-passed native ARM64 build, SBOM, strict scan and actual isolated PostgreSQL,
-production-build, HTTP/assets, authentication-boundary and native-library smoke
-checks before immutable promotion. The index's signed GitHub attestation was
-verified against the exact source tag and shared signer workflow. All six image
-references pin index digest
-`sha256:2d183579c6f045f002e6d795b0d82fa0a3f54da2ddcbd6643a40adb3ef73fa55`.
-Fleet acceptance also checks the live mirror index and native configuration,
-zero restarts, database migration state, public assets and desktop/mobile views.
+## Runtime and releases
 
-Next.js 16.4.2 and React 19.3.1 retain Cache Components with Partial Prefetching;
+The Deployment and hook manifests pin the application image cohort by digest.
+Update web, worker, builder, ingestion and cleanup references together. Verify
+native ARM64 release checks, scans, SBOMs and GHCR/Harbor digest parity before
+publishing new pins. After Fleet convergence, verify readiness, database
+compatibility, public assets and desktop/mobile rendering.
+
+Next.js Cache Components use Partial Prefetching;
 the public layout requires static shells and per-link prefetches with
 `ensureStatic = "prefetch"`. Partner Spotlight streams behind an independent
 Suspense boundary and `navigation()` gate. Turbopack garbage collection, lazy
@@ -28,14 +24,11 @@ dynamic imports, worker threads, and security upgrade reminders remain enabled.
 The experimental native Rust React Compiler remains opt-in through
 `NEXT_RUST_REACT_COMPILER=1` and is off in production.
 
-The preceding 1.5.32 release gives historical leaderboard payloads a fixed
-24-hour cache lifetime. Reads do not extend it, so version invalidation no
-longer leaves obsolete generations in Valkey indefinitely. The active version
-marker remains persistent.
+Historical-month leaderboard payloads have a fixed 24-hour cache lifetime;
+reads do not extend it. The active version marker stays persistent.
 
-The image uses Node.js 26.12.1 on Alpine 3.24 with npm 11.19.1 with patched bundled brace-expansion 5.0.12, undici 6.28.1,
-and http-cache-semantics 4.3.0,
-and Alpine security updates. This replaces the vulnerable Debian base and bundled npm tools.
+Use the application image's source Dockerfile and release manifest for exact
+Node, Next.js, React, npm and operating-system dependency versions.
 Prisma CLI and client engines are checksum-verified during the image build;
 Fleet migration and generation commands do not download engines at startup.
 GNU tar preserves Fleet artifact compatibility. The native ARM64 CI smoke check
@@ -44,25 +37,15 @@ cache retention, and round-trips an artifact using Fleet's exact tar options.
 High/critical vulnerability and secret checks remain mandatory, including
 findings without available fixes; no scan exception is enabled.
 
-For release 1.5.32, a read-only production Prisma profile of a populated
-historical month's cache-miss queries completed in 473 ms.
-
-The earlier 1.5.32 cache migration had a separate payload-expiration action.
-This patch retains that TTL behavior and does not repeat that migration.
-
 `npm run build` packages public and static assets into the standalone output
 after removing public source maps. Both the Docker entrypoint and Fleet builder
 use this shared step. The builder verifies the standalone server, public assets,
 and CSS exist before marking an artifact ready. Production verification must
 check stylesheet HTTP responses and desktop/mobile rendering after rollout.
 
-The web, worker, builder, ingestion, and cache-cleanup images share the same
-release. There are no database schema changes. To roll back, revert this release
-change through Git, restoring all four image-pin manifests to 1.5.40, and let
-Fleet build or reuse the matching artifact before rolling the pods. Rollback
-restores the previous application and dependency versions; no database rollback
-is needed.
-Historical leaderboard TTL behavior is unchanged by 1.5.41.
+Rollback requires a coherent, schema-compatible image cohort through Git and
+Fleet. The builder must produce or reuse the matching artifact before web pods
+start. Review database changes before selecting a prior application version.
 
 The custom web, worker, and image-proxy Deployments retain two ReplicaSet
 revisions; Git and Fleet history remain the primary rollback path.
@@ -172,11 +155,13 @@ release. Running web pods keep using their local extracted bundle if a newer
 artifact is later written to the PVC; new artifacts are consumed through normal
 Deployment rollouts.
 
-The shared `next-build-v12` cache key includes source files, application and
+The shared `next-build-v13` cache key includes source files, application and
 Node.js versions, and the build-time environment. Builder, restore init, and
 cleanup hash complete variable names under `CLERK_`, `CLOUDFLARE_`, `DODO_`,
 `GA_`, `GOOGLE_`, `IMGPROXY_`, `MONTHLY_WINNER_`, `NEXT_PUBLIC_`, and `R2_`,
-along with the existing exact build controls. Configuration changes invalidate
+along with the existing exact build controls. Retired `NEXT_PUBLIC_FARO_*`
+variables are excluded so pre-upgrade hooks reading the previous ConfigMap agree
+with new pods after ConfigMap replacement. Configuration changes invalidate
 the previous artifact before web replacement. Unrelated runtime credentials
 stay outside this key; tests use synthetic values and emit only hashes.
 
@@ -204,7 +189,7 @@ optimization.
 
 ## Availability
 
-The public web Deployment runs three replicas and imgproxy runs four, both with
+The public web and imgproxy Deployments each run two replicas, both with
 `maxUnavailable: 0` and the `shipyardhq-critical` PriorityClass. That priority
 stays below system, Rancher, and Longhorn priorities but above normal
 application pods.
@@ -222,12 +207,10 @@ Web CPU remains uncapped; the finite restore init retains its `3` CPU limit.
 
 The `shipyardhq-worker` Deployment runs `npm run worker` from the same
 application image. It consumes BullMQ event envelopes and owns scheduled jobs
-declared in ShipyardHQ source, replacing the legacy curl CronJobs.
+declared in ShipyardHQ source.
 
-The worker runs two replicas. The `cluster-ops/shipyard` recommendation
-profile caps managed worker replicas at three because the worker's resource-only
-metrics do not include queue demand and each Node.js worker adds fixed memory
-overhead.
+The worker runs two replicas. Replica and resource changes are operator-managed
+through Git/Fleet; review queue demand and per-worker memory before scaling.
 
 The worker does not run Prisma migrations. Its `wait-for-web-rollout` init
 container follows the NetBox chart worker pattern and waits for
@@ -269,7 +252,7 @@ The ConfigMap keeps production imgproxy controls explicit:
 - detailed development errors, cookie passthrough, security-option overrides,
   unlimited PNG/SVG parsing, SSL verification bypass, and attachments are kept
   disabled.
-- ShipyardHQ `v1.4.29` caches transformed managed-media responses back into R2
+- ShipyardHQ caches transformed managed-media responses back into R2
   under `image-cache/imgproxy/` through the web application route
   `/api/images/cache`.
 
@@ -300,9 +283,29 @@ counts use separate panels with appropriate units. Both services scrape every
 ## OpenTelemetry
 
 The web pods export OTLP metrics to the local `opentelemetry-collector` service
-over HTTP/protobuf. Web traces and logs are disabled while the Next.js Cache
-Components memory fix is soaked in production. Worker metrics and traces remain
+over HTTP/protobuf. Web traces and logs are disabled. Worker metrics and traces remain
 enabled; metrics are exported from the collector to Prometheus and worker traces
 are exported to the local Tempo service. Trace batching is capped with a smaller
 queue and export batch size so low-volume worker tracing does not add unbounded
 memory pressure.
+
+### Faro retirement
+
+Release `1.5.42` removes the Faro SDK and private source-map collection.
+The retired collector and runtime/build flags are removed. Backend tracing, logs,
+profiling, and application analytics are preserved.
+
+## Resource review — 28 October 2026
+
+Values use the 28 October historical review in
+[the resource policy](../../../../../docs/runbooks/kubernetes-resource-policy.md#2026-10-28-historical-resource-review).
+CPU reservations cover measured sustained demand with headroom; existing burst
+policies remain in place. Memory caps preserve the observed fourteen-day peaks
+and extra headroom where OOM records show clipping.
+
+| Container / value path | CPU request | Memory request | Memory limit |
+| --- | --- | --- | --- |
+| `shipyardhq/shipyardhq/web` | 220m → 125m | 1280Mi → 896Mi | 5Gi → 2048Mi |
+| `shipyardhq/shipyardhq/restore-next-build` | 125m → 125m | 1280Mi → 384Mi | 5Gi → 1024Mi |
+| `shipyardhq/shipyardhq-worker/worker` | 60m → 30m | 498Mi → 384Mi | 896Mi → 1280Mi |
+| `shipyardhq/shipyardhq-imgproxy/imgproxy` | 10m → 25m | 180Mi → 160Mi | 192Mi → 384Mi |

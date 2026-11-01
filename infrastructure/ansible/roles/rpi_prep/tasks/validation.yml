@@ -1,4 +1,47 @@
 ---
+- name: Resolve Raspberry Pi distribution boot layout
+  ansible.builtin.include_tasks: boot_profile.yml
+
+- name: Verify firmware-disabled radios have no stale Netplan configuration
+  ansible.builtin.command:
+    argv:
+      - python3
+      - '-'
+      - "{{ {'mode': 'validate', 'interfaces': rpi_prep.disabled_wireless_interfaces} | to_json }}"
+    stdin: "{{ lookup('ansible.builtin.file', role_path + '/files/netplan_wireless.py') }}"
+  changed_when: false
+  no_log: true
+  when:
+    - "'dtoverlay=disable-wifi' in rpi_prep.required_config_lines"
+
+- name: Inspect required runtime kernel modules
+  ansible.builtin.stat:
+    path: "/sys/module/{{ item }}"
+  loop: "{{ rpi_prep.required_kernel_modules }}"
+  register: rpi_runtime_modules
+
+- name: Require K3s networking and filesystem modules
+  ansible.builtin.assert:
+    that:
+      - item.stat.isdir | default(false)
+  loop: "{{ rpi_runtime_modules.results }}"
+  loop_control:
+    label: "{{ item.item }}"
+
+- name: Read persisted current and staged boot command lines
+  ansible.builtin.slurp:
+    path: "{{ item }}"
+  loop: "{{ rpi_cmdline_paths }}"
+  register: rpi_persisted_cmdlines
+
+- name: Require every persisted boot command line to preserve K3s parameters
+  ansible.builtin.assert:
+    that:
+      - rpi_prep.required_cmdline_params | difference((item.content | b64decode).split()) | length == 0
+  loop: "{{ rpi_persisted_cmdlines.results }}"
+  loop_control:
+    label: "{{ item.item }}"
+
 - name: Read runtime kernel cmdline
   ansible.builtin.command: cat /proc/cmdline
   register: rpi_runtime_cmdline
@@ -176,3 +219,6 @@
       - rpi_active_swap.stdout | trim == ""
     fail_msg: "Swap is still active: {{ rpi_active_swap.stdout }}"
     success_msg: "No active swap detected"
+
+- name: Validate the Ubuntu vendor kernel and native BTF
+  ansible.builtin.include_tasks: kernel_validation.yml

@@ -8,7 +8,7 @@ metadata:
     app.kubernetes.io/name: devfeed-scheduler
     app.kubernetes.io/part-of: devfeed
 spec:
-  replicas: 0
+  replicas: 1
   revisionHistoryLimit: 2
   selector:
     matchLabels:
@@ -30,6 +30,7 @@ spec:
         devfeed-database-client: 'true'
         devfeed-redis-client: 'true'
         devfeed-codex-client: 'true'
+        devfeed-clickhouse-client: 'true'
     spec:
       serviceAccountName: devfeed
       automountServiceAccountToken: false
@@ -46,17 +47,17 @@ spec:
       containers:
         - name: scheduler
           # renovate: datasource=docker depName=ghcr.io/abhi1693/devfeed.tech/backend
-          image: registry.home/ghcr.io/abhi1693/devfeed.tech/backend:0.1.2@sha256:77d8cadbcc9e78701d06912ef0e54b7f96947e6f4625ef864b6f814c77478133
+          image: registry.home/ghcr.io/abhi1693/devfeed.tech/backend:0.1.8@sha256:1fb3087acd900c6e18cef096df53ae34d19d6226bba58531324f2dcb3786ca3e
           imagePullPolicy: IfNotPresent
           ports:
             - name: metrics
               containerPort: 9100
           resources:
             requests:
-              cpu: 500m
-              memory: 256Mi
+              cpu: 750m
+              memory: 1152Mi
             limits:
-              memory: 1Gi
+              memory: 1536Mi
           securityContext:
             runAsNonRoot: true
             runAsUser: 10001
@@ -84,6 +85,10 @@ spec:
                 name: devfeed-automation
             - secretRef:
                 name: devfeed-codex
+            - configMapRef:
+                name: devfeed-clickhouse-client
+            - secretRef:
+                name: devfeed-clickhouse-worker
           volumeMounts:
             - name: ca-bundle
               mountPath: /run/ca
@@ -119,7 +124,7 @@ spec:
       initContainers:
         - name: trust-codex-ca
           # renovate: datasource=docker depName=ghcr.io/abhi1693/devfeed.tech/backend
-          image: registry.home/ghcr.io/abhi1693/devfeed.tech/backend:0.1.2@sha256:77d8cadbcc9e78701d06912ef0e54b7f96947e6f4625ef864b6f814c77478133
+          image: registry.home/ghcr.io/abhi1693/devfeed.tech/backend:0.1.8@sha256:1fb3087acd900c6e18cef096df53ae34d19d6226bba58531324f2dcb3786ca3e
           imagePullPolicy: IfNotPresent
           resources:
             requests:
@@ -148,7 +153,7 @@ spec:
             - from pathlib import Path; Path('/run/ca/ca-bundle.crt').write_bytes(Path('/etc/ssl/certs/ca-certificates.crt').read_bytes()+b'\n'+Path('/run/codex-ca/ca.crt').read_bytes())
         - name: wait-for-schema
           # renovate: datasource=docker depName=ghcr.io/abhi1693/devfeed.tech/backend
-          image: registry.home/ghcr.io/abhi1693/devfeed.tech/backend:0.1.2@sha256:77d8cadbcc9e78701d06912ef0e54b7f96947e6f4625ef864b6f814c77478133
+          image: registry.home/ghcr.io/abhi1693/devfeed.tech/backend:0.1.8@sha256:1fb3087acd900c6e18cef096df53ae34d19d6226bba58531324f2dcb3786ca3e
           imagePullPolicy: IfNotPresent
           securityContext:
             runAsNonRoot: true

@@ -1,0 +1,98 @@
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: longhorn-storage-pools
+  namespace: longhorn-system
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: longhorn-storage-pools
+rules:
+  - apiGroups: [""]
+    resources: [nodes]
+    verbs: [get, list, patch]
+  - apiGroups: [""]
+    resources: [persistentvolumeclaims, persistentvolumes]
+    verbs: [get, list]
+  - apiGroups: [storage.k8s.io]
+    resources: [storageclasses]
+    verbs: [get, list]
+  - apiGroups: [storage.k8s.io]
+    resources: [storageclasses]
+    resourceNames: [longhorn-workers]
+    verbs: [patch]
+  - apiGroups: [storage.k8s.io]
+    resources: [storageclasses]
+    resourceNames: [longhorn]
+    verbs: [delete]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: longhorn-storage-pools
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: longhorn-storage-pools
+subjects:
+  - kind: ServiceAccount
+    name: longhorn-storage-pools
+    namespace: longhorn-system
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: longhorn-storage-pools
+  namespace: longhorn-system
+rules:
+  - apiGroups: [""]
+    resources: [configmaps]
+    resourceNames: [longhorn-storageclass]
+    verbs: [get]
+  - apiGroups: [longhorn.io]
+    resources: [nodes, volumes]
+    verbs: [get, list, patch]
+  - apiGroups: [longhorn.io]
+    resources: [replicas]
+    verbs: [get, list]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: longhorn-storage-pools
+  namespace: longhorn-system
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: Role
+  name: longhorn-storage-pools
+subjects:
+  - kind: ServiceAccount
+    name: longhorn-storage-pools
+    namespace: longhorn-system
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: longhorn-storage-pools
+  namespace: kube-system
+rules:
+  - apiGroups: [helm.cattle.io]
+    resources: [helmchartconfigs]
+    resourceNames: [longhorn]
+    verbs: [get, patch]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: longhorn-storage-pools
+  namespace: kube-system
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: Role
+  name: longhorn-storage-pools
+subjects:
+  - kind: ServiceAccount
+    name: longhorn-storage-pools
+    namespace: longhorn-system

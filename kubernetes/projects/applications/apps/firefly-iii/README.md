@@ -62,12 +62,6 @@ CronJob or dedicated pooler, and name-filtered `list`/`watch` for Deployment
 waits and rollout checks. These reads are required by `kubectl` even when the
 command targets a single resource.
 
-The missed 6 October 2026 shutdown was restored with a temporary Fleet-managed
-Job after repairing RBAC and Helm field ownership. Recovery verified that web
-and pooler replicas were zero and daily maintenance was suspended before
-removing the original failed Job. The temporary recovery Job and its narrowly
-scoped cleanup permission were removed through Git after verification.
-
 Recover future missed lifecycle runs with an ordinary Fleet-managed Job using
 a unique name, a guarded schedule window, and explicit checks of workload
 state before cleanup. Verify successful completion separately from Fleet
@@ -85,6 +79,6 @@ rules allow TCP 8080 only between these workloads. Firefly API authentication
 is still required. Firefly can reach DNS and its PostgreSQL pooler, and the app
 can make public HTTP/HTTPS requests for optional external integrations.
 
-Home Assistant 2026.9.1's Firefly client uses port 9000 if no port is specified;
+Home Assistant's Firefly client uses port 9000 if no port is specified;
 enter the explicit `:80` in its integration setup even though browsers do not
 need it for this HTTP hostname.

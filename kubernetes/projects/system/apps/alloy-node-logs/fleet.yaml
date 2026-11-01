@@ -8,3 +8,4 @@ labels:
 dependsOn:
   - name: system-helm-repositories
   - name: loki-helmop
+    acceptedStates: [Ready, NotReady]

@@ -43,3 +43,9 @@ verified image if the replacement fails these checks.
   backed by `robot-namespace-portfolio`.
 - Cloudflare Tunnel ingress for `abhimanyu-saharan.com` and
   `www.abhimanyu-saharan.com`.
+
+### Faro retirement
+
+Release `0.1.12` removes the Faro SDK and private source-map collection.
+The retired collector and runtime/build flags are removed. Backend tracing, logs,
+profiling, and application analytics are preserved.

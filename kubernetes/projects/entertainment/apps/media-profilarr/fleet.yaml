@@ -12,6 +12,12 @@ dependsOn:
   - name: sonarr
 diff:
   comparePatches:
+    - apiVersion: apps/v1
+      kind: Deployment
+      name: profilarr
+      namespace: media
+      jsonPointers:
+        - /spec/replicas
     - apiVersion: v1
       kind: PersistentVolumeClaim
       name: profilarr-config

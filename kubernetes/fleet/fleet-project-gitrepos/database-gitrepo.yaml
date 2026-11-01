@@ -14,13 +14,12 @@ spec:
   clientSecretName: home-lab-apps-github
   pollingInterval: 1h0m0s
   paths:
-    - kubernetes/projects/database/apps/postgresql-hyperlocal-kitchen-prerequisites
+    - kubernetes/projects/database/apps/clickhouse
     - kubernetes/projects/database/apps/postgresql-devfeed-prerequisites
     - kubernetes/projects/database/apps/cnpg-operator
     - kubernetes/projects/database/apps/cnpg-operator-registry-secrets
     - kubernetes/projects/database/apps/database-helm-repositories
     - kubernetes/projects/database/apps/postgresql-zitadel-secrets
-    - kubernetes/projects/database/apps/postgresql-launchboard-prerequisites
     - kubernetes/projects/database/apps/postgresql-wardn-license-prerequisites
     - kubernetes/projects/database/apps/postgresql
     - kubernetes/projects/database/apps/postgresql-networkpolicy

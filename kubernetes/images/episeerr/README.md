@@ -3,7 +3,6 @@
 ARM64 Episeerr `3.9.6` application on a digest-pinned Python 3.13 Alpine
 runtime, running as UID/GID `1000`. Only `/app` is copied from the pinned
 upstream image; its Debian filesystem and Python packages are not inherited.
-This removes the upstream Debian packages that blocked the security scan.
 Timezone data preserves the deployment's `TZ=Asia/Kolkata` behavior.
 
 `requirements.lock` pins every resolved application dependency. Re-resolve it
@@ -30,7 +29,7 @@ fail the build.
 The workflow builds on a native ARM64 runner, runs vulnerability and secret
 scanning with HIGH/CRITICAL findings blocking release, and checks authenticated
 startup under a read-only filesystem before publishing the final tag. Unfixed
-findings are included. The Debian-based `3.9.6-1` candidate was never deployed.
+findings are included.
 
 Update source/runtime digests, dependency lock and release suffix together.
 After publishing, pin the deployed image digest in both init and application

@@ -24,6 +24,13 @@ repos:
         language: system
         files: \.ya?ml$
 
+      - id: validate-training-netbox-config
+        name: Validate shared Training NetBox configuration
+        entry: python3 scripts/render-training-netbox.py --check
+        language: system
+        pass_filenames: false
+        files: ^(?:kubernetes/projects/training/|scripts/render-training-netbox\.py$)
+
       - id: validate-kubernetes-resource-bounds
         name: Validate Kubernetes resource bounds
         entry: scripts/run-pre-commit-validation.sh kubernetes-resource-bounds
@@ -42,7 +49,7 @@ repos:
         entry: scripts/run-pre-commit-validation.sh kubernetes
         language: system
         files: ^kubernetes/.*\.ya?ml$
-        exclude: ^kubernetes/images/|(?:^|/)(?:fleet|values|crd-values|upstream-values|upstream-crd-values|dashboards-values|kustomizeconfig)\.yaml$|/examples/|/chart/(?:Chart|values)\.yaml$|/chart/templates/
+        exclude: ^kubernetes/projects/training/(?:_shared/netbox/chart|apps/[^/]+/instance)\.yaml$|^kubernetes/images/|(?:^|/)(?:Chart|fleet|values|crd-values|upstream-values|upstream-crd-values|dashboards-values|kustomizeconfig)\.yaml$|/examples/|/chart/(?:Chart|values)\.yaml$|/chart/templates/
 
       - id: validate-kubernetes-tests
         name: Validate Kubernetes app regressions

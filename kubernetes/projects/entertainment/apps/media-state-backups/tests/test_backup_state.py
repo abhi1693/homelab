@@ -68,6 +68,71 @@ class BackupTests(unittest.TestCase):
         self.assertEqual(before,{p.name:(p.read_bytes(),p.stat().st_mtime_ns) for p in self.source.iterdir() if p.is_file()})
         self.assertFalse(list(self.work.iterdir()))
 
+    def test_empty_known_atomic_temp_roundtrips_without_source_mutation(self):
+        self.controller()
+        temp = self.source / 'torrent-health.json.tmp'
+        temp.touch()
+        before = temp.stat().st_mtime_ns
+        receipt = self.run_backup()
+        out, manifest = self.restore(receipt, 'controller')
+        self.assertEqual((out / temp.name).read_bytes(), b'')
+        self.assertEqual(temp.stat().st_mtime_ns, before)
+        self.assertIn(temp.name, manifest['files'])
+
+    def test_complete_known_atomic_temp_roundtrips_without_promotion(self):
+        self.controller()
+        before = {p.name: (p.read_bytes(), p.stat().st_mtime_ns) for p in self.source.iterdir()}
+        for name in b.CONTROLLER_REQUIRED:
+            (self.source / (name + '.tmp')).write_text('{"newer_uncommitted_state":true}')
+        receipt = self.run_backup()
+        out, manifest = self.restore(receipt, 'controller')
+        for name in b.CONTROLLER_REQUIRED:
+            self.assertEqual((out / name).read_bytes(), before[name][0])
+            self.assertEqual((out / (name + '.tmp')).read_bytes(),
+                             (self.source / (name + '.tmp')).read_bytes())
+            self.assertIn(name + '.tmp', manifest['files'])
+            self.assertEqual(((self.source / name).read_bytes(), (self.source / name).stat().st_mtime_ns),
+                             before[name])
+
+    def test_invalid_or_unknown_temp_and_missing_authoritative_json_fail(self):
+        self.controller()
+        for name, data in [('torrent-health.json.tmp', b'{'),
+                           ('torrent-health.json.tmp', b'[]'),
+                           ('torrent-health.json.tmp', b'{"x":1,"x":2}'),
+                           ('torrent-health.json.tmp', b'{"x":NaN}'),
+                           ('unknown.json.tmp', b''), ('unknown.json.tmp', b'{}')]:
+            with self.subTest(name=name):
+                temp = self.source / name
+                temp.write_bytes(data)
+                with self.assertRaises(b.BackupError):
+                    self.run_backup()
+                self.assertEqual(temp.read_bytes(), data)
+                temp.unlink()
+        (self.source / 'torrent-health.json').unlink()
+        (self.source / 'torrent-health.json.tmp').touch()
+        with self.assertRaises(b.BackupError):
+            self.run_backup()
+
+    def test_large_archive_flushes_periodically_and_restores_exact_bytes(self):
+        self.controller()
+        data = self.source / 'history.bin'
+        data.write_bytes(b'fixture!' * (3 * 1024 * 1024))
+        checkpoint_sizes = []
+        real_sync = b.os.fsync
+        def sync(fd):
+            info = b.os.fstat(fd)
+            if stat.S_ISREG(info.st_mode):
+                checkpoint_sizes.append(info.st_size)
+            return real_sync(fd)
+        with patch.object(b.os, 'fsync', side_effect=sync):
+            receipt = self.run_backup()
+        # Receipt/manifest syncs cannot satisfy this: the archive must have
+        # been flushed before all 24 MiB were written, at each 8 MiB boundary.
+        self.assertGreaterEqual(sum(8 * 1024**2 <= size < 24 * 1024**2
+                                    for size in checkpoint_sizes), 2)
+        out, manifest = self.restore(receipt, 'controller')
+        self.assertEqual(b.digest(out / data.name), b.digest(data))
+
     def test_sqlite_wal_text_migrations_key_artwork_sidecar_and_no_source_mutation(self):
         self.ryokan()
         before={str(p.relative_to(self.source)):(b.digest(p),p.stat().st_mtime_ns) for p in self.source.rglob('*') if p.is_file()}

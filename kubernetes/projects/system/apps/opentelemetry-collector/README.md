@@ -1,15 +1,13 @@
 # OpenTelemetry Collector
 
-The monitoring migration routes both `prometheus-write-*` Services directly to
-Prometheus's native HTTP port 9090. The processor NetworkPolicy permits 9090
-and retains the legacy proxy port 8081 during the staged handoff and rollback
-window. See the [monitoring migration runbook](../../../../../docs/runbooks/rancher-monitoring-migration.md)
-for rollout ordering and exporter/queue verification.
-The monitoring bundle also carries an additive `prometheus-native-write` policy
-so port 9090 is admitted while this dependent bundle waits for monitoring readiness.
+Both `prometheus-write-*` Services target Prometheus's native HTTP port 9090.
+Processor NetworkPolicy permits 9090 and the configured compatibility port 8081.
+The monitoring bundle's `prometheus-native-write` policy permits OTLP writes
+independently of this bundle's rollout. Preserve both replica-specific write
+paths when changing monitoring or collector configuration.
 
 Highly available, local-only OpenTelemetry ingestion and processing for
-application metrics and traces. Logs are intentionally not configured yet.
+application metrics and traces. Logs use the separate Alloy/Loki pipeline.
 
 The deployment uses two separate failure-isolated tiers:
 
@@ -77,3 +75,16 @@ Applications continue to send telemetry to:
 
 All desired state is Fleet-managed. Do not scale or restart either tier
 manually; change the manifests here and let Fleet reconcile them.
+
+## Resource review — 28 October 2026
+
+Values use the 28 October historical review in
+[the resource policy](../../../../../docs/runbooks/kubernetes-resource-policy.md#2026-10-28-historical-resource-review).
+CPU reservations cover measured sustained demand with headroom; existing burst
+policies remain in place. Memory caps preserve the observed fourteen-day peaks
+and extra headroom where OOM records show clipping.
+
+| Container / value path | CPU request | Memory request | Memory limit |
+| --- | --- | --- | --- |
+| `cattle-monitoring-system/opentelemetry-collector/collector` | 10m → 10m | 64Mi → 112Mi | 128Mi → 192Mi |
+| `cattle-monitoring-system/opentelemetry-processor/collector` | 10m → 10m | 112Mi → 112Mi | 192Mi → 256Mi |

@@ -1,4 +1,7 @@
 ---
+- name: Validate the supported Ubuntu host
+  ansible.builtin.include_tasks: profile.yml
+
 - name: Require cluster health for standalone OS validation
   ansible.builtin.include_tasks: os_updates_health.yml
   vars:
@@ -27,7 +30,7 @@
   ansible.builtin.assert:
     that:
       - os_prep_os_dpkg_audit.stdout | trim == ''
-    fail_msg: Some Debian packages remain unpacked or incompletely configured.
+    fail_msg: Some Ubuntu packages remain unpacked or incompletely configured.
 
 - name: Check for remaining installed-package updates
   ansible.builtin.command: apt-get --simulate --no-install-recommends dist-upgrade
@@ -84,7 +87,6 @@
     - /usr/local/bin/k3s
     - /etc/rancher/k3s/config.yaml
     - /etc/rancher/k3s/registries.yaml
-    - /etc/default/rpi-eeprom-update
   register: os_prep_os_files_after
 
 - name: Assert OS maintenance preserved the K3s binary and configuration
@@ -105,24 +107,8 @@
 - name: Validate the inventory-managed APT source transport policy
   ansible.builtin.include_tasks: apt_sources_validation.yml
 
-- name: Inspect the automatic firmware update result
-  ansible.builtin.include_tasks: os_updates_firmware.yml
-
-- name: Assert no automatic firmware update still requires a reboot
-  ansible.builtin.assert:
-    that:
-      - not (os_prep_os_firmware_state.stdout | from_json).reboot_pending
-    fail_msg: Firmware update state still requires a reboot after the bounded sequence; leave remaining nodes untouched.
-
-- name: Assert the existing automatic firmware policy is preserved
-  ansible.builtin.assert:
-    that:
-      - (os_prep_os_firmware_state.stdout | from_json).service_enabled == os_prep_os_firmware_service_before
-  when: os_prep_os_firmware_service_before is defined
-
-- name: Report the bootloader version result without overriding its update policy
-  ansible.builtin.debug:
-    msg:
-      before: "{{ os_prep_os_firmware_version_before | default('not recorded') }}"
-      current: "{{ (os_prep_os_firmware_state.stdout | from_json).BOOTLOADER_CURRENT }}"
-      latest_in_configured_channel: "{{ (os_prep_os_firmware_state.stdout | from_json).BOOTLOADER_LATEST }}"
+- name: Validate the Ubuntu vendor boot artifacts and native BTF after maintenance
+  ansible.builtin.include_role:
+    name: rpi_prep
+    tasks_from: kernel_validation
+    rolespec_validate: false

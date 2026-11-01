@@ -1,0 +1,26 @@
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: devfeed-schema-to-shared-clickhouse
+  namespace: devfeed
+  labels:
+    app.kubernetes.io/part-of: clickhouse
+spec:
+  podSelector:
+    matchLabels:
+      app.kubernetes.io/name: devfeed-migrate
+      devfeed-clickhouse-client: 'true'
+  policyTypes:
+    - Egress
+  egress:
+    - to:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: clickhouse
+          podSelector:
+            matchLabels:
+              app.kubernetes.io/name: clickhouse
+      ports:
+        - protocol: TCP
+          port: 8123

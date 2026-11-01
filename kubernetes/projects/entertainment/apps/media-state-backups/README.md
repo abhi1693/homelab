@@ -34,18 +34,10 @@ so its own version must match while an optional strict-semver historical
 `-ryokan-X.Y.Z` context remains unchanged during a Ryokan-only upgrade. Prefer
 `qbit-<actual version>` for future controller cohorts; these tests do not rewrite
 existing labels or require an unrelated controller rollout.
-Recommender clone/main references must match; its and Rack's backup
-labels track the actual app version once their phased backup init is installed.
-Before that migration, missing backup init is accepted only for the exact unchanged
-legacy references: both Recommender consumers at
-`registry.home/ghcr.io/abhi1693/k8s-recommendation-engine:0.3.5` and Rack at
-`registry.home/ghcr.io/abhi1693/rack-ops:0.1.3`. Any tag, registry or digest change
-requires the first backup init, immutable writer pin and matching cohort together.
-The later per-app migration tests always require that first init thereafter.
 Keep related image pins and cohort labels in the same Git change. The assertions
 derive versions from the manifests and accept future coherent releases.
 
-The four writer packages retain branch automerge with a scoped `ignoreTests:
+The two active writer packages retain branch automerge with a scoped `ignoreTests:
 false` rule. Infrastructure regressions runs on Renovate branch pushes, before
 merge, in addition to master and PR validation. An image-only update that leaves
 a stale label fails this gate; repair the update rather than bypassing checks.
@@ -171,27 +163,25 @@ makes no network request. Review overlapping policy allowances normally.
 The helper uses only Python stdlib and runs via `/usr/bin/python` in the
 independent public Chainguard minimal runtime. It is not coupled to the qBit app
 release. Registry auth, app-owned imagePullSecrets, shells and installers are
-not needed for prerequisite Jobs. The pinned current candidate is Python3.15.0,
-SQLite3.54.1 and OpenSSL4.0.3; helper code supports Python>=3.12. The public `latest`
+not needed for prerequisite Jobs. The pinned runtime is selected by `public-helper-image.json`; helper code
+supports Python>=3.12. The public `latest`
 channel is resolved to an immutable digest; never deploy a floating tag. Verify
 both native architectures with strict HIGH/CRITICAL including unfixed and
 all-severity secret scans, nonzero OS inventory, SBOM and upstream signature
 identity before changing the pin. See [Chainguard Python](https://images.chainguard.dev/directory/image/python/overview)
 and its [exact public verification policy](https://support.chainguard.dev/hc/en-us/articles/53833609818779-Verify-Chainguard-image-signatures-with-cosign).
-The final canonical helper already includes controller, Ryokan, Recommender and
-Rack profiles. Later namespace-local prerequisites copy exactly these bytes/hash;
-adding the other app phases must not change the media ConfigMap/init revision.
+The canonical helper implements active controller/Ryokan profiles and legacy
+Recommender/Rack archive compatibility. Namespace-local prerequisites copy identical bytes/hash; keep
+all producer and verifier references aligned when updating shared code.
 Source, tests, immutable ConfigMap content/hash and both pod references must
 change together. Existing infrastructure regression CI watches both app trees.
 
-CohortA changes qBit controller and Ryokan import-reconciler to the same verified
-qBit0.2.13 index, adding these backups in the same desired-state commit. Keep
-Ryokan core1.9.12 and qBittorrent core pins unchanged. Wait for both init
-receipts/restore verification, normal credential sync, both main health probes,
-Fleet desired=applied and public/media behavior. Later CohortB changes only
-Ryokan core1.9.13, retaining the qBit pins and updating the cohort identifier;
-its normal Recreate startup produces a new pre-migration restore point.
-No background backup Job, direct exec write or temporary scale commit is required.
+Keep qBit controller and Ryokan import-reconciler image references identical.
+Update a writer's backup cohort label with its image pin. A Ryokan-only upgrade
+must preserve the qBit pins while producing a fresh pre-start restore point.
+Validate init receipts, isolated restoration, credential sync, main health,
+Fleet desired/applied equality and media behavior for each writer upgrade.
+No background backup Job, direct exec write or temporary scale commit is needed.
 
 On failure: retain backups and source PVCs; inspect the safe termination reason.
 Do not bypass init, restore automatically, downgrade a migrated schema, reset
@@ -213,10 +203,10 @@ Local regression command:
 python3 -m unittest discover -s kubernetes/projects/entertainment/apps/media-state-backups/tests -v
 ```
 
-The Recommender/Rack profiles are shared implementation capabilities; their
-namespace-local prerequisites and app init containers land in separate serial
-app phases. Those phases must not alter either media app image or this finalized
-helper content hash. They preserve app Namespace and registry-SopsSecret owners.
+The immutable helper retains legacy Recommender/Rack archive-format support and
+restore regressions. The recommendation engine and its namespace-local backup
+bundle are retired; there are no active Recommender writers or rollout gates.
+Keeping this compatibility avoids changing the shared helper or rolling media apps.
 
 The helper's Docker metadata is explicitly disabled for automatic updates in
 Renovate's final package rule. The rolling `latest` channel is consumed only by
@@ -270,3 +260,33 @@ independent API attestation. Outputs expose safe metadata/aggregates only.
 The policy/verifier/tests are excluded from Fleet resources by `.fleetignore`.
 They do not alter the canonical backup helper, its immutable ConfigMap or pod
 references, so metadata verification does not rerun a backup or restart an app.
+
+Single-writer application Deployments may be paused at zero replicas during
+authorized worker maintenance; their init ordering, retained claims and normal
+Recreate strategy remain intact when the recorded replica is restored.
+
+An interrupted smart-queues atomic JSON replacement may leave an empty or complete
+`torrent-health.json.tmp` or `udm-usage-corrections.json.tmp`. The backup preserves
+each artifact without changing the source; both authoritative JSON
+files remain required and validated. Nonempty known temporary files must pass
+the same bounded, strict JSON-object validation, including duplicate-key and
+non-finite-number rejection. The archive preserves both versions independently;
+the temporary version is never promoted over the authoritative file. This covers
+a reboot between a completed temporary write and the atomic rename. Partial or
+unknown temporary files,
+symlinks and unexpected databases still block startup. Regression tests verify
+backup/restore round trips and rejection of partial or missing state.
+
+Archive streaming flushes and fsyncs each 8 MiB so NFS dirty writeback cannot
+grow for an entire multi-GiB archive inside the init memory cgroup. Ryokan's
+backup init reserves 512 MiB with a 1 GiB limit; this remains below the main
+Pod's existing aggregate reservation/limit. Full source and restored-database
+integrity checks and final archive fsync/readback remain required.
+
+## Startup budgets
+
+The controller keeps its 1,800-second backup allowance. Ryokan allows up to
+3,600 seconds for its historically large SQLite state; Deployment and Fleet
+budgets include additional normal-startup time. Regression checks compare
+those budgets to the actual backup arguments, while the helper retains its
+absolute one-hour bound. All restore verification remains required.

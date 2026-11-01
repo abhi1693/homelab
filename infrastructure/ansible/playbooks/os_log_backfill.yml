@@ -1,0 +1,115 @@
+---
+- name: Stage verified historical K3s and kernel records for Alloy collection
+  hosts: k3s_nodes
+  become: true
+  gather_facts: true
+  gather_subset:
+    - min
+  serial: 1
+  any_errors_fatal: true
+
+  pre_tasks:
+    - name: Require an explicit private controller directory and mapped node identity
+      ansible.builtin.assert:
+        that:
+          - os_log_backfill_directory is defined
+          - os_log_backfill_directory is string
+          - os_log_backfill_directory is match('^/')
+          - node_identity.hostname is defined
+          - ansible_facts.hostname == node_identity.hostname
+        fail_msg: Supply the prepared private directory and verify the inventory hostname before staging historical logs.
+
+    - name: Verify the private replay manifest and native records on the controller
+      ansible.builtin.command:
+        argv:
+          - "{{ ansible_playbook_python }}"
+          - "{{ playbook_dir }}/../../../scripts/prepare-os-log-backfill.py"
+          - --verify
+          - "{{ os_log_backfill_directory }}"
+          - --node
+          - "{{ node_identity.hostname }}"
+      delegate_to: localhost
+      become: false
+      check_mode: false
+      changed_when: false
+      register: os_log_backfill_verified
+
+    - name: Read verified replay metadata without exposing record bodies
+      ansible.builtin.set_fact:
+        os_log_backfill_record: "{{ os_log_backfill_verified.stdout | from_json }}"
+
+    - name: Enforce the replay identity and hard per-node size bound
+      ansible.builtin.assert:
+        that:
+          - os_log_backfill_record.hostname == ansible_facts.hostname
+          - os_log_backfill_record.bytes | int > 0
+          - os_log_backfill_record.bytes | int <= 268435456
+          - os_log_backfill_record.records | int > 0
+
+  tasks:
+    - name: Inspect the dedicated backfill directory without following symlinks
+      ansible.builtin.stat:
+        path: /var/log/home-lab-incident-backfill
+        follow: false
+      register: os_log_backfill_directory_state
+
+    - name: Refuse an unexpected backfill directory type
+      ansible.builtin.assert:
+        that:
+          - not os_log_backfill_directory_state.stat.exists or (os_log_backfill_directory_state.stat.isdir | default(false) and not os_log_backfill_directory_state.stat.islnk | default(false))
+
+    - name: Create the private historical replay directory
+      ansible.builtin.file:
+        path: /var/log/home-lab-incident-backfill
+        state: directory
+        owner: root
+        group: root
+        mode: '0700'
+
+    - name: Inspect the exact immutable replay destination
+      ansible.builtin.stat:
+        path: "/var/log/home-lab-incident-backfill/{{ os_log_backfill_record.file }}"
+        follow: false
+        checksum_algorithm: sha256
+      register: os_log_backfill_existing
+
+    - name: Refuse to replace a different file with the same snapshot name
+      ansible.builtin.assert:
+        that:
+          - not os_log_backfill_existing.stat.exists or (os_log_backfill_existing.stat.isreg | default(false) and not os_log_backfill_existing.stat.islnk | default(false) and os_log_backfill_existing.stat.checksum | default('') == os_log_backfill_record.sha256)
+
+    - name: Copy only the verified immutable replay file for this node
+      ansible.builtin.copy:
+        src: "{{ os_log_backfill_directory }}/{{ os_log_backfill_record.file }}"
+        dest: "/var/log/home-lab-incident-backfill/{{ os_log_backfill_record.file }}"
+        checksum: "{{ os_log_backfill_record.sha1 }}"
+        force: false
+        owner: root
+        group: root
+        mode: '0600'
+      diff: false
+
+    - name: Verify the staged bytes and private file permissions
+      ansible.builtin.stat:
+        path: "/var/log/home-lab-incident-backfill/{{ os_log_backfill_record.file }}"
+        follow: false
+        checksum_algorithm: sha256
+      register: os_log_backfill_staged
+      when: not ansible_check_mode
+
+    - name: Require the staged immutable replay to match the verified manifest
+      ansible.builtin.assert:
+        that:
+          - os_log_backfill_staged.stat.checksum == os_log_backfill_record.sha256
+          - os_log_backfill_staged.stat.size | int == os_log_backfill_record.bytes | int
+          - os_log_backfill_staged.stat.mode == '0600'
+          - os_log_backfill_staged.stat.uid == 0
+          - os_log_backfill_staged.stat.gid == 0
+      when: not ansible_check_mode
+
+    - name: Report the historical replay boundary
+      ansible.builtin.debug:
+        msg: >-
+          {{ node_identity.hostname }}: staged snapshot {{ os_log_backfill_record.snapshot }}
+          with {{ os_log_backfill_record.records }} retained records.
+          Existing Alloy cursors are unchanged; previously delivered records may be duplicated.

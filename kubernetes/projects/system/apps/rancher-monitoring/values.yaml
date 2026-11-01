@@ -446,6 +446,8 @@ grafana:
   grafana.ini:
     auth.basic:
       enabled: true
+    auth.anonymous:
+      enabled: false
     database:
       # This is a single Grafana replica. Avoid HA coordination writes and
       # tolerate transient SQLite lock contention on the retained NFS file.
@@ -494,6 +496,11 @@ grafana:
       editable: false
       jsonData:
         derivedFields:
+          - datasourceUid: tempo
+            matcherRegex: trace_id
+            matcherType: label
+            name: OTelTraceID
+            url: "$${__value.raw}"
           - datasourceUid: tempo
             matcherRegex: "(?:trace_id|traceId|traceID)[=\": ]+([a-fA-F0-9]{16,32})"
             name: TraceID

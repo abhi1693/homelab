@@ -1,0 +1,14 @@
+---
+- name: Apply the selected Raspberry Pi macb network mitigation serially
+  hosts: k3s_nodes
+  become: true
+  gather_facts: true
+  serial: 1
+  any_errors_fatal: true
+  tasks:
+    - name: Manage explicitly selected macb canaries
+      ansible.builtin.include_role:
+        name: os_prep
+        tasks_from: macb_network
+        rolespec_validate: false
+      when: os_prep.macb_tx_workaround | default(false) | bool

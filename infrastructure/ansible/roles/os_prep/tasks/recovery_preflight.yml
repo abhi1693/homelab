@@ -1,0 +1,28 @@
+---
+- name: Require the approved bounded recovery configuration
+  ansible.builtin.assert:
+    that:
+      - node_recovery_entrypoint | default('main') in ['main', 'validation']
+      - groups['k3s_servers'] | length == 3
+      - ansible_facts.default_ipv4.address == ansible_host
+      - ansible_facts.default_ipv4.interface == 'eth0'
+      - ansible_facts.system == 'Linux'
+      - ansible_facts.architecture == 'aarch64'
+      - ansible_facts.distribution == 'Ubuntu'
+    fail_msg: Review recovery support and direct LAN topology before changing this host.
+
+- name: Read kernel capture support and safe watchdog retirement prerequisites
+  ansible.builtin.command:
+    argv: [python3, '-']
+    stdin: |
+      import json, pathlib
+      kernel = pathlib.Path('/proc/sys/kernel/osrelease').read_text().strip()
+      config = pathlib.Path('/boot/config-' + kernel).read_text()
+      root = pathlib.Path('/sys/class/watchdog/watchdog0')
+      assert 'CONFIG_NETCONSOLE_DYNAMIC=y' in config
+      if root.exists() and (root / 'state').read_text().strip() == 'active':
+          assert (root / 'nowayout').read_text().strip() == '0', 'Active watchdog cannot be disarmed safely'
+      assert pathlib.Path('/usr/bin/python3').is_file()
+      print(json.dumps({'kernel': kernel, 'watchdog_state': (root / 'state').read_text().strip() if root.exists() else 'absent'}))
+  changed_when: false
+  check_mode: false

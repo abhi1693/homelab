@@ -28,15 +28,6 @@ spec:
       sourcePath: kubernetes/projects/home-automation/apps/netbox/values.yaml
       images:
         - ghcr.io/abhi1693/home-lab-netbox
-    - key: home-k3s/netbox/apps/deployment/netbox-worker
-      namespace: netbox
-      apiGroup: apps
-      kind: Deployment
-      name: netbox-worker
-      desiredReplicas: 1
-      sourcePath: kubernetes/projects/home-automation/apps/netbox/values.yaml
-      images:
-        - ghcr.io/abhi1693/home-lab-netbox
     - key: home-k3s/netbox/batch/cronjob/netbox-housekeeping
       namespace: netbox
       apiGroup: batch
@@ -73,7 +64,7 @@ spec:
       name: postgresql
       type: database
       criticality: required
-      failureImpact: NetBox web and worker operations cannot read or persist inventory.
+      failureImpact: NetBox web operations cannot read or persist inventory.
     - key: netbox/valkey/service
       name: valkey
       type: service

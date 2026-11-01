@@ -1,0 +1,24 @@
+---
+apiVersion: home-lab.io/v1alpha1
+kind: WorkloadCatalog
+metadata:
+  name: clickhouse
+spec:
+  displayName: ClickHouse
+  purpose: Shared analytical database with per-application databases and scoped credentials.
+  owner: home-lab
+  project: database
+  cluster: home-k3s
+  lifecycle: active
+  criticality: medium
+  dataClassification: internal
+  repository: https://github.com/abhi1693/home-lab
+  gitPath: kubernetes/projects/database/apps/clickhouse
+  workloads:
+  - key: home-k3s/clickhouse/apps/deployment/clickhouse
+    namespace: clickhouse
+    apiGroup: apps
+    kind: Deployment
+    name: clickhouse
+    desiredReplicas: 1
+    sourcePath: kubernetes/projects/database/apps/clickhouse/deployment-clickhouse.yaml

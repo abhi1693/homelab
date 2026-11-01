@@ -5,7 +5,9 @@ title: Runbooks
 # Runbooks
 
 Runbooks document repeatable operator procedures for known symptoms, alerts, or
-high-risk maintenance tasks.
+high-risk maintenance tasks. Completed cutover plans, incident reports and dated
+request bundles belong in Git history. Keep current recovery constraints in the
+owning app README instead of retaining a one-off runbook.
 
 ## Media
 
@@ -44,6 +46,12 @@ Use this structure for new runbooks:
 
 Keep the first four sections present for every runbook. Add the remaining
 sections when they help the operator apply or undo a local change safely.
+
+## Databases
+
+- [DevFeed ClickHouse recovery evidence](devfeed-clickhouse-recovery-evidence.md):
+  preserve repaired analytics, exact detached parts and durable recovery proofs
+  while retiring temporary jobs and the isolated PostgreSQL restore.
 
 ## Storage
 

@@ -27,3 +27,15 @@ refresh so a slow backend cannot multiply Prometheus load. The fail-closed
 snapshot combines its tagged expressions into one Prometheus-compatible request
 with a bounded 30-second timeout; readiness allows 90 seconds while liveness
 remains isolated on `/healthz`.
+
+## Resource review — 28 October 2026
+
+Values use the 28 October historical review in
+[the resource policy](../../../../../docs/runbooks/kubernetes-resource-policy.md#2026-10-28-historical-resource-review).
+CPU reservations cover measured sustained demand with headroom; existing burst
+policies remain in place. Memory caps preserve the observed fourteen-day peaks
+and extra headroom where OOM records show clipping.
+
+| Container / value path | CPU request | Memory request | Memory limit |
+| --- | --- | --- | --- |
+| `home-assistant/home-assistant-status-bridge/bridge` | 5m → 5m | 24Mi → 48Mi | 64Mi → 64Mi |

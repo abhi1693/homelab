@@ -1,0 +1,200 @@
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: clickhouse
+  namespace: clickhouse
+  labels:
+    app.kubernetes.io/name: clickhouse
+    app.kubernetes.io/part-of: clickhouse
+spec:
+  replicas: 1
+  revisionHistoryLimit: 2
+  strategy:
+    type: Recreate
+  selector:
+    matchLabels: &id001
+      app.kubernetes.io/name: clickhouse
+      app.kubernetes.io/part-of: clickhouse
+  template:
+    metadata:
+      labels: *id001
+      annotations:
+        home-lab.io/config-revision: clickhouse-admission-headroom-v3
+    spec:
+      serviceAccountName: clickhouse
+      imagePullSecrets:
+      - name: harbor-registry
+      automountServiceAccountToken: false
+      nodeSelector:
+        kubernetes.io/arch: arm64
+      securityContext:
+        fsGroup: 101
+        fsGroupChangePolicy: OnRootMismatch
+        seccompProfile:
+          type: RuntimeDefault
+      terminationGracePeriodSeconds: 180
+      containers:
+      - name: clickhouse
+        # renovate: datasource=docker depName=clickhouse/clickhouse-server
+        image: registry.home/docker.io/clickhouse/clickhouse-server:26.8-alpine@sha256:7d2c6c7af374dfaacd6d7aec3403aa43cee5ea334cb2d82400bd3dfa6f62f697
+        env:
+        - name: CLICKHOUSE_DB
+          value: devfeed
+        - name: CLICKHOUSE_USER
+          value: clickhouse_operator
+        - name: CLICKHOUSE_DEFAULT_ACCESS_MANAGEMENT
+          value: '1'
+        - name: DEVFEED_CLICKHOUSE_READER_GRANT
+          value: GRANT SELECT ON devfeed.*
+        - name: DEVFEED_CLICKHOUSE_INGEST_GRANT
+          value: GRANT SELECT, INSERT, CREATE TABLE, CREATE VIEW, DROP TABLE, DROP
+            VIEW, ALTER TABLE, SYSTEM MERGES ON devfeed.*
+        - name: DEVFEED_CLICKHOUSE_PUBLIC_EVENTS_PARTNER_GRANT
+          value: GRANT INSERT ON devfeed.analytics_partner_events
+        - name: DEVFEED_CLICKHOUSE_PUBLIC_EVENTS_SEARCH_GRANT
+          value: GRANT SELECT, INSERT ON devfeed.analytics_search_events
+        - name: DEVFEED_CLICKHOUSE_PUBLIC_PIPELINE_GRANT
+          value: GRANT INSERT ON devfeed.analytics_pipeline_events
+        - name: DEVFEED_CLICKHOUSE_PUBLIC_CARDS_GRANT
+          value: GRANT INSERT ON devfeed.analytics_card_canonical
+        - name: DEVFEED_CLICKHOUSE_PUBLIC_PROGRESS_GRANT
+          value: GRANT SELECT ON devfeed.analytics_backfill_progress
+        - name: DEVFEED_CLICKHOUSE_USER_OPENS_GRANT
+          value: GRANT SELECT, INSERT ON devfeed.analytics_article_opens
+        - name: DEVFEED_CLICKHOUSE_USER_EVENTS_GRANT
+          value: GRANT INSERT ON devfeed.analytics_user_events
+        - name: DEVFEED_CLICKHOUSE_USER_LIFETIME_GRANT
+          value: GRANT SELECT ON devfeed.analytics_open_lifetime
+        - name: DEVFEED_CLICKHOUSE_USER_BASELINE_GRANT
+          value: GRANT SELECT ON devfeed.analytics_article_open_baseline
+        - name: DEVFEED_CLICKHOUSE_USER_CUTOVER_GRANT
+          value: GRANT SELECT ON devfeed.analytics_article_open_cutover
+        - name: DEVFEED_CLICKHOUSE_PARTNER_EVENTS_PARTNER_GRANT
+          value: GRANT SELECT ON devfeed.analytics_partner_events
+        - name: DEVFEED_CLICKHOUSE_PARTNER_PROGRESS_GRANT
+          value: GRANT SELECT ON devfeed.analytics_backfill_progress
+        - name: DEVFEED_CLICKHOUSE_ADMIN_ALL_GRANT
+          value: GRANT SELECT ON devfeed.*
+        - name: DEVFEED_CLICKHOUSE_ADMIN_PIPELINE_GRANT
+          value: GRANT INSERT ON devfeed.analytics_pipeline_events
+        - name: DEVFEED_CLICKHOUSE_ADMIN_USER_EVENTS_GRANT
+          value: GRANT INSERT ON devfeed.analytics_user_events
+        - name: DEVFEED_CLICKHOUSE_ADMIN_CARDS_GRANT
+          value: GRANT INSERT ON devfeed.analytics_card_canonical
+        - name: DEVFEED_CLICKHOUSE_ADMIN_EVENTS_PARTNER_GRANT
+          value: GRANT INSERT ON devfeed.analytics_partner_events
+        - name: DEVFEED_CLICKHOUSE_WORKER_INFERENCE_GRANT
+          value: GRANT SELECT, INSERT ON devfeed.analytics_inference_events
+        - name: DEVFEED_CLICKHOUSE_WORKER_PIPELINE_GRANT
+          value: GRANT INSERT ON devfeed.analytics_pipeline_events
+        - name: DEVFEED_CLICKHOUSE_WORKER_USER_EVENTS_GRANT
+          value: GRANT INSERT ON devfeed.analytics_user_events
+        - name: DEVFEED_CLICKHOUSE_WORKER_CARDS_GRANT
+          value: GRANT INSERT ON devfeed.analytics_card_canonical
+        - name: DEVFEED_CLICKHOUSE_WORKER_PROGRESS_GRANT
+          value: GRANT SELECT ON devfeed.analytics_backfill_progress
+        - name: DEVFEED_CLICKHOUSE_MAX_THREADS
+          value: '2'
+        - name: DEVFEED_CLICKHOUSE_MAX_EXECUTION_SECONDS
+          value: '20'
+        - name: DEVFEED_CLICKHOUSE_MAX_MEMORY_BYTES
+          value: '268435456'
+        - name: DEVFEED_CLICKHOUSE_READER_MAX_QUERIES
+          value: '8'
+        - name: DEVFEED_CLICKHOUSE_READER_MAX_MEMORY_BYTES
+          value: '805306368'
+        - name: DEVFEED_CLICKHOUSE_INGEST_MAX_QUERIES
+          value: '8'
+        - name: DEVFEED_CLICKHOUSE_INGEST_MAX_MEMORY_BYTES
+          value: '805306368'
+        - name: DEVFEED_CLICKHOUSE_USER_MAX_QUERIES
+          value: '16'
+        - name: DEVFEED_CLICKHOUSE_WORKER_MAX_QUERIES
+          value: '64'
+        - name: DEVFEED_CLICKHOUSE_WORKER_MAX_MEMORY_BYTES
+          value: '2147483648'
+        - name: DEVFEED_CLICKHOUSE_SERVER_MAX_MEMORY_BYTES
+          value: '4831838208'
+        - name: DEVFEED_CLICKHOUSE_SERVER_MAX_QUERIES
+          value: '128'
+        - name: DEVFEED_CLICKHOUSE_SERVER_MAX_SELECTS
+          value: '64'
+        - name: DEVFEED_CLICKHOUSE_SERVER_MAX_INSERTS
+          value: '96'
+        envFrom:
+        - secretRef:
+            name: clickhouse-server
+        ports:
+        - name: http
+          containerPort: 8123
+        - name: native
+          containerPort: 9000
+        - name: metrics
+          containerPort: 9363
+        resources:
+          requests:
+            cpu: '1'
+            memory: 2304Mi
+          limits:
+            cpu: '3'
+            memory: 6Gi
+        securityContext:
+          runAsNonRoot: true
+          runAsUser: 101
+          runAsGroup: 101
+          allowPrivilegeEscalation: false
+          capabilities:
+            drop:
+            - ALL
+        volumeMounts:
+        - name: data
+          mountPath: /var/lib/clickhouse
+        - name: logs
+          mountPath: /var/log/clickhouse-server
+        - name: backups
+          mountPath: /backups
+        - name: config
+          mountPath: /etc/clickhouse-server/config.d/prometheus.xml
+          subPath: prometheus.xml
+          readOnly: true
+        - name: config
+          mountPath: /etc/clickhouse-server/config.d/devfeed-resources.xml
+          subPath: resources.xml
+          readOnly: true
+        - name: config
+          mountPath: /etc/clickhouse-server/users.d/devfeed-analytics.xml
+          subPath: users.xml
+          readOnly: true
+        readinessProbe:
+          exec: &id002
+            command:
+            - sh
+            - -ec
+            - clickhouse-client --host 127.0.0.1 --user devfeed_ingest --password
+              "$DEVFEED_CLICKHOUSE_INGEST_PASSWORD" --database devfeed --query "SELECT
+              1" >/dev/null
+          timeoutSeconds: 5
+          periodSeconds: 10
+        startupProbe:
+          exec: *id002
+          timeoutSeconds: 5
+          periodSeconds: 10
+          failureThreshold: 60
+        livenessProbe:
+          exec: *id002
+          timeoutSeconds: 5
+          periodSeconds: 30
+          failureThreshold: 6
+      volumes:
+      - name: data
+        persistentVolumeClaim:
+          claimName: clickhouse-data
+      - name: backups
+        persistentVolumeClaim:
+          claimName: clickhouse-backups
+      - name: logs
+        emptyDir: {}
+      - name: config
+        configMap:
+          name: clickhouse-config

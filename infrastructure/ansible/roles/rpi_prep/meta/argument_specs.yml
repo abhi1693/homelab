@@ -7,6 +7,18 @@ argument_specs:
         type: dict
         required: true
         options:
+          disabled_wireless_interfaces:
+            type: list
+            elements: str
+            required: true
+            description:
+              - Firmware-disabled radios to remove from Ubuntu Netplan.
+          required_kernel_modules:
+            type: list
+            elements: str
+            required: true
+            description:
+              - Networking and filesystem modules to persist and load before K3s.
           disable_swap:
             type: bool
             required: true

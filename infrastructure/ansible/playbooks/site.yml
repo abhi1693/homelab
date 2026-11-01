@@ -64,3 +64,5 @@
 - import_playbook: fleet_apps.yml
   vars:
     fleet_apps_entrypoint: validation
+- import_playbook: node_recovery.yml
+- import_playbook: macb_network.yml

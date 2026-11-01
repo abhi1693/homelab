@@ -21,8 +21,8 @@ podOptions:
 resources:
   requests:
     # Keep schedulable within heavy-media placement; imports can burst above this.
-    cpu: 500m
-    memory: 491Mi
+    cpu: 625m
+    memory: 640Mi
   limits:
     # TrueCharts: omit the inherited 1500m CPU cap; imports may burst.
     cpu: 0
@@ -39,7 +39,7 @@ ingress:
     tls: []
 workload:
   main:
-    replicas: 1
+    replicas: 0
     podSpec:
       automountServiceAccountToken: false
       labels:

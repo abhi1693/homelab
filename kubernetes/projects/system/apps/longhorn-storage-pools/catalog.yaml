@@ -1,0 +1,23 @@
+---
+apiVersion: home-lab.io/v1alpha1
+kind: WorkloadCatalog
+metadata:
+  name: longhorn-storage-pools
+spec:
+  displayName: Longhorn Storage Pools
+  purpose: Keep control-plane and worker storage separate and guard default class retirement.
+  owner: home-lab
+  project: system
+  cluster: home-k3s
+  lifecycle: active
+  criticality: high
+  dataClassification: internal
+  repository: https://github.com/abhi1693/home-lab
+  gitPath: kubernetes/projects/system/apps/longhorn-storage-pools
+  workloads:
+    - key: home-k3s/longhorn-system/apps/deployment/longhorn-storage-pools
+      namespace: longhorn-system
+      apiGroup: apps
+      kind: Deployment
+      name: longhorn-storage-pools
+      sourcePath: kubernetes/projects/system/apps/longhorn-storage-pools/deployment.yaml

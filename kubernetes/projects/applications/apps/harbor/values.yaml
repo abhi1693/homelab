@@ -87,7 +87,7 @@ portal:
   resources:
     requests:
       cpu: 10m
-      memory: 17Mi
+      memory: 32Mi
     limits:
       memory: 96Mi
   nodeSelector:
@@ -118,8 +118,8 @@ core:
   quotaUpdateProvider: db
   resources:
     requests:
-      cpu: 100m
-      memory: 134Mi
+      cpu: 25m
+      memory: 160Mi
     limits:
       memory: 208Mi
   nodeSelector:
@@ -152,10 +152,10 @@ jobservice:
     - stdout
   resources:
     requests:
-      cpu: 50m
-      memory: 79Mi
+      cpu: 25m
+      memory: 128Mi
     limits:
-      memory: 112Mi
+      memory: 256Mi
   nodeSelector:
     kubernetes.io/arch: arm64
   topologySpreadConstraints:
@@ -188,10 +188,10 @@ registry:
         value: "true"
     resources:
       requests:
-        cpu: 40m
-        memory: 48Mi
-      limits:
+        cpu: 50m
         memory: 256Mi
+      limits:
+        memory: 384Mi
   controller:
     image:
       repository: ghcr.io/abhi1693/harbor-registryctl
@@ -200,7 +200,7 @@ registry:
     resources:
       requests:
         cpu: 10m
-        memory: 32Mi
+        memory: 64Mi
       limits:
         memory: 96Mi
   nodeSelector:
@@ -232,9 +232,9 @@ trivy:
   resources:
     requests:
       cpu: 50m
-      memory: 257Mi
+      memory: 320Mi
     limits:
-      memory: 512Mi
+      memory: 768Mi
   nodeSelector:
     kubernetes.io/arch: arm64
   topologySpreadConstraints:
@@ -260,7 +260,7 @@ exporter:
   resources:
     requests:
       cpu: 10m
-      memory: 57Mi
+      memory: 64Mi
     limits:
       memory: 96Mi
   nodeSelector:

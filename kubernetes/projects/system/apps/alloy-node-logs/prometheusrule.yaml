@@ -26,3 +26,91 @@ spec:
           annotations:
             summary: A node log collector cannot be monitored
             description: Check the Alloy ServiceMonitor, pod readiness and TCP/12345 monitoring ingress. A healthy scrape does not prove delivery; also inspect Loki drops and journal entries.
+    - name: alloy-node-logs.delivery
+      rules:
+        - alert: AlloyNodeOTelLogExportFailed
+          expr: sum by (pod, exporter) (increase(otelcol_exporter_send_failed_log_records_total{namespace="cattle-monitoring-system",job="alloy-node-logs",component_id=~"otelcol[.]exporter[.]otlphttp[.](loki|os)"}[10m])) > 0
+          keep_firing_for: 10m
+          labels:
+            severity: warning
+            namespace: cattle-monitoring-system
+            incident: log-delivery
+            data_loss: permanent
+          annotations:
+            summary: A node OTel exporter failed final log delivery
+            description: 'Exporter {{ $labels.exporter }} on {{ $labels.pod }} reported ~{{ printf "%.0f" $value }} failed log records in 10m after its retry handler returned. Check permanent HTTP errors, shutdown and cancellation. Retryable backend outages remain queued; Loki partial rejections are monitored separately. Do not sum these counters with Loki rejection counts.'
+            runbook_url: https://github.com/abhi1693/home-lab/blob/master/docs/runbooks/incident-coverage.md
+        - alert: AlloyNodeOTelLogEnqueueFailed
+          expr: sum by (pod, exporter) (increase(otelcol_exporter_enqueue_failed_log_records_total{namespace="cattle-monitoring-system",job="alloy-node-logs",component_id=~"otelcol[.]exporter[.]otlphttp[.](loki|os)"}[10m])) > 0
+          labels:
+            severity: warning
+            namespace: cattle-monitoring-system
+            incident: log-delivery
+          annotations:
+            summary: Node log payloads could not enter the persistent queue
+            description: 'Check the bounded queue filesystem, permissions, I/O errors and queue capacity on {{ $labels.pod }}. This failure precedes exporter retries. Some sources can retry; the journal bridge cannot acknowledge a durable enqueue, so evidence may have been lost.'
+            runbook_url: https://github.com/abhi1693/home-lab/blob/master/docs/runbooks/incident-coverage.md
+        - alert: AlloyNodeOTelLogQueueHigh
+          expr: otelcol_exporter_queue_size{namespace="cattle-monitoring-system",job="alloy-node-logs",component_id=~"otelcol[.]exporter[.]otlphttp[.](loki|os)",data_type="logs"} / otelcol_exporter_queue_capacity{namespace="cattle-monitoring-system",job="alloy-node-logs",component_id=~"otelcol[.]exporter[.]otlphttp[.](loki|os)",data_type="logs"} > 0.8
+          for: 5m
+          labels:
+            severity: warning
+            namespace: cattle-monitoring-system
+            incident: log-delivery
+          annotations:
+            summary: A node persistent log queue is above 80 percent
+            description: 'Inspect Loki availability, permanent rejections and local disk pressure on {{ $labels.pod }}. Queue size is serialized bytes; pressure is a risk signal, not a count of permanently lost records.'
+            runbook_url: https://github.com/abhi1693/home-lab/blob/master/docs/runbooks/incident-coverage.md
+        - alert: AlloyNodeOTelLogQueueMissing
+          expr: ((up{namespace="cattle-monitoring-system",job="alloy-node-logs"} == 1) unless on (namespace, pod) otelcol_exporter_queue_capacity{namespace="cattle-monitoring-system",job="alloy-node-logs",component_id="otelcol.exporter.otlphttp.loki",data_type="logs"}) or ((up{namespace="cattle-monitoring-system",job="alloy-node-logs"} == 1) unless on (namespace, pod) otelcol_exporter_queue_capacity{namespace="cattle-monitoring-system",job="alloy-node-logs",component_id="otelcol.exporter.otlphttp.os",data_type="logs"})
+          for: 5m
+          labels:
+            severity: warning
+            namespace: cattle-monitoring-system
+            incident: log-delivery
+          annotations:
+            summary: A scraped node collector is missing an OTel log queue
+            description: 'Inspect the effective Alloy configuration and component health on {{ $labels.pod }}. A successful scrape alone does not establish that both OS and bulk log exporters exist.'
+    - name: alloy-node-logs.canary
+      rules:
+        - alert: OSLogCanaryMissing
+          expr: kube_node_info unless on (node) (max by (node) (os_log_canary_recent_records{namespace="cattle-monitoring-system"}) > 0)
+          for: 5m
+          labels:
+            severity: warning
+            namespace: cattle-monitoring-system
+            incident: log-delivery
+          annotations:
+            summary: OS journal evidence is not reaching queries for a node
+            description: 'No host canary from {{ $labels.node }} was observed in Loki during the last five-minute window. Check the Ansible timer, journal reader, payload queue, backend and query path. This checks actual OS-source-to-query delivery, independently of pod readiness.'
+            runbook_url: https://github.com/abhi1693/home-lab/blob/master/docs/runbooks/incident-coverage.md
+        - alert: OSLogMonitorQueryFailed
+          expr: os_log_monitor_query_success{namespace="cattle-monitoring-system"} == 0
+          for: 5m
+          labels:
+            severity: warning
+            namespace: cattle-monitoring-system
+            incident: log-delivery
+          annotations:
+            summary: OS log delivery cannot be verified through Loki
+            description: 'The independent read-only checker cannot query Loki. Source coverage cannot be certified until queries succeed. Check gateway, backend and network policy; use SSH evidence collection if the cluster API or Loki is unavailable.'
+        - alert: OSLogMonitorUnavailable
+          expr: up{namespace="cattle-monitoring-system",job="alloy-os-log-monitor"} == 0 or absent(up{namespace="cattle-monitoring-system",job="alloy-os-log-monitor"})
+          for: 5m
+          labels:
+            severity: warning
+            namespace: cattle-monitoring-system
+            incident: log-delivery
+          annotations:
+            summary: An OS log delivery checker cannot be scraped
+            description: Check the read-only monitor replicas, ServiceMonitor and network policy through Fleet.
+        - alert: OSLogQueueFilesystemLow
+          expr: min by (node) (os_log_queue_available_bytes{namespace="cattle-monitoring-system"}) / max by (node) (os_log_queue_capacity_bytes{namespace="cattle-monitoring-system"}) < 0.2
+          for: 5m
+          labels:
+            severity: warning
+            namespace: cattle-monitoring-system
+            incident: log-delivery
+          annotations:
+            summary: A bounded OS log queue filesystem is running out of space
+            description: 'Node {{ $labels.node }} has less than 20 percent free space in its 4GiB payload filesystem. Inspect queue drain and bbolt compaction headroom before changing limits; never delete payload or cursor files as a repair.'

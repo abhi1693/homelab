@@ -18,6 +18,6 @@ extraEnv:
 resources:
   requests:
     cpu: 10m
-    memory: 80Mi
+    memory: 96Mi
   limits:
-    memory: 144Mi
+    memory: 192Mi

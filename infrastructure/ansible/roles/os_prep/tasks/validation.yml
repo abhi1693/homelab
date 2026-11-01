@@ -1,4 +1,13 @@
 ---
+- name: Select the Ubuntu host policy
+  ansible.builtin.include_tasks: profile.yml
+
+- name: Validate persistent network time synchronization
+  ansible.builtin.include_tasks: time_validation.yml
+
+- name: Validate bounded persistent host logging
+  ansible.builtin.include_tasks: logging_validation.yml
+
 - name: Gather package facts
   ansible.builtin.package_facts:
     manager: auto
@@ -51,3 +60,18 @@
 - name: Validate the inventory-managed APT source transport policy
   ansible.builtin.include_tasks: apt_sources_validation.yml
   when: ansible_facts.pkg_mgr == 'apt'
+
+- name: Validate Ubuntu stable update sources and maintenance policy
+  ansible.builtin.include_tasks: ubuntu_validation.yml
+
+- name: Verify passwordless sudo as the unprivileged automation account
+  ansible.builtin.command: sudo -n true
+  become: false
+  changed_when: false
+  when: os_prep.manage_passwordless_sudo | default(false) | bool
+
+- name: Verify configured NFS exports with disposable read-only mounts
+  ansible.builtin.include_tasks: nfs_probe.yml
+  loop: "{{ os_prep.required_nfs_exports | default([]) }}"
+  loop_control:
+    loop_var: os_prep_nfs_export

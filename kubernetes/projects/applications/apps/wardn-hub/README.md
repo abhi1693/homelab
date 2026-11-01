@@ -168,7 +168,7 @@ unsigned webhook rejection, without writing to a registry.
 
 Scoring 0.1.7 uses the private repository-owned
 `ghcr.io/abhi1693/wardn-hub-scoring/runtime` package. Its normal Actions token
-publishes the image; the earlier flat package remains available for rollback.
+publishes the image.
 GitHub artifact attestations are unavailable for this user-owned private source
 repository on the current account plan. Verify the exact successful release
 reports and hash-checked embedded BuildKit provenance for image subject, source
@@ -190,15 +190,12 @@ HTTP/protobuf to the in-cluster `opentelemetry-collector` service in
 the collector endpoint; each backend container sets its own service name and
 Kubernetes resource attributes so traces appear separately in Grafana Tempo.
 
-The Wardn Hub Product Metrics and Codex App Server dashboards are retired.
-The dedicated Hub API/worker ServiceMonitor and its Prometheus ingress policy
-are removed, and `CODEX_OTEL_METRICS_EXPORTER=none` disables Codex metric export
-when the currently paused deployment is resumed. Existing time series age out
-under normal Prometheus retention; no historical data is forcibly deleted.
+Dedicated API/worker Prometheus scrapes and Codex metric export are disabled.
+`CODEX_OTEL_METRICS_EXPORTER=none` applies when the paused app-server resumes.
 
 Application traces and cluster-wide container logs/resource metrics remain
 available through the shared observability stack. The Codex thread-saturation
-alert remains because it uses shared cAdvisor metrics, not the retired scrape.
+alert uses shared cAdvisor metrics.
 Codex log export remains disabled and user prompts remain redacted.
 
 ## Runtime image cohort and frontend cache
@@ -214,12 +211,41 @@ grouping alone does not prove release completeness. Verify all three native
 release reports and signed provenance before selecting their digests.
 
 The frontend image uses `./docker-build-next.sh` for its full locked Next build
-and Faro source-map preparation. Deploy that helper command with the new image.
-Builder, restore and cleanup use identical `next-build-v8` keys: application
-sources, build/Faro helpers, root and workspace dependency files, local packages,
+without the retired Faro source-map stage. Deploy that helper command with the new image.
+Builder, restore and cleanup use identical `next-build-v9` keys: application
+sources, build helpers, root and workspace dependency files, local packages,
 public frontend variables, the internal API base URL, application version and
-Node version. Private credentials are excluded from the key inputs.
+Node version. Retired `NEXT_PUBLIC_FARO_*` values are excluded so a pre-upgrade
+builder reading the previous ConfigMap produces the same artifact key as the
+new frontend. Private credentials are excluded from the key inputs.
 
 Validate these contracts with
 `python3 -m unittest discover -s kubernetes/projects/applications/apps/wardn-hub/tests -v`
 and `python3 scripts/check-renovate-policy.py`.
+
+## Resource review — 28 October 2026
+
+Values use the 28 October historical review in
+[the resource policy](../../../../../docs/runbooks/kubernetes-resource-policy.md#2026-10-28-historical-resource-review).
+CPU reservations cover measured sustained demand with headroom; existing burst
+policies remain in place. Memory caps preserve the observed fourteen-day peaks
+and extra headroom where OOM records show clipping.
+
+| Container / value path | CPU request | Memory request | Memory limit |
+| --- | --- | --- | --- |
+| `wardn/wardn-hub-api/api` | 100m → 25m | 285Mi → 320Mi | 384Mi → 384Mi |
+| `wardn/wardn-hub-frontend/frontend` | 160m → 50m | 320Mi → 384Mi | 320Mi → 512Mi |
+| `wardn/wardn-hub-scoring/scoring` | 20m → 10m | 65Mi → 96Mi | 144Mi → 144Mi |
+
+### Faro retirement
+
+Release `0.2.183` removes the Faro SDK and private source-map collection.
+The retired collector and runtime/build flags are removed. Backend tracing, logs,
+profiling, and application analytics are preserved.
+
+### Release 0.2.184
+
+All 14 Hub cohort image references use the verified 0.2.184 ARM64 release
+and immutable digests. Scoring remains at 0.1.7; worker and Codex deployments
+remain paused. The existing docker-build-next.sh command and next-build-v9
+cache contract are preserved.

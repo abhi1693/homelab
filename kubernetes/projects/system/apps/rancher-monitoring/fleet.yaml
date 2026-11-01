@@ -8,6 +8,10 @@ labels:
 dependsOn:
   - name: system-helm-repositories
   - name: csi-driver-nfs-helmop
+    # Keep monitoring updates available during an NFS node-agent outage.
+    acceptedStates:
+      - Ready
+      - NotReady
 diff:
   comparePatches:
     - apiVersion: v1

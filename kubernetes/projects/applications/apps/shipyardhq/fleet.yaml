@@ -27,4 +27,4 @@ helm:
   takeOwnership: true
   timeoutSeconds: 5400
   waitForJobs: true
-forceSyncGeneration: 9
+forceSyncGeneration: 10

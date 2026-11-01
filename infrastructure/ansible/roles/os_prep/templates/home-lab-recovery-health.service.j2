@@ -1,0 +1,14 @@
+[Unit]
+Description=Export remote kernel capture health
+After=home-lab-netconsole.service
+
+[Service]
+Type=oneshot
+ExecStart=/usr/bin/python3 /usr/local/libexec/home-lab-node-recovery metrics
+NoNewPrivileges=yes
+ProtectSystem=strict
+ProtectHome=yes
+PrivateTmp=yes
+ReadWritePaths=/var/lib/node_exporter/textfile_collector
+MemoryMax=64M
+CPUQuota=10%

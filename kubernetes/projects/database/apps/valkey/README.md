@@ -34,9 +34,9 @@ errors instead of silently evicting shared queue or cache keys. Treat the
 GitOps; do not raise the live setting manually.
 
 Valkey maintains one primary and two application-level replicas on separate
-nodes. `k8s-rpi1` is excluded after its Sentinel repeatedly wedged in DNS-driven
-tilt while the colocated Valkey data process remained healthy. The StatefulSet
-uses `OnDelete` so placement changes do not automatically roll the healthy
+nodes through required Pod anti-affinity and topology spread. Placement has no
+hostname-specific exclusions. The StatefulSet uses `OnDelete` so placement
+changes do not automatically roll the healthy
 primary and quorum. Capacity recovery must proceed one replica at a time,
 verifying replication and Sentinel quorum between ordinals. With explicit
 break-glass authorization, recreate failed replicas against the expanded
@@ -89,17 +89,10 @@ label.
 
 ## Operating Notes
 
-The September 13, 2026 capacity recovery verified all three expanded pods with
-zero restarts, two synchronized replicas, Sentinel quorum, and an application
-write acknowledged by both replicas. Temporary recovery resources were removed
-and the guarded `OnDelete` strategy was restored.
-
 - Change chart behavior in `values.yaml`, not by patching live workloads.
 - The chart pin in `helmop.yaml` is excluded from Renovate. Chart updates can
   change the pod revision even when digest-pinned containers stay identical;
-  schedule them with the guarded `OnDelete` rollout procedure. The automatic
-  `6.2.19` update was reverted because its pod-template changes were only chart
-  and application-version labels. The running image digests remain unchanged.
+  schedule them with the guarded `OnDelete` rollout procedure.
 - Keep client additions paired with `valkey-networkpolicy` updates.
 - Keep the retained PVC policy in mind before deleting or renaming the release.
 - Keep `pvc-expansion.yaml` at or above the live retained-claim size. Kubernetes
@@ -110,9 +103,9 @@ and the guarded `OnDelete` strategy was restored.
 - `repl-diskless-load swapdb` prevents full replica synchronization from
   requiring another dataset-sized temporary RDB file on the data volume. Keep
   the data-container limit large enough to hold both datasets during the swap.
-- Review recommendation-engine observations before changing the replica
-  request or limit; Valkey remains observe-only because automatic changes are
-  incompatible with its guarded `OnDelete` rollout strategy.
+- Review historical memory, replication, and persistence metrics before changing
+  replica requests or limits. Apply changes through the guarded `OnDelete`
+  rollout strategy.
 - Validate with a server-side dry run when a cluster context is available.
 - Follow
   [`docs/runbooks/statefulset-ondelete-rollout-recovery.md`](../../../../../docs/runbooks/statefulset-ondelete-rollout-recovery.md)
@@ -120,22 +113,28 @@ and the guarded `OnDelete` strategy was restored.
 
 ## Logical database allocation
 
-DevFeed reserves logical database **10** for its sessions, RQ queues, job logs,
-caches and rate limits. Its migration must preserve values and expiration times;
+DevFeed reserves logical database **10** for sessions, RQ queues, job logs,
+caches and rate limits. NetBox uses databases **1** and **2**, and ShipyardHQ
+uses **20**. Check each consuming application's manifests before allocating a
+new logical database. Preserve values and expiration times during any migration;
 Redis 8 DUMP payloads are not directly compatible with this Valkey release.
-The original migration began with approximately 119MiB. By September 13 the
-shared dataset had grown beyond 1GiB, while replicas retained approximately
-1.4GiB startup datasets. The 4Gi limit provides room for both datasets during
-`swapdb` full synchronization, allocator overhead, and AOF rewrite activity.
-Existing clients' databases and keys remain unchanged.
 
-## October 2026 security upgrade
+The 4Gi data-container limit provides room for both datasets during `swapdb`
+full synchronization, allocator overhead and AOF rewrite activity. Change memory
+or chart behavior only through a guarded serial rollout with replication and
+Sentinel-quorum checks between members.
 
-The 9.1.2 runtime upgrade completed through a temporary Fleet-managed Job under
-its retained `OnDelete` policy. Replicas were replaced one at a time, with Pod
-readiness, replication offsets and Sentinel quorum checked between steps. An
-upgraded replica became primary before the former primary was replaced. All
-three nodes then reported 9.1.2 with both replication links synchronized.
+## Resource review — 28 October 2026
 
-The temporary Job, script, RBAC and network policies were removed after
-verification. The three existing PVCs remained bound and healthy.
+Fourteen-day data-container working set peaked at 3104Mi and p99 was 2140Mi;
+recent p95 was 2099Mi. Each data replica now reserves 2560Mi and 100m CPU,
+retaining the 4Gi limit, `maxmemory 3gb`, persistence, Sentinel quorum, and
+`OnDelete` update strategy. Memory requests for Sentinel, exporter, and kubectl
+helpers are 48Mi, 64Mi, and 64Mi respectively, above observed 33Mi/46Mi/54Mi
+peaks. Do not divide the replicated dataset by the replica count.
+
+Applying the new pod template requires the existing replica-first, one-ordinal
+at-a-time break-glass recovery procedure, with replication and Sentinel checks
+between ordinals; publishing the template alone does not resize existing pods.
+
+Training instructor NetBox reserves logical databases **12** (tasks) and **13** (cache). These share the existing Sentinel service and memory budget.

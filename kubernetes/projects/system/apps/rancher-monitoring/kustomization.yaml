@@ -16,14 +16,9 @@ resources:
   - helmops.yaml
   - prometheus-ingress.yaml
   - application-logs-dashboard.yaml
+  - os-incident-evidence-dashboard.yaml
+  - os-logs-dashboard.yaml
   - capacity-planning-dashboard.yaml
-  - faro-rum-overview-dashboard.yaml
-  - faro-rum-errors-dashboard.yaml
-  - faro-rum-sessions-dashboard.yaml
-  - faro-rum-actions-dashboard.yaml
-  - faro-rum-http-dashboard.yaml
-  - faro-rum-geolocation-dashboard.yaml
-  - faro-dashboard.yaml
   - cloudflare-tunnel-dashboard.yaml
   - cloudflare-tunnel-rules.yaml
   - traefik-dashboard.yaml

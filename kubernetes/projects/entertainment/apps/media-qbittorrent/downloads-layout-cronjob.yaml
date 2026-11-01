@@ -10,8 +10,12 @@ metadata:
     app.kubernetes.io/part-of: media-stack
     home-lab.io/project-slug: entertainment
 spec:
+  suspend: true
+  # Quarter-hour layout checks resume only during the acquisition window.
   schedule: "*/15 * * * *"
+  timeZone: Asia/Kolkata
   concurrencyPolicy: Forbid
+  startingDeadlineSeconds: 300
   successfulJobsHistoryLimit: 1
   failedJobsHistoryLimit: 3
   jobTemplate:

@@ -3,6 +3,8 @@ apiVersion: fleet.cattle.io/v1alpha1
 kind: HelmOp
 metadata:
   name: sops-secrets-operator
+  annotations:
+    home-lab.io/status-reconcile-at: "2026-10-30T08:36:26Z"
   labels:
     app.kubernetes.io/name: sops-secrets-operator
     app.kubernetes.io/part-of: sops-secrets-operator

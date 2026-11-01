@@ -1,5 +1,5 @@
 ---
-- name: Assert managed Debian source URIs use HTTPS
+- name: Assert managed Ubuntu source URIs use HTTPS
   ansible.builtin.command:
     argv:
       - python3
@@ -16,7 +16,7 @@
             if not path.exists():
                 continue
             if re.search(policy['regexp'], path.read_text()):
-                raise RuntimeError(f'Managed Debian archive URI still uses HTTP in {path}')
+                raise RuntimeError(f'Managed Ubuntu archive URI still uses HTTP in {path}')
             checked.append(str(path))
         print(json.dumps({'https_source_files_checked': checked}))
       - "{{ os_prep.apt_https_sources | default([]) | to_json }}"

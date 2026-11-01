@@ -1,0 +1,30 @@
+---
+- name: Create recovery configuration and executable directories
+  ansible.builtin.file:
+    path: "{{ item }}"
+    state: directory
+    owner: root
+    group: root
+    mode: '0755'
+  loop:
+    - /etc/home-lab
+    - /usr/local/libexec
+    - /var/lib/node_exporter/textfile_collector
+
+- name: Install the bounded kernel evidence program
+  ansible.builtin.copy:
+    src: node_recovery.py
+    dest: /usr/local/libexec/home-lab-node-recovery
+    owner: root
+    group: root
+    mode: '0755'
+  register: os_prep_recovery_program
+
+- name: Install the current receiver topology and allowed source nodes
+  ansible.builtin.template:
+    src: node-recovery.json.j2
+    dest: /etc/home-lab/node-recovery.json
+    owner: root
+    group: root
+    mode: '0644'
+  register: os_prep_recovery_config

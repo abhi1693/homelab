@@ -1,4 +1,20 @@
 ---
+- name: Select the Ubuntu host policy
+  ansible.builtin.include_tasks: profile.yml
+
+- name: Manage the automation account sudo rule
+  ansible.builtin.include_tasks: sudo.yml
+  when: os_prep.manage_passwordless_sudo | default(false) | bool
+
+- name: Enforce persistent NTP before package and cluster preparation
+  ansible.builtin.include_tasks: time.yml
+
+- name: Enforce bounded persistent host logging
+  ansible.builtin.include_tasks: logging.yml
+
+- name: Prepare Ubuntu stable sources and supervised maintenance policy
+  ansible.builtin.include_tasks: ubuntu.yml
+
 - name: Converge the inventory-managed APT source transport policy
   ansible.builtin.include_tasks: apt_sources.yml
   when: ansible_facts.pkg_mgr == 'apt'
@@ -25,12 +41,3 @@
   ansible.builtin.hostname:
     name: "{{ node_identity.hostname }}"
   when: node_identity.hostname is defined
-
-- name: Read current timezone
-  ansible.builtin.command: timedatectl show --property=Timezone --value
-  register: os_prep_current_timezone
-  changed_when: false
-
-- name: Set system timezone
-  ansible.builtin.command: "timedatectl set-timezone {{ os_prep.timezone }}"
-  when: os_prep_current_timezone.stdout != os_prep.timezone

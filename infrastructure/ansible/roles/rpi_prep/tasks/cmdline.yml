@@ -1,0 +1,20 @@
+---
+- name: Read the selected boot command line
+  ansible.builtin.slurp:
+    path: "{{ rpi_cmdline_file }}"
+  register: rpi_cmdline_raw
+
+- name: Require a single boot command line before editing
+  ansible.builtin.assert:
+    that:
+      - (rpi_cmdline_raw.content | b64decode | trim).splitlines() | length == 1
+
+- name: Ensure required parameters are present in each current or staged command line
+  ansible.builtin.lineinfile:
+    path: "{{ rpi_cmdline_file }}"
+    regexp: '^(.*)$'
+    line: '\1 {{ item }}'
+    backrefs: true
+  loop: "{{ rpi_prep.required_cmdline_params }}"
+  when: item not in (rpi_cmdline_raw.content | b64decode).split()
+  notify: Reboot host

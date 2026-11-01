@@ -1,0 +1,63 @@
+---
+- name: Read available distribution time clients
+  ansible.builtin.service_facts:
+
+- name: Install a distribution time client only when none is present
+  ansible.builtin.package:
+    name: systemd-timesyncd
+    state: present
+  when:
+    - "'chrony.service' not in ansible_facts.services or ansible_facts.services['chrony.service'].status == 'not-found'"
+    - "'systemd-timesyncd.service' not in ansible_facts.services or ansible_facts.services['systemd-timesyncd.service'].status == 'not-found'"
+
+- name: Refresh available time clients after optional installation
+  ansible.builtin.service_facts:
+
+- name: Preserve the active distribution-supported NTP client
+  ansible.builtin.set_fact:
+    os_prep_time_client: >-
+      {{ 'chrony.service' if ansible_facts.services.get('chrony.service', {}).get('state') == 'running'
+         else 'systemd-timesyncd.service' if ansible_facts.services.get('systemd-timesyncd.service', {}).get('state') == 'running'
+         else 'chrony.service' if ('chrony.service' in ansible_facts.services and ansible_facts.services['chrony.service'].status != 'not-found')
+         else 'systemd-timesyncd.service' }}
+
+- name: Stop a second installed time client from competing for the clock
+  ansible.builtin.systemd_service:
+    name: "{{ item }}"
+    enabled: false
+    state: stopped
+  loop: [chrony.service, systemd-timesyncd.service]
+  when:
+    - item != os_prep_time_client
+    - item in ansible_facts.services
+    - ansible_facts.services[item].status != 'not-found'
+
+- name: Enable the selected NTP client persistently without restarting it
+  ansible.builtin.systemd_service:
+    name: "{{ os_prep_time_client }}"
+    enabled: true
+    state: started
+
+- name: Read current NTP enablement
+  ansible.builtin.command: timedatectl show --property=NTP --value
+  register: os_prep_ntp_enabled
+  changed_when: false
+
+- name: Enable network time synchronization when disabled
+  ansible.builtin.command: timedatectl set-ntp true
+  when: os_prep_ntp_enabled.stdout != 'yes'
+  changed_when: true
+
+- name: Read current timezone
+  ansible.builtin.command: timedatectl show --property=Timezone --value
+  register: os_prep_current_timezone
+  changed_when: false
+
+- name: Set the inventory-managed timezone
+  ansible.builtin.command:
+    argv: [timedatectl, set-timezone, "{{ os_prep.timezone }}"]
+  when: os_prep_current_timezone.stdout != os_prep.timezone
+  changed_when: true
+
+- name: Verify active synchronization before subsequent host work
+  ansible.builtin.include_tasks: time_validation.yml

@@ -1,0 +1,33 @@
+{
+  "enabled": true,
+  "activationAt": "2026-10-31T11:43:26+00:00",
+  "namespace": "media",
+  "timezone": "Asia/Kolkata",
+  "start": "22:00",
+  "end": "10:00",
+  "startWeekdays": [0, 1, 2, 3, 4],
+  "intervalSeconds": 15,
+  "startupPhases": [
+    ["qbittorrent", "prowlarr"],
+    ["sonarr", "radarr"],
+    ["episeerr", "profilarr"],
+    ["qbittorrent-smart-queues"]
+  ],
+  "cronJobs": [
+    "qbittorrent-state-backup",
+    "qbittorrent-downloads-layout",
+    "qbittorrent-tracker-refresh"
+  ],
+  "seerrRetry": {
+    "enabled": true,
+    "baseUrl": "http://jellyseerr.media.svc.cluster.local:10241/api/v1",
+    "apiKeyEnv": "JELLYSEERR_API_KEY",
+    "intervalSeconds": 60,
+    "pageSize": 50,
+    "maxScan": 250,
+    "maxAttempts": 10,
+    "timeoutSeconds": 3,
+    "maxRunSeconds": 10,
+    "managedServers": {"movie": 0, "tv": 0}
+  }
+}

@@ -38,7 +38,7 @@ class BuildCacheKeyTest(unittest.TestCase):
         self.frontend.mkdir(parents=True)
         for name in (
             "app/page.tsx", "public/logo.svg", "next.config.ts", "package.json",
-            "docker-build-next.sh", "scripts/prepare-faro-sourcemaps.mjs",
+            "docker-build-next.sh",
             "../../package.json", "../../package-lock.json", "../../packages/braces/index.js",
         ):
             path = self.frontend / name
@@ -93,6 +93,14 @@ class BuildCacheKeyTest(unittest.TestCase):
     def test_private_configuration_does_not_enter_public_build_key(self):
         self.assertEqual(self.keys(PRIVATE_API_TOKEN="synthetic-private-two"), self.keys())
 
+    def test_retired_faro_configuration_does_not_change_artifact_key(self):
+        self.assertEqual(
+            self.keys(NEXT_PUBLIC_FARO_ENABLED="false",
+                      NEXT_PUBLIC_FARO_URL="https://retired.invalid/collect",
+                      NEXT_PUBLIC_FARO_APP_NAME="wardn-hub"),
+            self.keys(),
+        )
+
     def test_application_and_node_versions_invalidate_all_keys(self):
         baseline = self.keys()
         self.assertNotEqual(self.keys(APP_VERSION="0.2.183"), baseline)
@@ -100,7 +108,7 @@ class BuildCacheKeyTest(unittest.TestCase):
 
     def test_build_helpers_and_workspace_lock_invalidate_all_keys(self):
         baseline = self.keys()
-        for name in ("docker-build-next.sh", "scripts/prepare-faro-sourcemaps.mjs",
+        for name in ("docker-build-next.sh",
                      "../../package.json", "../../package-lock.json", "../../packages/braces/index.js"):
             with self.subTest(path=name):
                 path = self.frontend / name

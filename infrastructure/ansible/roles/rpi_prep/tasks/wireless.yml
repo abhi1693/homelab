@@ -1,0 +1,26 @@
+---
+- name: Preserve Ansible-owned wired Netplan configuration across cloud-init boots
+  ansible.builtin.copy:
+    dest: /etc/cloud/cloud.cfg.d/99-home-lab-network.cfg
+    content: "network: {config: disabled}\n"
+    owner: root
+    group: root
+    mode: '0644'
+  notify: Reboot host
+
+- name: Remove only disabled radio interfaces from Netplan
+  ansible.builtin.command:
+    argv:
+      - python3
+      - '-'
+      - "{{ {'mode': 'apply', 'interfaces': rpi_prep.disabled_wireless_interfaces} | to_json }}"
+    stdin: "{{ lookup('ansible.builtin.file', role_path + '/files/netplan_wireless.py') }}"
+  register: rpi_netplan_wireless
+  changed_when: (rpi_netplan_wireless.stdout | from_json).changed
+  no_log: true
+  notify: Reboot host
+
+- name: Validate and generate the resulting Netplan units without applying live network changes
+  ansible.builtin.command: netplan generate
+  changed_when: false
+  no_log: true

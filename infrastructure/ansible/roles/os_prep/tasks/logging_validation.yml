@@ -1,0 +1,86 @@
+---
+- name: Verify the bounded payload filesystem without mutating the host
+  ansible.builtin.command:
+    argv:
+      - python3
+      - '-'
+      - --image
+      - "{{ os_prep.logging.queue_image }}"
+      - --mountpoint
+      - "{{ os_prep.logging.queue_directory }}"
+      - --size-mib
+      - "{{ os_prep.logging.queue_size_mib | string }}"
+      - --reserve-mib
+      - "{{ os_prep.logging.queue_reserve_mib | string }}"
+      - --validate
+    stdin: "{{ lookup('ansible.builtin.file', role_path + '/files/logging_state.py') }}"
+    stdin_add_newline: false
+  changed_when: false
+  check_mode: false
+
+- name: Read the escaped queue mount unit name
+  ansible.builtin.command:
+    argv: [systemd-escape, --path, --suffix=mount, "{{ os_prep.logging.queue_directory }}"]
+  register: os_prep_logging_validation_unit
+  changed_when: false
+  check_mode: false
+
+- name: Verify the queue filesystem mounts persistently on boot
+  ansible.builtin.command:
+    argv: [systemctl, is-enabled, "{{ os_prep_logging_validation_unit.stdout }}"]
+  register: os_prep_logging_validation_enabled
+  changed_when: false
+  failed_when: os_prep_logging_validation_enabled.stdout != 'enabled'
+  check_mode: false
+
+- name: Verify journald is running  # noqa command-instead-of-module
+  ansible.builtin.command: systemctl is-active systemd-journald.service
+  changed_when: false
+  check_mode: false
+
+- name: Read effective journal configuration including later overrides
+  ansible.builtin.command: systemd-analyze cat-config systemd/journald.conf
+  register: os_prep_logging_journal_effective
+  changed_when: false
+  check_mode: false
+
+- name: Assert the final effective journal settings match policy
+  ansible.builtin.assert:
+    that:
+      - (os_prep_logging_journal_effective.stdout | regex_findall('(?m)^' + item.key + '=(.*)$') | last | default('missing')) == item.value | string
+    fail_msg: "Effective {{ item.key }} is overridden or missing; inspect journald drop-in precedence."
+  loop:
+    - {key: Storage, value: persistent}
+    - {key: SystemMaxUse, value: "{{ os_prep.logging.journal_system_max_use }}"}
+    - {key: SystemKeepFree, value: "{{ os_prep.logging.journal_system_keep_free }}"}
+    - {key: RuntimeMaxUse, value: "{{ os_prep.logging.journal_runtime_max_use }}"}
+    - {key: MaxRetentionSec, value: "{{ os_prep.logging.journal_max_retention }}"}
+    - {key: SyncIntervalSec, value: "{{ os_prep.logging.journal_sync_interval }}"}
+    - {key: RateLimitIntervalSec, value: "{{ os_prep.logging.journal_rate_limit_interval }}"}
+    - {key: RateLimitBurst, value: "{{ os_prep.logging.journal_rate_limit_burst }}"}
+
+- name: Read the actual persistent journal boot coverage
+  ansible.builtin.command: journalctl --directory=/var/log/journal --list-boots --no-pager --quiet
+  register: os_prep_logging_persistent_boots
+  changed_when: false
+  failed_when: os_prep_logging_persistent_boots.stdout | trim | length == 0
+  check_mode: false
+
+- name: Read actual journal disk consumption
+  ansible.builtin.command: journalctl --disk-usage
+  register: os_prep_logging_journal_disk
+  changed_when: false
+  check_mode: false
+
+- name: Report observed journal coverage and usage rather than a guaranteed retention duration
+  ansible.builtin.debug:
+    msg:
+      - "{{ os_prep_logging_journal_disk.stdout }}"
+      - "{{ os_prep_logging_persistent_boots.stdout_lines }}"
+      - The 7-day age ceiling is bounded by the 512MiB capacity and 2GiB free-space reserve; actual retained history can be shorter.
+
+- name: Validate the narrow Kubernetes audit directory
+  ansible.builtin.include_tasks: logging_audit_validation.yml
+
+- name: Validate harmless host canary generation
+  ansible.builtin.include_tasks: logging_canary_validation.yml

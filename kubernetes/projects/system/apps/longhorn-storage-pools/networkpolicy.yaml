@@ -1,0 +1,19 @@
+---
+apiVersion: cilium.io/v2
+kind: CiliumNetworkPolicy
+metadata:
+  name: longhorn-storage-pools
+  namespace: longhorn-system
+spec:
+  endpointSelector:
+    matchLabels:
+      app.kubernetes.io/name: longhorn-storage-pools
+  ingress: []
+  egress:
+    - toEntities: [kube-apiserver]
+      toPorts:
+        - ports:
+            - port: "443"
+              protocol: TCP
+            - port: "6443"
+              protocol: TCP

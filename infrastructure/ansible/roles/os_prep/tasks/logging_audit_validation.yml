@@ -1,0 +1,77 @@
+---
+- name: Inspect the narrow audit mount path
+  ansible.builtin.stat:
+    path: /var/log/kubernetes-audit
+    follow: false
+  register: os_prep_logging_validation_audit_path
+
+- name: Verify server audit path exposes only the existing logs directory
+  ansible.builtin.assert:
+    that:
+      - os_prep_logging_validation_audit_path.stat.islnk | default(false)
+      - os_prep_logging_validation_audit_path.stat.lnk_source | default('') == '/var/lib/rancher/k3s/server/logs'
+      - os_prep_logging_validation_audit_path.stat.uid | default(-1) == 0
+    fail_msg: The server audit mount path must be the managed root-owned symlink.
+  when: inventory_hostname in groups['k3s_servers']
+
+- name: Verify the audit source directory is readable through the collection path
+  ansible.builtin.stat:
+    path: /var/log/kubernetes-audit
+    follow: true
+  register: os_prep_logging_validation_audit_target
+
+- name: Require root-owned readable audit directory on every node
+  ansible.builtin.assert:
+    that:
+      - os_prep_logging_validation_audit_target.stat.isdir | default(false)
+      - os_prep_logging_validation_audit_target.stat.uid | default(-1) == 0
+      - os_prep_logging_validation_audit_target.stat.rusr | default(false)
+      - os_prep_logging_validation_audit_target.stat.xusr | default(false)
+
+- name: Verify workers have only an empty root-only audit placeholder
+  ansible.builtin.assert:
+    that:
+      - not os_prep_logging_validation_audit_path.stat.islnk | default(false)
+      - os_prep_logging_validation_audit_path.stat.mode | default('') == '0700'
+  when: inventory_hostname not in groups['k3s_servers']
+
+- name: Inspect worker audit placeholders without reading file contents
+  ansible.builtin.find:
+    paths: /var/log/kubernetes-audit
+    hidden: true
+    file_type: any
+    recurse: false
+  register: os_prep_logging_validation_worker_audit
+  when: inventory_hostname not in groups['k3s_servers']
+
+- name: Require worker audit placeholders to remain empty
+  ansible.builtin.assert:
+    that:
+      - os_prep_logging_validation_worker_audit.matched == 0
+  when: inventory_hostname not in groups['k3s_servers']
+
+- name: List source audit files without reading sensitive record bodies
+  ansible.builtin.find:
+    paths: /var/log/kubernetes-audit
+    patterns: [audit.log, 'audit-*.log']
+    file_type: file
+    recurse: false
+  register: os_prep_logging_validation_audit_files
+  when: inventory_hostname in groups['k3s_servers']
+
+- name: Verify every discovered audit file is readable by the root collector
+  ansible.builtin.assert:
+    that:
+      - item.uid == 0
+      - item.rusr
+    fail_msg: "Audit log {{ item.path }} is not readable by the root collector."
+  loop: "{{ os_prep_logging_validation_audit_files.files | default([]) }}"
+  loop_control:
+    label: "{{ item.path }}"
+
+- name: Require an active API audit source on servers
+  ansible.builtin.assert:
+    that:
+      - os_prep_logging_validation_audit_files.matched > 0
+    fail_msg: No active or rotated uncompressed API audit files were found.
+  when: inventory_hostname in groups['k3s_servers']

@@ -3,6 +3,13 @@
 This bundle installs Radarr through a Fleet `HelmOp` for movie library
 automation.
 
+The [acquisition schedule](../media-acquisition-schedule/README.md) runs one
+replica from 22:00–10:00 Asia/Kolkata (IST), on nights starting Monday–Friday;
+Friday night continues until Saturday at 10:00. Git keeps a paused baseline of
+zero replicas, and the schedule owns only the runtime replica field. Outside
+the window the pod stops while queues, configuration PVCs, and media remain
+retained. FlareSolverr stays online because DevFeed uses it.
+
 ## Runtime Shape
 
 - Namespace: `media`
@@ -51,3 +58,23 @@ outside the pod and service CIDRs.
 - For completed movies blocked by identity parsing or custom-format upgrade
   rejection, follow the
   [completed torrent import recovery runbook](../../../../../docs/runbooks/completed-torrent-import-recovery.md).
+
+## Resource review — 28 October 2026
+
+Values use the 28 October historical review in
+[the resource policy](../../../../../docs/runbooks/kubernetes-resource-policy.md#2026-10-28-historical-resource-review).
+CPU reservations cover measured sustained demand with headroom; existing burst
+policies remain in place. Memory caps preserve the observed fourteen-day peaks
+and extra headroom where OOM records show clipping.
+
+| Container / value path | CPU request | Memory request | Memory limit |
+| --- | --- | --- | --- |
+| `media/radarr/radarr` | 100m → 50m | 545Mi → 512Mi | 976Mi → 1024Mi |
+
+## Replacement safety
+
+Application media-management settings use `/data/movies/.recycle` with 14-day
+retention as of 2026-10-28. The directory resides on the existing NAS media
+mount and is writable by the app UID. These app settings persist in its
+configuration PVC. Verify this setting after restoring application state; a
+blank recycle path makes normal upgrade replacements permanent.

@@ -22,10 +22,9 @@ spec:
   template:
     metadata:
       annotations:
-        devfeed.tech/telemetry-config-sha256: 698b964592a0f7572d09d4cec58d46bb29ebdedc3f7f20eb8a18b1b4b944b41b
+        devfeed.tech/telemetry-config-sha256: c7cdfe2c911043d8a622839eb5f1c90c208fb751b34de45ee18f8361da9269e7
       labels:
         devfeed-telemetry: 'true'
-        devfeed-faro: 'true'
         app.kubernetes.io/name: devfeed-admin
         app.kubernetes.io/part-of: devfeed
     spec:
@@ -51,17 +50,15 @@ spec:
       containers:
         - name: admin
           # renovate: datasource=docker depName=ghcr.io/abhi1693/devfeed.tech/admin
-          image: registry.home/ghcr.io/abhi1693/devfeed.tech/admin:0.1.2@sha256:970125cbf8267ef9f1c85c409d0d55f8963500df4fa04af7e308c8b3af56b73f
+          image: registry.home/ghcr.io/abhi1693/devfeed.tech/admin:0.1.8@sha256:7142983db4220ff7e2db895e6fea75a89f1eed4688ac4a0b61d8202fb5fdf40b
           imagePullPolicy: IfNotPresent
           envFrom:
             - configMapRef:
                 name: devfeed-telemetry
-            - secretRef:
-                name: devfeed-faro
           resources:
             requests:
-              cpu: 100m
-              memory: 128Mi
+              cpu: 25m
+              memory: 256Mi
             limits:
               memory: 512Mi
           securityContext:
@@ -74,8 +71,6 @@ spec:
               drop:
                 - ALL
           env:
-            - name: DEVFEED_FARO_ENABLED
-              value: 'true'
             - name: DEVFEED_ADMIN_API_URL
               value: http://devfeed-admin-api:8001
             - name: DEVFEED_ADMIN_BASE_URL

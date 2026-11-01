@@ -26,15 +26,10 @@ unavailability. `rollOutCiliumPods` reloads startup configuration through a
 normal DaemonSet rollout when the ConfigMap changes. Drift correction never
 uses forced resource replacement.
 
-The ownership handoff must precede the feature change:
-
-1. Adopt the same release/chart with exact current Helm user values. Compare
-   `helm template` against `helm get manifest`; the baseline must have no
-   resource or pod-template changes. Wait for the Fleet HelmOp to become Ready
-   and prove agent/operator/Envoy pod UIDs and readiness are unchanged.
-2. Publish the monitoring values and separate monitors. Wait for the one-node
-   agent rollout, then verify all nodes and Cilium health, both operators, all
-   Envoys, all metrics targets, and representative application traffic.
+Fleet is the runtime Helm owner. Keep Ansible's bootstrap values and this
+bundle semantically equal, validate rendered changes before rollout, and verify
+all node agents, Envoys, both operators, metrics targets and application traffic
+after reconciliation. Do not repeat ownership adoption during ordinary upgrades.
 
 Validate locally:
 
@@ -54,3 +49,22 @@ must not become a second runtime Helm owner.
 Upstream references: [metrics](https://docs.cilium.io/en/stable/observability/metrics/),
 [per-node configuration and restart requirements](https://docs.cilium.io/en/stable/configuration/per-node-config/),
 and the pinned [1.20.1 chart](https://github.com/cilium/cilium/tree/v1.20.1/install/kubernetes/cilium).
+
+## Resource review — 28 October 2026
+
+Values use the 28 October historical review in
+[the resource policy](../../../../../docs/runbooks/kubernetes-resource-policy.md#2026-10-28-historical-resource-review).
+CPU reservations cover measured sustained demand with headroom; existing burst
+policies remain in place. Memory caps preserve the observed fourteen-day peaks
+and extra headroom where OOM records show clipping.
+
+| Container / value path | CPU request | Memory request | Memory limit |
+| --- | --- | --- | --- |
+| `kube-system/cilium/cilium-agent` | 100m → 150m | 384Mi → 512Mi | 768Mi → 768Mi |
+| `kube-system/cilium-envoy/cilium-envoy` | 25m → 25m | 64Mi → 96Mi | 256Mi → 256Mi |
+
+The follow-up memory review sets Envoy requests to `80Mi` (from `96Mi`),
+releasing `128Mi` across eight nodes. The fourteen-day per-container peak was
+`73Mi`, with no recorded OOM events; the `256Mi` limit remains unchanged.
+Bootstrap inventory uses the same `80Mi` request. The agent, operator, network
+configuration, and one-at-a-time rolling strategy remain unchanged.

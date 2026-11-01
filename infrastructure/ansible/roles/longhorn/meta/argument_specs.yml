@@ -152,6 +152,11 @@ argument_specs:
             required: true
             description:
               - Whether Longhorn may create volumes before all requested replicas are schedulable.
+          node_drain_policy:
+            type: str
+            required: true
+            description:
+              - Longhorn replica evacuation policy for node maintenance.
           replica_auto_balance:
             type: str
             required: true

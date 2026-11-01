@@ -30,9 +30,6 @@ above so each vendored snapshot is reproducible; the dashboard is not fetched
 at runtime and does not depend on the published dashboard chart tag.
 
 Preserve the local memory-query job selector (`kubelet|k3s-server`) and the
-operator-readiness queries based on Deployment availability. The current
-snapshot includes upstream WAL idle-state handling, native/Barman-plugin backup
-metric support, checkpoint rates, transaction rate intervals, and
-`maintenance_work_mem` unit fixes. Keep future refreshes scoped to this JSON
-and its documented provenance, then render and validate the wrapper chart
-before letting Fleet reconcile it.
+operator-readiness queries based on Deployment availability. Keep refreshes
+scoped to the dashboard JSON and documented source provenance, then render and
+validate the wrapper chart before Fleet reconciliation.

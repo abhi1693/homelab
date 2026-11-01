@@ -1,626 +1,197 @@
 # DevFeed
 
-Fleet-managed developer news platform. All application workloads use release
-**0.1.2** with verified ARM64 image digests. Approval and publication require an
-explicit article page-kind classification; missing or uncertain classifications stay blocked.
+Fleet-managed developer news platform in the `devfeed` namespace. The manifests
+target application **0.1.8** with immutable ARM64 digests and schema **0039**.
+Images, configuration, replica counts and resource reservations
+are owned by the manifests in this directory.
 
-The one-time [report statistics Job](report-day-statistics-job.yaml) collects UTC
-completion-day expression statistics for article analysis, topic analysis and
-research verification. This metadata lets PostgreSQL estimate daily report groups
-without sorting wide job-usage rows. It uses one connection through the existing
-reserved read-model pool, keeps the 10-second statement and 30-second report
-budgets unchanged, and verifies the released query's default plans without
-executing them. It changes planner metadata; table data and schema `0034` remain
-unchanged. Existing statistics must match their exact table, expression, kind and
-owner before reuse. Retire the completed regular Job after its result, default
-query performance and all 27 report freshness gates are verified.
-This one-time maintenance targets the three populated job tables; empty or
-unpopulated statistics fail closed. Fractional distinct-count estimates are
-resolved against the analyzed table row estimate before checking report plans.
+The pinned **0.1.8** cohort comes from [Release run 41063918969](https://github.com/abhi1693/devfeed.tech/actions/runs/41063918969),
+attempt 1, at source [`7439405b`](https://github.com/abhi1693/devfeed.tech/commit/7439405bb165430a5809bfcfad86af45596b5f7a).
+All twelve published images passed ARM64 platform and source/version-label
+checks, GHCR/Harbor manifest-byte and digest parity, and signed provenance
+verification against the pinned shared build workflow. The manifests use ten
+components from that cohort; general workers use the full backend image.
+The analytics process uses the existing Redis-client network label for its
+shared catalog cache, alongside direct PostgreSQL and schema-owner ClickHouse access.
+The completed [priority-queue cutover](migrations.md#016-priority-queues-and-current-analytics)
+preserved all 805 queued deliveries and 29 historical failed records. Two stale
+list pointers were removed only after their durable jobs were verified complete.
+The temporary cleanup and transport hooks are retired; subsequent upgrades run
+the ongoing schema hook, which rejects an installed image outside the 0.1.8 /
+0039 cohort.
 
-The initial cutover installs schema `0034` and backfills the pipeline projection.
-This availability revision requires that pipeline to be complete under the current
-serving policy. It retires the one-time pre-upgrade backfill hook so a failed saved
-report cannot hold compatible core APIs and the two durable publishers behind old
-images that reject schema `0034`. The normal migration hook remains unchanged.
+This compatible update keeps queue snapshots fresh, fixes card-recovery page
+selection, and loads the reader Columns workspace only when opened. It uses the
+normal rolling lifecycle. After convergence, confirm fresh, advancing queue and
+card coverage, completed retained-source recovery, matching publication counts and
+useful background completions.
 
-Report completion is a separate, mandatory gate before queue resumption: require
-all 27 default reports under the current policy, complete freshness checks, healthy
-core services and Fleet convergence before installing the owned new-image resume
-Job. Partial report publication does not satisfy those gates. Keep all thirteen
-RQ worker Deployments and the scheduler at zero, preserving their normal commands
-and probes. A later Fleet revision restores the original fifteen worker replicas
-and scheduler only after owned resume succeeds, followed by ordinary-work observation.
-Follow the [phased cutover](read-model-rollout.md); previous 0.1.1 applications reject schema
-`0034`. Keep the reserved four publisher connections separate from the twenty
-interactive slots and verify live global connection headroom at each phase.
+## Access and authentication
 
-Publisher probes check the owned private heartbeat directory and the existing
-180-second marker age directly, without loading the analysis or database stack.
-Their five-second execution budgets and all polling and failure thresholds remain
-unchanged. The [probe regressions](tests/test_read_model_probes.py) execute the
-manifest commands with the verbatim released runtime-file helper.
-
-The [maintenance tests](../../../../../scripts/devfeed-maintenance/README.md)
-run actual queue workers on an isolated ARM64 fixture before installing a drain
-Job. Long-running article jobs and synchronous solver dependencies must finish
-before the old workers are scaled down; stopping the scheduler alone does not
-stop queue consumption.
-
-Renovate tracks stable `X.Y.Z` Docker tags for all twelve DevFeed images on GHCR,
-grouping runtime, init-container, and migration-hook updates while refreshing
-their SHA-256 pins. Commit tags, moving tags, and prereleases are excluded;
-Kubernetes continues pulling the pinned images through Harbor.
-
-Reader language preferences support one or more languages, defaulting to English.
-My feed and Latest retain source/content filters and offer Most liked sorting.
-Source/topic discovery is paginated and restricted to the selected article languages.
-Web, Chrome and Edge share the reader. Chrome and Edge 0.1.23 packages belong to
-the DevFeed 0.1.2 release. Browser-store publication is tracked separately from
-the website deployment.
-Sources added by import, the admin form, or CLI share discovery and review. Imports
-remain pending until reviewed; full-auto mode uses AI review and approval enables polling.
-The schema migration hook remains after the completed pipeline's one-time backfill
-hook is retired. Durable publishers continue report work before queue resumption.
-Release 0.0.41 applied migrations `0018` and `0019`; the migration job mounts the
-operator-managed historical topic-kind map needed to canonicalize stored topic data.
-
-Release 0.1.2 uses source `4bedaeb9a6419f25f59d46eeb45b9242071f1aa2` and the
-[verified release image manifest](https://github.com/abhi1693/devfeed.tech/releases/download/v0.1.2/image-manifest.json)
-for all twelve ARM64 image pins. It adds saved My feed columns and reader layouts,
-alongside the administration read models. Resume the owned pause only through
-the schema `0034` / 0.1.2 Fleet resume Job, then restore the original workers and
-scheduler together and observe ordinary work for more than thirty minutes.
-
-Release 0.1.1 used source `418b1512ba59a4f2dbb9a3b9b8749a49352f358e` and the
-[verified release image manifest](https://github.com/abhi1693/devfeed.tech/releases/download/v0.1.1/image-manifest.json)
-for all twelve ARM64 image pins. It adds source and article lifecycle boards,
-independently retryable processing, sign-in recovery, coordinated SSO sign-out,
-public API/OAuth/MCP discovery, and tier-based partner import schedules.
-Before migration, pause the scheduler through Fleet, drain deliveries, and stop
-older workers and the search indexer through a separate Fleet revision. Restore
-workers with the new images after migration, then resume the scheduler after
-readiness and image verification. See [migration lifecycle](migrations.md).
-Keep schema `0033` for recovery and use schema-compatible images; rolling back to
-0.1.0 images is not schema-compatible.
-
-Reader and partner clients register their exact SSO completion and back-channel
-logout URLs with `auth.devfeed.tech`, following the
-[client registration matrix](https://github.com/abhi1693/devfeed.tech/blob/v0.1.1/packages/http/README.md#zitadel-client-registration).
-The private admin client registers its
-browser SSO completion URL; admin back-channel logout is intentionally omitted.
-No public admin callback route is exposed. Existing browser sessions must sign in
-again after this release; independent MCP credentials retain their own revocation
-contract. Real provider notification delivery is a separate live verification step.
-
-Release 0.1.0 used source `7e04f3ca73db20d360be9f8c7692e80f488a828f`.
-All twelve ARM64 images have verified source attestations and matching GHCR/Harbor digests
-from [release image CI](https://github.com/abhi1693/devfeed.tech/actions/runs/39105413852).
-It adds tag discovery and follows, collection sharing, contextual partner promotions,
-and the dedicated portal at **https://partners.devfeed.tech**. The partner frontend
-has no database, Redis, storage, or OIDC credentials; only its private API handles
-partner sessions and enforces the `partner` role and account membership.
-The separate Zitadel client `395933820357969357` uses authorization code with PKCE,
-callback `/api/v1/partner/auth/callback`, and logout return `/login`.
-Cloudflare Tunnel owns public TLS and DNS; origin ingress accepts only the tunnel connector.
-Synthetic probes cover the public partner login and private frontend/API readiness.
-
-Production enables `DEVFEED_ADAPTIVE_SOURCE_POLLING_ENABLED=true` consistently through
-the shared ConfigMap. Sources retain their individual fixed/adaptive setting; use the
-admin source controls to opt sources into adaptive polling (300–86400 seconds).
-The existing article-derived topic proposal pause remains in force.
-Encrypted `partner-secrets.sops.yaml` supplies distinct delivery receipt, caller-proof,
-and import-credential keys. Only API/user API get receipt signing; only web/API get
-caller proofs; admin API, partner API, ingestion and source-analysis workers get import
-encryption. The web gateway trusts Cloudflare's overwritten `cf-connecting-ip` header.
-Admin and partner APIs receive the existing image-storage secret for artwork uploads.
-Partner jobs use the existing ingestion and source-analysis workers and scheduler.
-Migrations `0024`–`0026` add partnerships, adaptive polling, and saved tag follows.
-The migration process alone uses a 600-second statement timeout and a 30-second
-lock timeout for the production vocabulary backfill. Normal services retain their
-30-second statement timeout; the migration Job is bounded to 840 seconds.
-
-Release 0.0.52 uses source `af3220ca445f474e9d82f0363229b82d8d5812fb` and the
-[release image build workflow](https://github.com/abhi1693/devfeed.tech/actions/runs/38139276936).
-All ten ARM64 images have verified source attestations and matching GHCR/Harbor digests.
-Readers can filter search by individual content types, retain their place when returning
-from previews, and load public pages with less initial image and JavaScript traffic.
-Publisher logos use managed image storage; sitemap inventories refresh in the scheduler
-while requests serve the last completed snapshot. Migration `0023` adds managed source
-logos and source-targeted image jobs while preserving existing content and accounts.
-Older 0.0.51 services require schema `0022`, so readiness can briefly drop between the
-pre-upgrade hook and workload replacement. Preserve schema `0023` and recover with
-compatible images through Fleet; do not downgrade the database for an image rollback.
-
-Release 0.0.51 uses source `b302fc8849b2ccdc5b29efe9bb82718bb28e2380` and the
-[release image build workflow](https://github.com/abhi1693/devfeed.tech/actions/runs/37489614710).
-All ten ARM64 images have verified source attestations and matching GHCR/Harbor digests.
-Readers get daily Must Reads, weekly streak progress, compact list views, clearer
-mobile navigation and less initial image/JavaScript downloading. Migrations `0021`
-and `0022` add saved daily picks and invalidate topic ranking snapshots when
-description vocabulary changes. Older 0.0.50 services reject schema `0022`, so
-readiness can briefly drop during replacement. Keep the upgraded schema and use
-schema-compatible images for recovery; an image-only rollback to 0.0.50 is insufficient.
-The search indexer's startup/readiness/liveness probes resolve its heartbeat through
-`devfeed_core.runtime_files.runtime_marker`, matching the runtime's private marker directory.
-
-Release 0.0.50 uses source `dcf4dec4c51b02238b74af6bb9d4b171cfe88d47` and the
-[release image build workflow](https://github.com/abhi1693/devfeed.tech/actions/runs/37130514655).
-All ten ARM64 images have verified source attestations and matching GHCR/Harbor digests.
-Readers can upload or remove avatars, compare reading leaderboards and reach their
-Dev Card editor and public profile from the account menu. The user API now receives
-the existing encrypted R2 storage secret for managed avatar writes. Schema remains
-at `0020`; rollback uses the preceding 0.0.49 image pins through Fleet.
-
-Release 0.0.49 uses source `567fb7fceed7c04ca42224651d8b47c798e42960` and the
-[release image build workflow](https://github.com/abhi1693/devfeed.tech/actions/runs/37058740316).
-All ten ARM64 images use verified release digests. Administrators can inspect reader
-profiles, Dev Card choices, saved articles, reading counts and original-article clicks.
-Schema remains at `0020`; rollback uses the preceding 0.0.48 image pins through Fleet.
-
-Production enables X pixel `pc5f8` and completed sign-up event `tw-pc5f8-rgbo7` with
-`DEVFEED_X_PIXEL_ENABLED=true` on the reader and user API. Application defaults remain
-false. The reader loads the base pixel once through its shared layout; only the user API
-sends confirmed new-account conversions using a normalized SHA-256 email identifier and
-stable `signup-<account-id>` conversion ID. Returning logins do not send sign-up events.
-The `devfeed-x-conversions-secrets` SopsSecret supplies `X_PIXEL_TOKEN` through the
-operator-managed `devfeed-x-conversions` Secret, referenced only by the user API.
-To rotate the token, re-encrypt `x-conversion-secrets.sops.yaml` and update the user API's
-`devfeed.tech/x-pixel-token-revision` annotation through Git. To disable tracking, set
-`DEVFEED_X_PIXEL_ENABLED=false` in both deployments and let Fleet reconcile.
-
-Release 0.0.48 uses source `d77072025dbf2551a8604e2bc7487f8ecf782c1d` and the
-[successful image build workflow](https://github.com/abhi1693/devfeed.tech/actions/runs/36994612006).
-All ten ARM64 images use the verified release digests. The reader redirects HTTP
-requests on `devfeed.tech` to HTTPS, and reader and admin pages send stronger
-content security policies. The admin frontend also sends HSTS and a restricted
-Permissions Policy. Browser tests cover the web reader, admin, Chrome, Edge,
-and animated Dev Cards. Schema remains at `0020`; rollback uses the 0.0.47
-image pins through Fleet.
-
-Release 0.0.47 uses source `9f3b7628f29ee74c1f59ce395a252dc7a99dde0d` and the
-[successful image build workflow](https://github.com/abhi1693/devfeed.tech/actions/runs/36897056418).
-All ten ARM64 image digests are pinned and match between GHCR and Harbor.
-Feed-filter queries use early-exit lookups for broad browsing and retain the
-materialized matching set for selective topic, tag and text searches. Searchable
-topic counts also stop at the first visible assignment. Immutable candidate-term
-and description indexes reduce application work while catalog locks are held;
-classification and publication locking remains unchanged. Schema stays at `0020`.
-Rollback uses the preceding 0.0.46 image pins through Fleet.
-Migration `0020` adds managed topic logos and topic-targeted Images jobs. The
-one-time topic-logo backfill hook has been removed from GitOps; future upgrades
-do not enqueue a bulk backfill. The existing Images worker continues normal logo
-processing, saving originals to R2 before generating 32/64/96 WebP variants.
-The import phase saved 354 of 357 originals, including Rancher. Memcached, Zorin OS
-and VxWorks SVGs were rejected by validation and use the normal topic fallback.
-All 354 saved logos now have 32/64/96 variants; no topic-logo jobs remain queued
-or running. The Images worker is restored to its normal single replica after
-temporary backfill parallelism. Readers use the saved original during future
-variant processing. Public image loading and browser canvas export were verified
-before frontend cutover.
-Public-read CORS on the image bucket is required for browser card exports. Also
-configure a Cloudflare Response Header Transform Rule matching
-`http.host eq "images.devfeed.tech"` to **Set static**
-`Access-Control-Allow-Origin: *`. R2 omits CORS headers on requests without Origin;
-the rule keeps ordinary image responses usable when Chrome reuses them for canvas
-exports. Verify both ordinary and Origin-bearing responses, then exercise export
-in a fresh browser session before reader cutover.
-
-GitHub and Google provider IDs use `DEVFEED_OIDC_GITHUB_IDP_ID` and
-`DEVFEED_OIDC_GOOGLE_IDP_ID` for both interfaces. Admin and reader retain their
-separate OIDC application client IDs. Keep schema `0020` when rolling forward or
-reverting to a compatible build; an image-only rollback to 0.0.43 is not supported.
-
-| Entry point | Routing | OIDC client |
+| Entry point | Exposure | Purpose |
 | --- | --- | --- |
-| `https://devfeed.tech` | Public Cloudflare Tunnel, reader frontend only | `395933883155154618` |
-| `https://admin.devfeed.home` | Internal Traefik, home-local-ca certificate | `395931985047979469` |
+| `https://devfeed.tech` | Cloudflare Tunnel | Reader frontend |
+| `https://partners.devfeed.tech` | Cloudflare Tunnel | Partner frontend |
+| `https://admin.devfeed.home` | Internal Traefik and home CA | Administration |
 
-Search and topic Follow actions return to the originating page after sign-in;
-search queries and filters survive the callback. Return URLs remain restricted
-to known local paths and search parameters.
-
-The reader sign-in page offers GitHub and Google through the existing Zitadel
-client. Both APIs load the `devfeed-oidc-providers` ConfigMap, selecting GitHub provider `395930791550387898`
-and Google provider `395930568564409805`. Changing these IDs requires rolling the
-reader and admin APIs via their `devfeed.tech/oidc-providers` pod-template annotations.
-
-The reader session uses a 30-day inactivity timeout and a 90-day absolute lifetime.
-Returning to a visible tab renews the local session independently of the provider's
-short-lived ID token. The session-policy change requires one fresh login when the
-new application release is deployed; existing session records are not migrated.
-Admin session policy is unchanged.
-
-Both clients use `https://auth.devfeed.tech`, organization
-`395926894337328224`, PKCE and secure cookies. Administration additionally requires
-`superuser`. Register the callbacks `/api/v1/user/auth/callback` on the public origin
-and `/api/v1/admin/auth/callback` on the admin origin in Zitadel. Internal clients
-must trust the home CA and resolve `admin.devfeed.home` to `192.168.3.3`.
-The admin ingress permanently redirects HTTP requests to HTTPS, preserving the
-path and query string. Its redirect middleware is scoped to this application.
+Reader and partner requests reach private APIs through their frontend. Account
+APIs, administration, Typesense, Chimely and Codex have no direct public ingress.
+Zitadel at `https://auth.devfeed.tech` provides OIDC with PKCE; administration
+requires the `superuser` role. Keep the separate reader, partner and admin
+client IDs, callback URLs and signing secrets aligned with their manifests.
+Provider IDs are declared in the `devfeed-oidc-providers` ConfigMap in
+`configmap.yaml`. Roll the consuming APIs when
+OIDC configuration changes. Internal clients must trust the home CA.
 
 ## Services and automation
 
-- Two replicas each of the reader frontend, admin frontend, public API, user API
-  and admin API. Each pair has required hostname anti-affinity and a disruption
-  budget retaining at least one available replica.
-- **One dedicated worker each** for ingestion, source discovery, source enrichment,
-  article enrichment, and image processing. The obsolete background deployment and its disruption
-  budget have been removed; each category has its own consumers.
-- **Three dedicated article-analysis workers** and **one each** for topic analysis, source analysis,
-  research verification and relationships, plus **one pooled AI worker** for legacy
-  deliveries and additional fair queue coverage. Eight AI consumers retain shared
-  provider cooldowns; topic workers are reduced from three to one.
-- One scheduler publishes each physical queue with its own dispatch budget.
-  Its health thread renews the 120-second heartbeat every 20 seconds during long
-  cycles, but stops renewal after five minutes without a successful cycle. It also
-  refreshes quota independently of dispatch work. The scheduler requests 500m CPU;
-  its liveness probe allows 15 seconds for Python startup and Redis discovery.
-- **One dedicated notification worker** prevents delivery starvation while
-  extraction workers process article pages.
-- The busiest worker pods (article analysis/enrichment, ingestion, images and
-  notifications) share a preferred hostname spread with `maxSkew: 1` across eligible
-  worker nodes, plus preferred anti-affinity to the PostgreSQL primary. CPU
-  reservations take precedence over equal pod counts. `nodeTaintsPolicy: Honor`
-  excludes the tainted control plane.
-  A single shared constraint avoids Helm merging duplicate hostname entries.
-  CPU requests are 300m for article analysis,
-  500m for article enrichment, 400m for ingestion and notifications, and 350m
-  for images, replacing uniform 100m requests. Replica counts and CPU burst
-  capacity are unchanged.
-- **One solver worker** consumes browser-challenged enrichment jobs, using the
-  existing remote browser service in `media` without installing browsers in workers.
-- **One Typesense 30.2 instance and one dedicated search indexer** serve federated
-  article/topic/source/tag search. Typesense is internal-only with a retained 10Gi
-  Longhorn volume; the API receives only its restricted query key. Typesense requests
-  100m CPU and Chimely requests 75m, with no CPU limits. The
-  [September 19 resource review](../../../../../docs/runbooks/kubernetes-resource-policy.md#2026-09-19-cpu-sizing-review)
-  records the usage evidence; busy worker reservations remain unchanged.
-- One dedicated Codex service and one Chimely service; shared Valkey Sentinel.
+The reader, admin and partner frontends, public/user/admin/partner APIs and MCP
+server each declare two replicas with disruption protection. Independent
+`high`, `default` and `low` pools declare two, two and one consumers. Fresh
+article work and interactive feed preparation use `high`; routine work shares
+`default`; notifications use `low`. Images and solver retain one isolated
+consumer each. The scheduler, search indexer, analytics process, Typesense,
+Chimely, imgproxy and Codex are singletons. Read the Deployment manifests for
+the exact commands and resources.
 
-`DEVFEED_FULL_AUTOMATION=true` enables bounded scheduling.
-Full automation activates the app's evidence-gated topic/source
-approval, research and reanalysis workflows. New sources have polling enabled;
-only approved sources are ingested. AI workers and the admin API connect to
-`wss://devfeed-codex.devfeed.svc.cluster.local:4501` with a separate bearer token and
-verified private CA. AI readiness and shared provider cooldown checks apply to every
-AI queue; background workers continue processing while AI queues are paused.
-Release `v0.0.16` uses a 30-second shared pause for transient upstream
-`serverOverloaded` responses, including RPC setup failures and corrective retries.
-Rate and usage limits retain the five-minute minimum and longer provider reset
-windows. Deferred jobs retain their retry allowance. Fresh article analysis and
-extraction each receive a dedicated queue lane and half the dispatch budget;
-older work retains its own capacity and has no eligibility cutoff.
-Adjust each dedicated deployment through Git to change its capacity.
-Worker probes verify the live Redis registration with a 15-second timeout and
-three consecutive failures before restart. This allows Python startup and Sentinel
-discovery to tolerate brief node delays without restarting healthy consumers.
-Codex has no ingress and the model credentials remain solely
-on its retained 10Gi Longhorn home. SQLite runtime state is separated with
-`CODEX_SQLITE_HOME=/var/lib/codex-runtime` on a 512Mi disk-backed `emptyDir`.
-Analysis threads are already ephemeral; the deployment also disables local conversation-history
-persistence and uses targeted info/warn console logging.
+`DEVFEED_JOB_QUEUE_OVERRIDES` in the shared `devfeed` ConfigMap is the routing
+source for every publisher and consumer. Its default is `{}`. A custom physical
+destination needs its own matching consumer. Routing changes require a separately
+reviewed offline migration. Ordinary image upgrades do not replay the completed
+queue cutover. Images and solver must never share their
+physical destinations or privileged credentials with a priority pool.
 
-The `log-retention` sidecar checks SQLite diagnostic logs every 30 seconds. It
-removes DEBUG/TRACE records and records older than 24 hours, retains at most the
-newest 2,000 records within a 16MiB body/metadata budget, checkpoints WAL files,
-and vacuums when at least 8MiB of pages can be reclaimed. The volume limit is a
-last-resort guard, not the retention mechanism. A stale 90-second heartbeat fails
-readiness and liveness. Only log database files are opened; the sidecar does not
-mount the authentication PVC. Validate retention after Codex upgrades because
-its SQLite log schema is an internal interface.
+`configmap.yaml` owns automation policy. Full automation and adaptive source
+polling are enabled; article-derived topic proposals are disabled. There is no
+AI content-date cutoff. Source approval, article page-kind classification,
+validated evidence, provider cooldowns and quota admission still gate processing.
+Missing or uncertain page-kind classifications block publication.
 
-The Recreate strategy stops the previous server before `remove-legacy-logs`
-unlinks exactly `logs_2.sqlite`, `logs_2.sqlite-wal`, and `logs_2.sqlite-shm` from
-the old home. Authentication, configuration, model cache and other state files
-are preserved. Runtime SQLite state is disposable across pod replacements;
-DevFeed's durable jobs and results remain in PostgreSQL.
+Luna is configured for fast analysis and research, with Astra for baseline and
+escalation. Verify model availability and successful inference through the
+production Codex account before changing routing. Account login alone does not
+prove model access. Keep consumer rollout annotations aligned with ConfigMap
+changes. Feed responses are bounded to 20 MB, including expanded gzip content.
 
-Validate changes with:
-
-```sh
-node --test kubernetes/projects/applications/apps/devfeed/codex-log-retention.test.cjs
-kubectl kustomize kubernetes/projects/applications/apps/devfeed
-```
-
-On an empty Codex volume, the `chatgpt-login` init container runs device sign-in.
-Read its logs and complete the displayed browser authorization. This is a separate
-ChatGPT sign-in, never a copy of local or Wardn Hub credentials. Restarts reuse
-existing sign-in state. If sign-in is incomplete, the pod waits before starting
-Codex; analysis workers wait for account readiness.
-
-## AI model recovery (2026-09-26)
-
-On September 26, production used `gpt-5.6-luna` for fast analysis and research,
-and `gpt-5.6-terra` for the baseline and escalation routes. The production ChatGPT
-account rejected `gpt-6-luna`; its fresh Codex model catalog also omitted
-`gpt-6-sol`. Validate all route models against the production account catalog
-and successful inference before changing these settings. Account readiness alone
-does not prove model access. The `devfeed.tech/ai-models` pod-template annotation
-rolls all automation ConfigMap consumers when the model configuration changes.
-On September 27, the production account catalog included `gpt-6-luna` and
-`gpt-6-astra`, and both completed structured-output inference through the deployed
-Codex app-server. Production now uses **GPT-6 Luna** for fast analysis (low effort)
-and research (medium effort), and **GPT-6 Astra** for baseline and escalation
-(medium effort on escalation). The model annotation rolls every automation
-ConfigMap consumer; quota pacing and provider cooldowns remain unchanged.
-Roll back the model-selection commit through Fleet if access regresses.
-
-The one-time `devfeed-requeue-articles-20260926` Job completed at 11:59:50 UTC
-on September 26: 1,187 fresh analysis jobs and 52 enrichment requests covered all
-1,239 selected pending/latest-failed unpublished articles discovered before
-11:41:46 UTC. Published articles, editorial rejections, and failure history were
-preserved. The existing scheduler controls dispatch and quota pacing; completion
-of the recovery Job means work was queued, not that every article was analyzed.
-The recovery manifest is retained in Git commit `15282ac7` and removed from the
-active Kustomization after completion. Fleet may retain the completed Job as an
-audit record. Analysis jobs carry `usage.recovery_id = models-2026-09-26`.
-
-## Article requeue (2026-09-27)
-
-The one-time `devfeed-requeue-articles-20260927` Job requeued articles discovered
-by `2026-09-26T20:53:28.753724Z` that are still unpublished and not rejected.
-It rechecks those states under each article lock, reuses active work, and sends
-articles without usable text through enrichment first. Articles without an
-approved source stay blocked. Existing editorial decisions and job history are
-preserved; normal scheduler quotas and cooldowns govern processing.
-New analysis jobs carry `usage.recovery_id = articles-2026-09-27-gpt6` so retries
-cannot create duplicate analyses. The job requires the verified GPT-6 routing
-configuration. It completed at `2026-09-26T21:13:22Z`, checking 634 articles:
-535 new analysis jobs, 52 enrichment requests, 40 active analyses reused,
-five articles skipped after becoming published/rejected, and two blocked because
-they had no approved source. Completion means the work was queued; downstream
-processing continues under normal pacing. The recovery manifest is retained in
-Git commit `dd38f6e3` and removed from the active bundle to prevent future runs.
-Fleet removed the completed Kubernetes Job during retirement; the completion
-totals above and Git history retain the audit record.
-
-## Published article image recovery (2026-09-26)
-
-The one-time `devfeed-requeue-images-20260926` Job requests image discovery for
-published articles without an `image_url` at the 12:04:38 UTC cutoff. Previous
-failures and `not_found` outcomes are eligible; active work is preserved. The Job
-uses `request_image` in batches of 100 and marks new discovery jobs with
-`storage.recovery_id = published-images-2026-09-26` for retry safety. It does not
-change publication state or overwrite existing images. The existing scheduler,
-image workers, solver, and managed-image storage process the requests normally.
-The Job completed at 12:11:15 UTC: all 8,653 selected articles received a fresh
-image-discovery job, with no skips. The manifest is retained in Git commit
-`b0a23e89` and removed from active GitOps configuration. Queueing completion does
-not imply every publisher page provides a discoverable image.
-
-## Feed response limits
-
-Production accepts RSS/Atom responses up to 20,000,000 bytes (20 MB), including
-expanded gzip content, through `DEVFEED_FEED_MAX_BYTES` in the shared ConfigMap.
-This applies to admin previews, source submissions, source review and ingestion;
-HTML/discovery response limits and the 500-entry parsing limit stay unchanged.
-Pod-template annotations roll the feed-consuming APIs and workers when this value
-changes. Keep those annotations aligned with the ConfigMap. To roll back, restore
-the prior limit and annotations in Git and let Fleet reconcile.
+Workers use the packaged native health command. Scheduler, analytics and indexer
+probes check their private heartbeat files. Preserve the bounded probe commands and
+normal failure thresholds when changing startup behavior.
 
 ## Data and secrets
 
-The shared CloudNativePG bundle owns retained `devfeed` and `devfeed_chimely`
-databases and roles. Two `devfeed-rw` session poolers provide up to 20 backend
-connections per database; each role allows 24. Release 0.0.30 uses SQLAlchemy NullPool
-for all Python services: `DEVFEED_DATABASE_POOL_ENABLED=false` returns connections to
-PgBouncer at session close, without a second retained application pool. HTTP admission
-is bounded independently at 16 concurrent requests and 32 streams per API process;
-overload is rejected before opening a database connection. There is no application
-connection-acquisition queue. Workers release sessions before external work.
-TCP keepalives and an 8-second TCP user timeout bound connection failure detection.
+CloudNativePG owns the retained `devfeed` and `devfeed_chimely` databases and
+roles. Interactive traffic uses twenty pooler backend slots. The analytics
+process and schema hook use the direct writer connection; current-state
+reconciliation requires session advisory coordination and cannot use transaction
+pooling.
+Python services use SQLAlchemy NullPool so closing a session returns its
+connection to PgBouncer. Preserve global PostgreSQL headroom when changing
+replicas or connection settings.
 
-Before each Helm upgrade, `devfeed-migrate` runs the release image against the
-direct writer service and applies pending schema migrations. Helm blocks the
-upgrade if migration fails. The `before-hook-creation,hook-succeeded` policy
-removes an older hook Job before the next attempt and deletes successful hook
-Jobs automatically; failed hooks remain available for diagnosis. The hook uses
-existing application configuration, secrets and service account, so it runs on
-upgrades, not initial installation.
+Shared Valkey Sentinel uses set `valkey`, database **10**, through
+`valkey.valkey.svc.cluster.local:26379`. Network policies restrict access.
+Typesense is internal-only on its retained Longhorn claim; query clients receive
+restricted search credentials and only the indexer receives the management key.
+The declared image is `30.2-arm64-lg-page16`; verify kernel-page compatibility
+with the selected image before changing it. PostgreSQL remains the durable
+source for rebuilding the search index.
 
-The v0.0.17 pre-upgrade hook retains schema `0009`, introduced in v0.0.10 for
-persistent per-topic decision budgets. It performs no content rewrite. Backends
-require `0009`; v0.0.10 is schema-compatible, while an image-only rollback to
-v0.0.9 fails its schema check. Prefer v0.0.11 for its corrected discovery guard
-and evidence selectors.
+Chimely credential volumes are retained NFS claims. All three priority pools
+receive notification delivery credentials because routing overrides can move
+notifications between them. APIs receive only their audience's signing credentials.
+SOPS Secrets Operator owns service, database, registry, analytics and storage
+secrets. Keep credentials out of ConfigMaps, browser bundles and plaintext Git.
 
-Tiered routing uses Luna low for drafting/article/source work and Luna medium for
-research/verification, with one bounded Terra correction for invalid topic output.
-A usable source URL skips model discovery; otherwise a single search returns
-candidate URLs for backend fetching. Drafting and verification reuse the saved
-evidence, with schema-constrained excerpt IDs. A topic gets at most five calls,
-four searches, 64,000 accounted tokens (at most 40,000 per call) and 240 seconds, with checkpointed source evidence and no automatic budget refill.
-Limits stop further admissions; streamed usage can arrive after tokens are spent.
-Uncertain outcomes stay pending/deferred rather than being rejected. Relationship
-research and verification use the same quota-paced admission as article, source and
-topic inference. The scheduler samples the account weekly quota once per minute,
-using the same authenticated TLS endpoint, CA bundle and network-policy client
-label as the AI workers. This also gives the scheduler and workers a shared quota key.
-The remaining allowance, less a 20% reserve, is spread over the time until reset,
-with a fixed allowance for each UTC day (prorated for a partial first day). Other
-clients using the same account reduce the remaining headroom. Missing/stale quota
-data pauses AI admission; background fetching continues. There is no fixed daily
-relationship call cap in this mode and topics do not block relationship work.
-Dedicated workers and provider cooldowns remain in place. The Overview charts separate actual decisions, usage, failures and
-unresolved work. Production admits up to two decisions per observed available topic worker,
-with a ceiling of eight and a pause during provider cooldown. One healthy dedicated
-topic worker yields a two-job window; the pooled AI worker contributes only when
-available. Dedicated queues isolate work without bypassing model capacity checks.
-Topic evidence fetches run concurrently and public evidence can be reused for at most
-five minutes without renewing its validation timestamp. Valid drafts survive malformed
-verification retries; independent verification and whole-workflow budgets still apply.
-
-Content-based AI processing has no publication date cutoff. The shared production
-ConfigMap explicitly sets `DEVFEED_AI_CONTENT_NOT_BEFORE` to an empty string; old
-and undated articles can be submitted subject to normal source approval, evidence,
-and capacity checks. Matching pod-template annotations roll all consumers.
-AI article summaries and descriptions are generated and validated in English,
-while the source language and original-language classification evidence are retained.
-Admin reporting uses separate bounded database connections and cached background
-Overview snapshots. Source review notifications and orphaned queue deliveries recover
-through the normal scheduler.
-
-A completed post-upgrade recovery granted the 14 identified v0.0.10 canaries
-one audited allowance while preserving prior spending. Its temporary hook has
-been removed; the schema migration hook remains the only ongoing upgrade Job.
-
-DevFeed uses shared Valkey Sentinel set `valkey`, database **10**, through
-`valkey.valkey.svc.cluster.local:26379`. The data URL supplies DB 10, while Sentinel
-discovers the primary. Access is restricted by network policy. The former Redis
-Deployment, Service, Secret, network policy and 2Gi Longhorn PVC have been removed
-after verified cutover. The completed copy Job and its script ConfigMap are removed too. The completed inbox provisioner created separate Chimely
-user/admin environments and stored each consumer's credentials on its own retained
-1Gi NFS volume. Only the dedicated notification workers receive delivery keys. Admin/user APIs
-receive only their audience's signing secret. The completed provisioner used the same non-root UID as the consumers and a
-shared volume group.
-
-SOPS Secrets Operator owns database, service-token, Chimely bootstrap and
-registry secrets. No plaintext credentials belong in this repository.
-
-Network policies default-deny traffic and allow only the service pairs, DNS,
-database access, required public HTTP(S) fetches, internal admin ingress and the
-public reader tunnel. The matching Cloudflare connector egress rule is maintained
-in its own bundle. There is no public route to either account API, administration,
-Redis, Chimely or Codex; browser account requests pass through their own frontend.
-
-## Validation and rollout
-
-```sh
-kubectl --kubeconfig ~/.kube/config kustomize kubernetes/projects/applications/apps/devfeed
-python scripts/sync-readme-versions.py --check
-kubectl --kubeconfig ~/.kube/config get pods,deploy,job,pvc,ingress -n devfeed
-kubectl --kubeconfig ~/.kube/config logs -n devfeed deploy/devfeed-codex -c chatgpt-login
-```
-
-Release images must pass DevFeed's ARM64 tests, scans and smoke checks before
-Fleet is pointed at them. Compare the ARM64 digests through GHCR and Harbor, then
-verify Fleet's desired/applied deployment IDs, ready replicas, authenticated Codex
-readiness, and both user-visible origins. Commit all desired-state changes; do not
-repair this deployment using imperative Kubernetes mutations.
-
-Release `v0.0.9` uses immutable digest pins for all six application runtime images.
-[Release CI](https://github.com/abhi1693/devfeed.tech/actions/runs/34768134222) passed
-3,475 application tests, CodeQL, security scans and six ARM64 runtime smoke checks.
-The release image manifest records the exact attested digests. Verify attestations
-with `--signer-workflow abhi1693/actions/.github/workflows/container-images.yml`,
-`--source-ref refs/tags/v0.0.9` and the release commit as `--source-digest`. Verify GHCR and
-Harbor parity before publishing GitOps pins; keep each main/init container aligned.
-
-The migrations preserve existing accounts, content and preferences. They add schema
-that `v0.0.8` readiness does not accept: a code-only rollback to that version is not
-sufficient. Prefer a compatible forward fix. Any database restore or downgrade
-requires a separately reviewed recovery operation; retain all PVCs and credential volumes.
+Codex keeps authentication on its own Longhorn PVC. On an empty volume, read
+`chatgpt-login` init logs and complete device authorization. Runtime SQLite state
+uses a bounded `emptyDir`; its retention sidecar limits diagnostic logs and does
+not mount authentication storage. Keep runtime state and credentials separate.
+Validate the sidecar after Codex upgrades because its SQLite schema is internal.
 
 ## Search and solver operation
 
-`devfeed-search-indexer` runs collection/key setup and consumes the PostgreSQL outbox
-in batches of 200. Migration `0003` queues existing records for the initial backfill.
-The indexer publishes a local heartbeat after successful batches. Startup,
-readiness, and liveness check its file modification time against the 120-second
-deadline, avoiding an empty-string parse while the writer truncates and rewrites
-the file. Missing, stale, or future-dated files fail the probe. Public search uses
-only `documents:search` credentials, while the indexer and
-Typesense alone receive the management key. Both keys are independently generated
-and encrypted in `search-secrets.sops.yaml`. No search port is exposed externally.
-The index is rebuildable from PostgreSQL; preserve credentials when replacing it.
+The indexer consumes the PostgreSQL search outbox and publishes a heartbeat.
+Missing, stale or future-dated heartbeat files fail its probes. Preserve search
+keys when replacing the rebuildable index.
 
-The Raspberry Pi 5 nodes use 16KiB kernel pages. Typesense must use the official
-`30.2-arm64-lg-page16` image, pinned by digest; the ordinary ARM64 build aborts with
-`jemalloc: Unsupported system page size` on these nodes. Preserve the
-`-arm64-lg-page16` variant when updating Typesense.
+Only the solver worker consumes `solver` and receives the FlareSolverr endpoint.
+Ordinary enrichment workers hand off recognized browser challenges. The existing
+browser service runs in `media`; browsers are not installed in ordinary workers.
+Unsupported challenges remain errors rather than being accepted as article text.
 
-The solver worker consumes only `solver`; ordinary workers automatically hand off
-recognized browser challenges. Only that worker receives `DEVFEED_SOLVER_SERVICES`.
-Its network policy permits the existing `flaresolverr.media` endpoint, public publisher
-HTTP(S), and the shared database/Valkey/Codex dependencies. It does not receive
-notification delivery credentials or persistent ChatGPT state. Provider success is
-not guaranteed: old terminal failures need an explicit retry, and unsupported
-challenges remain errors rather than being accepted as article content.
+## Availability
 
-The production reader explicitly enables analytics and exposes `/legal/terms`,
-`/legal/privacy`, cached sitemaps, AI discovery documents and social-preview metadata.
-Local Compose retains its separate analytics-disabled default.
+Frontend/API replica pairs tolerate one replica failure while shared dependencies
+remain available. PostgreSQL and Valkey provide application-level replication;
+Codex, Typesense, the scheduler, publishers, Chimely and NFS credential storage
+remain shared dependencies. Asynchronous Valkey failover can lose unreplicated
+writes. This deployment does not provide end-to-end high availability.
 
-## Availability and Valkey migration
+Worker placement uses eligible ARM64 nodes and workload spreading, with no
+hostname-specific preferences. Priority pools use a zero-unavailable rolling
+strategy and a 1,560-second graceful termination period. Drain all old consumers
+before the first routing change; a normal rolling overlap is unsafe for that
+one-time migration.
 
-The [staged cutover runbook](valkey-migration.md) records the coordinated copy of
-Redis state into shared Valkey Sentinel database 10. Runtime clients now use
-Sentinel; the one-time migration resources have been pruned. Shared Valkey has one primary and two
-replicas across three nodes, with expanded memory headroom for DevFeed.
+For a ClickHouse resource rollout, use temporary Kustomize replica overrides to
+drain ordinary workers before their solver dependencies. Keep ClickHouse ready
+until paid calls, delivery buffers, transport registries and live job leases are
+drained. Pause API writers only for the database serving gap, then restore the
+exact original replicas in dependency order. Retain queued identities, payloads,
+retry counts and absolute expiry timestamps; a resize does not authorize replaying
+paid inference. See the [maintenance gates](migrations.md#maintenance-gates).
 
-Two frontend/API replicas tolerate one pod or node failure when their shared
-dependencies remain available. PostgreSQL has three instances and the dedicated
-pooler has two replicas. Typesense, the search indexer, solver worker, dedicated Codex service, scheduler, Chimely and NFS
-credential storage remain single-instance dependencies. This is web/API
-redundancy, not end-to-end HA; async Valkey replication can lose unreplicated
-writes during failover.
+## Validation and rollout
 
-The queue upgrade preserved Redis delivery identities. The legacy `analysis`
-queue and its in-flight work drained before the temporary AI pool was removed.
-Rollback requires retaining consumers for the new queues until they drain, and a
-schema-compatible application; prefer a forward fix over a schema downgrade.
+Keep all twelve application image components, init containers and the migration
+hook on a verified release cohort. Renovate groups stable release tags and
+immutable digests; release tests, native ARM64 scans, attestations and GHCR/Harbor
+digest parity remain separate checks before accepting new pins.
+
+The Helm pre-upgrade migration hook runs against the direct PostgreSQL writer.
+A failed hook blocks rollout. Successful hooks are cleaned up; verify Helm
+history and the database revision instead of requiring a retained completed Job.
+The hook also enforces `jit=off` for the `devfeed` role in the `devfeed` database
+and verifies the default on a fresh direct connection. Other roles and databases,
+including `devfeed_chimely`, retain their existing settings. Existing pooled
+backends pick up the default when they reconnect; this change does not restart
+PostgreSQL or its poolers. See the [JIT rollout and rollback](migrations.md#devfeed-jit-default).
+Keep schema 0039 and recover with compatible images. An image-only downgrade
+cannot reverse queue routing and cannot restore deleted retention payloads.
+
+Compatible patches use rolling upgrades. Policy/schema changes need a reviewed
+maintenance plan: stop admissions, drain actual workers and dependencies, apply
+migrations, validate core/analytics health and resume only the owned pause.
+Stopping the scheduler alone does not stop queue consumption. See
+[migration lifecycle](migrations.md)
+and [queue maintenance tests](../../../../../scripts/devfeed-maintenance/README.md).
+
+Verify Fleet desired/applied equality, actual image IDs, readiness, queue
+processing, current-view reconciliation coverage and zero new restarts. A Ready
+analytics process alone does not prove fresh reports. Retain PVCs and credentials
+during recovery and reconcile changes through Git/Fleet.
+
+```sh
+kubectl kustomize kubernetes/projects/applications/apps/devfeed
+python3 -m unittest discover -s kubernetes/projects/applications/apps/devfeed/tests -v
+node --test kubernetes/projects/applications/apps/devfeed/codex-log-retention.test.cjs
+python3 scripts/check-devfeed-observability.py
+kubectl get pods,deploy,job,pvc,ingress -n devfeed
+```
 
 ## Observability
 
-DevFeed 0.0.45 replaces the retired aggregate exporter with native OpenTelemetry
-in-process metrics on APIs, workers, scheduler and indexer. Frontends retain their
-Node metrics. The PodMonitor sets a consistent `service` label from each workload;
-HTTP recording rules normalize Node and Python histograms and exclude long-lived
-notification streams. Metrics stay private on port 9100, with no public ingress.
+APIs, workers, scheduler and indexer expose native OpenTelemetry metrics;
+frontends expose Node metrics. Metrics stay private on port 9100. The
+`devfeed-operations` Grafana dashboard covers HTTP health, replicas, scrapes,
+reader latency/errors, search lag, delivery activity and background freshness.
+Delivery counts do not establish successful editorial outcomes; use the admin
+UI for durable job results and retries.
 
-The **DevFeed / Overview** dashboard keeps the `devfeed-operations` URL and
-replaces the former availability, pipeline and diagnostics pages. Its 12 panels
-show HTTP check health, missing replicas, scrape failures, reader errors and
-latency, search lag, traffic, worker deliveries, background freshness and search
-backlog. It refreshes once per minute, matching the normal scrape cadence.
-Missing data stays unknown; worker delivery counts are explicitly not successful
-editorial outcomes. General queue depth is not exported by the current metrics.
-Use the linked admin UI for durable job results/retries, and Logs/Traces for
-investigation. Cluster resource details stay in the shared Kubernetes dashboard.
-
-Dedicated telemetry and existing alerts remain enabled: traffic-gated
-availability burn, latency, workload readiness, scrape health, database acquisition
-timeouts, background freshness and search lag. Alert dashboard links use the
-retained overview URL. The old pipeline and diagnostics URLs are retired.
-
-Alloy/Loki, OTel/Tempo and Pyroscope continue collecting logs, traces and profiles.
-Logs and Faro browser telemetry preserve original values without automatic
-redaction. Frontends alone consume the encrypted Faro collector key. Private
-blackbox probes continue checking public HTTPS and internal service readiness.
-The shared public probe omits Launchboard while that application is paused.
-
-Run `python3 scripts/check-devfeed-observability.py` to validate dashboard PromQL
-and alert scenarios, followed by manifest checks and server-side dry runs. Metric
-names and migration details are documented in the application's
-[Observability guide](https://github.com/abhi1693/devfeed.tech/blob/v0.0.47/packages/core/OBSERVABILITY.md).
-
-Deployment must verify actual scrape targets, HTTP probes, logs, traces, profiles,
-browser ingestion and public port/source-map isolation. SDK initialization alone
-is not proof of delivery. Pyroscope retains its existing 24-hour ephemeral storage;
-this change does not replace that backend or discard existing profile history.
-
-Migration hooks are owned by Helm and are intentionally absent after successful
-execution. Verify the hook result in Helm release history, database revision and
-index validity; the absence of a completed hook Job is expected. See
-[migration lifecycle](migrations.md) for operations and initial provisioning.
-
-Worker deployments use `devfeed-worker-<type>`, including dedicated pipeline workers and `ai`
-for shared pools. Replica counts and queue subscriptions are unchanged by naming.
-
-The workload catalog mirrors the dedicated worker replica counts, including the
-five dedicated background pipeline consumers, so capacity recommendations use the same intent.
-
-The admin Overview serves 33 independent chart requests with per-panel shimmers
-and retries, shared short-lived snapshots, and bounded reporting concurrency.
-The workload chart includes all logical job types. Article extraction follows
-validated immediate HTML redirects and ingestion excludes navigation metadata.
-
-With full automation, v0.0.17 rejects pending, unpublished articles when the
-publisher returns HTTP 404 or 410 and no publisher summary or extracted text is
-available. Editorial reviews record the extraction job, HTTP status, and policy.
-Existing decisions and usable publisher text are preserved; transient failures,
-blocked requests, and empty successful responses do not trigger rejection.
+Alloy/Loki, OpenTelemetry/Tempo and Pyroscope provide shared logs, traces and
+profiles. Verify actual delivery and public isolation after
+telemetry changes. Shared backend retention is documented in the owning system
+app READMEs rather than duplicated here.
 
 ## Browser extensions
 
@@ -670,253 +241,157 @@ in the ShipyardHQ bundle) compares both applications and supports Application an
 Instance filters; it keeps each application's metrics separate when All is selected.
 Originals and thumbnails persist in R2; no new PVC or public proxy route is needed.
 
-Existing articles continue using their publisher image until the Images pipeline
-finishes storage. The normal Images worker owns steady-state processing and durable
-retries. Topic logos share this durable pipeline as of 0.0.44, using normalized PNG
-masters under `originals/topic-logos/` and WebP variants under `topic-logos/`.
-The saved original is served while variants are unavailable. Source logos remain
-outside the managed-image pipeline. Existing source URLs stay available for editing
-and provenance; readers receive only owned topic-logo URLs.
+Topic and source logos use the managed-image pipeline. Keep the bucket CORS
+policy and public response headers compatible with browser canvas exports.
+Validate ordinary and Origin-bearing image responses after storage/CDN changes.
 
-Release 0.0.23 fixes source approval with minority uncertain entries and topic research
-for computing concepts and disciplines. Schema remains 0013; existing deferred
-reviews require targeted reprocessing.
+## Resource review — 28 October 2026
 
-Worker capacity favors article analysis while its older eligible jobs drain. Keep
-two image consumers for steady-state processing and parallel recovery after
-backfills. Reassess the five article-analysis replicas after the backlog clears;
-use arrival rate, oldest eligible-job age, worker busy time and provider allowance,
-rather than CPU alone. Leave the shared provider pacing and reserve enabled.
-Revert replica changes in Git if queue latency or provider pressure regresses,
-and verify Fleet convergence before judging the result.
+The first sizing batch uses fourteen days of workload-owned Prometheus history,
+with recent 24-hour/three-day sustained CPU checked separately from one-minute
+burst peaks. CPU requests for background workers cover observed mean demand
+plus headroom; their uncapped CPU policy permits the measured bursts. Memory
+limits remain above historical working-set peaks, with at least 512Mi for the
+resized analysis workers. Short-lived init-container reservations are preserved.
 
-Deployment alerts exclude deliberately scaled-to-zero workloads. The public reader
-probe follows the homepage redirect to `/latest`.
+| Container | CPU request | Memory request | Memory limit |
+| --- | --- | --- | --- |
+| `chimely` | 75m → 25m | 128Mi → 64Mi | 512Mi → 128Mi |
+| `mcp` | 50m → 10m | 128Mi → 128Mi | 512Mi → 256Mi |
+| `partner-api` | 100m → 25m | 256Mi → 256Mi | 1Gi → 512Mi |
+| `article-enrichment-worker` | 500m → 200m | 256Mi → 384Mi | 1Gi → 1Gi |
+| `images-worker` | 350m → 150m | 256Mi → 256Mi | 1Gi → 512Mi |
+| `topic-analysis-worker` | 250m → 100m | 256Mi → 256Mi | 1Gi → 512Mi |
+| `research-verification-worker` | 250m → 100m | 256Mi → 256Mi | 1Gi → 512Mi |
+| `relationships-worker` | 250m → 125m | 256Mi → 256Mi | 1Gi → 512Mi |
+| `source-discovery-worker` | 100m → 100m | 256Mi → 128Mi | 1Gi → 512Mi |
 
-## Release 0.0.24
+## Resource review — reservation and memory safety batch
 
-Preserves generic campaign attribution through guest redirects, corrects Edge extension
-analytics, and removes the unused admin graph explorer. Includes publisher diversity
-for Latest, immediate search filters, source deduplication and verified unrelated-source
-rejection, plus database concurrency and bounded analysis history improvements.
+Values use the 28 October historical review in
+[the resource policy](../../../../../docs/runbooks/kubernetes-resource-policy.md#2026-10-28-historical-resource-review).
+CPU reservations cover measured sustained demand with headroom; existing burst
+policies remain in place. Memory caps preserve the observed fourteen-day peaks
+and extra headroom where OOM records show clipping.
 
-The migration hook adds nullable history-retention markers and builds discovery/retention
-indexes concurrently. It does not immediately prune history or repair publication data.
-Check for invalid indexes before retrying an interrupted migration. Schema 0014 is
-required by the new services; old services require 0013 and can lose readiness during
-the transition. Preserve the migrated schema and roll forward with compatible images
-if recovery is needed.
+| Container / value path | CPU request | Memory request | Memory limit |
+| --- | --- | --- | --- |
+| `devfeed/devfeed-admin/admin` | 100m → 25m | 128Mi → 256Mi | 512Mi → 512Mi |
+| `devfeed/devfeed-admin-api/admin-api` | 100m → 25m | 256Mi → 256Mi | 1Gi → 1536Mi |
+| `devfeed/devfeed-partner/partner` | 100m → 25m | 128Mi → 224Mi | 512Mi → 512Mi |
+| `devfeed/devfeed-user-api/user-api` | 100m → 50m | 256Mi → 256Mi | 1Gi → 512Mi |
+| `devfeed/devfeed-worker-ai/ai-worker` | 250m → 200m | 256Mi → 384Mi | 1Gi → 768Mi |
+| `devfeed/devfeed-worker-article-analysis/article-analysis-worker` | 300m → 200m | 256Mi → 640Mi | 1Gi → 1Gi |
+| `devfeed/devfeed-worker-ingestion/ingestion-worker` | 400m → 250m | 256Mi → 384Mi | 1Gi → 1Gi |
+| `devfeed/devfeed-worker-notification/notification-worker` | 400m → 325m | 256Mi → 256Mi | 1Gi → 512Mi |
+| `devfeed/devfeed-worker-source-enrichment/source-enrichment-worker` | 100m → 100m | 256Mi → 160Mi | 1Gi → 768Mi |
+| `devfeed/devfeed-search-indexer/indexer` | 100m → 125m | 256Mi → 192Mi | 1Gi → 512Mi |
+| `devfeed/devfeed-typesense/typesense` | 100m → 50m | 512Mi → 768Mi | 2Gi → 2Gi |
+| `devfeed/sonarqube-mcp-server/server` | 100m → 25m | 256Mi → 320Mi | 768Mi → 768Mi |
 
-Chrome and Edge 0.1.4 ZIPs accompany the application release. Browser-store submission
-and approval are separate from this Fleet rollout.
+## Resource review — sustained demand and burst envelopes
 
-The 0.0.24 rollout expands the retained Codex home from 5Gi to 10Gi after startup
-encountered a full filesystem. Longhorn supports online expansion; authentication
-and session data are preserved. Monitor usage before the added capacity fills.
+Values use the 28 October historical review in
+[the resource policy](../../../../../docs/runbooks/kubernetes-resource-policy.md#2026-10-28-historical-resource-review).
+CPU reservations cover measured sustained demand with headroom; existing burst
+policies remain in place. Memory caps preserve the observed fourteen-day peaks
+and extra headroom where OOM records show clipping.
 
-## Release 0.0.25
-
-Extends reader sessions to 30 days of inactivity with a 90-day absolute limit across
-web, Chrome and Edge. Existing sessions require one fresh login. Includes scheduler
-heartbeat/stall handling, lower sitemap and publication-query cost, stricter source
-evidence checks, explicit temporary solver retries, and RSS/Atom URL fixes.
-
-No new migration is required; schema 0014 remains current. The migration hook checks
-the existing schema before services roll. All six application images are pinned to
-the verified release digests. If rollback is needed, revert these image pins through
-Fleet to 0.0.24; no schema rollback or data cleanup is needed. Completed maintenance
-Jobs retain their original image pins.
-
-Chrome and Edge 0.1.5 packages accompany the release and pass the reader browser
-parity gate. Store submission and approval remain separate from this rollout.
-
-
-## Release 0.0.26
-
-Source policy v5 admits high-confidence, evidence-backed sources without requiring
-80% of recent articles to qualify. It covers software product management, growth,
-AI product building, engineering leadership, and related careers. Individual article
-review stays independent; source rejection retains the stronger 80% evidence threshold.
-Eligible pending assessments from older policy versions are requeued automatically;
-active and exhausted jobs remain protected from duplicate or unbounded retries.
-
-The admin source page has a Relevance tab immediately after Details. The summary and
-article evidence appear side by side, with five-entry pages and classification filters.
-Older assessments explain that their recorded result used an earlier policy.
-
-No new migration is required; schema 0014 remains current. All six runtime images and
-schema-check init containers use the release's verified digests. Roll back by reverting
-these pins through Fleet to 0.0.25. Recorded source decisions are retained and require
-explicit editorial review to reverse. Completed maintenance Jobs retain their original
-image pins. Chrome and Edge 0.1.6 packages are built and covered by the reader parity
-gate; browser-store submission and approval are separate from this deployment.
+| Container / value path | CPU request | Memory request | Memory limit |
+| --- | --- | --- | --- |
+| `devfeed/devfeed-api/api` | 100m → 200m | 256Mi → 320Mi | 1Gi → 768Mi |
+| `devfeed/devfeed-web/web` | 100m → 250m | 128Mi → 384Mi | 512Mi → 512Mi |
+| `devfeed/devfeed-scheduler/scheduler` | 500m → 750m | 256Mi → 1152Mi | 1Gi → 1536Mi |
+| `devfeed/devfeed-codex/codex` | 100m → 150m | 512Mi → 384Mi | 2Gi → 3072Mi |
+| `devfeed/devfeed-codex/log-retention` | 25m → 10m | 64Mi → 32Mi | 128Mi → 128Mi |
+| `devfeed/devfeed-worker-solver/solver-worker` | 100m → 100m | 256Mi → 416Mi | 1Gi → 1Gi |
+| `devfeed/devfeed-probes/probes` | 10m → 10m | 32Mi → 64Mi | 128Mi → 128Mi |
 
 
-## Release 0.0.27
+### Browser telemetry
 
-Article feeds and search use the shared reader infinite-scroll boundary without
-More articles controls. Loading, retry, and end states remain available on the
-website and in Chrome and Edge 0.1.7. Both extension ZIPs are release artifacts;
-browser-store submission and approval remain separate.
+The 0.1.6 applications remove Faro browser collection. DevFeed no longer mounts
+its browser key, sets its runtime flags or advertises a collector endpoint.
+Backend tracing, logs, profiling and application analytics remain enabled.
 
-The previously merged database work reduces taxonomy and feed-facet query load,
-bounds cached catalog snapshots, and keeps personal feeds on a six-hour refresh
-schedule. The pre-upgrade hook advances schema 0014 through migrations 0015 and
-0016, adding transactional catalog revisions and two concurrently built indexes.
-Source relevance policy and pending-source decisions are unchanged.
+## Final resource review — 28 October 2026
 
-All runtime and schema-check images use the verified release digests. Completed
-maintenance Jobs retain their original pins. Verify schema 0016, Fleet's
-desired/applied revision, ready replicas, and public pagination after rollout.
-Do not perform an image-only rollback to 0.0.26: its readiness contract expects
-schema 0014. Prefer a schema-compatible roll-forward; a full rollback requires
-tested coordinated migration handling.
+Values use the 28 October historical review in
+[the resource policy](../../../../../docs/runbooks/kubernetes-resource-policy.md#2026-10-28-historical-resource-review).
+CPU reservations cover measured sustained demand with headroom; existing burst
+policies remain in place. Memory caps preserve the observed fourteen-day peaks
+and extra headroom where OOM records show clipping.
 
-### Article-derived proposal pause
+| Container / value path | CPU request | Memory request | Memory limit |
+| --- | --- | --- | --- |
+| `devfeed/devfeed-imgproxy/imgproxy` | 100m → 10m | 256Mi → 96Mi | 512Mi → 256Mi |
 
-`DEVFEED_ARTICLE_TOPIC_PROPOSALS_ENABLED=false` pauses new article-tag topic
-proposals and research/approval of pending article-derived drafts, including already
-queued jobs. It is independent of full automation. Imported proposals, article
-ingestion, and classification against existing topics continue. Existing drafts,
-approved topics and job history are retained. Restore `true` and roll the affected
-services through Fleet to resume. This pause does not yet enforce a minimum number
-of supporting articles per topic.
+## Public probe ownership
 
-### 0.0.28 worker health rollout
+`cloudflare-public-http` probes active application endpoints only. The retired
+Wardn AI website (`wardnai.dev`) was removed from this list on 2026-10-28;
+Wardn Hub (`hub.wardnai.dev`) remains monitored. When retiring an app, remove
+its dedicated public probe target along with its ingress so expected DNS
+removal does not produce a false critical availability alert.
 
-Workers expose a local parent-heartbeat file at `/tmp/devfeed-worker-health.json`.
-Readiness and liveness use `python -m devfeed_core.worker_health`, avoiding a Redis
-connection and settings import for every probe. The runtime image and probes must
-roll together. Existing CPU-worker placement rules and the current 300m article
-analysis CPU request are preserved; other busy AI roles request 250m.
+### Probe execution during recovery
 
-## Production health remediation
+Priority pools use the native health command with a five-second execution
+budget, avoiding Python startup in every probe. Images retains its existing
+15-second execution budget. These budgets do not extend heartbeat freshness
+or diagnose a node outage.
 
-Release 0.0.29 removes the legacy application pool size/overflow settings. Frontend
-telemetry embeds the package release version at build time; the legacy version
-fallback has been removed from the shared telemetry ConfigMap.
-After a release, verify user/admin HTTP metrics, reader article retry, scheduler
-cycle time, and the shared Alloy/Loki delivery alerts, not just pod readiness.
+## Direct analytics rollout (0.1.5)
 
-The web/admin pod templates carry the telemetry ConfigMap SHA-256 annotation to
-apply environment-based compatibility-label corrections to running processes.
-Update that annotation when changing the shared telemetry ConfigMap for those
-frontends; editing a ConfigMap alone does not refresh process environment.
+The shared [ClickHouse service](../../../database/apps/clickhouse/README.md) lives
+in its own `clickhouse` namespace. DevFeed uses the private endpoint
+`http://clickhouse.clickhouse.svc.cluster.local:8123`, its own database and scoped
+SOPS-encrypted credentials. No browser database UI is deployed.
+No ClickHouse backup CronJob is deployed; operator-managed backups must include
+the migration journal, historical import checkpoints and readiness state.
 
-Codex keeps app-server lifecycle INFO logs but limits core, model-manager and
-provider-transport modules to WARN. Their per-event INFO traces dominated replay
-bursts and shared Loki rate-limit rejections during the health rollout. Warnings,
-errors and DevFeed durable job logs remain available; temporarily increase only a
-specific module through GitOps when debugging. Changing the filter replaces the
-single Codex pod; in-flight sessions can reconnect/retry through durable jobs.
+The 0.1.5 handover ran PostgreSQL 0038 followed by versioned ClickHouse upgrades.
+It retired both old read-model projectors and their alerts, then enabled the
+finite importer after the old producers drained. That completed importer
+permanently retired PostgreSQL analytics history after acknowledged import.
+An image downgrade cannot restore it.
 
-For temporary relief from Codex memory-limit reclaim and major page-fault storms,
-update the pod template's `kubectl.kubernetes.io/restartedAt` timestamp in
-`deployment-codex.yaml` and let Fleet replace the pod. This interrupts in-flight
-sessions and releases process memory without changing limits. Verify container
-memory, major page-fault rate and node disk I/O after replacement; recurrence
-requires investigating process memory growth and session concurrency.
+Importer probes read the packaged private heartbeat helper directly. They avoid
+importing the full analytics worker under its half-CPU budget; repeated worker
+imports exceeded the probe deadline despite advancing historical checkpoints.
 
-### 0.0.29 release verification and rollback
+The importer reads AI enablement, full automation, the Codex model and server URL
+from `devfeed-automation`, matching the administration API's policy inputs. It
+does not receive Codex credentials or execute inference. Policy-specific card
+pages must be complete before readiness advances; during the October recovery,
+the separate cards-only warmup completed all five sources before these inputs
+were aligned. Historical checkpoints and the original capture boundary remain
+unchanged.
 
-The six image references and migration hook come from the successful `v0.0.29` CI
-image manifest. Verify registry mirror digest parity, Fleet desired/applied equality,
-ready workloads without new restarts, schema 0016, and live feed/settings behavior.
-If rollback is needed, revert this release commit through Git so images and pool
-configuration return together. Preserve database contents, PVCs and schema 0016;
-completed maintenance Jobs are intentionally left at their original image pins.
+## Priority worker resource review — 30 October 2026
 
-### 0.0.41 release verification and rollback
+The 30 October review reduced fifteen workers reserving 2,450m CPU and 5,312Mi
+memory to eleven workers reserving 1,950m CPU and 4,000Mi memory. On 31 October,
+the high and default pools were temporarily reduced from four to two replicas
+each. The current seven-worker layout reserves 1,150m CPU and 2,464Mi memory,
+including the unchanged Images and solver consumers:
 
-The six application image references and migration hook come from the successful
-`v0.0.41` CI image manifest at revision `b8748c09740f7d12438d399ad7b12d25b608ad9d`.
-Revision `0018` adds profile and reading-streak data. Revision `0019` maps historical
-topic kinds using `devfeed-topic-kind-map` before enforcing canonical values; review
-that operator map against current stored kinds before each deployment. Verify Harbor
-digest parity, Fleet desired/applied equality, ready replicas, schema `0019`,
-profile pages, and reader behavior. Extension ZIPs are version `0.1.11`; browser
-store publication is separate.
+| Pool | Replicas | CPU request per pod | Memory request per pod | Memory limit |
+| --- | ---: | ---: | ---: | ---: |
+| High | 2 | 200m | 384Mi | 1Gi |
+| Default | 2 | 200m | 384Mi | 1Gi |
+| Low | 1 | 100m | 256Mi | 1Gi |
+| Images | 1 | 150m | 256Mi | 512Mi |
+| Solver | 1 | 100m | 416Mi | 1Gi |
 
-If rollback is needed, revert the release commit through Git so image pins and the
-migration hook move together. Preserve database contents and do not roll back below
-schema `0019` without a coordinated downgrade plan.
+The preceding 24 hours of five-minute samples included active processing before
+quota pacing paused AI. Busy general workers had approximately 0.28–0.41-core
+CPU percentiles; their largest memory 95th percentile was 382Mi and observed
+peak was 506Mi. The 1Gi limits retain peak headroom, while CPU remains uncapped.
+Notification memory stayed below 178Mi at the 95th percentile. Changing routing
+overrides changes the work mix and may require new sizing.
 
-### 0.0.30 release verification and rollback
-
-The six application image references and migration hook come from the successful
-`v0.0.30` CI image manifest. Verify registry mirror digest parity, Fleet
-desired/applied equality, ready replicas without new restarts, schema `0017`,
-search-indexer reconciliation, and live search/onboarding behavior. The existing
-Typesense `30.2-arm64-lg-page16` deployment remains compatible with the release;
-no Typesense image or PVC change is required. The restricted reader query key is
-scoped to the stable aliases and existing `v1` collections. The indexer adds the
-new filter fields to the existing collections and preserves the stable aliases.
-Typesense search analytics is enabled on the retained search volume at
-`/data/analytics` and flushes every 60 seconds; the private admin API presents
-popular and no-result queries through the Search analytics page.
-
-If rollback is needed, revert this release commit through Git so application images
-and the migration-hook pin return together. Preserve database contents, search
-credentials, aliases and PVCs; do not roll back the database below schema `0017`
-without a coordinated downgrade plan.
-
-## Topic logo restoration (2026-09-27)
-
-The one-time `devfeed-restore-topic-logos-20260927-v2` Job restores the official
-standalone color icons for Kubernetes and Rancher. It uses audited update
-proposals and the existing review service, preserving topic identity, kind and
-other metadata. It fills Rancher's missing official website as well. Existing
-logos or pending edits block replacement; retries recognize already applied URLs.
-The Job uses the immutable 0.0.42 backend and remains in Git history after retirement.
-
-Kubernetes artwork is pinned to CNCF artwork commit
-`831f27a0cf4227b1b76a28ff51a9f4127a2195ec`; Rancher uses the cow icon linked from
-<https://www.rancher.com/brand-guidelines>. Both direct SVGs returned HTTP 200 and
-`image/svg+xml` before rollout. Automatic branding enrichment for all kinds is a
-separate application change and is not enabled by this restoration.
-
-The initial Job failed validation before commit because the review payload omitted
-the full draft; its transaction rolled back. The v2 Job supplies the reviewed draft.
-
-The v2 Job completed successfully. Public API reads confirm both platform logos
-and Rancher's official website. Audit proposal IDs are
-`ea947f06-b60e-474d-865e-f8365974d919` (Kubernetes) and
-`bda360d6-42e5-4ce5-ac69-5e1bef398d0e` (Rancher). The completed Job is retired
-from desired state; its manifest and input evidence remain in Git history.
-
-## Agent connections
-
-Two ARM64 MCP replicas serve `https://mcp.devfeed.tech/mcp` through the Cloudflare
-tunnel. Public discovery calls only the public API. OAuth account tools call the
-user API through the private `user-api` Service alias and share its Redis database 10; MCP has no database or admin credentials.
-The reader advertises this endpoint, offers read-only/read-write consent and lists
-revocable connections. MCP egress is restricted to DNS, Redis and the two APIs.
-
-## Dedicated identity instance migration
-
-The coordinated migration to `auth.devfeed.tech` preserves existing reader
-account UUIDs, partner memberships and administrator preference data. See the
-[identity migration runbook](../../../../../docs/runbooks/devfeed-identity-migration.md).
-During the database cutover only, all three sign-in APIs are paused through
-Fleet; the public content API and reader remain deployed.
-
-The 2026-10-20 cutover mapped 34 ZITADEL users and 36 social identity links.
-It retained 33 existing DevFeed account UUIDs, three partner memberships and
-one administrator-preferences record. The source users were kept for rollback;
-existing browser sessions require a fresh sign-in with the new issuer.
-
-## Release 0.1.2 maintenance boundary
-
-The completed Fleet Job `devfeed-0-1-2-drain-84632622db` performed the owned
-warm drain using 0.1.1 and a bounded four-hour pause. It observed all fifteen
-replacement workers suspended, empty active execution transport and actual solver
-bridge exit. The following Fleet revision removed all fifteen worker Pods.
-This cutover retires that completed Job and its immutable ConfigMap; their source
-and validation remain in Git history, while the owned resume state stays in Redis.
-
-Keep all thirteen RQ worker Deployments and the scheduler at zero through schema
-`0034`, backfill and active core/read-model verification. Clear only the matching
-owned pause through the new-image resume Job with zero RQ consumers. Then restore
-the original fifteen worker replicas and scheduler together, verify full runtime
-health, and observe ordinary work for more than thirty minutes. Keep the normal
-worker health probes unchanged. Follow the [phased rollout](read-model-rollout.md).
+Lower reservations do not establish lower CPU usage or faster inference. After
+rollout, compare useful completions, queue age, working sets, probe failures and
+restarts through representative active processing. Daily quota pacing remains
+an independent admission policy.

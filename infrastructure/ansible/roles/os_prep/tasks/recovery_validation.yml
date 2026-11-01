@@ -1,0 +1,51 @@
+---
+- name: Verify exact managed netconsole targets and receiver health
+  ansible.builtin.command:
+    argv: [python3, /usr/local/libexec/home-lab-node-recovery, validate]
+  changed_when: false
+
+- name: Verify PID 1 has no runtime watchdog interval
+  ansible.builtin.command: systemctl show --property=RuntimeWatchdogUSec --value
+  register: os_prep_recovery_runtime_timeout
+  changed_when: false
+
+- name: Require the retired hardware watchdog to be disarmed
+  ansible.builtin.command:
+    argv: [python3, '-']
+    stdin: |
+      import pathlib
+      root = pathlib.Path('/sys/class/watchdog/watchdog0')
+      assert not root.exists() or (root / 'state').read_text().strip() == 'inactive'
+      assert not pathlib.Path('/etc/systemd/system.conf.d/90-home-lab-recovery.conf').exists()
+  changed_when: false
+
+- name: Require the default disabled runtime watchdog policy
+  ansible.builtin.assert:
+    that:
+      - os_prep_recovery_runtime_timeout.stdout == '0'
+    fail_msg: Another runtime watchdog setting remains active; inspect manager configuration.
+
+- name: Check enabled boot and health timer units
+  ansible.builtin.command:
+    argv: [systemctl, is-enabled, home-lab-netconsole.service, home-lab-boot-evidence.service, home-lab-recovery-health.timer]
+  changed_when: false
+
+- name: Check active netconsole and recovery timer units
+  ansible.builtin.command:
+    argv: [systemctl, is-active, home-lab-netconsole.service, home-lab-recovery-health.timer]
+  changed_when: false
+
+- name: Require an active independent receiver on control-plane nodes
+  ansible.builtin.command: systemctl is-active home-lab-kernel-receiver.service
+  changed_when: false
+  when: inventory_hostname in groups['k3s_servers']
+
+- name: Verify node readiness after changing host policy
+  ansible.builtin.command:
+    argv: [kubectl, get, node, "{{ node_identity.hostname }}", '-o', 'jsonpath={.status.conditions[?(@.type=="Ready")].status}']
+  delegate_to: "{{ groups['k3s_servers'][0] }}"
+  register: os_prep_recovery_node_ready
+  changed_when: false
+  retries: 6
+  delay: 5
+  until: os_prep_recovery_node_ready.stdout == 'True'

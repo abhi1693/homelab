@@ -19,6 +19,12 @@ requirements, and regression fixtures remain private under `.github/`.
   Unrendered Helm generators are omitted rather than exempted from parsing.
   Declarative references to those
   resource kinds do not contain the resource payload and may remain public.
+- Keep private client deployment files under their dedicated private Fleet
+  subtree. The exporter omits configured client trees and files whose paths or
+  text contain configured client names, including shared infrastructure
+  configuration that refers to them. Do not put client manifests elsewhere or
+  rely on name checks to detect encoded or indirect references. Review the
+  actual export before publication.
 - Remove credential-derived fingerprint annotations from exported manifests.
   Keep the private manifests unchanged.
 - Rebuild the public checkout from the validated staging tree, removing stale
@@ -103,3 +109,9 @@ public repository. They do not replace the export policy or certificate checks.
 
 See [GitHub's removal procedure](https://docs.github.com/en/authentication/keeping-your-account-and-data-secure/removing-sensitive-data-from-a-repository)
 and the [official git-filter-repo documentation](https://github.com/newren/git-filter-repo/blob/main/Documentation/git-filter-repo.txt).
+
+The exact `infrastructure/ansible/roles/os_prep/templates/node-recovery.json.j2`
+generator is excluded because its JSON becomes valid only after rendering private
+inventory and physical network facts. Runtime topology is never exported. This
+exception removes a file; it does not waive structured-input parsing for any
+other path. The generic receiver and validation code remains publishable.

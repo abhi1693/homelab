@@ -18,3 +18,8 @@ direct database writer. It runs the current release image and must succeed befor
 Helm replaces application workloads. Obsolete release-specific Job names have
 been removed from the allowlist. Application traffic continues through its
 separate pooler policy.
+
+The finite `devfeed-analytics-importer` also uses the direct writer while importing
+and retiring frozen historical analytics. It shares the narrowly scoped migration
+ingress allowlist. The old read-model-specific pooler and network policies are
+retired after both projector Deployments stop.

@@ -63,7 +63,7 @@ spec:
       initContainers:
         - name: wait-for-api-rollout
           # renovate: datasource=docker depName=ghcr.io/abhi1693/wardn-hub-backend
-          image: registry.home/ghcr.io/abhi1693/wardn-hub-backend:0.2.182@sha256:7cb87a9c3b55c7e33cb532d6196bf25304f06774895305daa1ed8775e43d92c3
+          image: registry.home/ghcr.io/abhi1693/wardn-hub-backend:0.2.184@sha256:028e043f33480147a7a17696eeb38bcf4e72e66c431060929a7b518bd6ab6a78
           imagePullPolicy: IfNotPresent
           command:
             - python
@@ -97,7 +97,7 @@ spec:
       containers:
         - name: worker
           # renovate: datasource=docker depName=ghcr.io/abhi1693/wardn-hub-backend
-          image: registry.home/ghcr.io/abhi1693/wardn-hub-backend:0.2.182@sha256:7cb87a9c3b55c7e33cb532d6196bf25304f06774895305daa1ed8775e43d92c3
+          image: registry.home/ghcr.io/abhi1693/wardn-hub-backend:0.2.184@sha256:028e043f33480147a7a17696eeb38bcf4e72e66c431060929a7b518bd6ab6a78
           imagePullPolicy: IfNotPresent
           command:
             - python

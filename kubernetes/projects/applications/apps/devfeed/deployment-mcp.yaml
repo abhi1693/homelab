@@ -25,6 +25,7 @@ spec:
         app.kubernetes.io/name: devfeed-mcp
         app.kubernetes.io/part-of: devfeed
         devfeed-redis-client: 'true'
+        devfeed-clickhouse-client: 'true'
     spec:
       serviceAccountName: devfeed
       automountServiceAccountToken: false
@@ -48,14 +49,14 @@ spec:
       containers:
       - name: mcp
         # renovate: datasource=docker depName=ghcr.io/abhi1693/devfeed.tech/mcp
-        image: registry.home/ghcr.io/abhi1693/devfeed.tech/mcp:0.1.2@sha256:2350e88dd3656d67d773840816e5e1f9a308ee4746edf26c3b20c3ab777807e4
+        image: registry.home/ghcr.io/abhi1693/devfeed.tech/mcp:0.1.8@sha256:5980ec30c146cca6a0d881306ebb267996c315197ad66b9fe05e4b3f0fb2a46c
         imagePullPolicy: IfNotPresent
         resources:
           requests:
-            cpu: 50m
+            cpu: 10m
             memory: 128Mi
           limits:
-            memory: 512Mi
+            memory: 256Mi
         securityContext:
           runAsNonRoot: true
           runAsUser: 10001
@@ -109,6 +110,11 @@ spec:
           periodSeconds: 10
           timeoutSeconds: 5
           failureThreshold: 30
+        envFrom:
+        - configMapRef:
+            name: devfeed-clickhouse-client
+        - secretRef:
+            name: devfeed-clickhouse-worker
       volumes:
       - name: tmp
         emptyDir: {}

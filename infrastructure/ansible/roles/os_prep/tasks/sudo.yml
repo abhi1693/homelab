@@ -1,0 +1,16 @@
+---
+- name: Validate the explicit automation account before managing sudo
+  ansible.builtin.assert:
+    that:
+      - ansible_user is match('^[a-z_][a-z0-9_-]*$')
+      - ansible_user != 'root'
+    fail_msg: Set a non-root automation account in ansible_user.
+
+- name: Persist passwordless sudo for the inventory automation account
+  ansible.builtin.copy:
+    dest: "/etc/sudoers.d/90-{{ ansible_user }}"
+    content: "{{ ansible_user }} ALL=(ALL:ALL) NOPASSWD: ALL\n"
+    owner: root
+    group: root
+    mode: '0440'
+    validate: /usr/sbin/visudo -cf %s

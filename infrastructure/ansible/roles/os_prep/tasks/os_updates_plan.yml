@@ -1,14 +1,15 @@
 ---
+- name: Validate the supported Ubuntu host
+  ansible.builtin.include_tasks: profile.yml
+
 - name: Require fresh metadata for the OS maintenance plan
   ansible.builtin.assert:
     that:
       - not ansible_check_mode
-      - ansible_facts.distribution == 'Debian'
-      - ansible_facts.distribution_major_version == '13'
       - ansible_facts.pkg_mgr == 'apt'
       - os_prep.package_replacements | default({}) is mapping
     fail_msg: >-
-      Use this Debian 13 workflow without --check so APT metadata can be refreshed.
+      Use this Ubuntu 26.04 workflow without --check so APT metadata can be refreshed.
       Use os_prep_entrypoint=os_updates_plan to simulate changes without installing or rebooting.
 
 - name: Check that the package database has no incomplete operations
@@ -52,7 +53,7 @@
 - name: Converge the inventory-managed APT source transport policy
   ansible.builtin.include_tasks: apt_sources.yml
 
-- name: Refresh current Debian package metadata
+- name: Refresh current Ubuntu package metadata
   ansible.builtin.apt:
     update_cache: true
     cache_valid_time: 0

@@ -1,0 +1,24 @@
+---
+name: longhorn-storage-pools
+defaultNamespace: longhorn-system
+labels:
+  app.kubernetes.io/name: longhorn-storage-pools
+  app.kubernetes.io/part-of: longhorn
+  home-lab.io/project-slug: system
+dependsOn:
+  - name: longhorn-maintenance-policy
+diff:
+  comparePatches:
+    - apiVersion: storage.k8s.io/v1
+      kind: StorageClass
+      name: longhorn-workers
+      jsonPointers:
+        - /metadata/annotations/storageclass.kubernetes.io~1is-default-class
+    - apiVersion: helm.cattle.io/v1
+      kind: HelmChartConfig
+      name: longhorn
+      namespace: kube-system
+      jsonPointers:
+        - /spec/values/persistence
+helm:
+  takeOwnership: true

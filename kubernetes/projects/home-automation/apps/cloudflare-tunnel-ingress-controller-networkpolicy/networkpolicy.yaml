@@ -125,17 +125,6 @@ spec:
     - to:
         - namespaceSelector:
             matchLabels:
-              kubernetes.io/metadata.name: launchboard
-          podSelector:
-            matchLabels:
-              app.kubernetes.io/name: launchboard
-              app.kubernetes.io/component: web
-      ports:
-        - protocol: TCP
-          port: 3000
-    - to:
-        - namespaceSelector:
-            matchLabels:
               kubernetes.io/metadata.name: shipyardhq
           podSelector:
             matchLabels:
@@ -188,17 +177,6 @@ spec:
       ports:
         - protocol: TCP
           port: 8000
-    - to:
-        - namespaceSelector:
-            matchLabels:
-              kubernetes.io/metadata.name: cattle-monitoring-system
-          podSelector:
-            matchLabels:
-              app.kubernetes.io/name: alloy
-              app.kubernetes.io/instance: alloy-faro
-      ports:
-        - protocol: TCP
-          port: 12347
     - to:
         - namespaceSelector:
             matchLabels:

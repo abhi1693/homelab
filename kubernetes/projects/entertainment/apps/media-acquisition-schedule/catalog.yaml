@@ -1,0 +1,25 @@
+---
+apiVersion: home-lab.io/v1alpha1
+kind: WorkloadCatalog
+metadata:
+  name: media-acquisition-schedule
+spec:
+  displayName: Media Acquisition Schedule
+  purpose: Run acquisition overnight on weekdays while retaining always-on playback and requests.
+  owner: home-lab
+  project: entertainment
+  cluster: home-k3s
+  lifecycle: active
+  criticality: medium
+  dataClassification: sensitive
+  repository: https://github.com/abhi1693/home-lab
+  gitPath: kubernetes/projects/entertainment/apps/media-acquisition-schedule
+  runbook: kubernetes/projects/entertainment/apps/media-acquisition-schedule/README.md
+  workloads:
+    - key: home-k3s/media/apps/deployment/media-acquisition-schedule
+      namespace: media
+      apiGroup: apps
+      kind: Deployment
+      name: media-acquisition-schedule
+      desiredReplicas: 1
+      sourcePath: kubernetes/projects/entertainment/apps/media-acquisition-schedule/deployment.yaml

@@ -21,8 +21,8 @@ through a Fleet `HelmOp`.
 Read, write, and backend microservice replicas are disabled. This is a compact
 home-lab deployment, not a horizontally scaled Loki topology. Two gateways remove
 a proxy singleton, but the single Loki process and NAS remain failure points.
-See the [HA review](../../../../../docs/runbooks/monitoring-ha-review.md) before
-changing replicas or storage; filesystem storage must not simply be scaled up.
+Filesystem storage must not simply be scaled up; a multi-writer deployment
+requires a supported shared object store and a reviewed topology change.
 
 The bundle namespaces its HelmOp and generated values in `fleet-local`;
 the data claim and NetworkPolicy belong in `cattle-monitoring-system`.
@@ -31,7 +31,7 @@ Loki storage. Do not delete it without reviewing data retention.
 
 ## Producers and Consumers
 
-`alloy-logs` and `alloy-faro` write logs through the Loki gateway. Grafana and
+`alloy-logs` and `alloy-node-logs` write logs through the Loki gateway. Grafana and
 Prometheus are allowed to query or scrape Loki according to the network policy.
 
 ## Network Boundary
@@ -48,8 +48,7 @@ entity to allow only the 443/6443 API path required by the rules sidecar.
 - Keep retention changes in `values.yaml`; do not tune the live StatefulSet by
   hand.
 - Keep the Loki self-monitor interval aligned with the cluster-wide 60-second
-  scrape policy; the previous 15-second chart default added ingestion without
-  useful extra resolution for this home-lab workload. The bundled recording
+  scrape policy. The bundled recording
   rules are disabled because their one-minute rate windows require 15-second
   samples, and no live dashboard consumes their output series.
 - Validate alongside `alloy-logs` when changing gateway or service naming.
@@ -115,12 +114,58 @@ expired Kubernetes entries before batching and counts them separately as
 and asynchronous chunk deletion enforce retention; deletion is not instantaneous
 at the 14-day boundary. Prometheus metric retention is independent.
 
-The gateway resolves the Loki Service address when NGINX starts. The chart's
-default `$request_uri` suffix makes NGINX resolve the backend on each request;
-intermittent DNS timeouts on that path caused 502 responses and permanent Alloy
-batch drops even while Loki was ready. The config override removes that suffix;
-NGINX forwards the original URI and query string without it. The five-second
-backend connection timeout remains, while query read/send timeouts use the chart
-defaults. If the Loki Service is recreated with a new ClusterIP, roll the gateway
-through Fleet so NGINX resolves the new address. Validate both direct Loki and
-gateway paths, then check Alloy drop counters and logs after rollout.
+The gateway resolves the Loki Service address when NGINX starts. Its explicit
+upstream override avoids per-request DNS resolution. Keep readiness, push and
+query paths valid, then verify fresh delivery, Alloy drop counters and gateway
+logs after configuration changes.
+
+## Native OTel node logs and retained replay
+
+The existing gateway's `/otlp/v1/logs` route accepts node Alloy OTel export.
+Explicit OTLP resource mappings preserve the existing `cluster`, `node`,
+`namespace`, `container`, `pod`, `job` and other bounded compatibility labels.
+Canonical OTel fields, boot IDs and original/observed timestamps remain
+structured metadata. Existing event push clients keep their formats.
+
+Time sharding places old replay into bounded time buckets, permitting replay
+alongside newer records without increasing `max_chunk_age`. Both
+`querier.query_ingesters_within` and the filesystem-only
+`ingester.query_store_max_look_back_period` are 336h. In Loki 3.6.17 the latter
+otherwise overrides the querier window with a calculated roughly 2h41m value,
+making older ingester replay temporarily invisible. A pinned runtime fixture
+checks fresh and three-hour-old records in the same stream. Remove/review the
+filesystem-only option as part of an object-storage migration.
+
+WAL replay is capped at 1GB to retain headroom within the existing 2Gi process
+limit. This does not remove NFS failure dependencies or establish power-loss
+durability. Keep WAL-progress, permanent-drop/rejection and node OTel alerts
+visible together. See the [OS incident runbook](../../../../../docs/runbooks/incident-coverage.md)
+for coverage, query examples and SSH evidence collection.
+
+## Resource review — 28 October 2026
+
+Values use the 28 October historical review in
+[the resource policy](../../../../../docs/runbooks/kubernetes-resource-policy.md#2026-10-28-historical-resource-review).
+CPU reservations cover measured sustained demand with headroom; existing burst
+policies remain in place. Memory caps preserve the observed fourteen-day peaks
+and extra headroom where OOM records show clipping.
+
+| Container / value path | CPU request | Memory request | Memory limit |
+| --- | --- | --- | --- |
+| `cattle-monitoring-system/loki/loki` | 250m → 100m | 768Mi → 768Mi | 2Gi → 2560Mi |
+
+## Backend placement
+
+The single-binary backend runs on ARM64 workers and excludes control-plane
+nodes. Its retained NFS PVC and WAL remain in place. Two control-plane nodes
+lost network connectivity during successive backend placements on 2026-10-28;
+this correlation does not establish a root cause. Worker placement protects
+embedded-etcd quorum from replay/NAS traffic while that failure is investigated.
+The lightweight gateway replicas retain their existing placement.
+
+## Fleet status refresh
+
+The HelmOp metadata annotation `home-lab.io/status-reconcile-at` records the
+latest Git-managed request to refresh its health summary after workload recovery.
+Follow the [operational workflow](../../../../../README.md#operational-workflow)
+and verify both the child bundle and live workload before requesting another refresh.

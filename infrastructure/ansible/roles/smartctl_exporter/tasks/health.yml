@@ -1,0 +1,25 @@
+---
+- name: Validate physical device SMART and NVMe health without running self-tests
+  ansible.builtin.command:
+    argv:
+      - python3
+      - -c
+      - |
+        import json
+        import subprocess
+        scan = json.loads(subprocess.check_output(['smartctl', '--scan', '--json'], text=True))
+        devices = scan.get('devices', [])
+        assert devices, 'No SMART devices discovered'
+        checked = []
+        for device in devices:
+            command = ['smartctl', '--json', '--all', '--device', device['type'], device['name']]
+            result = subprocess.run(command, text=True, capture_output=True)
+            assert result.returncode & 15 == 0, 'SMART command/current health failure: ' + device['name']
+            data = json.loads(result.stdout)
+            assert data.get('smart_status', {}).get('passed') is True, 'SMART health not passed: ' + device['name']
+            nvme = data.get('nvme_smart_health_information_log', {})
+            assert nvme.get('critical_warning', 0) == 0, 'NVMe critical warning: ' + device['name']
+            checked.append({'device': device['name'], 'passed': True, 'nvmeCriticalWarning': nvme.get('critical_warning'),
+                            'mediaErrors': nvme.get('media_errors'), 'temperature': data.get('temperature', {}).get('current')})
+        print(json.dumps(checked))
+  changed_when: false

@@ -1,11 +1,14 @@
 ---
+- name: Validate the Ubuntu vendor boot layout before changing host settings
+  ansible.builtin.include_tasks: boot_profile.yml
+
 - name: Gather service facts
   ansible.builtin.service_facts:
 
-- name: Check Raspberry Pi swap config path
-  ansible.builtin.stat:
-    path: /etc/rpi/swap.conf
-  register: rpi_swap_conf_stat
+- name: Remove Ubuntu configuration for firmware-disabled wireless interfaces
+  ansible.builtin.include_tasks: wireless.yml
+  when:
+    - "'dtoverlay=disable-wifi' in rpi_prep.required_config_lines"
 
 - name: Remove swap entries from fstab
   ansible.builtin.lineinfile:
@@ -14,47 +17,35 @@
     state: absent
   when: rpi_prep.disable_swap | bool
 
-- name: Ensure rpi-swap drop-in directory exists
-  ansible.builtin.file:
-    path: /etc/rpi/swap.conf.d
-    state: directory
-    owner: root
-    group: root
-    mode: "0755"
-  when:
-    - rpi_prep.disable_swap | bool
-    - rpi_swap_conf_stat.stat.exists
-
-- name: Disable rpi-swap managed swap
-  ansible.builtin.copy:
-    content: |
-      [Main]
-      Mechanism=none
-    dest: /etc/rpi/swap.conf.d/90-disable-swap.conf
-    owner: root
-    group: root
-    mode: "0644"
-  when:
-    - rpi_prep.disable_swap | bool
-    - rpi_swap_conf_stat.stat.exists
-  notify: Reboot host
-
-- name: Stop and disable dphys-swapfile
-  ansible.builtin.systemd:
-    name: dphys-swapfile.service
-    state: stopped
-    enabled: false
-    masked: true
-  when:
-    - rpi_prep.disable_swap | bool
-    - "'dphys-swapfile.service' in ansible_facts.services"
-
 - name: Disable active swap
   ansible.builtin.command: swapoff -a
   when:
     - rpi_prep.disable_swap | bool
     - ansible_facts.swaptotal_mb | int > 0
   changed_when: ansible_facts.swaptotal_mb | int > 0
+
+- name: Persist K3s host networking and filesystem modules
+  ansible.builtin.copy:
+    dest: /etc/modules-load.d/home-lab-k3s.conf
+    content: "{{ rpi_prep.required_kernel_modules | join('\n') }}\n"
+    owner: root
+    group: root
+    mode: '0644'
+
+- name: Inspect K3s host modules before loading
+  ansible.builtin.stat:
+    path: "/sys/module/{{ item }}"
+  loop: "{{ rpi_prep.required_kernel_modules }}"
+  register: rpi_modules_before
+
+- name: Load missing K3s host networking and filesystem modules
+  ansible.builtin.command:
+    argv: [modprobe, "{{ item.item }}"]
+  loop: "{{ rpi_modules_before.results }}"
+  loop_control:
+    label: "{{ item.item }}"
+  when: not item.stat.exists
+  changed_when: true
 
 - name: Ensure K3s kernel tunables file is present
   ansible.builtin.template:
@@ -121,22 +112,10 @@
     state: started
   changed_when: false
 
-- name: Check Raspberry Pi cmdline path
-  ansible.builtin.stat:
-    path: /boot/firmware/cmdline.txt
-  register: rpi_cmdline_path_stat
-
 - name: Check Raspberry Pi boot config path
   ansible.builtin.stat:
     path: /boot/firmware/config.txt
   register: rpi_config_path_stat
-
-- name: Assert Raspberry Pi cmdline path exists
-  ansible.builtin.assert:
-    that:
-      - rpi_cmdline_path_stat.stat.exists
-    fail_msg: Could not find /boot/firmware/cmdline.txt
-    success_msg: Using Raspberry Pi cmdline file /boot/firmware/cmdline.txt
 
 - name: Assert Raspberry Pi boot config path exists
   ansible.builtin.assert:
@@ -145,24 +124,11 @@
     fail_msg: Could not find /boot/firmware/config.txt
     success_msg: Using Raspberry Pi boot config file /boot/firmware/config.txt
 
-- name: Read current boot cmdline
-  ansible.builtin.slurp:
-    path: /boot/firmware/cmdline.txt
-  register: rpi_cmdline_raw
-
-- name: Record current boot cmdline
-  ansible.builtin.set_fact:
-    rpi_cmdline_current: "{{ rpi_cmdline_raw.content | b64decode | trim }}"
-
-- name: Ensure required boot params are present
-  ansible.builtin.lineinfile:
-    path: /boot/firmware/cmdline.txt
-    regexp: '^(.*)$'
-    line: '\1 {{ item }}'
-    backrefs: true
-  loop: "{{ rpi_prep.required_cmdline_params }}"
-  when: item not in rpi_cmdline_current.split()
-  notify: Reboot host
+- name: Prepare current and staged boot command lines
+  ansible.builtin.include_tasks: cmdline.yml
+  loop: "{{ rpi_cmdline_paths }}"
+  loop_control:
+    loop_var: rpi_cmdline_file
 
 - name: Ensure required Raspberry Pi boot config lines are present
   ansible.builtin.lineinfile:

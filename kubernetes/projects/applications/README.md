@@ -23,15 +23,11 @@ secret contract each app expects.
 | `applications-helm-repositories` | Registers chart repositories used by this project. | None | Rancher ClusterRepo. |
 | `firefly-iii-storage` | Persistent storage support for Firefly III. | None | NFS CSI upload PVC. |
 | `firefly-iii` | Personal finance app. | Internal Traefik at `finance.home`. | PostgreSQL pooler, NFS upload PVC, SOPS Secret. |
-| `hyperlocal-kitchen` | Paused marketplace and admin portal: UI, APIs, worker, Redis, and dedicated PostgreSQL pooler at zero replicas; migrations suspended and data retained. | Retained Cloudflare Tunnel admin/member API hostnames have no running backend. | PostgreSQL pooler, persistent Redis, Zitadel, SOPS, Harbor images. |
 | `harbor` | Local registry and proxy/cache registry. | Internal Traefik at `registry.home`. | PostgreSQL, Valkey, retained NFS storage, monitoring. |
 | `personal-blog` | Public personal blog. | Cloudflare Tunnel at `blog.abhimanyu-saharan.com`. | Harbor image, Sanity webhook secret, ConfigMap. |
 | `portfolio` | Public portfolio site. | Cloudflare Tunnel at `abhimanyu-saharan.com`. | Harbor image, runtime config. |
 | `shipyardhq` | Public app with web, worker, image proxy, build job, and media storage. | Cloudflare Tunnel at `shipyardhq.dev` and image hostnames. | PostgreSQL, Valkey, R2, NFS build cache, Harbor image. |
-| `wardn-ai` | Paused agent platform: API, frontend, worker, WhatsApp bridge, and dedicated PostgreSQL pooler at zero replicas. | Internal Traefik at `ai.home` and `wa.bridge.ai.home`. | PostgreSQL pooler, NFS and Longhorn PVCs, Wardn Hub. |
-| `wardn-ai-website` | Public Wardn AI product website. | Cloudflare Tunnel at `wardnai.dev`. | Wardn namespace, Harbor image. |
 | `wardn-hub` | Wardn Hub API, frontend, and scoring online; consolidated worker and Codex automation temporarily paused, with resources and data retained. | Cloudflare Tunnel at `hub.wardnai.dev`. | PostgreSQL, OpenTelemetry, NFS build cache, Longhorn Codex state, Harbor image. |
-| `wardn-license-server` | Signed entitlement issuer, Dodo fulfillment worker, and administration console. | Cloudflare Tunnel at `licenses.wardnai.dev`. | PostgreSQL pooler, Zitadel, Dodo, SOPS secrets, Harbor images. |
 | `zitadel` | Central identity provider on v4.19.4 for app OIDC/SAML authentication, with signed Login UI cookies and a bounded GitHub registration retry. | Cloudflare Tunnel at `auth.abhimanyu-saharan.com`. | PostgreSQL, SOPS bootstrap secrets, monitoring. |
 
 ## Coupling Patterns
@@ -60,13 +56,3 @@ state, what services it consumes, and what secrets must exist.
 - Keep app-owned runtime secrets out of Git unless they are SOPS encrypted.
 - Add app-specific README files when the app has non-obvious storage, jobs,
   migrations, workers, or webhook behavior.
-
-## Retired services
-
-OpenBao has been removed from Fleet and the live cluster, including its Helm
-repository, Cluster Ops profile, Wardn AI integration, seal and initialization
-secrets, and retained `data-openbao-0` PVC. The PV and backing Longhorn volume,
-replicas, engine, and snapshot were also removed. A temporary Fleet-managed Job
-performed the PVC deletion; its bundle and permissions were removed afterward.
-The shared `wardn` namespace remains in use. Encrypted secret copies remain in
-Git history, and historical storage-recovery runbooks remain as evidence.

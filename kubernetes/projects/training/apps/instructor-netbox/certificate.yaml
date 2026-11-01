@@ -1,0 +1,13 @@
+---
+apiVersion: cert-manager.io/v1
+kind: Certificate
+metadata:
+  name: instructor-netbox
+  namespace: instructor
+spec:
+  secretName: instructor-netbox-tls
+  dnsNames:
+  - instructor.netbox.home
+  issuerRef:
+    name: home-local-ca
+    kind: ClusterIssuer

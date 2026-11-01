@@ -31,16 +31,7 @@
         - /usr/local/bin/k3s
         - /etc/rancher/k3s/config.yaml
         - /etc/rancher/k3s/registries.yaml
-        - /etc/default/rpi-eeprom-update
       register: os_prep_os_files_before
-
-    - name: Inspect the current automatic firmware update state
-      ansible.builtin.include_tasks: os_updates_firmware.yml
-
-    - name: Preserve the existing automatic EEPROM service policy
-      ansible.builtin.set_fact:
-        os_prep_os_firmware_service_before: "{{ (os_prep_os_firmware_state.stdout | from_json).service_enabled }}"
-        os_prep_os_firmware_version_before: "{{ (os_prep_os_firmware_state.stdout | from_json).BOOTLOADER_CURRENT }}"
 
     - name: Preserve the existing APT package holds
       ansible.builtin.command: apt-mark showhold
@@ -48,7 +39,7 @@
       changed_when: false
       check_mode: false
 
-    - name: Upgrade packages from the existing Debian repositories
+    - name: Upgrade packages from the configured Ubuntu repositories
       ansible.builtin.apt:
         upgrade: dist
         update_cache: false
@@ -68,9 +59,6 @@
         - name: Determine the installed kernel selected for the next boot
           ansible.builtin.include_tasks: os_updates_kernel.yml
 
-        - name: Inspect any firmware update pending after the package update
-          ansible.builtin.include_tasks: os_updates_firmware.yml
-
         - name: Check whether a system reboot is pending
           ansible.builtin.stat:
             path: /var/run/reboot-required
@@ -78,13 +66,12 @@
 
         - name: Reboot this node to load updated kernel and userspace components
           ansible.builtin.reboot:
-            msg: Reboot after the serial Debian installed-package update.
+            msg: Reboot after the serial Ubuntu installed-package update.
             reboot_timeout: 900
             connect_timeout: 10
             post_reboot_delay: 20
           when: >-
             os_prep_os_packages_update.changed or os_prep_os_reboot_required.stat.exists or
-            (os_prep_os_firmware_state.stdout | from_json).reboot_pending or
             (os_prep_os_kernel_state.stdout | from_json).running_kernel !=
             (os_prep_os_kernel_state.stdout | from_json).expected_kernel
 
@@ -92,35 +79,6 @@
           ansible.builtin.include_tasks: os_updates_health.yml
           vars:
             os_prep_os_health_phase: recovery
-
-        - name: Inspect the existing automatic EEPROM updater after boot
-          ansible.builtin.include_tasks: os_updates_firmware.yml
-
-        - name: Complete a firmware update recorded by the existing OS updater
-          when: (os_prep_os_firmware_state.stdout | from_json).reboot_pending
-          block:
-            - name: Require current-boot proof for the pending firmware reboot
-              ansible.builtin.assert:
-                that:
-                  - (os_prep_os_firmware_state.stdout | from_json).pending_staged_this_boot
-                fail_msg: Old firmware update state remains after reboot; stop instead of repeating an unsuccessful update.
-
-            - name: Require full recovery before the bounded firmware reboot
-              ansible.builtin.include_tasks: os_updates_health.yml
-              vars:
-                os_prep_os_health_phase: preflight
-
-            - name: Reboot once more to complete the automatic EEPROM update
-              ansible.builtin.reboot:
-                msg: Complete the existing automatic EEPROM update during serial OS maintenance.
-                reboot_timeout: 900
-                connect_timeout: 10
-                post_reboot_delay: 20
-
-            - name: Require full recovery after the firmware reboot
-              ansible.builtin.include_tasks: os_updates_health.yml
-              vars:
-                os_prep_os_health_phase: recovery
 
         - name: Validate the installed-package and kernel result
           ansible.builtin.include_tasks: os_updates_validation.yml

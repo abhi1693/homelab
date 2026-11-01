@@ -7,11 +7,38 @@ argument_specs:
         type: dict
         required: true
         options:
+          manage_passwordless_sudo:
+            type: bool
+            required: false
+            default: false
+            description:
+              - Manage and validate the inventory automation account sudo rule.
           timezone:
             type: str
             required: true
             description:
               - System timezone to enforce on the host.
+          logging:
+            type: dict
+            required: true
+            description:
+              - Persistent journal and bounded local OpenTelemetry payload policy.
+            options:
+              journal_system_max_use: {type: str, required: true}
+              journal_system_keep_free: {type: str, required: true}
+              journal_runtime_max_use: {type: str, required: true}
+              journal_max_retention: {type: str, required: true}
+              journal_sync_interval: {type: str, required: true}
+              journal_rate_limit_interval: {type: str, required: true}
+              journal_rate_limit_burst: {type: int, required: true}
+              queue_directory: {type: path, required: true}
+              queue_image: {type: path, required: true}
+              queue_size_mib: {type: int, required: true}
+              queue_reserve_mib: {type: int, required: true}
+          macb_tx_workaround:
+            type: bool
+            required: false
+            default: false
           common_packages:
             type: list
             elements: str
@@ -23,7 +50,7 @@ argument_specs:
             type: dict
             required: false
             description:
-              - Installed package names and minimum acceptable Debian versions.
+              - Installed package names and minimum acceptable package versions.
           distrusted_ca_sha256:
             type: list
             elements: str
@@ -42,6 +69,25 @@ argument_specs:
             required: false
             description:
               - Package removals allowed only when the named replacement is installed in the same transaction.
+          ubuntu_archive_uri:
+            type: str
+            required: true
+          ubuntu_suites:
+            type: list
+            elements: str
+            required: true
+          required_nfs_exports:
+            type: list
+            elements: dict
+            required: false
+            default: []
+            options:
+              server:
+                type: str
+                required: true
+              share:
+                type: str
+                required: true
           apt_https_sources:
             type: list
             elements: dict

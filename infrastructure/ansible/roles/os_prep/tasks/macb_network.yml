@@ -1,0 +1,127 @@
+---
+- name: Validate the explicit network canary and entrypoint
+  ansible.builtin.assert:
+    that:
+      - macb_network_entrypoint | default('main') in ['main', 'validation']
+      - ansible_facts.architecture == 'aarch64'
+      - ansible_facts.distribution == 'Ubuntu'
+      - ansible_facts.default_ipv4.interface == 'eth0'
+      - ansible_facts.default_ipv4.address == ansible_host
+    fail_msg: Review host topology before applying the macb canary workaround.
+
+- name: Read the NIC driver and feature baseline without changing it
+  ansible.builtin.command:
+    argv: [python3, '-']
+    stdin: |
+      import pathlib, subprocess
+      assert 'DRIVER=macb' in pathlib.Path('/sys/class/net/eth0/device/uevent').read_text().splitlines()
+      print(subprocess.check_output(['/usr/sbin/ethtool', '-k', 'eth0'], text=True))
+  register: os_prep_macb_baseline
+  changed_when: false
+  check_mode: false
+
+- name: Report the selected non-reboot network plan
+  ansible.builtin.debug:
+    msg: Disable only TSO and scatter-gather on eth0, retain a baseline, and collect minute NIC evidence; no link flap, K3s restart or host reboot.
+  when: ansible_check_mode
+
+- name: Converge the explicit network canary
+  when: macb_network_entrypoint | default('main') == 'main' and not ansible_check_mode
+  block:
+    - name: Create the protected original-feature snapshot directory
+      ansible.builtin.file:
+        path: /var/lib/home-lab-node-network
+        state: directory
+        owner: root
+        group: root
+        mode: '0700'
+
+    - name: Retain the first feature baseline without overwriting it
+      ansible.builtin.copy:
+        content: "{{ os_prep_macb_baseline.stdout }}\n"
+        dest: /var/lib/home-lab-node-network/offloads-before.txt
+        force: false
+        owner: root
+        group: root
+        mode: '0600'
+
+    - name: Install read-only network validation and evidence collection
+      ansible.builtin.copy:
+        src: macb_network.py
+        dest: /usr/local/libexec/home-lab-macb-network
+        owner: root
+        group: root
+        mode: '0755'
+      register: os_prep_macb_program
+
+    - name: Install the persistent offload mitigation unit
+      ansible.builtin.template:
+        src: home-lab-macb-offloads.service.j2
+        dest: /etc/systemd/system/home-lab-macb-offloads.service
+        owner: root
+        group: root
+        mode: '0644'
+      register: os_prep_macb_unit
+
+    - name: Create the existing health service drop-in directory
+      ansible.builtin.file:
+        path: /etc/systemd/system/home-lab-recovery-health.service.d
+        state: directory
+        owner: root
+        group: root
+        mode: '0755'
+
+    - name: Add bounded NIC evidence to the existing minute health check
+      ansible.builtin.copy:
+        content: |
+          [Service]
+          ExecStartPost=/usr/bin/python3 /usr/local/libexec/home-lab-macb-network metrics
+        dest: /etc/systemd/system/home-lab-recovery-health.service.d/30-macb.conf
+        owner: root
+        group: root
+        mode: '0644'
+      register: os_prep_macb_health
+
+    - name: Apply the canary offload mitigation without restarting the interface  # noqa no-handler
+      ansible.builtin.systemd_service:
+        name: home-lab-macb-offloads.service
+        daemon_reload: true
+        enabled: true
+        state: "{{ 'restarted' if os_prep_macb_unit is changed or os_prep_macb_program is changed else 'started' }}"
+
+    - name: Refresh the existing health service once  # noqa no-handler
+      ansible.builtin.systemd_service:
+        name: home-lab-recovery-health.service
+        state: started
+
+- name: Validate the exact offload state
+  ansible.builtin.command:
+    argv: [python3, /usr/local/libexec/home-lab-macb-network, validate]
+  changed_when: false
+  when: not ansible_check_mode
+
+- name: Verify mitigation persists on boot
+  ansible.builtin.command:
+    argv: [systemctl, is-enabled, home-lab-macb-offloads.service]
+  changed_when: false
+  when: not ansible_check_mode
+
+- name: Verify the canary can reach independent API servers
+  ansible.builtin.wait_for:
+    host: "{{ hostvars[item].ansible_host }}"
+    port: 6443
+    connect_timeout: 3
+    timeout: 10
+  loop: "{{ groups['k3s_servers'] }}"
+  when: not ansible_check_mode
+
+- name: Verify the canary remains Kubernetes Ready
+  ansible.builtin.command:
+    argv: [kubectl, get, node, "{{ node_identity.hostname }}", '-o', 'jsonpath={.status.conditions[?(@.type=="Ready")].status}']
+  delegate_to: "{{ groups['k3s_servers'][0] }}"
+  register: os_prep_macb_ready
+  changed_when: false
+  retries: 6
+  delay: 5
+  until: os_prep_macb_ready.stdout == 'True'
+  when: not ansible_check_mode

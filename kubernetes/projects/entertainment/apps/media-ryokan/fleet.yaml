@@ -20,5 +20,5 @@ diff:
       jsonPointers:
         - /spec/volumeName
 helm:
-  timeoutSeconds: 2400
+  timeoutSeconds: 5400
   takeOwnership: true

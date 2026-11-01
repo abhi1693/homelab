@@ -1,0 +1,29 @@
+#!/usr/bin/python3
+"""Emit one harmless INFO fixture, including actual bounded-spool free space."""
+
+import json
+import os
+from pathlib import Path
+import subprocess
+import time
+
+
+def main():
+    queue = os.statvfs('/var/lib/alloy-node-logs/otel')
+    record = {
+        'event': 'os-log-canary',
+        'node': os.uname().nodename,
+        'boot_id': Path('/proc/sys/kernel/random/boot_id').read_text().strip(),
+        'unix_time': int(time.time()),
+        'queue_available_bytes': queue.f_bavail * queue.f_frsize,
+        'queue_capacity_bytes': queue.f_blocks * queue.f_frsize,
+    }
+    subprocess.run([
+        '/usr/bin/logger', '--socket', '/run/systemd/journal/dev-log',
+        '--priority', 'user.info', '--tag', 'home-lab-log-canary',
+        '--', json.dumps(record, separators=(',', ':')),
+    ], check=True, timeout=5)
+
+
+if __name__ == '__main__':
+    main()

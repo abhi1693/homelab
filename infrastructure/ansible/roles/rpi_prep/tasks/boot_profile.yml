@@ -1,0 +1,19 @@
+---
+- name: Require the supported Ubuntu Raspberry Pi boot layout
+  ansible.builtin.assert:
+    that:
+      - ansible_facts.distribution == 'Ubuntu'
+      - ansible_facts.distribution_version == '26.04'
+      - ansible_facts.architecture == 'aarch64'
+    fail_msg: Ubuntu Server 26.04 LTS ARM64 is required.
+
+- name: Inspect staged Ubuntu trial boot command line
+  ansible.builtin.stat:
+    path: /boot/firmware/new/cmdline.txt
+  register: rpi_trial_cmdline
+
+- name: Preserve current and staged Ubuntu vendor command lines
+  ansible.builtin.set_fact:
+    rpi_cmdline_paths: >-
+      {{ ['/boot/firmware/current/cmdline.txt'] +
+          (['/boot/firmware/new/cmdline.txt'] if rpi_trial_cmdline.stat.exists else []) }}

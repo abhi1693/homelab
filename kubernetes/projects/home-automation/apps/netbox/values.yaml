@@ -135,7 +135,7 @@ housekeeping:
       cpu: 500m
       memory: 512Mi
 worker:
-  enabled: true
+  enabled: false
   replicaCount: 1
   pdb:
     enabled: false
@@ -295,3 +295,15 @@ extraDeploy:
                 except:
                   - 10.42.0.0/16
                   - 10.43.0.0/16
+
+# The mkdir-only init must not reserve more CPU than the web container.
+init:
+  resources:
+    requests:
+      cpu: 50m
+      memory: 128Mi
+      ephemeral-storage: 50Mi
+    limits:
+      cpu: 150m
+      memory: 192Mi
+      ephemeral-storage: 2Gi

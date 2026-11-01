@@ -7,7 +7,16 @@ resources:
   - apiserver-egress-cnp.yaml
   - prometheusrule.yaml
   - rbac.yaml
+  - os-log-monitor-deployment.yaml
+  - os-log-monitor-service.yaml
+  - os-log-monitor-servicemonitor.yaml
+  - os-log-monitor-networkpolicy.yaml
+  - os-log-monitor-pdb.yaml
 configMapGenerator:
+  - name: alloy-os-log-monitor-code
+    namespace: cattle-monitoring-system
+    files:
+      - os_log_monitor.py
   - name: alloy-node-logs-values
     namespace: fleet-local
     files:

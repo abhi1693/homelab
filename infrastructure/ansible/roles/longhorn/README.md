@@ -1,7 +1,8 @@
 # Longhorn
 
-Ansible owns the paired K3s HelmCharts on server-1. Fleet owns only the ancillary
-backup resources; do not migrate chart ownership during an upgrade.
+Ansible owns the paired K3s HelmCharts on server-1. Fleet owns ancillary backup
+resources, maintenance settings and the storage-pool policy; do not migrate
+chart ownership during an upgrade.
 
 ## Reviewed upgrade
 
@@ -53,3 +54,26 @@ longhorn_entrypoint=validation`. Validation waits for active pods, not terminal
 Job pods; review failed Jobs separately. It permits only the explicitly listed
 `longhorn.validation_allowed_pvcs` ancillary claims (the Fleet-owned retained NAS
 backup claim), while rejecting unexpected component persistence.
+
+Node maintenance uses `node_drain_policy: block-for-eviction` in bootstrap
+values and validation. The [Fleet maintenance policy](../../../../kubernetes/projects/system/apps/longhorn-maintenance-policy/README.md)
+keeps that same setting reconciled after bootstrap. Every replica must evacuate
+before drain completes; budget disk capacity and copying time accordingly.
+
+Replica recovery admits one incoming rebuild per node. The shared root NVMe
+also serves embedded etcd on control-plane nodes; concurrent replica copies
+can raise WAL fsync latency even when aggregate disk utilization looks low.
+Serial admission trades longer recovery queues for application and API
+headroom. It does not cancel copies already in progress or limit the bandwidth
+of an individual copy. Keep the live Setting and HelmChart defaults aligned
+with `longhorn.concurrent_replica_rebuild_per_node_limit` in the home inventory.
+Fleet's maintenance policy reconciles this setting after bootstrap.
+
+The [storage pools bundle](../../../../kubernetes/projects/system/apps/longhorn-storage-pools/README.md)
+owns Longhorn pool tags, Kubernetes pool labels, volume selectors and
+creation-time PVC admission.
+The same bundle owns a HelmChartConfig which disables bootstrap class creation
+only after no PVC or PV references `longhorn`, then makes `longhorn-workers`
+default and retires the old class. Existing claims are not rebound by this gate.
+Bootstrap waits for the CSI driver rather than requiring the retired class;
+validation accepts exactly one default Longhorn class during this transition.

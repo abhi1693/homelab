@@ -1,0 +1,27 @@
+---
+name: media-acquisition-schedule
+defaultNamespace: media
+labels:
+  app.kubernetes.io/name: media-acquisition-schedule
+  app.kubernetes.io/part-of: media-stack
+  home-lab.io/project-slug: entertainment
+dependsOn:
+  - name: rancher-project-entertainment
+  - name: qbittorrent-helmop
+  - name: qbittorrent
+  - name: prowlarr
+  - name: sonarr
+  - name: radarr
+  - name: media-episeerr
+  - name: media-profilarr
+  - name: media-jellyseerr-networkpolicy
+diff:
+  comparePatches:
+    - apiVersion: v1
+      kind: ConfigMap
+      name: media-acquisition-schedule-state
+      namespace: media
+      jsonPointers:
+        - /data
+helm:
+  takeOwnership: true

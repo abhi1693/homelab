@@ -2,6 +2,13 @@
 
 This bundle installs Sonarr through a Fleet `HelmOp` for TV library automation.
 
+The [acquisition schedule](../media-acquisition-schedule/README.md) runs one
+replica from 22:00–10:00 Asia/Kolkata (IST), on nights starting Monday–Friday;
+Friday night continues until Saturday at 10:00. Git keeps a paused baseline of
+zero replicas, and the schedule owns only the runtime replica field. Outside
+the window the pod stops while queues, configuration PVCs, and media remain
+retained. FlareSolverr stays online because DevFeed uses it.
+
 ## Runtime Shape
 
 - Namespace: `media`
@@ -15,13 +22,10 @@ Sonarr is ARM64-pinned and participates in the `heavy-media` topology spread
 group so large media workloads avoid piling onto one node.
 
 CPU requests are `500m`, with no CPU limit (`resources.limits.cpu: 0` disables
-the TrueCharts default). Imports may burst above the request. On October 21,
-2026, automated tuning had raised the request to `1130m`, leaving the pod
-Pending because eligible workers lacked that much unreserved CPU. The
-`cluster-ops/media-helm` profile now leaves Sonarr's CPU request operator-managed
-while retaining memory tuning. Review worker reservations and heavy-media
-placement before re-enabling CPU tuning. This singleton rolls on resource
-changes; let Fleet reconcile during a quiet import window.
+the TrueCharts default). Imports may burst above the request. CPU and memory
+requests are operator-managed through Git/Fleet. Review worker reservations and
+heavy-media placement before changing them. This singleton rolls on resource changes;
+let Fleet reconcile during a quiet import window.
 
 ## Storage
 
@@ -56,3 +60,23 @@ traffic outside the pod and service CIDRs.
 - For completed packs where only the title-encoded episode imported, follow the
   [completed torrent import recovery runbook](../../../../../docs/runbooks/completed-torrent-import-recovery.md)
   and map every remaining file to one exact episode.
+
+## Resource review — 28 October 2026
+
+Values use the 28 October historical review in
+[the resource policy](../../../../../docs/runbooks/kubernetes-resource-policy.md#2026-10-28-historical-resource-review).
+CPU reservations cover measured sustained demand with headroom; existing burst
+policies remain in place. Memory caps preserve the observed fourteen-day peaks
+and extra headroom where OOM records show clipping.
+
+| Container / value path | CPU request | Memory request | Memory limit |
+| --- | --- | --- | --- |
+| `media/sonarr/sonarr` | 500m → 625m | 494Mi → 640Mi | 864Mi → 864Mi |
+
+## Replacement safety
+
+Application media-management settings use `/data/tv/.recycle` with 14-day
+retention as of 2026-10-28. The directory resides on the existing NAS media
+mount and is writable by the app UID. These app settings persist in its
+configuration PVC. Verify this setting after restoring application state; a
+blank recycle path makes normal upgrade replacements permanent.

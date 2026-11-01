@@ -32,6 +32,9 @@ controller:
 
 alloy:
   enableReporting: false
+  extraEnv:
+    - name: GOMAXPROCS
+      value: "1"
   clustering:
     enabled: true
     name: alloy-logs
@@ -64,10 +67,11 @@ alloy:
       }
   resources:
     requests:
-      cpu: 50m
-      memory: 192Mi
+      cpu: 10m
+      memory: 96Mi
     limits:
-      memory: 256Mi
+      cpu: 100m
+      memory: 384Mi
 
 configReloader:
   resources:
@@ -75,6 +79,7 @@ configReloader:
       cpu: 5m
       memory: 32Mi
     limits:
+      cpu: 25m
       memory: 64Mi
 
 serviceMonitor:

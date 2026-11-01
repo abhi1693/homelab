@@ -1,0 +1,74 @@
+---
+- name: Inspect any existing audit collection path without following symlinks
+  ansible.builtin.stat:
+    path: /var/log/kubernetes-audit
+    follow: false
+  register: os_prep_logging_audit_path
+
+- name: Refuse to replace an unexpected audit collection path
+  ansible.builtin.assert:
+    that:
+      - >-
+        not os_prep_logging_audit_path.stat.exists or
+        (inventory_hostname in groups['k3s_servers'] and
+         os_prep_logging_audit_path.stat.islnk | default(false) and
+         os_prep_logging_audit_path.stat.lnk_source | default('') == '/var/lib/rancher/k3s/server/logs') or
+        (inventory_hostname not in groups['k3s_servers'] and
+         os_prep_logging_audit_path.stat.isdir | default(false) and
+         not os_prep_logging_audit_path.stat.islnk | default(false))
+    fail_msg: Refusing to replace an unexpected audit path; inspect its contents and ownership.
+
+- name: Verify existing control-plane audit directory is present
+  ansible.builtin.stat:
+    path: /var/lib/rancher/k3s/server/logs
+  register: os_prep_logging_audit_source
+  when: inventory_hostname in groups['k3s_servers']
+
+- name: Require a root-owned readable audit source directory
+  ansible.builtin.assert:
+    that:
+      - os_prep_logging_audit_source.stat.isdir | default(false)
+      - os_prep_logging_audit_source.stat.uid | default(-1) == 0
+      - os_prep_logging_audit_source.stat.rusr | default(false)
+      - os_prep_logging_audit_source.stat.xusr | default(false)
+    fail_msg: Expected an existing root-owned readable K3s audit log directory.
+  when: inventory_hostname in groups['k3s_servers']
+
+- name: Inspect an existing worker audit placeholder before adopting it
+  ansible.builtin.find:
+    paths: /var/log/kubernetes-audit
+    hidden: true
+    file_type: any
+    recurse: false
+  register: os_prep_logging_worker_audit_contents
+  when:
+    - inventory_hostname not in groups['k3s_servers']
+    - os_prep_logging_audit_path.stat.exists
+
+- name: Require an empty worker audit placeholder
+  ansible.builtin.assert:
+    that:
+      - os_prep_logging_worker_audit_contents.matched == 0
+    fail_msg: Refusing to adopt a worker audit path containing existing data.
+  when:
+    - inventory_hostname not in groups['k3s_servers']
+    - os_prep_logging_audit_path.stat.exists
+
+- name: Expose the existing server audit directory without exposing K3s secrets
+  ansible.builtin.file:
+    path: /var/log/kubernetes-audit
+    src: /var/lib/rancher/k3s/server/logs
+    state: link
+    owner: root
+    group: root
+    follow: false
+  when: inventory_hostname in groups['k3s_servers']
+
+- name: Create an empty root-only audit placeholder on worker nodes
+  ansible.builtin.file:
+    path: /var/log/kubernetes-audit
+    state: directory
+    owner: root
+    group: root
+    mode: '0700'
+  when: inventory_hostname not in groups['k3s_servers']

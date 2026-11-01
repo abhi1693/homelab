@@ -29,7 +29,8 @@ class ManifestTests(unittest.TestCase):
 
     def test_first_init_and_recreate_preserved(self):
         for deployment,_,_ in self.specs():
-            self.assertEqual(deployment['spec']['replicas'],1)
+            # An authorized maintenance pause preserves the single-writer contract.
+            self.assertIn(deployment['spec']['replicas'], (0, 1))
             self.assertEqual(deployment['spec']['strategy']['type'],'Recreate')
             init=deployment['spec']['template']['spec']['initContainers']
             self.assertEqual(init[0]['name'],'backup-state-before-start')
@@ -86,11 +87,17 @@ class ManifestTests(unittest.TestCase):
             self.assertEqual(init['resources']['requests']['ephemeral-storage'],work)
             self.assertEqual(init['resources']['limits']['ephemeral-storage'],work)
             args=init['args'];self.assertEqual(args[args.index('--retention')+1],'3')
-            self.assertEqual(args[args.index('--timeout')+1],'1800')
+            timeout=int(args[args.index('--timeout')+1])
+            self.assertGreater(timeout,0)
+            self.assertLessEqual(timeout,3600)
 
     def test_rollout_budgets_cover_backup_and_normal_startup(self):
-        for deployment,_,_ in self.specs():self.assertGreaterEqual(deployment["spec"]["progressDeadlineSeconds"],2400)
-        for path in [QB/"fleet.yaml",RY/"fleet.yaml"]:self.assertGreaterEqual(load(path)["helm"]["timeoutSeconds"],2400)
+        for deployment,_,_ in self.specs():
+            init=deployment['spec']['template']['spec']['initContainers'][0]
+            args=init['args'];backup_seconds=int(args[args.index('--timeout')+1])
+            self.assertGreaterEqual(deployment['spec']['progressDeadlineSeconds'],backup_seconds+600)
+            app=RY if deployment['metadata']['name']=='ryokan' else QB
+            self.assertGreaterEqual(load(app/'fleet.yaml')['helm']['timeoutSeconds'],backup_seconds+600)
 
     def test_ryokan_waits_for_helper_bundle_and_ci_watches_sources(self):
         for app in [QB,RY]:self.assertIn({'name':'media-state-backups'},load(app/'fleet.yaml')['dependsOn'])

@@ -27,14 +27,14 @@ podOptions:
     kubernetes.io/arch: arm64
 resources:
   requests:
-    cpu: 370m
+    cpu: 250m
     # qBittorrent restores roughly 800 torrents at startup and needs room for
     # peer-reconnect bursts; lower limits repeatedly OOM-killed the client.
     memory: 1960Mi
   limits:
     # Reserve sustained demand with headroom; allow hashing/transfers to burst.
     cpu: 0
-    memory: 2Gi
+    memory: 3072Mi
 service:
   main:
     ports:
@@ -73,20 +73,9 @@ qbitportforward:
   enabled: false
 workload:
   main:
-    replicas: 1
+    replicas: 0
     podSpec:
       automountServiceAccountToken: false
-      labels:
-        home-lab.io/topology-group: heavy-media
-      topologySpreadConstraints:
-        - maxSkew: 1
-          topologyKey: kubernetes.io/hostname
-          whenUnsatisfiable: DoNotSchedule
-          labelSelector:
-            matchLabels:
-              home-lab.io/topology-group: heavy-media
-          nodeAffinityPolicy: Honor
-          nodeTaintsPolicy: Honor
       containers:
         main:
           # qBittorrent can leave Qt single-instance files in pod-level
@@ -356,13 +345,6 @@ networkPolicy:
           - podSelector:
               matchLabels:
                 app.kubernetes.io/name: qbittorrent-tracker-refresh
-          - namespaceSelector:
-              matchLabels:
-                kubernetes.io/metadata.name: rack-ops
-            podSelector:
-              matchLabels:
-                app.kubernetes.io/instance: qbittorrent-smart-queues
-                app.kubernetes.io/name: qbittorrent-smart-queues
         ports:
           - protocol: TCP
             port: 8080

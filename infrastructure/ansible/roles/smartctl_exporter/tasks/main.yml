@@ -2,6 +2,8 @@
 - name: Assert smartctl_exporter inputs are configured
   ansible.builtin.assert:
     that:
+      - ansible_facts.distribution == "Ubuntu"
+      - ansible_facts.distribution_version == "26.04"
       - smartctl_exporter.packages | length > 0
       - smartctl_exporter.service_name | trim != ''
       - smartctl_exporter.binary_path | trim != ''
@@ -15,47 +17,15 @@
     fail_msg: Expected smartctl_exporter inventory to define packages, service, and exporter flags.
     success_msg: "smartctl_exporter inputs are configured"
 
-- name: Ensure Debian backports source is present for smartctl_exporter
-  ansible.builtin.copy:
-    dest: "{{ smartctl_exporter.apt_backports.source_path }}"
-    owner: root
-    group: root
-    mode: "0644"
-    content: |
-      Types: deb
-      URIs: {{ smartctl_exporter.apt_backports.uri }}
-      Suites: {{ smartctl_exporter.apt_backports.suite }}
-      Components: {{ smartctl_exporter.apt_backports.components | join(' ') }}
-      Signed-By: {{ smartctl_exporter.apt_backports.signed_by }}
-  register: smartctl_exporter_backports_source
-  when:
-    - ansible_facts.pkg_mgr == "apt"
-    - smartctl_exporter.apt_backports.enabled | bool
-
-- name: Update apt cache after adding smartctl_exporter backports source
-  ansible.builtin.apt:
-    update_cache: true
-  when:
-    - ansible_facts.pkg_mgr == "apt"
-    - smartctl_exporter_backports_source is changed
-
 - name: Install smartmontools from the default repository
   ansible.builtin.package:
     name: smartmontools
     state: present
 
-- name: Install smartctl_exporter package from Debian backports
-  ansible.builtin.apt:
-    name: prometheus-smartctl-exporter
-    state: present
-    default_release: "{{ smartctl_exporter.apt_backports.suite }}"
-  when: ansible_facts.pkg_mgr == "apt"
-
 - name: Install smartctl_exporter package
   ansible.builtin.package:
     name: prometheus-smartctl-exporter
     state: present
-  when: ansible_facts.pkg_mgr != "apt"
 
 - name: Ensure smartctl_exporter systemd drop-in directory exists
   ansible.builtin.file:

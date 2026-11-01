@@ -6,8 +6,7 @@ usage() {
 Usage:
   scripts/safe-node-shutdown.sh <node-name>
 
-Safely prepare and power off a Kubernetes node using the rack-ops
-rpi-shutdown helper.
+Safely prepare and power off a Kubernetes node over authenticated SSH.
 
 The script:
   - verifies the node exists and is Ready
@@ -17,12 +16,12 @@ The script:
   - drains the node without forcing PDB violations
   - waits for Longhorn volumes to detach from the node
     except explicitly allowed one-replica PVCs
-  - POSTs to rack-ops service rpi-shutdown-<node-name>/shutdown
+  - verifies SSH hostname and passwordless sudo before cordoning
+  - requests systemd poweroff over SSH after evacuation
   - waits for the node to report NotReady or become unreachable
 
 Environment overrides:
-  RACK_OPS_NAMESPACE        default: rack-ops
-  SHUTDOWN_SERVICE_PREFIX   default: rpi-shutdown-
+  SHUTDOWN_SSH_USER         default: asaharan
   DRAIN_TIMEOUT             default: 10m
   DRAIN_POD_SELECTOR        default: longhorn.io/component!=instance-manager
                             set empty to drain all non-DaemonSet pods
@@ -36,7 +35,6 @@ Environment overrides:
                             comma/space-separated namespace/pvc names that
                             may remain attached only when numberOfReplicas=1
   SHUTDOWN_WAIT_TIMEOUT     default: 180
-  PORT_FORWARD_LOCAL_PORT   default: random 18000-18999
 USAGE
 }
 
@@ -173,16 +171,6 @@ print_allowed_longhorn_attached() {
   done < <(longhorn_attached_volumes_for_node "$node")
 }
 
-cleanup() {
-  if [[ -n "${PORT_FORWARD_PID:-}" ]]; then
-    kill "$PORT_FORWARD_PID" >/dev/null 2>&1 || true
-    wait "$PORT_FORWARD_PID" >/dev/null 2>&1 || true
-  fi
-  if [[ -n "${PORT_FORWARD_LOG:-}" ]]; then
-    rm -f "$PORT_FORWARD_LOG"
-  fi
-}
-
 main() {
   if [[ $# -ne 1 || "${1:-}" == "-h" || "${1:-}" == "--help" ]]; then
     usage
@@ -190,25 +178,19 @@ main() {
   fi
 
   need kubectl
-  need curl
+  need ssh
 
   local node=$1
   [[ "$node" =~ ^[A-Za-z0-9._-]+$ ]] || die "invalid node name: $node"
   node=$(resolve_node_name "$node")
 
-  local rack_ops_namespace=${RACK_OPS_NAMESPACE:-rack-ops}
-  local service_prefix=${SHUTDOWN_SERVICE_PREFIX:-rpi-shutdown-}
-  local service="${service_prefix}${node}"
+  local shutdown_ssh_user=${SHUTDOWN_SSH_USER:-asaharan}
+  [[ "$shutdown_ssh_user" =~ ^[A-Za-z_][A-Za-z0-9_-]*$ ]] || die "invalid shutdown SSH user"
   local drain_timeout=${DRAIN_TIMEOUT:-10m}
   local drain_pod_selector=${DRAIN_POD_SELECTOR-longhorn.io/component!=instance-manager}
   local drain_skip_wait_for_delete_timeout=${DRAIN_SKIP_WAIT_FOR_DELETE_TIMEOUT:-60}
   local detach_timeout=${LONGHORN_DETACH_TIMEOUT:-300}
   local shutdown_wait_timeout=${SHUTDOWN_WAIT_TIMEOUT:-180}
-  local local_port=${PORT_FORWARD_LOCAL_PORT:-$((18000 + RANDOM % 1000))}
-  PORT_FORWARD_LOG=$(mktemp -t safe-node-shutdown-port-forward.XXXXXX)
-
-  trap cleanup EXIT
-
   log "Checking node $node"
   kubectl get node "$node" >/dev/null || die "node not found: $node"
 
@@ -225,9 +207,14 @@ main() {
     log "Control-plane/etcd quorum preflight passed: $ready_peers peer nodes are Ready"
   fi
 
-  log "Checking shutdown helper service $rack_ops_namespace/$service"
-  kubectl -n "$rack_ops_namespace" get service "$service" >/dev/null ||
-    die "shutdown helper service not found: $rack_ops_namespace/$service"
+  local node_address remote_hostname
+  node_address=$(kubectl get node "$node" -o jsonpath='{.status.addresses[?(@.type=="InternalIP")].address}')
+  [[ "$node_address" =~ ^[0-9a-fA-F:.]+$ ]] || die "node has no valid InternalIP"
+  local ssh_args=(-o BatchMode=yes -o ConnectTimeout=10 -l "$shutdown_ssh_user" "$node_address")
+  log "Checking SSH identity and sudo on $node_address"
+  remote_hostname=$(ssh "${ssh_args[@]}" hostname) || die "SSH preflight failed"
+  [[ "$remote_hostname" == "$node" ]] || die "SSH hostname differs from target node"
+  ssh "${ssh_args[@]}" sudo -n true || die "passwordless sudo is required before maintenance"
 
   log "Cordoning $node"
   kubectl cordon "$node"
@@ -269,19 +256,13 @@ main() {
     return
   fi
 
-  log "Opening port-forward to $rack_ops_namespace/$service"
-  kubectl -n "$rack_ops_namespace" port-forward "svc/$service" "${local_port}:8000" >"$PORT_FORWARD_LOG" 2>&1 &
-  PORT_FORWARD_PID=$!
-  sleep 2
-
-  if ! kill -0 "$PORT_FORWARD_PID" >/dev/null 2>&1; then
-    cat "$PORT_FORWARD_LOG" >&2 || true
-    die "port-forward failed"
+  log "Requesting clean host shutdown for $node over SSH"
+  local shutdown_status=0
+  ssh "${ssh_args[@]}" sudo -n systemctl poweroff --no-block || shutdown_status=$?
+  if (( shutdown_status != 0 && shutdown_status != 255 )); then
+    die "host poweroff failed with exit status $shutdown_status"
   fi
-
-  log "Requesting clean host shutdown for $node"
-  curl -fsS -X POST "http://127.0.0.1:${local_port}/shutdown"
-  printf '\n'
+  # SSH may disconnect during poweroff; the independent Node gate must still pass.
 
   log "Waiting for $node to become NotReady"
   elapsed=0

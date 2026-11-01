@@ -56,52 +56,52 @@ class MaintenancePolicyTests(unittest.TestCase):
                 content = re.sub(policy['regexp'], policy['replace'], content)
         return content
 
-    def test_debian_https_policy_preserves_signing_keys_suites_and_vendor_sources(self):
+    def test_ubuntu_https_policy_preserves_signing_keys_and_suites(self):
         before = (
-            'Types: deb deb-src\nURIs: http://deb.debian.org/debian/\n'
-            'Suites: trixie trixie-updates\nComponents: main non-free-firmware\n'
-            'Signed-By: /usr/share/keyrings/debian-archive-keyring.pgp\n\n'
-            'Types: deb\nURIs: http://deb.debian.org/debian-security\n'
-            'Suites: trixie-security\nSigned-By: /usr/share/keyrings/debian-archive-keyring.pgp\n\n'
-            'Types: deb\nURIs: http://archive.raspberrypi.com/debian\n'
-            'Suites: trixie\nSigned-By: /usr/share/keyrings/raspberrypi-archive-keyring.gpg\n'
+            'Types: deb deb-src\nURIs: http://archive.ubuntu.com/ubuntu/\n'
+            'Suites: resolute resolute-updates\nComponents: main universe\n'
+            'Signed-By: /usr/share/keyrings/ubuntu-archive-keyring.gpg\n\n'
+            'Types: deb\nURIs: http://security.ubuntu.com/ubuntu\n'
+            'Suites: resolute-security\nSigned-By: /usr/share/keyrings/ubuntu-archive-keyring.gpg\n\n'
+            'Types: deb\nURIs: http://example.org/vendor\n'
+            'Suites: resolute\nSigned-By: /usr/share/keyrings/vendor-archive-keyring.gpg\n'
         )
-        expected = before.replace('http://deb.debian.org/', 'https://deb.debian.org/')
+        expected = before.replace('http://archive.ubuntu.com/', 'https://archive.ubuntu.com/').replace('http://security.ubuntu.com/', 'https://security.ubuntu.com/').replace('http://security.ubuntu.com/', 'https://security.ubuntu.com/')
         self.assertEqual(self.rewrite_source(SOURCE_POLICIES[0]['path'], before), expected)
 
     def test_https_policy_preserves_the_original_official_security_hostname(self):
-        before = 'URIs: http://security.debian.org/debian-security/\n'
+        before = 'URIs: http://security.ubuntu.com/ubuntu/\n'
         self.assertEqual(
             self.rewrite_source(SOURCE_POLICIES[0]['path'], before),
-            'URIs: https://security.debian.org/debian-security/\n',
+            'URIs: https://security.ubuntu.com/ubuntu/\n',
         )
 
     def test_https_policy_does_not_rewrite_similar_domains_or_other_archive_paths(self):
         before = (
-            'URIs: http://deb.debian.org.example/debian/ http://deb.debian.org/debian-other/ '
-            'http://deb.debian.org/debian/pool/ http://example.org/debian/\n'
+            'URIs: http://archive.ubuntu.com.example/ubuntu/ http://archive.ubuntu.com/ubuntu-other/ '
+            'http://archive.ubuntu.com/ubuntu/pool/ http://example.org/ubuntu/\n'
         )
         self.assertEqual(self.rewrite_source(SOURCE_POLICIES[0]['path'], before), before)
 
     def test_vendor_file_is_outside_the_managed_transport_policy(self):
-        before = 'URIs: http://archive.raspberrypi.com/debian\n'
-        self.assertEqual(self.rewrite_source('/etc/apt/sources.list.d/raspi.sources', before), before)
+        before = 'URIs: http://example.org/vendor\n'
+        self.assertEqual(self.rewrite_source('/etc/apt/sources.list.d/vendor.sources', before), before)
 
     def test_https_source_transport_policy_is_idempotent(self):
-        before = 'URIs: https://deb.debian.org/debian/\n'
+        before = 'URIs: https://archive.ubuntu.com/ubuntu/\n'
         self.assertEqual(self.rewrite_source(SOURCE_POLICIES[0]['path'], before), before)
 
     def test_readonly_source_validation_rejects_http_and_accepts_https(self):
         path = Path(__file__).resolve().parents[1] / 'tasks' / 'apt_sources_validation.yml'
         code = yaml.safe_load(path.read_text())[0]['ansible.builtin.command']['argv'][2]
         with tempfile.TemporaryDirectory() as directory:
-            source = Path(directory) / 'debian.sources'
+            source = Path(directory) / 'ubuntu.sources'
             policy = {**SOURCE_POLICIES[0], 'path': str(source)}
             with patch.object(sys, 'argv', ['check-sources', json.dumps([policy])]):
-                source.write_text('URIs: http://deb.debian.org/debian/\n')
+                source.write_text('URIs: http://archive.ubuntu.com/ubuntu/\n')
                 with self.assertRaisesRegex(RuntimeError, 'still uses HTTP'):
                     exec(compile(code, str(path), 'exec'), {})
-                source.write_text('URIs: https://deb.debian.org/debian/\n')
+                source.write_text('URIs: https://archive.ubuntu.com/ubuntu/\n')
                 with redirect_stdout(io.StringIO()):
                     exec(compile(code, str(path), 'exec'), {})
 
@@ -196,37 +196,37 @@ class MaintenancePolicyTests(unittest.TestCase):
 
     def test_kernel_install_without_removals_is_allowed(self):
         self.assertTrue(permits(
-            "Inst linux-image-6.18.50+rpt-rpi-2712 (1:6.18.50-1+rpt1 Raspberry Pi Foundation:stable [arm64])\n",
+            "Inst linux-image-7.0.0-1020-raspi (7.0.0-1020.20 Ubuntu:26.04 [arm64])\n",
             {},
         ))
 
-    def test_observed_desktop_package_replacement_is_allowed(self):
+    def test_explicit_package_replacement_is_allowed(self):
         self.assertTrue(permits(
-            "Remv pcmanfm [1.4.0-1+rpt9] []\n"
-            "Inst pcmanfm-pi (1.11 Raspberry Pi Foundation:stable [arm64]) []\n",
-            {"pcmanfm": "pcmanfm-pi"},
+            "Remv old-package [1.4.0-1+rpt9] []\n"
+            "Inst new-package (1.11 Ubuntu:26.04 [arm64]) []\n",
+            {"old-package": "new-package"},
         ))
 
     def test_replacement_policy_is_required(self):
         self.assertFalse(permits(
-            "Remv pcmanfm [1.4.0-1+rpt9]\nInst pcmanfm-pi (1.11)\n", {},
+            "Remv old-package [1.4.0-1+rpt9]\nInst new-package (1.11)\n", {},
         ))
 
     def test_removal_without_the_replacement_is_rejected(self):
         self.assertFalse(permits(
-            "Remv pcmanfm [1.4.0-1+rpt9]\n", {"pcmanfm": "pcmanfm-pi"},
+            "Remv old-package [1.4.0-1+rpt9]\n", {"old-package": "new-package"},
         ))
 
     def test_additional_essential_package_removal_is_rejected(self):
         self.assertFalse(permits(
-            "Remv pcmanfm [1.4.0-1+rpt9]\nInst pcmanfm-pi (1.11)\nRemv openssh-server [1:10.0p1]\n",
-            {"pcmanfm": "pcmanfm-pi"},
+            "Remv old-package [1.4.0-1+rpt9]\nInst new-package (1.11)\nRemv openssh-server [1:10.0p1]\n",
+            {"old-package": "new-package"},
         ))
 
     def test_similar_replacement_name_does_not_pass(self):
         self.assertFalse(permits(
-            "Remv pcmanfm [1.4.0-1+rpt9]\nInst pcmanfm-pi-extra (1.11)\n",
-            {"pcmanfm": "pcmanfm-pi"},
+            "Remv old-package [1.4.0-1+rpt9]\nInst new-package-extra (1.11)\n",
+            {"old-package": "new-package"},
         ))
 
     def test_up_to_date_transaction_is_allowed(self):

@@ -43,7 +43,7 @@ validate_ansible() {
     ansible-playbook --syntax-check playbooks/site.yml
     ansible-lint --profile min
     for role_test_directory in roles/*/tests; do
-      [[ -d "${role_test_directory}" ]] || continue
+      compgen -G "${role_test_directory}/test*.py" > /dev/null || continue
       python3 -m unittest discover -s "${role_test_directory}" -v
     done
   )
@@ -87,6 +87,7 @@ validate_kubernetes_tests() {
     [[ -d "${app_test_directory}" ]] || continue
     python3 -m unittest discover -s "${app_test_directory}" -v
   done
+  python3 -m unittest discover -s scripts/tests -p test_safe_node_shutdown.py -v
 }
 
 validate_terraform() {

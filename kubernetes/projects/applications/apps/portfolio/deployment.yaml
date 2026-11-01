@@ -22,7 +22,6 @@ spec:
   template:
     metadata:
       annotations:
-        home-lab.io/faro-secret-revision: "2026-07-01-browser-key-data"
       labels:
         app.kubernetes.io/name: portfolio
         app.kubernetes.io/component: web
@@ -57,26 +56,20 @@ spec:
       containers:
         - name: web
           # renovate: datasource=docker depName=ghcr.io/abhi1693/portfolio
-          image: registry.home/ghcr.io/abhi1693/portfolio:0.1.11@sha256:bcb218822d57f3926f934a6177e3230eea9e39e143fc5d97080867d2eaac02b5
+          image: registry.home/ghcr.io/abhi1693/portfolio:0.1.12@sha256:b79535c5dd14131dcb2c37313bc3b6bfcd1ebb57cf0e3bd413a9fb4ff9bc6be0
           imagePullPolicy: IfNotPresent
           envFrom:
             - secretRef:
                 name: portfolio
             - configMapRef:
                 name: portfolio
-          env:
-            - name: FARO_API_KEY
-              valueFrom:
-                secretKeyRef:
-                  name: portfolio
-                  key: NEXT_PUBLIC_FARO_API_KEY
           ports:
             - name: http
               containerPort: 3000
               protocol: TCP
           resources:
             requests:
-              cpu: 10m
+              cpu: 20m
               memory: 149Mi
             limits:
               memory: 192Mi

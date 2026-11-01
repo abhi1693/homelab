@@ -38,3 +38,5 @@ heartbeat; inspect current objects and agent logs before diagnosing a stale watc
 Allow the normal retry rather than adding an arbitrary generation or restart.
 See the [versioned deployer implementation](https://github.com/rancher/fleet/blob/14b1cd93eea8772b3abcf1b3786c254233ac149a/internal/cmd/agent/deployer/deployer.go)
 and [retry durations](https://github.com/rancher/fleet/blob/14b1cd93eea8772b3abcf1b3786c254233ac149a/pkg/durations/durations.go).
+
+`home-lab-training` discovers the instructor prerequisites and training applications.

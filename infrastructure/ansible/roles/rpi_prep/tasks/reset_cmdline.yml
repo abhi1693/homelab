@@ -1,0 +1,14 @@
+---
+- name: Read the selected boot command line
+  ansible.builtin.slurp:
+    path: "{{ rpi_cmdline_file }}"
+  register: rpi_cmdline_raw
+
+- name: Remove managed boot parameters without changing other boot assets
+  ansible.builtin.copy:
+    content: "{{ (rpi_cmdline_raw.content | b64decode).split() | reject('in', rpi_prep.required_cmdline_params) | join(' ') }}\n"
+    dest: "{{ rpi_cmdline_file }}"
+    owner: root
+    group: root
+    mode: '0644'
+  notify: Reboot host

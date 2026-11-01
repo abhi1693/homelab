@@ -2,7 +2,7 @@
 
 The Home Automation project owns services that model and operate the physical
 environment around the cluster: Home Assistant, NetBox and its MCP server,
-rack operations, Cloudflare tunnel ingress control, USB printing, and UPS monitoring.
+Cloudflare tunnel ingress control, USB printing, and UPS monitoring.
 
 Fleet tracks this project through the `home-lab-home-automation` GitRepo.
 
@@ -11,7 +11,7 @@ Fleet tracks this project through the `home-lab-home-automation` GitRepo.
 Home automation services are tightly coupled to physical devices and local
 network state. They need Kubernetes desired state, but they also interact with
 systems outside Kubernetes: UniFi, UPS hardware, device inventory, Cloudflare
-tunnels, rack power, and local DNS.
+tunnels and local DNS.
 
 Keeping these services in one project makes the boundary clear.
 
@@ -22,17 +22,12 @@ Keeping these services in one project makes the boundary clear.
 | `home-automation-helm-repositories` | Registers chart repositories for this project. | Rancher ClusterRepo. |
 | `cloudflare-tunnel-ingress-controller` | Runs the Cloudflare Tunnel ingress controller. | Public app ingress, Cloudflare credentials. |
 | `cloudflare-tunnel-ingress-controller-networkpolicy` | Applies network boundaries for tunnel connector traffic. | Public ingress to explicitly allowlisted app services, including the Wardn AI website. |
-| `cluster-ops` | Runs worker-hosted cluster operation controllers, including K8s Recommendation Engine profile runners. | Kubernetes API, Prometheus, Fleet-managed app state. |
-| `recommender-state-backups` | Validates a retained NFS destination before a later Recommender pre-start backup rollout. | Namespace-local acceptance Job, immutable shared helper, existing `cluster-ops` namespace ownership. |
 | `cups` | Shares the HP Deskjet 2510 over LAN IPP at `printer.home:631`. | USB printer on `k8s-rpi1`, Longhorn state, explicit node placement; manual client setup. |
 | `home-assistant` | Home automation runtime with commit-pinned source from `abhi1693/home-assistant` and a code-server sidecar. | Family desktop dashboard, UniFi Protect camera wall, Atomberg fans, media integrations, Longhorn config PVC, PostgreSQL Recorder. |
 | `home-assistant-go2rtc` | Runs the authenticated WebRTC relay used by Home Assistant camera entities. | Cluster-only signaling API, fixed MetalLB LAN media candidate, and exact Protect RTSPS egress. |
 | `home-assistant-mobile-webhook` | Deploys the released [`ha-sensors-gateway`](https://github.com/abhi1693/ha-sensors-gateway) image for native Companion App sensor and location webhooks through Cloudflare Tunnel. | Capability-scoped phone updates without public Home Assistant UI or API access. |
 | `home-assistant-status-bridge` | Converts authoritative Prometheus health into one bounded read-only document for Home Assistant. | No Kubernetes credentials; internal-only status endpoint and Grafana/Rancher deep links. |
 | `netbox` | Source-of-truth app for IPAM, infrastructure inventory, cabling, DNS, and lifecycle documentation; UniFi Network clients are excluded. | Direct PostgreSQL write service, Valkey data, NFS media, and custom image plugins. |
-| `netbox-mcp-server` | Exposes authenticated per-user NetBox operations through MCP. | ARM64 runtime, internal NetBox service, Traefik TLS, local CA trust, and strict network policy. |
-| `rack-ops-controllers` | Worker-hosted rack controller plus node-local helpers. | Kubernetes API, Home Assistant webhooks, NFS state, smart queues, thermal policy. |
-| `rack-state-backups` | Validates a retained NFS destination before a later Rack controller pre-start backup rollout. | Namespace-local acceptance Job, immutable shared helper, existing `rack-ops` namespace ownership. |
 | `ups-monitoring` | NUT, PeaNUT dashboard, exporter, Grafana dashboard, and alerts. | USB UPS on a specific node, Home Assistant integration, monitoring. |
 
 ## Coupling Patterns
@@ -53,8 +48,6 @@ Keeping these services in one project makes the boundary clear.
   sensor, location, and explicitly documented metadata commands; forged sensor
   or location values can still trigger Home Assistant automations. Home
   Assistant itself remains LAN-only.
-- Rack operations bridge Kubernetes state and physical actions such as node
-  power or cooling workflows.
 
 ## Operating Notes
 
@@ -67,3 +60,9 @@ Keeping these services in one project makes the boundary clear.
 - Keep NetBox plugins baked into the custom NetBox image for repeatability.
 - Treat hardware-bound pods, such as UPS USB access, as special cases with
   explicit node placement and update strategy.
+
+The K8s Recommendation Engine and its profile, CRD, and backup-validation bundles
+were retired through Fleet. Resource changes are reviewed and applied through Git.
+The dedicated runtime namespace, permissions, and Longhorn state volume are
+removed. The NFS backup directory and its PV are also deleted; no recommendation-engine
+PVC, PV, or archived state is retained.

@@ -1,0 +1,65 @@
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: media-acquisition-schedule
+  namespace: media
+  labels:
+    app.kubernetes.io/name: media-acquisition-schedule
+    app.kubernetes.io/part-of: media-stack
+    home-lab.io/project-slug: entertainment
+automountServiceAccountToken: true
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: media-acquisition-schedule
+  namespace: media
+rules:
+  - apiGroups: [apps]
+    resources: [deployments]
+    resourceNames:
+      - qbittorrent
+      - qbittorrent-smart-queues
+      - sonarr
+      - radarr
+      - episeerr
+      - prowlarr
+      - profilarr
+    verbs: [get]
+  - apiGroups: [apps]
+    resources: [deployments/scale]
+    resourceNames:
+      - qbittorrent
+      - qbittorrent-smart-queues
+      - sonarr
+      - radarr
+      - episeerr
+      - prowlarr
+      - profilarr
+    verbs: [get, patch]
+  - apiGroups: [batch]
+    resources: [cronjobs]
+    resourceNames:
+      - qbittorrent-state-backup
+      - qbittorrent-downloads-layout
+      - qbittorrent-tracker-refresh
+    verbs: [get, patch]
+  - apiGroups: [""]
+    resources: [configmaps]
+    resourceNames: [media-acquisition-schedule-state]
+    verbs: [get, patch]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: media-acquisition-schedule
+  namespace: media
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: Role
+  name: media-acquisition-schedule
+subjects:
+  - kind: ServiceAccount
+    name: media-acquisition-schedule
+    namespace: media

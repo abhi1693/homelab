@@ -319,28 +319,43 @@
   loop: "{{ longhorn_control_plane_selectors.results }}"
   when: k3s_node.cluster_init | bool
 
-- name: Read Longhorn storage class default annotation
+- name: Read storage classes
   ansible.builtin.command:
     argv:
       - /usr/local/bin/k3s
       - kubectl
       - get
       - storageclass
-      - longhorn
       - -o
-      - jsonpath={.metadata.annotations.storageclass\.kubernetes\.io/is-default-class}
+      - json
   environment:
     KUBECONFIG: /etc/rancher/k3s/k3s.yaml
-  register: longhorn_storageclass_default
+  register: longhorn_storageclasses
   changed_when: false
   when: k3s_node.cluster_init | bool
 
-- name: Assert Longhorn storage class is default
+- name: Initialize default storage class discovery
+  ansible.builtin.set_fact:
+    longhorn_default_storageclasses: []
+  when: k3s_node.cluster_init | bool
+
+- name: Find the default storage class
+  ansible.builtin.set_fact:
+    longhorn_default_storageclasses: "{{ longhorn_default_storageclasses + [item] }}"
+  loop: "{{ (longhorn_storageclasses.stdout | default('{}') | from_json).get('items', []) }}"
+  loop_control:
+    label: "{{ item.metadata.name }}"
+  when:
+    - k3s_node.cluster_init | bool
+    - item.metadata.get('annotations', {}).get('storageclass.kubernetes.io/is-default-class') == 'true'
+
+- name: Assert one Longhorn storage class is default
   ansible.builtin.assert:
     that:
-      - longhorn_storageclass_default.stdout | trim == 'true'
-    fail_msg: Expected Longhorn storageclass to be the default storage class.
-    success_msg: "Longhorn storageclass is default"
+      - longhorn_default_storageclasses | length == 1
+      - longhorn_default_storageclasses[0].provisioner == 'driver.longhorn.io'
+      - longhorn_default_storageclasses[0].metadata.name in ['longhorn', 'longhorn-workers']
+    fail_msg: Expected exactly one default Longhorn storage class.
   when: k3s_node.cluster_init | bool
 
 - name: Read Longhorn storage class replica count
@@ -350,7 +365,7 @@
       - kubectl
       - get
       - storageclass
-      - longhorn
+      - "{{ longhorn_default_storageclasses[0].metadata.name }}"
       - -o
       - jsonpath={.parameters.numberOfReplicas}
   environment:
@@ -568,6 +583,8 @@
       expected: "{{ longhorn.storage_reserved_percentage_for_default_disk | string }}"
     - name: replica-soft-anti-affinity
       expected: "{{ longhorn.replica_soft_anti_affinity | lower }}"
+    - name: node-drain-policy
+      expected: "{{ longhorn.node_drain_policy }}"
     - name: replica-auto-balance
       expected: "{{ longhorn.replica_auto_balance }}"
     - name: replica-file-sync-http-client-timeout
@@ -770,4 +787,29 @@
       - (longhorn_csi_resource_setting.stdout | from_json) == longhorn.resources.system_managed_csi_components
     fail_msg: Expected Longhorn system-managed CSI resource requirements to match inventory.
     success_msg: "Longhorn system-managed CSI resource requirements match inventory"
+  when: k3s_node.cluster_init | bool
+
+- name: Read Longhorn heavy snapshot concurrency
+  ansible.builtin.command:
+    argv:
+      - /usr/local/bin/k3s
+      - kubectl
+      - -n
+      - "{{ longhorn.namespace }}"
+      - get
+      - settings.longhorn.io
+      - snapshot-heavy-task-concurrent-limit
+      - -o
+      - jsonpath={.value}
+  environment:
+    KUBECONFIG: /etc/rancher/k3s/k3s.yaml
+  register: longhorn_snapshot_heavy_task_limit
+  changed_when: false
+  when: k3s_node.cluster_init | bool
+
+- name: Assert Longhorn heavy snapshot concurrency matches inventory
+  ansible.builtin.assert:
+    that:
+      - longhorn_snapshot_heavy_task_limit.stdout | trim == longhorn.snapshot_heavy_task_concurrent_limit | string
+    fail_msg: Expected Longhorn heavy snapshot concurrency to match inventory.
   when: k3s_node.cluster_init | bool

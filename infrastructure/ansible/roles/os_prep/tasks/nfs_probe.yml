@@ -1,0 +1,61 @@
+---
+- name: Require an explicit NFS server and absolute export path
+  ansible.builtin.assert:
+    that:
+      - os_prep_nfs_export.server is match('^[0-9.]+$')
+      - os_prep_nfs_export.share is match('^/[A-Za-z0-9_./-]+$')
+
+- name: Allocate a private disposable NFS mountpoint
+  ansible.builtin.tempfile:
+    state: directory
+    prefix: home-lab-nfs-probe-
+  register: os_prep_nfs_probe
+  changed_when: false
+
+- name: Probe the export with the same NFS version and transports as CSI
+  block:
+    - name: Mount the export read-only with bounded retries
+      ansible.builtin.command:
+        argv:
+          - timeout
+          - '30'
+          - mount
+          - -t
+          - nfs
+          - -o
+          - ro,vers=3,nolock,proto=tcp,mountproto=tcp,soft,timeo=50,retrans=1
+          - "{{ os_prep_nfs_export.server }}:{{ os_prep_nfs_export.share }}"
+          - "{{ os_prep_nfs_probe.path }}"
+      changed_when: false
+
+    - name: Confirm the expected export is mounted read-only
+      ansible.builtin.command:
+        argv: [findmnt, --json, --mountpoint, "{{ os_prep_nfs_probe.path }}"]
+      register: os_prep_nfs_mount
+      changed_when: false
+
+    - name: Require the exact source and read-only mount option
+      ansible.builtin.assert:
+        that:
+          - >-
+            (os_prep_nfs_mount.stdout | from_json).filesystems[0].source
+            == os_prep_nfs_export.server ~ ':' ~ os_prep_nfs_export.share
+          - "'ro' in (os_prep_nfs_mount.stdout | from_json).filesystems[0].options.split(',')"
+  always:
+    - name: Inspect whether the disposable mountpoint is mounted
+      ansible.builtin.command:
+        argv: [mountpoint, -q, "{{ os_prep_nfs_probe.path }}"]
+      register: os_prep_nfs_is_mounted
+      changed_when: false
+      failed_when: os_prep_nfs_is_mounted.rc not in [0, 32]
+
+    - name: Unmount the probe without force or lazy cleanup
+      ansible.builtin.command:
+        argv: [umount, "{{ os_prep_nfs_probe.path }}"]
+      when: os_prep_nfs_is_mounted.rc == 0
+      changed_when: false
+
+    - name: Remove only the empty private probe directory
+      ansible.builtin.command:
+        argv: [rmdir, "{{ os_prep_nfs_probe.path }}"]
+      changed_when: false

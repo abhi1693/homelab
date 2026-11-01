@@ -13,6 +13,30 @@ dependsOn:
   - name: media-storage
 diff:
   comparePatches:
+    - apiVersion: apps/v1
+      kind: Deployment
+      name: qbittorrent-smart-queues
+      namespace: media
+      jsonPointers:
+        - /spec/replicas
+    - apiVersion: batch/v1
+      kind: CronJob
+      name: qbittorrent-downloads-layout
+      namespace: media
+      jsonPointers:
+        - /spec/suspend
+    - apiVersion: batch/v1
+      kind: CronJob
+      name: qbittorrent-state-backup
+      namespace: media
+      jsonPointers:
+        - /spec/suspend
+    - apiVersion: batch/v1
+      kind: CronJob
+      name: qbittorrent-tracker-refresh
+      namespace: media
+      jsonPointers:
+        - /spec/suspend
     - apiVersion: v1
       kind: PersistentVolumeClaim
       name: qbittorrent-smart-queues-state-nfs

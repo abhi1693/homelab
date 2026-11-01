@@ -15,9 +15,7 @@ This is intentionally scoped for home-lab APM:
   in-cluster;
 - no external object storage, Kafka, or distributed Tempo components.
 
-The pod requests `60m` CPU and keeps CPU uncapped, matching the observed
-trace-ingestion baseline while retaining burst capacity for compaction and
-queries.
+The pod requests `60m` CPU and keeps CPU uncapped for compaction and query bursts.
 
 The live-store uses `/var/tempo/wal`, cuts blocks at `1MiB` or five minutes,
 and caps buffered live trace bytes at `10MiB`. The backend scheduler and worker
@@ -43,16 +41,11 @@ storage class uses reclaim policy `Delete`. Recovery should reattach the
 existing claim with the same paths and compatible Tempo version; never resolve
 a mount or rollout error by deleting the claim.
 
-The initial move from `emptyDir` starts a new trace history. Existing files and
-representative trace responses are archived privately before that one-time
-cutover; they are not automatically imported into the new volume. Subsequent
-rollouts preserve history within the configured retention window. See the
-[trace/profile storage runbook](../../../../../docs/runbooks/observability-persistence.md)
-for staged deployment and recovery checks.
-
-Tempo 3 removed `ingester`, `compactor`, metrics-generator `local_blocks`, and
-`traces_storage`. Image upgrades must migrate the configuration together. See
-the [upstream migration guide](https://grafana.com/docs/tempo/latest/set-up-for-tracing/setup-tempo/migrate-to-3/).
+Rollouts preserve trace history within the configured retention window. See
+the [trace/profile storage runbook](../../../../../docs/runbooks/observability-persistence.md)
+for recovery and persistence validation. Keep configuration compatible with the
+pinned Tempo 3 runtime; review its [configuration migration guide](https://grafana.com/docs/tempo/latest/set-up-for-tracing/setup-tempo/migrate-to-3/)
+when changing major versions.
 
 Grafana queries Tempo through the `Tempo` datasource provisioned by the upstream
 kube-prometheus-stack values.
@@ -96,3 +89,15 @@ Grafana query streaming uses the Tempo HTTP endpoint on port 3200. Enable
 does not attempt plain gRPC against an HTTP-only listener. Keep the datasource
 HTTP URL; OTLP receiver ports are ingestion endpoints, not query endpoints.
 Validate both trace-by-ID reads and streaming search after configuration changes.
+
+## Resource review — 28 October 2026
+
+Values use the 28 October historical review in
+[the resource policy](../../../../../docs/runbooks/kubernetes-resource-policy.md#2026-10-28-historical-resource-review).
+CPU reservations cover measured sustained demand with headroom; existing burst
+policies remain in place. Memory caps preserve the observed fourteen-day peaks
+and extra headroom where OOM records show clipping.
+
+| Container / value path | CPU request | Memory request | Memory limit |
+| --- | --- | --- | --- |
+| `cattle-monitoring-system/tempo/tempo` | 60m → 50m | 768Mi → 384Mi | 1280Mi → 768Mi |

@@ -21,7 +21,7 @@ This procedure uses the repository helpers:
 
 - `scripts/safe-node-shutdown.sh` cordons, drains with PodDisruptionBudgets
   respected, waits for blocking Longhorn attachments to clear, invokes the
-  node-local rack-ops shutdown helper, and waits for the node to become
+  target host over authenticated SSH, and waits for the node to become
   `NotReady`.
 - `scripts/post-node-power-on.sh` waits for the node to become `Ready`,
   uncordons it, and waits for node-local system pods.
@@ -398,11 +398,13 @@ Draining <node> with PDBs respected
 node/<node> drained
 Waiting for Longhorn volumes to detach
 Requesting clean host shutdown
-"shutdown_requested": true
+SSH poweroff submitted
 <node> is no longer Ready
 ```
 
-The helper may take up to the longest workload grace period plus the configured
+The helper verifies the target InternalIP, matching SSH hostname and passwordless
+sudo before cordoning. Set `SHUTDOWN_SSH_USER` when using another SSH account.
+It may take up to the longest workload grace period plus the configured
 drain timeout. It does not force a PDB violation. If it exits early, do not
 request host shutdown manually; use the matching troubleshooting path below.
 
@@ -411,10 +413,10 @@ confirm through a non-target control-plane node that the target is still Ready
 and cordoned, no Longhorn volume remains attached, and only DaemonSets,
 InstanceManager, or the generated Fleet agent remain. Then resume from that
 healthy peer so the control path survives the target shutdown. Set the peer IP
-to `192.168.3.191` for rpi2 or `192.168.3.108` for rpi3:
+to `192.168.3.193` for rpi2 or `192.168.3.110` for rpi3:
 
 ```bash
-export MAINT_CONTROL_PLANE_IP=192.168.3.191
+export MAINT_CONTROL_PLANE_IP=192.168.3.193
 
 ssh "asaharan@${MAINT_CONTROL_PLANE_IP}" \
   "sudo -n env DRAIN_POD_SELECTOR='longhorn.io/component!=instance-manager,app!=fleet-agent' bash -s -- '$MAINT_NODE'" \
@@ -486,7 +488,7 @@ scripts/post-node-power-on.sh "$MAINT_NODE"
 ```
 
 Expected output: the node becomes `Ready`, is uncordoned, and its Cilium,
-Longhorn, monitoring, and rack-ops node-local pods settle. The script does not
+Longhorn and monitoring node-local pods settle. The script does not
 move already-relocated workloads back; normal scheduling decides future
 placement.
 
@@ -565,6 +567,57 @@ its values path with subject `Restore Jellyfin disruption protection`, and
 wait for `home-lab-entertainment` to be fully Ready. Confirm `jellyfin-main`
 shows `MIN_AVAILABLE=1` and Jellyfin remains `1/1` Ready before closing the
 window.
+
+## Emergency runtime or unreachable-node recovery
+
+This path was verified on 2026-10-28. It requires explicit break-glass authority
+for direct cluster changes or a host power cycle. Do not substitute it for the
+normal drain/shutdown procedure while the host remains reachable.
+
+For a system Pod stuck in `CreateContainerError` with a stale container-name
+reservation, first confirm its node is Ready, the owning DaemonSet is healthy
+elsewhere, and the exact Pod UID still has that failure. Delete only that Pod
+using an API `DeleteOptions` body with `preconditions.uid`; let its controller
+recreate it. Do not force-delete application Pods or detach volumes to clear a
+runtime bookkeeping error. Verify replacement readiness, node-local storage
+registration and the owning Fleet bundle. This recovered the rpi5 NFS CSI and
+node-exporter Pods without restarting their node or the media workloads.
+
+For an unreachable control-plane node:
+
+1. Confirm current node/lease state and failed SSH plus ping/neighbor discovery.
+   Check that the other two etcd endpoints successfully commit proposals with
+   authenticated `etcdctl endpoint health` immediately before recovery. Stop if
+   either surviving endpoint fails; never cycle another control-plane member.
+2. Verify the Pi's physical MAC and last IP against UniFi's last uplink switch
+   and port. Confirm the live port's security MAC, that it is not an uplink, and
+   that it is currently supplying PoE. A port number inferred from a hostname
+   or an old notebook is insufficient.
+3. With the authorized host power-cycle scope, issue exactly one switch-port
+   `power-cycle` command. Preserve the existing port configuration. Do not
+   reboot the entire switch, reset a device, or change VLAN/PoE profiles.
+4. Observe power/link recovery, SSH and K3s startup, all three etcd endpoints,
+   and node readiness. Let kubelet terminate old Pods and let storage controllers
+   recover attachments. Fence an unreachable writer before any forced RWO
+   cleanup; do not remove protection finalizers to accelerate recovery.
+5. Complete the normal recovery gates: all active Pods healthy, all node
+   agents available, Fleet desired IDs applied, PostgreSQL and Valkey healthy,
+   Longhorn replicas rebuilt, telemetry queues draining, and actual log canaries
+   queryable. Retire a public probe when its application is intentionally removed.
+
+The rpi3 incident retained kernel and K3s logs during its network isolation,
+including NFS and etcd-peer timeouts. No OOM or kernel panic was established.
+Power cycling restored connectivity and quorum membership; this does not prove
+that storage load, the network driver, or a particular application caused it.
+
+On 28 October at 11:29:25 UTC, rpi1 stopped posting heartbeats again and became
+`Unknown` at 11:30:41 UTC. SSH and neighbor discovery failed while its verified
+Lab Switch port 1 retained a 1 Gbps link and supplied 6.81 W of PoE. Both
+surviving etcd endpoints committed health proposals before one authorized
+port power cycle at 11:54:31 UTC. The node returned Ready with a new boot ID,
+and Longhorn began its normal automatic replica rebuilds. Retained
+kernel logs did not establish an OOM or panic. The recurring isolation cause
+remains unconfirmed; recovery must not be reported as a permanent cause fix.
 
 ## Rollback and abort
 
@@ -663,4 +716,3 @@ server gate requires authenticated `/readyz` success on every server and the VIP
 - `kubernetes/projects/entertainment/apps/media-jellyfin/values.yaml`
 - `kubernetes/projects/system/apps/rancher-monitoring/README.md`
 - `kubernetes/projects/home-automation/apps/ups-monitoring/README.md`
-- `kubernetes/projects/home-automation/apps/rack-ops-controllers/README.md`

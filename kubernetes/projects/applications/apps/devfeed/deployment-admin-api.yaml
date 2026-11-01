@@ -36,6 +36,7 @@ spec:
         devfeed-search-client: 'true'
         devfeed-inbox-client: 'true'
         devfeed-codex-client: 'true'
+        devfeed-clickhouse-client: 'true'
     spec:
       serviceAccountName: devfeed
       automountServiceAccountToken: false
@@ -59,14 +60,14 @@ spec:
       containers:
         - name: admin-api
           # renovate: datasource=docker depName=ghcr.io/abhi1693/devfeed.tech/admin-api
-          image: registry.home/ghcr.io/abhi1693/devfeed.tech/admin-api:0.1.2@sha256:4daf229aa9681d20723b2d3cc41d08bbaca5c07496b15b89d1bdd71149b629f6
+          image: registry.home/ghcr.io/abhi1693/devfeed.tech/admin-api:0.1.8@sha256:85013bf2dc1b27d09c71b371967a1754924a96da57f22c468c2a7c78a0ceae9c
           imagePullPolicy: IfNotPresent
           resources:
             requests:
-              cpu: 100m
+              cpu: 25m
               memory: 256Mi
             limits:
-              memory: 1Gi
+              memory: 1536Mi
           securityContext:
             runAsNonRoot: true
             runAsUser: 10001
@@ -97,6 +98,10 @@ spec:
                 name: devfeed-oidc-providers
             - secretRef:
                 name: devfeed-codex
+            - configMapRef:
+                name: devfeed-clickhouse-client
+            - secretRef:
+                name: devfeed-clickhouse-admin
           env:
             - name: DEVFEED_PARTNER_CREDENTIAL_KEY
               valueFrom:
@@ -177,7 +182,7 @@ spec:
       initContainers:
         - name: trust-codex-ca
           # renovate: datasource=docker depName=ghcr.io/abhi1693/devfeed.tech/admin-api
-          image: registry.home/ghcr.io/abhi1693/devfeed.tech/admin-api:0.1.2@sha256:4daf229aa9681d20723b2d3cc41d08bbaca5c07496b15b89d1bdd71149b629f6
+          image: registry.home/ghcr.io/abhi1693/devfeed.tech/admin-api:0.1.8@sha256:85013bf2dc1b27d09c71b371967a1754924a96da57f22c468c2a7c78a0ceae9c
           imagePullPolicy: IfNotPresent
           resources:
             requests:
@@ -206,7 +211,7 @@ spec:
             - from pathlib import Path; Path('/run/ca/ca-bundle.crt').write_bytes(Path('/etc/ssl/certs/ca-certificates.crt').read_bytes()+b'\n'+Path('/run/codex-ca/ca.crt').read_bytes())
         - name: wait-for-inbox
           # renovate: datasource=docker depName=ghcr.io/abhi1693/devfeed.tech/admin-api
-          image: registry.home/ghcr.io/abhi1693/devfeed.tech/admin-api:0.1.2@sha256:4daf229aa9681d20723b2d3cc41d08bbaca5c07496b15b89d1bdd71149b629f6
+          image: registry.home/ghcr.io/abhi1693/devfeed.tech/admin-api:0.1.8@sha256:85013bf2dc1b27d09c71b371967a1754924a96da57f22c468c2a7c78a0ceae9c
           imagePullPolicy: IfNotPresent
           resources:
             requests:
@@ -238,7 +243,7 @@ spec:
               else: raise SystemExit('Inbox provisioning not ready')
         - name: wait-for-schema
           # renovate: datasource=docker depName=ghcr.io/abhi1693/devfeed.tech/backend
-          image: registry.home/ghcr.io/abhi1693/devfeed.tech/backend:0.1.2@sha256:77d8cadbcc9e78701d06912ef0e54b7f96947e6f4625ef864b6f814c77478133
+          image: registry.home/ghcr.io/abhi1693/devfeed.tech/backend:0.1.8@sha256:1fb3087acd900c6e18cef096df53ae34d19d6226bba58531324f2dcb3786ca3e
           imagePullPolicy: IfNotPresent
           securityContext:
             runAsNonRoot: true

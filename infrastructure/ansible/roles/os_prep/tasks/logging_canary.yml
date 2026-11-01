@@ -1,0 +1,55 @@
+---
+- name: Require the distribution logger command for harmless source canaries
+  ansible.builtin.stat:
+    path: /usr/bin/logger
+  register: os_prep_logging_logger
+
+- name: Verify the logger command is available
+  ansible.builtin.assert:
+    that:
+      - os_prep_logging_logger.stat.isreg | default(false)
+      - os_prep_logging_logger.stat.executable | default(false)
+    fail_msg: Install the distribution logger command before enabling host canaries.
+
+- name: Create the local host-policy executable directory
+  ansible.builtin.file:
+    path: /usr/local/libexec
+    state: directory
+    owner: root
+    group: root
+    mode: '0755'
+
+- name: Install the informational source canary
+  ansible.builtin.copy:
+    src: home-lab-log-canary
+    dest: /usr/local/libexec/home-lab-log-canary
+    owner: root
+    group: root
+    mode: '0755'
+  register: os_prep_logging_canary_program
+
+- name: Install the bounded source canary service and timer
+  ansible.builtin.template:
+    src: "{{ item }}.j2"
+    dest: "/etc/systemd/system/{{ item }}"
+    owner: root
+    group: root
+    mode: '0644'
+  loop:
+    - home-lab-log-canary.service
+    - home-lab-log-canary.timer
+  register: os_prep_logging_canary_units
+
+- name: Enable the informational source canary timer
+  ansible.builtin.systemd_service:
+    name: home-lab-log-canary.timer
+    daemon_reload: "{{ os_prep_logging_canary_units is changed }}"
+    enabled: true
+    state: started
+
+# Emit the changed fixture now so validation does not read the old payload.
+- name: Run a changed informational canary once before validation  # noqa no-handler
+  ansible.builtin.systemd_service:
+    name: home-lab-log-canary.service
+    state: started
+  when: os_prep_logging_canary_program is changed or os_prep_logging_canary_units is changed

@@ -7,9 +7,11 @@ Ansible role or Kubernetes app bundle.
 
 | Script | Purpose |
 | --- | --- |
-| `monitoring-migration-state.py` | Captures private monitoring/dashboard inventories using read-only APIs and compares resource identities, scrape/rule coverage, and preparation gates. See the [migration runbook](../docs/runbooks/rancher-monitoring-migration.md). |
-| `migrate-devfeed-identities.py` | Plans or atomically remaps DevFeed user, partner and admin-preference identities while preserving account UUIDs; apply requires all three sign-in APIs stopped through Fleet. See the [identity migration runbook](../docs/runbooks/devfeed-identity-migration.md). |
+| `render-training-netbox.py` | Renders shared Training NetBox chart/defaults plus per-instance overrides; `--check` rejects generated configuration drift. Requires PyYAML. |
+| `monitoring-migration-state.py` | Captures private monitoring/dashboard inventories using read-only APIs and compares resource identities, scrape/rule coverage, and preparation gates. |
+| `migrate-devfeed-identities.py` | Plans or atomically remaps DevFeed user, partner and admin-preference identities while preserving account UUIDs; apply requires all three sign-in APIs stopped through Fleet. |
 | `k8s-secret-to-sops-secret.py` | Converts an existing Kubernetes Secret shape into a SOPS Secrets Operator style resource. |
+| `benchmark-clickhouse-admission.py` | Compares baseline and proposed ClickHouse admission in isolated native ARM64 Docker containers with retained rows, concurrent writers/readers, overload recovery and acknowledged-write verification. |
 | `check-kubernetes-resource-bounds.py` | Requires CPU/memory requests and memory limits on directly authored Kubernetes workloads, and rejects recommendation profiles whose minimum-change threshold can block their maximum decrease step. |
 | `check-renovate-policy.py` | Verifies non-critical GitOps dependency coverage and keeps cluster-foundational dependencies under manual upgrade control. |
 | `check-postgresql-observability.py` | Uses `promtool` and PyYAML to validate PostgreSQL alerts, small-table thresholds, table overrides, and primary-only evaluation. |
@@ -19,7 +21,7 @@ Ansible role or Kubernetes app bundle.
 | `post-node-power-on.sh` | Helper for node power-on recovery or post-power operations. |
 | `setup-pre-commit.sh` | Installs the pinned pre-commit Python and native validation tools and configures the Git hook on Linux. |
 | `run-pre-commit-validation.sh` | Runs the Ansible, YAML, Kubernetes, Terraform, shell, and Dockerfile checks used by the repository's pre-commit hooks; discovers role regression tests and app tests under Kubernetes project and Fleet bundles. |
-| `safe-node-shutdown.sh` | Helper for guarded node shutdown workflows. |
+| `safe-node-shutdown.sh` | Checks quorum, SSH identity, drain and storage evacuation before operator-authorized SSH poweroff. |
 | `sync-readme-versions.py` | Reads pinned platform versions from Git-managed source files and checks or updates the static root README badge values. |
 | `validate-tempo.py` | Verifies Tempo configuration and an OTLP trace round trip, then checks the same trace after replacing the container with its data volume retained. |
 | `validate-pyroscope.py` | Checks profile ingestion and queries, Raft snapshot/WAL recovery and retained profile history after container replacement in local Docker. |

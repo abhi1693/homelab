@@ -8,8 +8,10 @@ metadata:
     app.kubernetes.io/part-of: media-stack
     home-lab.io/project-slug: entertainment
 spec:
-  suspend: false
-  schedule: "17 3 * * *"
+  suspend: true
+  # Tuesday through Saturday mornings belong to Monday through Friday nights.
+  schedule: "17 3 * * 2-6"
+  timeZone: Asia/Kolkata
   concurrencyPolicy: Forbid
   startingDeadlineSeconds: 900
   successfulJobsHistoryLimit: 2

@@ -36,3 +36,6 @@
       - (smartctl_exporter_metrics.content | regex_search('(?m)^smartctl_devices\\s+[1-9][0-9]*(\\.0)?$')) is not none
     fail_msg: Expected smartctl_exporter to expose exporter metadata and at least one discovered SMART device.
     success_msg: "smartctl_exporter metrics are available"
+
+- name: Check actual physical storage health
+  ansible.builtin.include_tasks: health.yml

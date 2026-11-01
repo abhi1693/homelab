@@ -3,7 +3,7 @@
   ansible.builtin.assert:
     that:
       - k3s_server_rollout_mode in ['bootstrap', 'rolling']
-    fail_msg: Use bootstrap only for initial site provisioning; established clusters require rolling mode.
+    fail_msg: Use bootstrap only for initial site provisioning; established servers require rolling mode.
 
 - name: Require a healthy established cluster before changing this server
   ansible.builtin.include_tasks: health.yml

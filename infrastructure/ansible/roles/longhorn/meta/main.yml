@@ -3,10 +3,9 @@ galaxy_info:
   author: OpenAI Codex
   description: Prepare Longhorn prerequisites and install Longhorn on the K3s cluster.
   license: MIT
-  min_ansible_version: "2.16"
+  min_ansible_version: '2.16'
   platforms:
-    - name: Debian
+    - name: Ubuntu
       versions:
-        - bookworm
-        - trixie
+        - all
 dependencies: []

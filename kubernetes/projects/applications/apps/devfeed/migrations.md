@@ -24,186 +24,183 @@ last-run result, disappearance of the successful Job, live schema revision and
 index validity, Fleet convergence and application readiness. Keep retained PVCs,
 credentials and content through upgrades and cleanup.
 
-## Release 0.1.2: schema 0034
+## DevFeed JIT default
 
-Follow the [phased read-model cutover](read-model-rollout.md). The additive
-migration installs transactional capture, projections and saved reports; its
-two standard review indexes briefly block review writes. A separate pre-upgrade
-hook initially builds the pipeline and default reports. After current-policy
-pipeline completion is proved, retire that one-time hook to restore core API
-availability while durable publishers finish reports. All 27 fresh current-policy
-reports remain mandatory before queue resume, worker restoration or publication.
-Reserve publisher database capacity and quiesce existing
-background writers first. Previous 0.1.1 applications reject schema `0034`, so
-readiness drops across this explicit maintenance boundary. Preserve the schema
-and roll forward with compatible images; no historical recovery replay is part
-of this rollout.
+Before upgrading the schema, the hook verifies that both its login role and
+database are `devfeed`, then commits:
 
-## Release 0.1.1: schema 0033
+```sql
+ALTER ROLE devfeed IN DATABASE devfeed SET jit = off;
+```
 
-The matching backend hook applies migrations `0027` through `0033`: processing-history
-indexes, transactional search-visibility revisions, topic-history range indexes,
-daily inference totals, separate source profile/relevance operations, and article
-lifecycle indexes. Migration `0031` backfills exact totals while holding a ledger
-write lock. Migration `0033` builds indexes concurrently and repairs interrupted
-index builds on retry. Verify a successful CNPG backup and healthy WAL archiving
-before starting the rollout.
+This uses the existing application role's permission to change its own defaults.
+It leaves the server-wide default and every other role/database pair unchanged,
+including Chimely. The hook closes its connection pool and verifies `SHOW jit`
+on a new direct PostgreSQL connection before continuing with the schema upgrade.
+The change targets JIT compilation overhead measured in DevFeed reports; it does
+not change query results or disable ordinary planning and parallel execution.
 
-Use separate Fleet revisions to preserve the drain order:
+Existing PostgreSQL backend sessions retain their previous default until they
+disconnect. Session-mode PgBouncer reuses backend sessions, so a new application
+connection alone does not guarantee activation. Allow normal backend replacement;
+do not restart the shared PostgreSQL cluster or force a pooler rollout for this
+setting. The interactive pooler also serves Chimely connections.
 
-1. Set scheduler replicas to zero, wait for Fleet convergence and its pod to exit,
-   then drain active RQ deliveries. Durable queued outbox requests can remain for
-   the new scheduler. Inspect job status instead of treating orphan intermediate
-   queue entries as active work.
-2. Set the thirteen worker Deployments and search indexer to zero and wait for old
-   pods to exit. Include the shared AI worker, which also consumes source analysis.
-   Older coupled source consumers must not receive the split operations from `0032`.
-3. Update every runtime, init-container, and migration image to the verified release
-   pins and restore worker/indexer replicas, keeping the scheduler stopped. The
-   pre-upgrade hook must complete before replacement workloads start.
-4. Verify schema `0033`, valid indexes, all replacement images and readiness, then
-   restore the scheduler through Fleet and verify desired/applied equality again.
+Verify the `jit=off` entry for the `devfeed` database and role in
+`pg_db_role_setting`, fresh direct and pooled sessions, and subsequent report
+durations/JIT counters. The hook's fresh direct-session check proves the saved
+default; it does not prove every existing pooled backend has reconnected.
 
-Release 0.1.1 also accepts schema `0032` during a forward rollout; earlier schemas
-lack required source-processing fields. The hook retains the 600-second statement
-budget, 30-second lock budget, and 840-second deadline. Migration `0033` bounds its
-index metadata locks to five seconds. Deploy APIs and the reader before publishing
-extension 0.1.22. Preserve schema and processing evidence for recovery; an image-only
-rollback to 0.1.0 is incompatible, and downgrading `0032` is guarded while split work
-or explicit processing requests remain.
+To roll back, replace the hook's `ALTER ROLE ... SET` statement with
+`ALTER ROLE devfeed IN DATABASE devfeed RESET jit` and change its fresh-session
+check and success log to expect the server default (`on`). Commit and reconcile
+through Fleet.
+Removing the enforcement code alone does not clear the persisted role default.
+Existing sessions again need to reconnect before inheriting the restored default.
 
-## Release 0.1.0: schema 0026
+## Maintenance gates
 
-The matching backend pre-upgrade hook applies `0024` (partnerships), `0025`
-(adaptive source polling), and `0026` (saved tag follows) before replacing workloads.
-Verify a successful CNPG backup before rollout, migration completion, schema `0026`,
-all replacement pods Ready, and Fleet desired/applied equality. Migration `0024`
-backfills matching vocabulary; existing sources default to fixed polling in `0025`.
-The production article-token backfill exceeds the normal 30-second query budget.
-The hook appends a process-local connection listener with `statement_timeout=600s`
-and `lock_timeout=30s`, after the application default listener. Normal services
-retain the 30-second budget. The Job permits one retry and has an 840-second deadline
-within Fleet’s 900-second Helm timeout. The failed initial backfill rolled back.
+For schema or serving-policy changes, use separate reviewed Fleet revisions to
+stop admissions, drain actual workers and dependencies, apply the matching
+migration image, verify core APIs and analytics health, and resume only the
+owned pause. Stopping the scheduler alone does not stop queue consumption.
 
-Enable the shared adaptive gate and partner signing/encryption configuration with the
-new images. Deploy the APIs before distributing extension 0.1.21.
+Verify a completed PostgreSQL backup and healthy WAL archiving first. Reserve
+publisher connection capacity separately from interactive traffic and inspect
+fresh global connection headroom. Do not roll both poolers simultaneously.
 
-Preserve the upgraded schema and recover using schema-compatible images. Downgrading
-partnership tables destroys catalog, campaign, matching, and attribution records.
+Require valid indexes, fresh reports under the current serving policy, healthy
+publisher demand and leases, matching image digests and Fleet desired/applied
+revisions before restoring processing. Retire completed one-time backfill hooks
+through Git. Preserve the upgraded schema and recover with compatible images;
+an image-only downgrade can be incompatible and cannot restore deleted data.
 
-## Release 0.0.52: schema 0023
+## 0.1.5 direct analytics
 
-Apply `0023` with the matching backend pre-upgrade hook. It adds `sources.managed_logo`,
-the nullable image-job source reference, source-job indexes, and a subject constraint
-that supports managed publisher logos. Existing accounts, articles, bookmarks, topic
-logos, and preferences are retained. The existing Images worker processes source logos
-using its configured R2 storage and imgproxy connection.
+Provision healthy persistent ClickHouse before this upgrade. The hook uses the
+ingestion schema owner to run PostgreSQL 0038 then the packaged ClickHouse schema
+upgrade, with the reader cutoff recorded before new producers start. Ordinary
+processes receive separate bounded service credentials and cannot run DDL.
 
-Verify a completed offsite PostgreSQL backup and healthy WAL archiving before the
-upgrade. Older 0.0.51 services require schema `0022`, so readiness can briefly drop
-after migration until replacement pods start. Preserve schema `0023` and recover with
-compatible images through Fleet; do not run the destructive downgrade as part of an
-ordinary image rollback.
+Both legacy projector Deployments and alerts are retired in this revision. Wait
+for all 0.1.4 application and worker pods to terminate before introducing the finite
+importer in a later Fleet revision. Worker grace periods allow 1,500-second jobs
+plus cleanup; native worker entrypoints and probes change with the image.
 
-Verify schema `0023`, both new columns, valid source-job indexes, successful hook
-completion, matching Fleet deployment IDs, all release image pins, API readiness,
-and scheduler-generated sitemap snapshots.
+The finite `devfeed-analytics-importer` is enabled only after the producer handoff
+revision is ready and no 0.1.4 producer remains. It has one bounded replica, a
+recreate strategy and durable ClickHouse checkpoints; it imports retained history
+and current cards before retiring legacy PostgreSQL analytics and declaring ready.
+Monitor `analytics_history_import_complete` and `analytics_direct_status` before
+calling analytical reports ready. Do not downgrade binaries after retirement.
 
-## Release 0.0.51: schema 0022
+Pre-upgrade hooks cannot consume ConfigMaps first introduced by the same upgrade.
+The hook declares its ClickHouse endpoint and query bounds inline; ingestion
+credentials already exist from the prerequisite revision. Ordinary producers
+use the shared application ConfigMap created after the schema hook succeeds.
 
-Apply `0021` (persisted daily Must Reads) and `0022` (topic description vocabulary
-in ranking revisions) with the matching backend pre-upgrade hook. These migrations
-retain existing accounts, articles, bookmarks and preferences. The revision trigger
-invalidates old topic ranking snapshots after the upgrade.
+Repeat upgrades first validate immutable ClickHouse history and the fixed reader
+boundary using read-only queries. When both are already prepared, they do not
+reacquire the finite importer's advisory lock. Pending schema or a missing boundary
+still runs the full ordered upgrade; invalid history fails closed.
 
-Older 0.0.50 services require schema `0020`, so readiness can briefly drop before
-replacement pods start. Keep schema `0022` and recover with compatible images;
-an image-only rollback to 0.0.50 is insufficient. Do not drop saved daily picks
-or downgrade the database as part of an ordinary image rollback.
+## 0.1.6 priority queues and current analytics
 
-Verify schema `0022`, the `user_must_reads` table, the description-aware
-`refresh_topics_revision()` function, valid indexes, successful hook completion,
-matching Fleet deployment IDs, release image digests, and reader/API readiness.
+The 0.1.6 pins come from [Release run 40982447613](https://github.com/abhi1693/devfeed.tech/actions/runs/40982447613),
+attempt 1, at source `eac590a8aa2cd4510b681dacc53033aa432049a5`. All twelve
+published components passed ARM64 platform, source/version-label, GHCR/Harbor
+manifest-byte and digest-parity, and signed-provenance checks. Every application
+container and init container uses that verified cohort. The ongoing schema hook fails before migration when its installed release or
+schema identity is wrong.
 
-## v0.0.9
+The initial cutover completed through separate Git/Fleet revisions. The 0.1.5
+image cohort and schema hook stayed in place while publishers, APIs, analytics
+and ordinary workers drained. Solver remained available for dependent jobs, then
+stopped in a second revision. All live worker registrations and started,
+intermediate, scheduled and deferred entries were absent before migration.
 
-The v0.0.9 backend hook upgrades `0006` through `0007` (private bookmarks) to
-`0008` (inference calls). Both migrations add tables and indexes without changing
-existing article data. Older API readiness rejects schema `0008`; a brief service
-interruption is possible until the new pods become ready. New pods require `0008`.
-Do not roll back only the images to v0.0.8; prefer a compatible forward fix.
-After Fleet convergence, verify the successful hook record and cleanup before the
-separately authorized rejected-article reset. Preserve all historical reviews.
+The verified 0.1.6 schema hook applied PostgreSQL 0039 and ClickHouse migrations
+through 0004 before consumers resumed. A temporary cleanup hook removed exactly
+two stale Redis list pointers only after matching their delivery UUIDs, due/finish
+timestamps, attempt and absent leases to already-succeeded durable jobs. That
+verification used a bounded read-only transaction through the DevFeed pooler.
+The native transport migration then reported `ready=true`, `applied=true` and
+`complete=true`, moving all **805 queued deliveries** into the new queues.
 
-## v0.0.10
+The successful proof preserved every queued identity, serialized payload, retry
+field, retained metadata and absolute expiry. It also preserved all **29 historical
+failed-delivery records**, including their members and scores. Recorded proof:
 
-Schema `0009` adds `topic_decision_runs` and its indexes. The pre-upgrade hook
-uses the v0.0.10 backend and cleans up on success. Existing v0.0.9 APIs reject
-revision `0009` until replaced; a brief readiness interruption is possible.
-Keep the new schema and roll forward with compatible images if recovery is needed.
-No rejected-article reset is part of this release; the v0.0.9 reset remains audited.
+| Evidence | Value |
+| --- | --- |
+| Queued identities SHA-256 | `b6cc7439376034d47c5f2c867589faaefc5839ab6f17c830341193d2bac28c8b` |
+| Payload/retry SHA-256 | `8acef6c56f4b46e8d250552a1344ae80a22a19ba5c93dc30e562b8c455687e03` |
+| Absolute expiry preserved | `true` |
+| Failed history preserved | `29` |
+| Already-completed stale pointers removed | `2` |
 
-## v0.0.11
+Both one-time Job manifests, Kustomization entries and temporary transport-test
+fixtures are retired after this proof. Subsequent Fleet upgrades do not replay
+that offline cleanup or queue migration against active workers. Completed Job
+logs remain subject to their original one-hour TTL; retirement requires no manual
+cluster deletion. Keep the ongoing schema hook, worker lifecycle, credentials and
+network-boundary contracts.
 
-The corrected backend retains schema `0009`. Its pre-upgrade hook verifies the
-current head and still cleans up automatically. v0.0.10 and v0.0.11 backends
-accept the same schema, so this correction has no schema compatibility gap.
-Topic canary recovery uses explicit budget grants after live validation, preserving
-all previous charges and decisions; it is separate from schema migration.
+All three priority pools receive notification delivery credentials and Codex
+trust/configuration; Images and solver credentials stay isolated. Current pipeline
+and audience reconciliation continue after the finite import, with the analytics
+process using direct PostgreSQL for its session advisory coordination. Feed/topic
+panels may show Preparing while bounded metadata repair finishes. Neither repair
+nor rollback reconstructs lost historical observations.
 
+Rollback is not an image-only operation: old binaries cannot consume the new
+queues and may reject schema 0039. Keep processing stopped and recover with a
+compatible image or a separately reviewed reverse routing/schema procedure.
+Retain PVCs, credentials, checkpoints and migration evidence throughout recovery.
 
-## v0.0.19
+## 0.1.7 current-analytics fairness and recovery
 
-Schema `0010` adds source-discovery candidates, provenance, feed evidence, and durable
-jobs. Pending sources may have no feed while discovery runs; approved sources must
-retain a feed. Existing source decisions, accounts, articles, and preferences are
-preserved. The backend image in the pre-upgrade hook matches all application pins.
+The verified [Release run 41022549592](https://github.com/abhi1693/devfeed.tech/actions/runs/41022549592),
+attempt 1, publishes source [9bbc6858](https://github.com/abhi1693/devfeed.tech/commit/9bbc6858cd9e03ef3fbd6ef499816bd851276f98).
+This compatible image update retains PostgreSQL 0039 and ClickHouse 0004 and uses
+the normal schema hook and rolling lifecycle, without replaying queue migration.
 
-Older application readiness requires `0009`, so a brief interruption is possible
-between migration and workload replacement. Verify hook success, schema `0010`,
-source counts, Fleet convergence, and API/reader behavior after rollout. Keep the
-new schema and use a compatible forward fix if recovery is needed; an image-only
-rollback to `v0.0.18` is not compatible with the new schema.
+Publication admission waits asynchronously for at most ten seconds; source reads
+retain five-second deadlines and each repair page has a twenty-second deadline.
+A busy card refresh preserves valid queue progress and does not acknowledge an
+unfinished card cycle. The reconciler alone publishes canonical cards; producers
+acknowledge event delivery within the publication fence. RQ shutdown allows a
+bounded drain and inference persistence retries never repeat a paid model call.
 
+Bounded checkpointed recovery rebuilds facts retained in the sixteen PostgreSQL
+sources, with original event times and restart-safe pending-page acknowledgement.
+Preserve those records until recovery completes. Deleted records and overwritten
+historical attempts cannot be reconstructed. Existing import checkpoints, policy,
+reader cutoff, credentials, queues and worker reservations remain unchanged.
 
-## v0.0.20
+After Fleet convergence, verify two advancing complete card/queue cycles, all
+sixteen source acknowledgements, nonzero matching publication counts and useful
+background completions. Capture an empty canonical-card insert buffer after old
+producers exit and require complete card source coverage newer than that barrier.
+Pod readiness alone does not establish analytical correctness.
 
-Schema `0010` is unchanged. The v0.0.20 backend hook verifies the existing head
-before replacing services. Article-analysis capacity increases to three dedicated
-workers. Shared weekly-quota pacing is enabled with a 20% reserve; the scheduler
-must refresh quota before AI admission resumes. Verify a fresh quota snapshot,
-worker readiness and completed work after Fleet convergence.
+## 0.1.8 queue freshness, card recovery and reader startup
 
-## v0.0.21
+The verified [Release run 41063918969](https://github.com/abhi1693/devfeed.tech/actions/runs/41063918969),
+attempt 1, publishes source [7439405b](https://github.com/abhi1693/devfeed.tech/commit/7439405bb165430a5809bfcfad86af45596b5f7a).
+All twelve ARM64 images passed registry-cache byte/digest parity, source/version
+labels and signed provenance checks. This compatible update retains PostgreSQL
+0039 and ClickHouse 0004 and uses the normal schema hook and rolling lifecycle.
+It does not replay the completed queue migration or change worker reservations.
 
-Schema `0011` adds the nullable `articles.ai_title` column while preserving source
-titles and existing editorial decisions. The matching backend migration hook runs
-before workload replacement. Older APIs require `0010`, so a brief readiness
-interruption is possible. Verify hook success, schema `0011`, Fleet convergence,
-all release images and reader behavior. Do not reanalyze existing articles as part
-of this rollout; selective reanalysis is a separate operator action. Keep the new
-schema and use a compatible forward fix if recovery is needed.
+Queue snapshots finish a bounded priority page before slower repair work. Card
+recovery orders by the table's UUID primary key instead of sorting its text
+projection before limiting each page. Ordinary reader feeds defer the Columns
+workspace until it is needed.
 
-## v0.0.22
-
-Apply `0012` (recommendation candidate rebuild tracking) and `0013` (managed article
-image metadata and durable Images storage progress) with the matching backend hook.
-Existing content and preferences are retained. Redis holds expiring shuffled feed
-generations; a Redis outage falls back to the database without shuffling.
-Older services reject schema `0013`, so readiness can briefly drop before their
-replacement. Verify migration, Fleet convergence, release digests, reader behavior
-and an image storage operation. Recover with schema-compatible images rather than
-an image-only rollback to v0.0.21. R2 backfill is independent of the schema migration.
-
-## Release 0.0.24: schema 0014
-
-The pre-upgrade hook adds nullable `inputs_pruned_at` markers to article and topic
-analysis jobs, then creates active-topic and successful-job retention indexes
-concurrently. The migration preserves current payloads and publication decisions.
-Before retrying an interrupted migration, inspect `pg_index.indisvalid`; invalid
-release indexes require an explicitly authorized repair.
-
-Verify schema 0014, successful hook completion, matching Fleet deployment IDs and
-all new application images before declaring the rollout complete. Older 0.0.23
-services require schema 0013, so a readiness gap is possible. Keep schema 0014 and
-recover with compatible images; an image-only rollback is insufficient.
+Preserve existing history checkpoints, policy, reader cutoff, queues, credentials
+and PVCs. After Fleet convergence, verify two advancing complete queue/card cycles,
+all sixteen source acknowledgements, matching nonzero publication totals and
+useful background completions. Capture an empty canonical-card insert buffer
+after old producers exit and require complete source coverage newer than that
+barrier. Readiness alone does not prove report freshness or correct recovery.

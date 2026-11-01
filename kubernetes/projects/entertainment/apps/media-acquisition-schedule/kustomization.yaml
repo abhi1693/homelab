@@ -1,0 +1,21 @@
+---
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+resources:
+  - deployment.yaml
+  - rbac.yaml
+  - networkpolicy.yaml
+  - state.yaml
+configMapGenerator:
+  - name: media-acquisition-schedule-code
+    namespace: media
+    files:
+      - config.json
+      - controller.py
+      - health.sh
+      - seerr_retry.py
+generatorOptions:
+  labels:
+    app.kubernetes.io/name: media-acquisition-schedule
+    app.kubernetes.io/part-of: media-stack
+    home-lab.io/project-slug: entertainment

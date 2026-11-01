@@ -67,3 +67,15 @@ responses at the Cloudflare boundary. Exercise real
 device capabilities only through normal Companion App traffic. Keep the Home
 Assistant image, ingress boundaries and encrypted capability configuration
 unchanged during a gateway-only update.
+
+## Resource review — 28 October 2026
+
+Values use the 28 October historical review in
+[the resource policy](../../../../../docs/runbooks/kubernetes-resource-policy.md#2026-10-28-historical-resource-review).
+CPU reservations cover measured sustained demand with headroom; existing burst
+policies remain in place. Memory caps preserve the observed fourteen-day peaks
+and extra headroom where OOM records show clipping.
+
+| Container / value path | CPU request | Memory request | Memory limit |
+| --- | --- | --- | --- |
+| `home-assistant/home-assistant-mobile-webhook/gateway` | 5m → 5m | 24Mi → 32Mi | 64Mi → 64Mi |

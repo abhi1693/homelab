@@ -4,7 +4,7 @@ The monitoring runtime uses upstream `prometheus-community/kube-prometheus-stack
 `92.2.0`: Prometheus 3.15.0, Grafana 13.2.3, Alertmanager 0.34.1 and operator
 0.94.1. Prometheus, Alertmanager, Grafana, the Grafana sidecar and Thanos use
 upstream images. Thanos query and sidecars run 0.42.4. Existing storage identities
-are retained. The operator explicitly requested continuing without backups.
+are retained. Review backups and a supported recovery path before stateful maintenance.
 
 The upstream chart is fetched from its official GHCR OCI repository, avoiding
 large HTTP chart-index parsing in the memory-bounded HelmOps controller.
@@ -12,36 +12,22 @@ HelmOp resources put the complete OCI reference in `helm.repo` and omit
 `helm.chart`, as required by Fleet's HelmOps resolver.
 
 Three Fleet HelmOps reconcile in order: upstream CRDs, upstream runtime, then
-`rancher-monitoring-dashboards` `110.0.1+up0.1.4`. The existing CRD release is
-upgraded in place to remove its legacy destructive uninstall hook. Its upstream
-CRD upgrade Job applies schemas before the runtime updates. Namespaces remain
-owned by the wrapper manifests; HelmOps do not set namespace metadata.
+Rancher dashboard integration. `upstream-values.yaml` and
+`upstream-crd-values.yaml` own the runtime; `dashboards-values.yaml` owns the
+Rancher UI integration. Namespaces belong to wrapper manifests, not HelmOps.
+Use the active files for changes; the release and resource names preserve
+storage bindings, selectors and consumers.
 
-The CRDs were upgraded to chart `92.2.0` before the runtime, using upstream
-`registry.k8s.io/kubectl:v1.36.4`.
+Fleet accepts the NFS dependency in `Ready` or `NotReady` state so an unhealthy
+node agent does not block monitoring rule and dashboard updates. Missing or
+undeployed dependencies remain blocked.
 
-`upstream-values.yaml` and `upstream-crd-values.yaml` are active runtime values.
-`values.yaml` and `crd-values.yaml` retain the initial legacy configuration as a
-historical reference; Grafana 13 database migrations require a reviewed recovery
-plan rather than a blind downgrade.
-
-The `rancher-monitoring` directory, release and resource names are retained to
-preserve storage bindings, selectors and existing consumers. They do not select
-the retired Rancher runtime chart. The workload catalog points runtime workloads
-at `upstream-values.yaml` and the separate Rancher UI integration proxy at
-`dashboards-values.yaml`; removed PushProx and Prometheus Adapter workloads are
-not part of the active inventory.
-
-Stock dashboards are generated directly by the upstream chart in
-`cattle-monitoring-system`, retaining their dashboard UIDs. The frozen
-`preserved-dashboards-values.yaml` input is retired. The temporary Helm pre-upgrade
-hook removed the 24 former stock ConfigMaps in `cattle-dashboards` before
-native provisioning started. The hook and its RBAC are now removed, and runtime
-drift correction is restored.
-The existing AIX ConfigMap is updated in place. Rancher integration dashboards
-and custom dashboards remain in their existing namespaces, and UI-created
-content stays in Grafana's database. Chart upgrades now refresh stock dashboards
-automatically.
+The CRD upgrade Job applies schemas before runtime updates. Grafana database
+changes require a reviewed recovery plan rather than a blind downgrade.
+Stock dashboards are provisioned by the upstream chart in
+`cattle-monitoring-system`; chart upgrades refresh them. Integration/custom
+dashboards remain in their owning namespaces, and UI-created content lives in
+Grafana's database. Preserve dashboard UIDs and datasource references.
 
 Grafana 13's SQLite migration uses a 64 MiB migration cache and Parquet staging;
 the Grafana container has a 1 GiB memory limit and its existing UID/GID 472.
@@ -49,9 +35,74 @@ the Grafana container has a 1 GiB memory limit and its existing UID/GID 472.
 Native `monitoring-prometheus`, `monitoring-alertmanager` and
 `monitoring-grafana` Services back the maintained Rancher UI proxies. Grafana's
 Ingress connects directly to its native Service. Replica-specific OTLP write
-Services and Thanos discovery names remain unchanged. Follow the
-[migration runbook](../../../../../docs/runbooks/rancher-monitoring-migration.md)
-for recovery limits and acceptance evidence.
+Services and Thanos discovery names remain unchanged. Preserve these service
+identities during upgrades and verify native and Rancher UI access after Fleet
+reconciliation.
+
+Grafana anonymous access is explicitly disabled before collecting broader OS
+authentication and API audit records. Use the existing authenticated login;
+dashboard folders do not restrict datasource query access. Existing Loki/Tempo
+datasource UIDs remain stable. Native OTel `trace_id` structured metadata has a
+label-derived trace link alongside the legacy body-regex link.
+
+OS monitoring has two dashboards:
+
+- **OS / Host Metrics** keeps UID `os-incident-evidence` and the existing URL.
+  Every query and variable uses Prometheus: CPU, MemAvailable-based memory,
+  root capacity, I/O pressure, physical Ethernet, uptime, readiness, inventory,
+  filesystems, network-stack counters, scheduler process counts and host alerts.
+  Opening this dashboard issues no Loki requests. Host-table columns fill the
+  available panel width; missing data remains Unknown.
+- **OS / Logs** has UID `os-logs`. Choose a node and one source: System journal,
+  Kubernetes API audit, or OS files and saved journals. One bounded browser
+  loads the latest 100 matching records. Level, Service and Search
+  filter the full message before its 320-character display excerpt. Level supports
+  multiple selections, with All levels showing every level.
+  API audit rows summarize the action, resource, actor, stage and HTTP result;
+  plain package/bootstrap files remain visible without requiring JSON.
+
+Both dashboards start with data panels and link to each other with node/time
+selection. Logs use UTC and show **Event time** from the original record next
+to **Stored time**, the timestamp searched by the time picker. Imported journals
+and source times outside the accepted range have an explicit row context;
+plain files without a separately parsed producer date show Unknown event time.
+Click Message to open unchanged originals and surrounding records in Explore.
+There are no separate clock/boot, change-context or authentication evidence
+sections to interpret: use Source, Service and text to find those records.
+For example, journal Service `ssh` or `sudo` focuses authentication, `kernel`
+focuses kernel messages, and source OS files includes package/setup logs and
+saved native journals.
+
+Host Metrics defaults to 30 minutes with a one-minute refresh. Logs defaults
+to 30 minutes with refresh off, so a long investigation does not resubmit
+expensive scans in the background. The dashboard runs only the bounded message
+query; filter Level to errors to inspect the actual records. The log query
+uses compiled parser stages instead of compiling regular
+expressions for every record. The plaintext control is named `contains`, so
+legacy `search=.*` regex state is not carried into the new dashboard.
+
+Per-process CPU/RSS, logged-in-user counts and systemd service-state metrics
+are not collected; the process view shows existing runnable/blocked counts.
+The [incident coverage runbook](../../../../../docs/runbooks/incident-coverage.md)
+defines source coverage, timestamp semantics and SSH capture when the query
+backends are unavailable. The query regression validator runs the actual
+shipped expressions against synthetic journal, audit and file records in the
+pinned Loki image, including body/timestamp preservation and original-record
+links: `python3 scripts/check-os-dashboard-queries.py`.
+
+The layout was checked against these community examples. Queries are written
+for this repository's datasource UIDs, `node-exporter` job, ARM64 node identity
+and `eth0` interface; the examples are references, not imported dependencies.
+
+| Examples | Applied here | Dependency difference |
+| --- | --- | --- |
+| [10180](https://grafana.com/grafana/dashboards/10180-kds-linux-hosts/), [22066](https://grafana.com/grafana/dashboards/22066-status-elhacker-net/) | Host summary and grouped CPU/memory/storage/network trends | Rewrite hard-coded host/job/interface selectors; use MemAvailable. |
+| [5984](https://grafana.com/grafana/dashboards/5984-alerts-linux-nodes/) | Host alert context | Use current Prometheus rules, rather than legacy panel alerts. |
+| [25816](https://grafana.com/grafana/dashboards/25816-linux-network-stack-node-exporter/) | TCP retransmissions, conntrack, sockets and softnet | Use enabled collectors; omit unavailable IRQ collectors. |
+| [13766](https://grafana.com/grafana/dashboards/13766-loki-syslog-aio-overview/), [17514](https://grafana.com/grafana/dashboards/17514-ssh-logs/) | Level/activity overview, searchable journal and SSH evidence | Parse native journal fields from the existing OTel pipeline; no Promtail/syslog-ng replacement. |
+| [8378](https://grafana.com/grafana/dashboards/8378-system-processes-metrics/), [3387](https://grafana.com/grafana/dashboards/3387-process-top/) | Process-detail reference | Require process-exporter or Telegraf procstat; existing node-exporter supplies scheduler counts only. |
+| [2381](https://grafana.com/grafana/dashboards/2381-olympus/), [25711](https://grafana.com/grafana/dashboards/25711-linux-network-performance/), [25710](https://grafana.com/grafana/dashboards/25710-linux-network-performance-deep-dive/) | General host and network hierarchy | Require InfluxDB/Telegraf; use existing Prometheus metrics here. |
+| [8677](https://grafana.com/grafana/dashboards/8677-servidores-linux/), [11836](https://grafana.com/grafana/dashboards/11836-suspicious-attempt/) | Host/authentication context | Require Zabbix or Sonicwall/Elasticsearch data; do not infer those sources from SSH messages. |
 
 Longhorn 1.12.1 isolates manager ingress by default. The colocated
 `longhorn-networkpolicy.yaml` permits TCP/9500 only from this stack's Prometheus
@@ -78,10 +129,10 @@ Fleet wrapper for upstream monitoring and Rancher dashboard integration in
 `rancher-monitoring-stack`, and `rancher-monitoring-dashboards`. Prometheus runs two
 replicas with hard pod anti-affinity and one retained `64Gi` Longhorn PVC per
 replica. Each replica has `30d` retention, a `52GiB` retention-size
-cap, a 4Gi memory request, and a 5Gi memory limit. The size cap keeps Prometheus
+cap, a 4Gi memory request, and a 6400Mi memory limit. The size cap keeps Prometheus
 near 81 percent of the declared claim capacity so WAL and compaction activity
 retain filesystem headroom. The global Prometheus scrape interval is `60s`.
-Each Thanos sidecar requests `512Mi` and is limited to `2Gi`. Go's automatic
+Each Thanos sidecar requests `640Mi` and is limited to `2Gi`. Go's automatic
 memory limit targets 75 percent of the cgroup limit, and each StoreAPI request is
 capped at 10,000 series and 1.2 million samples. These bounds prevent oversized
 reads from exhausting sidecar memory.
@@ -112,11 +163,8 @@ run into a permanent alert.
 The Prometheus OTLP metrics receiver is enabled for application OpenTelemetry
 metrics and promotes common service resource attributes. Its TSDB accepts
 samples up to 30 minutes out of order to accommodate collector batching; each
-producer still needs a unique service instance identity. The runtime handoff
-retains dashboard ConfigMaps and Rancher bridge Services through Helm keep
-annotations. The operator authorized the 2026-10-01 cutover without new storage
-backups. The subsequent modernization retained the existing PVCs while advancing
-the stateful runtimes to the upstream versions listed above.
+producer still needs a unique service instance identity. Keep dashboard ConfigMaps,
+bridge Services, PVCs and datasource identities stable across chart changes.
 Grafana also provisions
 a `Tempo` datasource for the lightweight Tempo app in this project.
 Alertmanager runs two replicas with retained `2Gi` NFS PVCs. Grafana is exposed internally at
@@ -144,9 +192,6 @@ temporary NFS delay cannot make an otherwise healthy Grafana process exit.
 Alertmanager loads `AlertmanagerConfig` resources cluster-wide and uses the
 `home-lab-slack` config to send non-`Watchdog`, non-`none` severity alert
 notifications to Slack.
-A temporary `MonitoringMigrationDeliveryCheck` alert verified the delivery path
-after modernization: Slack notifications increased with zero delivery failures.
-The temporary rule was removed through Fleet.
 The Slack incoming-webhook URL is stored in the SOPS-managed
 `alertmanager-slack` Secret.
 
@@ -156,7 +201,7 @@ correlate related delivery symptoms; DevFeed fast/slow availability burns group
 by service. Other alerts retain alert-name grouping. Permanent loss is displayed
 first and is never hidden by a new inhibition rule. The four-hour repeat and
 five-minute group interval remain unchanged; Alloy's ten-minute recovery hold
-bridges the measured brief gaps between drop bursts. See the
+bridges brief gaps between drop bursts. See the
 [notification runbook](../../../../../docs/runbooks/slack-notifications.md)
 for the investigation, recovery semantics and local capture validation.
 
@@ -187,9 +232,28 @@ The `k3s-server` job and `metrics_path` labels are retained for `/metrics`,
 `/metrics/cadvisor` and `/metrics/probes`. The first drops duplicate
 `apiserver_*` samples; the dedicated API server target retains its SLI histogram.
 Cluster identity labels remain `local`. Separate scheduler/controller/proxy
-scrapes are disabled because K3s shares a registry. PushProx is removed.
-The unused Prometheus Adapter is removed: no HPAs were present and its only
-custom rule intentionally matched a nonexistent metric.
+scrapes are disabled because K3s shares a registry. PushProx and Prometheus
+Adapter are not part of the runtime configuration.
+
+The 28 October 2026 cardinality review found about 37,135 active series with no
+exact references in the 73 provisioned dashboards and 403 alerting/recording
+rules inspected. Scrape-time metric relabeling drops these five groups:
+
+- Longhorn internal REST-client latency and workqueue duration histograms
+  (bucket, sum and count): 18,044 series.
+- Kubelet probe-duration histogram (bucket, sum and count): 7,938 series.
+- cAdvisor `container_tasks_state`: 4,765 series.
+- Scheduler plugin-duration histogram (bucket, sum and count): 3,726 series.
+- `kubernetes_feature_enabled`: 2,662 series.
+
+The scheduler and feature filters cover both API-server and kubelet shared
+registries. Probe results, `container_memory_failures_total`, API-server SLI
+histograms, and Longhorn volume health/capacity/latency metrics remain collected.
+Query logging was disabled during the review, so lack of dashboard/rule references
+does not establish that these metrics were never queried manually. Historical
+samples remain until normal retention expires; reductions in active series do
+not imply proportional CPU, memory or disk savings. Revert the specific drop rule
+through Fleet if detailed internal timings are needed again.
 
 The Ansible-managed K3s configuration also disables unused, high-cardinality API
 request, response, watch, and etcd histogram families at the source. After
@@ -205,7 +269,8 @@ series ingestion, and API SLO rules afterward.
 ## Resource request baseline
 
 Review requests against sustained CPU and memory use with burst headroom.
-Prometheus requests `400m` CPU and `4Gi` memory per replica. Grafana's main and dashboard-sidecar containers request `35m` CPU and
+Prometheus requests `350m` CPU and `4Gi` memory per replica. Each Thanos sidecar
+requests `100m` CPU. Grafana's main and dashboard-sidecar containers request `35m` CPU and
 `704Mi` memory in total. Rancher's separate UI proxy has two replicas. The chart-wide `grafana.sidecar.resources` key applies to its
 sidecars. Node exporter requests `5m` CPU on each node and remains burstable.
 `kube-state-metrics` requests `192Mi` and is capped at `384Mi`; preserve
@@ -305,11 +370,64 @@ not Kubernetes resource documents. YAML syntax validation still covers them.
 
 ## Coverage and HA boundary
 
-The [2026-10-01 review](../../../../../docs/runbooks/monitoring-ha-review.md)
-checks the modernization against live targets and seven-day resource history.
-Prometheus, Alertmanager and Thanos have redundant replicas, but Grafana's
-SQLite/NFS database, the shared NAS, kube-state-metrics and the operator remain
-single failure points with different consequences. Do not describe the entire
-stack as HA. Actual etcd server-health metrics are absent despite API-client
-metrics with `etcd_` prefixes. Keep the measured Prometheus memory headroom;
-reducing requests does not reduce actual resource consumption.
+Prometheus replicas retain local Longhorn volumes and Thanos Query combines their
+results without an object store. Grafana uses a single SQLite database; Loki has
+one filesystem-backed writer on NFS. Tempo and Pyroscope are single writers on
+Longhorn. These services can pause during pod replacement or storage reattachment.
+Do not increase Grafana or Loki writer replicas against their existing storage.
+
+Before changing replica counts, storage or query dependencies, verify scrape and
+rule coverage, log delivery, historical queries, dashboard UIDs, datasource
+references and alert delivery. PDBs cover voluntary eviction; they do not prove
+node-failure availability or protect against a NAS outage.
+
+## Resource review — 28 October 2026
+
+Values use the 28 October historical review in
+[the resource policy](../../../../../docs/runbooks/kubernetes-resource-policy.md#2026-10-28-historical-resource-review).
+CPU reservations cover measured sustained demand with headroom; existing burst
+policies remain in place. Memory caps preserve the observed fourteen-day peaks
+and extra headroom where OOM records show clipping.
+
+| Container / value path | CPU request | Memory request | Memory limit |
+| --- | --- | --- | --- |
+| `cattle-monitoring-system/rancher-monitoring/prometheus` | 400m → 500m | 4Gi → 4Gi | 5Gi → 6400Mi |
+| `cattle-monitoring-system/rancher-monitoring/thanos-sidecar` | 25m → 250m | 512Mi → 640Mi | 2Gi → 2Gi |
+| `cattle-monitoring-system/rancher-monitoring/grafana` | 25m → 25m | 512Mi → 512Mi | 1Gi → 1280Mi |
+| `cattle-monitoring-system/rancher-monitoring/grafana-sidecar` | 10m → 10m | 192Mi → 128Mi | 272Mi → 272Mi |
+| `cattle-monitoring-system/rancher-monitoring/kube-state-metrics` | 10m → 10m | 192Mi → 96Mi | 384Mi → 384Mi |
+| `cattle-monitoring-system/rancher-monitoring/node-exporter` | 5m → 5m | 48Mi → 32Mi | 192Mi → 96Mi |
+| `cattle-monitoring-system/thanos-query/thanos-query` | 100m → 250m | 768Mi → 1408Mi | 3Gi → 3Gi |
+
+The follow-up seven-day review reduces Prometheus from `500m` to `350m` and
+each Thanos sidecar from `250m` to `100m`, releasing `600m` across two replicas.
+Prometheus CPU p95 was `238–244m` per replica; sidecar p95 was about `66m`.
+Memory requests/limits, the Prometheus one-core CPU limit, and the uncapped
+sidecar CPU remain unchanged. These savings are on the control-plane nodes.
+After reconciliation, verify both replicas, scrape freshness, and Thanos Query
+discovery. Revert these two CPU values through Git if contention degrades service.
+
+## Faro retirement
+
+Faro browser monitoring, its two collector/resolver pods, dedicated ingress and
+credentials, network grants and seven Faro dashboards were retired on 2026-10-28.
+App flags were disabled and frontend bundles rebuilt before collector removal.
+Backend traces, profiles, Kubernetes events, node logs and application analytics
+remain active. App repository PRs remove the SDK and private source-map routes
+from future releases. App-side legacy credential/configuration fields remain
+only while the currently deployed images and build-cache keys still expect them.
+
+## Host hang recovery monitoring
+
+All eight nodes export minute host-recovery textfile metrics. Raspberry Pi rules
+warn about incomplete netconsole targets, a stopped kernel receiver, stale/missing
+health metrics. Boot-time changes remain available as metrics without a repeated-reboot
+alert, since planned maintenance and clock adjustments can trigger it. The retired
+PID 1 hardware watchdog has no active-state alert. Existing node-exporter-down
+alerts cover unreachable nodes. See the [host recovery workflow](../../../../../infrastructure/ansible/roles/os_prep/README.md#remote-node-recovery-and-kernel-evidence).
+
+Kernel receivers run outside Kubernetes on the three control-plane hosts.
+Received records reach Loki through Alloy as `node/system` with
+`unit="home-lab-kernel-receiver.service"`. The indexed `node` identifies the
+receiver; extract journal `MESSAGE` then parse JSON `source_node` to select the failed sender. Critical
+kernel forwarding is UDP and does not guarantee capture of an unlogged hang.

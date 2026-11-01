@@ -1,0 +1,37 @@
+---
+values:
+  fullnameOverride: instructor-netbox
+  existingSecret: instructor-netbox
+  superuser:
+    name: admin
+    email: instructor@home.invalid
+    existingSecret: instructor-netbox-admin
+  allowedHosts:
+  - instructor.netbox.home
+  csrf:
+    trustedOrigins:
+    - https://instructor.netbox.home
+  ingress:
+    enabled: true
+    className: traefik
+    hosts:
+    - host: instructor.netbox.home
+      paths:
+      - /
+    tls:
+    - hosts:
+      - instructor.netbox.home
+      secretName: instructor-netbox-tls
+  externalDatabase:
+    database: netbox_instructor
+    username: netbox_instructor
+    existingSecretName: instructor-netbox
+  tasksDatabase:
+    database: 12
+  cachingDatabase:
+    database: 13
+  podAnnotations:
+    home-lab.io/bootstrap-revision: training-v1
+  worker:
+    podAnnotations:
+      home-lab.io/bootstrap-revision: training-v1

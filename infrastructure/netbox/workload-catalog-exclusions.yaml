@@ -26,9 +26,9 @@ spec:
       application: firefly-iii
       reason: Shared Firefly PVC declarations are recorded as Firefly persistent stores.
     - path: kubernetes/projects/applications/apps/wardn-license-server-prerequisites
-      disposition: component
+      disposition: retired
       application: wardn-license-server
-      reason: Shared runtime configuration supports the Wardn License Server application.
+      reason: Retained credentials only after the runtime was retired on 2026-10-28.
     - path: kubernetes/projects/database/apps/cnpg-operator-registry-secrets
       disposition: component
       application: cnpg-operator
@@ -41,14 +41,6 @@ spec:
       disposition: component
       application: postgresql
       reason: Network boundaries are part of the PostgreSQL application.
-    - path: kubernetes/projects/database/apps/postgresql-hyperlocal-kitchen-prerequisites
-      disposition: component
-      application: postgresql
-      reason: Hyperlocal Kitchen credentials and pooler network access are part of PostgreSQL.
-    - path: kubernetes/projects/database/apps/postgresql-launchboard-prerequisites
-      disposition: component
-      application: postgresql
-      reason: Launchboard database credentials and bootstrap network access are part of PostgreSQL.
     - path: kubernetes/projects/database/apps/postgresql-wardn-license-prerequisites
       disposition: component
       application: postgresql
@@ -97,10 +89,6 @@ spec:
       disposition: component
       application: cloudflare-tunnel-ingress-controller
       reason: Namespace and secret configuration support the controller application.
-    - path: kubernetes/projects/home-automation/apps/cluster-ops-crds
-      disposition: component
-      application: cluster-ops
-      reason: ApplicationProfile CRDs are owned by the Cluster Ops controller.
     - path: kubernetes/projects/home-automation/apps/home-automation-helm-repositories
       disposition: support
       application: fleet
@@ -109,14 +97,6 @@ spec:
       disposition: component
       application: netbox
       reason: Namespace, database, and registry secrets support NetBox.
-    - path: kubernetes/projects/home-automation/apps/rack-state-backups
-      disposition: component
-      application: rack-ops
-      reason: Retained backup storage, helper configuration, and storage acceptance support Rack Ops.
-    - path: kubernetes/projects/home-automation/apps/recommender-state-backups
-      disposition: component
-      application: cluster-ops
-      reason: Retained backup storage, helper configuration, and storage acceptance support the Cluster Ops Recommendation Engine.
     - path: kubernetes/projects/system/apps/cert-manager-local-ca
       disposition: component
       application: cert-manager
@@ -133,6 +113,10 @@ spec:
       disposition: component
       application: external-dns-unifi
       reason: Controller credentials are secret configuration, not a service.
+    - path: kubernetes/projects/system/apps/longhorn-maintenance-policy
+      disposition: component
+      application: longhorn
+      reason: The Setting enforces replica evacuation for Longhorn node maintenance.
     - path: kubernetes/projects/system/apps/longhorn-recurring-jobs
       disposition: component
       application: longhorn
@@ -145,6 +129,10 @@ spec:
       disposition: component
       application: rancher-backup
       reason: Object-store credentials support Rancher Backup.
+    - path: kubernetes/projects/system/apps/fleet-agent-resources
+      disposition: support
+      application: fleet
+      reason: Resource policy reconciles the existing local Fleet agent without a separate service.
     - path: kubernetes/projects/system/apps/rancher-generated-resource-defaults
       disposition: support
       application: rancher
@@ -153,3 +141,15 @@ spec:
       disposition: support
       application: fleet
       reason: ClusterRepository definitions have no independent runtime service.
+    - path: kubernetes/projects/applications/apps/wardn-ai
+      disposition: retired
+      application: wardn-ai
+      reason: Retained namespace, storage or credentials only after runtime retirement on 2026-10-28.
+    - path: kubernetes/projects/applications/apps/wardn-license-server
+      disposition: retired
+      application: wardn-license-server
+      reason: Empty release marker lets Fleet prune the original paused app resources.
+    - path: kubernetes/projects/training/apps/instructor-prerequisites
+      disposition: support
+      application: fleet
+      reason: Owns the instructor namespace and encrypted training credentials.

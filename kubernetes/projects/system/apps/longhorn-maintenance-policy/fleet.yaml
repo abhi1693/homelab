@@ -1,0 +1,9 @@
+---
+name: longhorn-maintenance-policy
+defaultNamespace: longhorn-system
+labels:
+  app.kubernetes.io/name: longhorn-maintenance-policy
+  app.kubernetes.io/part-of: longhorn
+  home-lab.io/project-slug: system
+helm:
+  takeOwnership: true

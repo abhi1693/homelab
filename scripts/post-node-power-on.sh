@@ -22,7 +22,7 @@ move already-running pods just because a node came back.
 Environment overrides:
   NODE_READY_TIMEOUT        default: 600 seconds
   SYSTEM_PODS_READY_TIMEOUT default: 300 seconds
-  SYSTEM_NAMESPACES_REGEX   default: ^(kube-system|longhorn-system|cattle-monitoring-system|rack-ops)$
+  SYSTEM_NAMESPACES_REGEX   default: ^(kube-system|longhorn-system|cattle-monitoring-system)$
 USAGE
 }
 
@@ -159,7 +159,7 @@ main() {
 
   local node_ready_timeout=${NODE_READY_TIMEOUT:-600}
   local system_pods_ready_timeout=${SYSTEM_PODS_READY_TIMEOUT:-300}
-  local system_namespaces_regex=${SYSTEM_NAMESPACES_REGEX:-'^(kube-system|longhorn-system|cattle-monitoring-system|rack-ops)$'}
+  local system_namespaces_regex=${SYSTEM_NAMESPACES_REGEX:-'^(kube-system|longhorn-system|cattle-monitoring-system)$'}
 
   log "Waiting for $node to become Ready"
   wait_for_node_ready "$node" "$node_ready_timeout"

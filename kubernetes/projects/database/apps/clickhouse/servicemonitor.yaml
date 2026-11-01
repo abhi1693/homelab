@@ -1,0 +1,31 @@
+---
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+  name: clickhouse
+  namespace: clickhouse
+  labels:
+    app.kubernetes.io/name: clickhouse
+    app.kubernetes.io/part-of: clickhouse
+    home-lab.io/project-slug: database
+spec:
+  jobLabel: app.kubernetes.io/name
+  namespaceSelector:
+    matchNames:
+    - clickhouse
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: clickhouse
+      app.kubernetes.io/part-of: clickhouse
+  endpoints:
+  - port: metrics
+    path: /metrics
+    interval: 60s
+    scrapeTimeout: 15s
+    metricRelabelings:
+    - action: replace
+      sourceLabels:
+      - __name__
+      regex: (ClickHouseProfileEvents_.*)
+      targetLabel: __name__
+      replacement: ${1}_total

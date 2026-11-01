@@ -54,7 +54,7 @@ class BuildCacheKeyTest(unittest.TestCase):
             self.assertEqual(len(candidates), 1)
             script = candidates[0]
             self.assertEqual(re.findall(r"(?m)^cache_version=([^\n]+)$", script),
-                             ["next-build-v12"])
+                             ["next-build-v13"])
             start = script.index('env_key="$(')
             stop = script.index('\nbuild_key=', start)
             self.blocks.append(script[start:stop])
@@ -101,6 +101,11 @@ class BuildCacheKeyTest(unittest.TestCase):
                      *PREFIXES):
             with self.subTest(name=name):
                 self.assertEqual(self.key(**{name: "synthetic-two"}), baseline)
+
+    def test_retired_faro_values_do_not_change_any_key(self):
+        self.assertEqual(self.key(NEXT_PUBLIC_FARO_ENABLED="false",
+                                  NEXT_PUBLIC_FARO_URL="https://retired.invalid/collect"),
+                         self.key())
 
     def test_empty_prefixed_value_is_still_part_of_the_key(self):
         self.assertNotEqual(self.key(NEXT_PUBLIC_NEW_OPTION=""), self.key())

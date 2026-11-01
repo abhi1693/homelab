@@ -1,0 +1,23 @@
+---
+apiVersion: home-lab.io/v1alpha1
+kind: WorkloadCatalog
+metadata:
+  name: pi-recovery
+spec:
+  displayName: Pi Recovery
+  purpose: Validate suspected macb TX stalls and power-cycle only a verified PoE port under strict recovery limits.
+  owner: home-lab
+  project: system
+  cluster: home-k3s
+  lifecycle: active
+  criticality: high
+  dataClassification: internal
+  repository: https://github.com/abhi1693/home-lab
+  gitPath: kubernetes/projects/system/apps/pi-recovery
+  workloads:
+    - key: home-k3s/cattle-monitoring-system/apps/deployment/pi-recovery
+      namespace: cattle-monitoring-system
+      apiGroup: apps
+      kind: Deployment
+      name: pi-recovery
+      sourcePath: kubernetes/projects/system/apps/pi-recovery/resources.yaml

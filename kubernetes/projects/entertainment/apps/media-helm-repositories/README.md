@@ -20,3 +20,7 @@ failure.
 
 Shared chart repositories live in their owning project-specific
 `*-helm-repositories` bundles.
+
+The 28 October 2026 recovery advances the Seerr GHCR catalog refresh after
+Rancher DNS resolution recovered from the rpi1 isolation incident. Verify the
+`OCIDownloaded` condition returns to `True` after Fleet applies the timestamp.

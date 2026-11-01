@@ -1,0 +1,10 @@
+---
+name: fleet-agent-resources
+defaultNamespace: fleet-local
+labels:
+  app.kubernetes.io/name: fleet-agent-resources
+  home-lab.io/project-slug: system
+dependsOn:
+  - name: rancher-generated-resource-defaults
+helm:
+  waitForJobs: true

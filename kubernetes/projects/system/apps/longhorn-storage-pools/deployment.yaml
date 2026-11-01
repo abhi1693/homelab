@@ -1,0 +1,90 @@
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: longhorn-storage-pools
+  namespace: longhorn-system
+  labels:
+    app.kubernetes.io/name: longhorn-storage-pools
+    app.kubernetes.io/part-of: longhorn
+spec:
+  replicas: 1
+  revisionHistoryLimit: 2
+  strategy:
+    type: Recreate
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: longhorn-storage-pools
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: longhorn-storage-pools
+        app.kubernetes.io/part-of: longhorn
+    spec:
+      serviceAccountName: longhorn-storage-pools
+      automountServiceAccountToken: true
+      nodeSelector:
+        kubernetes.io/arch: arm64
+        node-role.kubernetes.io/control-plane: "true"
+      tolerations:
+        - key: CriticalAddonsOnly
+          operator: Equal
+          value: "true"
+          effect: NoExecute
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 10001
+        runAsGroup: 10001
+        seccompProfile:
+          type: RuntimeDefault
+      terminationGracePeriodSeconds: 20
+      containers:
+        - name: reconcile
+          # renovate: datasource=docker depName=docker.io/library/python
+          image: registry.home/docker.io/library/python:3.15-alpine@sha256:ff4d3c9b1a48f646eedd93182aaea385c7a5452f4c8a8cd7cef686babacf4928
+          imagePullPolicy: IfNotPresent
+          command: [python3, -u, /app/reconcile.py]
+          env:
+            - name: PYTHONDONTWRITEBYTECODE
+              value: "1"
+          resources:
+            requests:
+              cpu: 10m
+              memory: 32Mi
+            limits:
+              memory: 128Mi
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities:
+              drop: [ALL]
+          readinessProbe:
+            exec:
+              command: [python3, -c, "import pathlib,time; assert time.time()-pathlib.Path('/tmp/ready').stat().st_mtime < 180"]
+            periodSeconds: 30
+            timeoutSeconds: 5
+          livenessProbe:
+            exec:
+              command: [python3, -c, "import pathlib,time; assert time.time()-pathlib.Path('/tmp/ready').stat().st_mtime < 300"]
+            initialDelaySeconds: 60
+            periodSeconds: 60
+            timeoutSeconds: 5
+          volumeMounts:
+            - name: code
+              mountPath: /app
+              readOnly: true
+            - name: policy
+              mountPath: /etc/pools
+              readOnly: true
+            - name: tmp
+              mountPath: /tmp
+      volumes:
+        - name: code
+          configMap:
+            name: longhorn-storage-pools-code
+        - name: policy
+          configMap:
+            name: longhorn-storage-pools-policy
+        - name: tmp
+          emptyDir:
+            sizeLimit: 16Mi

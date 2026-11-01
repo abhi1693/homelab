@@ -124,7 +124,16 @@ def inventory(source, app):
                 dirs.append(rel)
             else:
                 require(stat.S_ISREG(s.st_mode) and s.st_nlink == 1, "source must contain only regular unlinked files")
-                require(not rel.endswith((".db", "-wal", "-shm", ".tmp", ".partial")), "unexpected database or incomplete state")
+                # A crash between writing and renaming an atomic replacement
+                # can leave empty or complete JSON beside the authoritative
+                # file. Archive both unchanged; never promote the temp file.
+                known_atomic_temp = (app == "controller" and
+                                     rel in {name + ".tmp" for name in CONTROLLER_REQUIRED})
+                if known_atomic_temp and s.st_size:
+                    require(s.st_size <= 64 * 1024**2, "JSON state exceeds validation bound")
+                    json_valid(path, require_object=True)
+                require(known_atomic_temp or not rel.endswith((".db", "-wal", "-shm", ".tmp", ".partial")),
+                        "unexpected database or incomplete state")
                 files.append(rel)
     if app == "controller":
         require(CONTROLLER_REQUIRED <= set(files), "required controller state is missing")
@@ -212,11 +221,21 @@ def make_archive(path, payload, manifest, max_bytes):
     with path.open("xb") as f:
         os.chmod(path, 0o600)
         class BoundedWriter:
-            def __init__(self): self.written = 0
+            def __init__(self):
+                self.written = 0
+                self.synced = 0
             def write(self, block):
                 self.written += len(block)
                 require(self.written <= max_bytes, "archive exceeds configured bound")
-                return f.write(block)
+                result = f.write(block)
+                # NFS dirty pages count against the init memory cgroup too.
+                # Bound outstanding archive writeback instead of allowing a
+                # multi-GiB archive to exhaust memory before the final fsync.
+                if self.written - self.synced >= 8 * 1024 * 1024:
+                    f.flush()
+                    os.fsync(f.fileno())
+                    self.synced = self.written
+                return result
         with tarfile.open(fileobj=BoundedWriter(), mode="w|") as tar:
             for rel in ["manifest.json", *manifest["directories"], *manifest["files"]]:
                 p = payload / rel

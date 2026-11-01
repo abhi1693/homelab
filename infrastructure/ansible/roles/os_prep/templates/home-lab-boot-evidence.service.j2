@@ -1,0 +1,15 @@
+[Unit]
+Description=Retain a bounded previous-boot kernel summary in the new journal
+After=systemd-journald.service
+
+[Service]
+Type=oneshot
+ExecStart=/usr/bin/python3 /usr/local/libexec/home-lab-node-recovery boot-evidence
+NoNewPrivileges=yes
+ProtectSystem=strict
+ProtectHome=yes
+PrivateTmp=yes
+MemoryMax=64M
+
+[Install]
+WantedBy=multi-user.target

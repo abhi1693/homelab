@@ -3,6 +3,13 @@
 This bundle installs Prowlarr through a Fleet `HelmOp` for media indexer
 management.
 
+The [acquisition schedule](../media-acquisition-schedule/README.md) runs one
+replica from 22:00–10:00 Asia/Kolkata (IST), on nights starting Monday–Friday;
+Friday night continues until Saturday at 10:00. Git keeps a paused baseline of
+zero replicas, and the schedule owns only the runtime replica field. Outside
+the window the pod stops while queued work and configuration PVCs remain
+retained. FlareSolverr stays online because DevFeed uses it.
+
 ## Runtime Shape
 
 - Namespace: `media`
@@ -10,12 +17,12 @@ management.
 - Release: `prowlarr`
 - Internal URL: `http://prowlarr.media.home`
 - Ingress class: `traefik`
-- Image: Harbor proxy path for `oci.trueforge.org/containerforge/prowlarr:2.6.2`
+- Image: Harbor proxy path for `oci.trueforge.org/containerforge/prowlarr`, pinned in `values.yaml`
 
 Fleet orders Prowlarr after FlareSolverr because indexer configuration can use
 the FlareSolverr service for browser-challenge handling.
 
-CPU requests are `75m`, with no CPU limit (`resources.limits.cpu: 0` disables
+CPU requests are `170m`, with no CPU limit (`resources.limits.cpu: 0` disables
 the TrueCharts default). Indexer work may burst above the request.
 Resource changes roll the singleton; deploy through Fleet in a quiet window.
 
@@ -46,7 +53,14 @@ CIDRs.
   download handoff using the
   [download recovery runbook](../../../../../docs/runbooks/media-download-recovery.md).
 - Use Prowlarr as the normal source of truth for Sonarr and Radarr indexers.
-- Ryokan replaces the former Sonarr Anime instance. Do not retain a Prowlarr
-  application targeting `sonarr-anime.media.svc.cluster.local`; Ryokan manages
-  its anime indexers directly.
+- Indexers that need the configured FlareSolverr proxy must carry its
+  `flaresolverr` tag. Uindex was tested successfully and tagged on 2026-10-28
+  after direct requests were blocked by Cloudflare; retain its Sonarr/Radarr
+  synchronization tags. This application setting persists in its config PVC.
+- Ryokan manages anime indexers directly; do not configure a separate Sonarr
+  Anime application in Prowlarr.
 - Change chart configuration in `values.yaml` and let Fleet reconcile.
+
+## CPU reservation
+
+CPU request is 100m; indexer work retains its uncapped CPU burst policy.

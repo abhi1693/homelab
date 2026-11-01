@@ -52,8 +52,8 @@ spec:
                   key: DEVFEED_SEARCH_ADMIN_KEY
           resources:
             requests:
-              cpu: 100m
-              memory: 512Mi
+              cpu: 50m
+              memory: 768Mi
             limits:
               memory: 2Gi
           securityContext:

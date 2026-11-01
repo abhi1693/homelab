@@ -1,0 +1,8 @@
+---
+- name: Verify running Ubuntu vendor kernel native BTF and boot artifacts
+  ansible.builtin.command:
+    argv: [python3, '-']
+    stdin: "{{ lookup('ansible.builtin.file', role_path + '/files/check_vendor_kernel.py') }}"
+  register: rpi_prep_vendor_kernel
+  changed_when: false
+  check_mode: false

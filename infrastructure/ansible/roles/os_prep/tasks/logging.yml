@@ -1,0 +1,44 @@
+---
+- name: Validate the logging policy arguments
+  ansible.builtin.assert:
+    that:
+      - os_prep.logging.queue_size_mib | int == 4096
+      - os_prep.logging.queue_reserve_mib | int >= 2048
+      - os_prep.logging.queue_image == '/var/lib/alloy-node-logs/otel-queue.ext4'
+      - os_prep.logging.queue_directory == '/var/lib/alloy-node-logs/otel'
+    fail_msg: Review queue sizing and migration before changing the managed filesystem layout.
+
+- name: Read the payload filesystem state without changing existing data
+  ansible.builtin.command:
+    argv:
+      - python3
+      - '-'
+      - --image
+      - "{{ os_prep.logging.queue_image }}"
+      - --mountpoint
+      - "{{ os_prep.logging.queue_directory }}"
+      - --size-mib
+      - "{{ os_prep.logging.queue_size_mib | string }}"
+      - --reserve-mib
+      - "{{ os_prep.logging.queue_reserve_mib | string }}"
+    stdin: "{{ lookup('ansible.builtin.file', role_path + '/files/logging_state.py') }}"
+    stdin_add_newline: false
+  register: os_prep_logging_state
+  changed_when: false
+  check_mode: false
+
+- name: Report the host logging plan without referencing resources not yet created
+  ansible.builtin.debug:
+    msg:
+      - "Queue image exists: {{ (os_prep_logging_state.stdout | from_json).image_exists }}; mounted: {{ (os_prep_logging_state.stdout | from_json).mounted }}."
+      - "Create or retain {{ os_prep.logging.queue_size_mib }}MiB image {{ os_prep.logging.queue_image }} and enable its root-only mount at {{ os_prep.logging.queue_directory }}."
+      - "Converge persistent journal policy, retain existing records and restart only journald if its drop-in changes."
+      - "Expose only the K3s audit logs directory through /var/log/kubernetes-audit on servers; maintain empty worker placeholders."
+      - "Enable a harmless INFO host canary every 60 seconds through home-lab-log-canary.timer."
+      - "No package upgrades, host reboot, K3s restart or NTP changes are part of this entrypoint."
+  when: ansible_check_mode
+  changed_when: not (os_prep_logging_state.stdout | from_json).image_exists or not (os_prep_logging_state.stdout | from_json).mounted
+
+- name: Apply the logging plan only outside check mode
+  ansible.builtin.include_tasks: logging_apply.yml
+  when: not ansible_check_mode

@@ -22,7 +22,7 @@ requests `5m`, and the controller sidecars request `5m` each. CPU limits remain
 unset so mount and provisioning operations can burst when needed.
 
 Every Kubernetes node requires the host NFS client utilities used by kubelet
-mount operations. Ansible installs and validates Debian's `nfs-common` package
+mount operations. Ansible installs and validates Ubuntu's `nfs-common` package
 through the shared `os_prep.common_packages` inventory instead of coupling it
 to the Longhorn role.
 
@@ -58,6 +58,11 @@ The `csi-driver-nfs-helmop` source bundle creates a `HelmOp` in `fleet-local`.
 That HelmOp installs the chart into `kube-system` and loads values from the
 generated ConfigMap. The system Helm repository bundle registers the upstream
 chart repository before this bundle reconciles.
+
+The Git-managed HelmOp `forceSyncGeneration` refreshes the release after the
+controller recovered but the HelmOp retained stale readiness. Its initial
+recovery generation is 1. Check both the generated `csi-driver-nfs` bundle and
+the `csi-driver-nfs-helmop` source bundle when diagnosing blocked consumers.
 
 Kustomize rewrites both the Helm values reference and Fleet's
 `downstreamResources` reference to the generated ConfigMap's hashed name. Keep

@@ -92,3 +92,27 @@ spec:
           annotations:
             summary: Raspberry Pi throttling has occurred
             description: Raspberry Pi firmware reports {{ $labels.condition }} has occurred on {{ $labels.nodename }} since the last reboot.
+        - alert: RaspberryPiKernelForwardingIncomplete
+          expr: home_lab_host_recovery_netconsole_targets{job="node-exporter"} < home_lab_host_recovery_expected_targets{job="node-exporter"}
+          for: 3m
+          labels:
+            severity: warning
+          annotations:
+            summary: Raspberry Pi critical kernel forwarding is incomplete
+            description: A configured remote kernel target is missing, disabled or differs from inventory on {{ $labels.instance }}.
+        - alert: RaspberryPiKernelReceiverDown
+          expr: (home_lab_host_recovery_receiver_active{job="node-exporter"} == 0) and on(instance) (home_lab_host_recovery_is_receiver{job="node-exporter"} == 1)
+          for: 2m
+          labels:
+            severity: warning
+          annotations:
+            summary: Raspberry Pi remote kernel receiver is down
+            description: The independent kernel receiver service is not active on {{ $labels.instance }}.
+        - alert: RaspberryPiRecoveryHealthMissing
+          expr: (time() - home_lab_host_recovery_last_check_seconds{job="node-exporter"} > 180) or ((up{job="node-exporter"} == 1) unless on(instance) home_lab_host_recovery_last_check_seconds{job="node-exporter"})
+          for: 5m
+          labels:
+            severity: warning
+          annotations:
+            summary: Raspberry Pi recovery health checks are stale or missing
+            description: Check the host recovery timer and node-exporter textfile collector on {{ $labels.instance }}.

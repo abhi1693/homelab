@@ -1,0 +1,11 @@
+# Managed by Ansible os_prep logging. Existing journal files are retained.
+[Journal]
+Storage=persistent
+SystemMaxUse={{ os_prep.logging.journal_system_max_use }}
+SystemKeepFree={{ os_prep.logging.journal_system_keep_free }}
+RuntimeMaxUse={{ os_prep.logging.journal_runtime_max_use }}
+MaxRetentionSec={{ os_prep.logging.journal_max_retention }}
+SyncIntervalSec={{ os_prep.logging.journal_sync_interval }}
+# Retain protection from service log storms; suppression records are collected.
+RateLimitIntervalSec={{ os_prep.logging.journal_rate_limit_interval }}
+RateLimitBurst={{ os_prep.logging.journal_rate_limit_burst }}

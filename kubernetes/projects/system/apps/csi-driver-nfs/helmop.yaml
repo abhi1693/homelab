@@ -8,6 +8,7 @@ metadata:
     app.kubernetes.io/part-of: csi-driver-nfs
     home-lab.io/project-slug: system
 spec:
+  forceSyncGeneration: 1
   defaultNamespace: kube-system
   dependsOn:
     - name: system-helm-repositories

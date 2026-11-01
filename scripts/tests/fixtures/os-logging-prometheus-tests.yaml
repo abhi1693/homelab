@@ -1,0 +1,563 @@
+---
+rule_files:
+- rules.yml
+evaluation_interval: 1m
+tests:
+- name: all eight expected nodes deliver and healthy queues do not alert
+  interval: 1m
+  input_series:
+  - series: kube_daemonset_status_number_available{namespace="cattle-monitoring-system",daemonset="alloy-node-logs"}
+    values: 8+0x30
+  - series: kube_daemonset_status_desired_number_scheduled{namespace="cattle-monitoring-system",daemonset="alloy-node-logs"}
+    values: 8+0x30
+  - series: up{namespace="cattle-monitoring-system",job="alloy-os-log-monitor",pod="checker-a"}
+    values: 1+0x30
+  - series: os_log_monitor_query_success{namespace="cattle-monitoring-system",job="alloy-os-log-monitor",pod="checker-a"}
+    values: 1+0x30
+  - series: kube_node_info{node="k8s-rpi1"}
+    values: 1+0x30
+  - series: os_log_canary_recent_records{namespace="cattle-monitoring-system",node="k8s-rpi1"}
+    values: 5+0x30
+  - series: up{namespace="cattle-monitoring-system",job="alloy-node-logs",pod="collector-1"}
+    values: 1+0x30
+  - series: otelcol_exporter_queue_capacity{namespace="cattle-monitoring-system",job="alloy-node-logs",pod="collector-1",component_id="otelcol.exporter.otlphttp.loki",exporter="otlp_http/otelcol.exporter.otlphttp.loki",data_type="logs"}
+    values: 100+0x30
+  - series: otelcol_exporter_queue_capacity{namespace="cattle-monitoring-system",job="alloy-node-logs",pod="collector-1",component_id="otelcol.exporter.otlphttp.os",exporter="otlp_http/otelcol.exporter.otlphttp.os",data_type="logs"}
+    values: 100+0x30
+  - series: otelcol_exporter_queue_size{namespace="cattle-monitoring-system",job="alloy-node-logs",pod="collector-1",component_id="otelcol.exporter.otlphttp.loki",exporter="otlp_http/otelcol.exporter.otlphttp.loki",data_type="logs"}
+    values: 10+0x30
+  - series: kube_node_info{node="k8s-rpi2"}
+    values: 1+0x30
+  - series: os_log_canary_recent_records{namespace="cattle-monitoring-system",node="k8s-rpi2"}
+    values: 5+0x30
+  - series: up{namespace="cattle-monitoring-system",job="alloy-node-logs",pod="collector-2"}
+    values: 1+0x30
+  - series: otelcol_exporter_queue_capacity{namespace="cattle-monitoring-system",job="alloy-node-logs",pod="collector-2",component_id="otelcol.exporter.otlphttp.loki",exporter="otlp_http/otelcol.exporter.otlphttp.loki",data_type="logs"}
+    values: 100+0x30
+  - series: otelcol_exporter_queue_capacity{namespace="cattle-monitoring-system",job="alloy-node-logs",pod="collector-2",component_id="otelcol.exporter.otlphttp.os",exporter="otlp_http/otelcol.exporter.otlphttp.os",data_type="logs"}
+    values: 100+0x30
+  - series: otelcol_exporter_queue_size{namespace="cattle-monitoring-system",job="alloy-node-logs",pod="collector-2",component_id="otelcol.exporter.otlphttp.loki",exporter="otlp_http/otelcol.exporter.otlphttp.loki",data_type="logs"}
+    values: 10+0x30
+  - series: kube_node_info{node="k8s-rpi3"}
+    values: 1+0x30
+  - series: os_log_canary_recent_records{namespace="cattle-monitoring-system",node="k8s-rpi3"}
+    values: 5+0x30
+  - series: up{namespace="cattle-monitoring-system",job="alloy-node-logs",pod="collector-3"}
+    values: 1+0x30
+  - series: otelcol_exporter_queue_capacity{namespace="cattle-monitoring-system",job="alloy-node-logs",pod="collector-3",component_id="otelcol.exporter.otlphttp.loki",exporter="otlp_http/otelcol.exporter.otlphttp.loki",data_type="logs"}
+    values: 100+0x30
+  - series: otelcol_exporter_queue_capacity{namespace="cattle-monitoring-system",job="alloy-node-logs",pod="collector-3",component_id="otelcol.exporter.otlphttp.os",exporter="otlp_http/otelcol.exporter.otlphttp.os",data_type="logs"}
+    values: 100+0x30
+  - series: otelcol_exporter_queue_size{namespace="cattle-monitoring-system",job="alloy-node-logs",pod="collector-3",component_id="otelcol.exporter.otlphttp.loki",exporter="otlp_http/otelcol.exporter.otlphttp.loki",data_type="logs"}
+    values: 10+0x30
+  - series: kube_node_info{node="k8s-rpi4"}
+    values: 1+0x30
+  - series: os_log_canary_recent_records{namespace="cattle-monitoring-system",node="k8s-rpi4"}
+    values: 5+0x30
+  - series: up{namespace="cattle-monitoring-system",job="alloy-node-logs",pod="collector-4"}
+    values: 1+0x30
+  - series: otelcol_exporter_queue_capacity{namespace="cattle-monitoring-system",job="alloy-node-logs",pod="collector-4",component_id="otelcol.exporter.otlphttp.loki",exporter="otlp_http/otelcol.exporter.otlphttp.loki",data_type="logs"}
+    values: 100+0x30
+  - series: otelcol_exporter_queue_capacity{namespace="cattle-monitoring-system",job="alloy-node-logs",pod="collector-4",component_id="otelcol.exporter.otlphttp.os",exporter="otlp_http/otelcol.exporter.otlphttp.os",data_type="logs"}
+    values: 100+0x30
+  - series: otelcol_exporter_queue_size{namespace="cattle-monitoring-system",job="alloy-node-logs",pod="collector-4",component_id="otelcol.exporter.otlphttp.loki",exporter="otlp_http/otelcol.exporter.otlphttp.loki",data_type="logs"}
+    values: 10+0x30
+  - series: kube_node_info{node="k8s-rpi5"}
+    values: 1+0x30
+  - series: os_log_canary_recent_records{namespace="cattle-monitoring-system",node="k8s-rpi5"}
+    values: 5+0x30
+  - series: up{namespace="cattle-monitoring-system",job="alloy-node-logs",pod="collector-5"}
+    values: 1+0x30
+  - series: otelcol_exporter_queue_capacity{namespace="cattle-monitoring-system",job="alloy-node-logs",pod="collector-5",component_id="otelcol.exporter.otlphttp.loki",exporter="otlp_http/otelcol.exporter.otlphttp.loki",data_type="logs"}
+    values: 100+0x30
+  - series: otelcol_exporter_queue_capacity{namespace="cattle-monitoring-system",job="alloy-node-logs",pod="collector-5",component_id="otelcol.exporter.otlphttp.os",exporter="otlp_http/otelcol.exporter.otlphttp.os",data_type="logs"}
+    values: 100+0x30
+  - series: otelcol_exporter_queue_size{namespace="cattle-monitoring-system",job="alloy-node-logs",pod="collector-5",component_id="otelcol.exporter.otlphttp.loki",exporter="otlp_http/otelcol.exporter.otlphttp.loki",data_type="logs"}
+    values: 10+0x30
+  - series: kube_node_info{node="k8s-rpi6"}
+    values: 1+0x30
+  - series: os_log_canary_recent_records{namespace="cattle-monitoring-system",node="k8s-rpi6"}
+    values: 5+0x30
+  - series: up{namespace="cattle-monitoring-system",job="alloy-node-logs",pod="collector-6"}
+    values: 1+0x30
+  - series: otelcol_exporter_queue_capacity{namespace="cattle-monitoring-system",job="alloy-node-logs",pod="collector-6",component_id="otelcol.exporter.otlphttp.loki",exporter="otlp_http/otelcol.exporter.otlphttp.loki",data_type="logs"}
+    values: 100+0x30
+  - series: otelcol_exporter_queue_capacity{namespace="cattle-monitoring-system",job="alloy-node-logs",pod="collector-6",component_id="otelcol.exporter.otlphttp.os",exporter="otlp_http/otelcol.exporter.otlphttp.os",data_type="logs"}
+    values: 100+0x30
+  - series: otelcol_exporter_queue_size{namespace="cattle-monitoring-system",job="alloy-node-logs",pod="collector-6",component_id="otelcol.exporter.otlphttp.loki",exporter="otlp_http/otelcol.exporter.otlphttp.loki",data_type="logs"}
+    values: 10+0x30
+  - series: kube_node_info{node="k8s-rpi7"}
+    values: 1+0x30
+  - series: os_log_canary_recent_records{namespace="cattle-monitoring-system",node="k8s-rpi7"}
+    values: 5+0x30
+  - series: up{namespace="cattle-monitoring-system",job="alloy-node-logs",pod="collector-7"}
+    values: 1+0x30
+  - series: otelcol_exporter_queue_capacity{namespace="cattle-monitoring-system",job="alloy-node-logs",pod="collector-7",component_id="otelcol.exporter.otlphttp.loki",exporter="otlp_http/otelcol.exporter.otlphttp.loki",data_type="logs"}
+    values: 100+0x30
+  - series: otelcol_exporter_queue_capacity{namespace="cattle-monitoring-system",job="alloy-node-logs",pod="collector-7",component_id="otelcol.exporter.otlphttp.os",exporter="otlp_http/otelcol.exporter.otlphttp.os",data_type="logs"}
+    values: 100+0x30
+  - series: otelcol_exporter_queue_size{namespace="cattle-monitoring-system",job="alloy-node-logs",pod="collector-7",component_id="otelcol.exporter.otlphttp.loki",exporter="otlp_http/otelcol.exporter.otlphttp.loki",data_type="logs"}
+    values: 10+0x30
+  - series: kube_node_info{node="k8s-rpi8"}
+    values: 1+0x30
+  - series: os_log_canary_recent_records{namespace="cattle-monitoring-system",node="k8s-rpi8"}
+    values: 5+0x30
+  - series: up{namespace="cattle-monitoring-system",job="alloy-node-logs",pod="collector-8"}
+    values: 1+0x30
+  - series: otelcol_exporter_queue_capacity{namespace="cattle-monitoring-system",job="alloy-node-logs",pod="collector-8",component_id="otelcol.exporter.otlphttp.loki",exporter="otlp_http/otelcol.exporter.otlphttp.loki",data_type="logs"}
+    values: 100+0x30
+  - series: otelcol_exporter_queue_capacity{namespace="cattle-monitoring-system",job="alloy-node-logs",pod="collector-8",component_id="otelcol.exporter.otlphttp.os",exporter="otlp_http/otelcol.exporter.otlphttp.os",data_type="logs"}
+    values: 100+0x30
+  - series: otelcol_exporter_queue_size{namespace="cattle-monitoring-system",job="alloy-node-logs",pod="collector-8",component_id="otelcol.exporter.otlphttp.loki",exporter="otlp_http/otelcol.exporter.otlphttp.loki",data_type="logs"}
+    values: 10+0x30
+  alert_rule_test:
+  - eval_time: 15m
+    alertname: AlloyNodeLogsUnavailable
+    exp_alerts: []
+  - eval_time: 15m
+    alertname: AlloyNodeLogsMetricsUnavailable
+    exp_alerts: []
+  - eval_time: 15m
+    alertname: AlloyNodeOTelLogExportFailed
+    exp_alerts: []
+  - eval_time: 15m
+    alertname: AlloyNodeOTelLogEnqueueFailed
+    exp_alerts: []
+  - eval_time: 15m
+    alertname: AlloyNodeOTelLogQueueHigh
+    exp_alerts: []
+  - eval_time: 15m
+    alertname: AlloyNodeOTelLogQueueMissing
+    exp_alerts: []
+  - eval_time: 15m
+    alertname: OSLogCanaryMissing
+    exp_alerts: []
+  - eval_time: 15m
+    alertname: OSLogMonitorQueryFailed
+    exp_alerts: []
+  - eval_time: 15m
+    alertname: OSLogMonitorUnavailable
+    exp_alerts: []
+  - eval_time: 15m
+    alertname: OSLogQueueFilesystemLow
+    exp_alerts: []
+- name: ready and scraped collector cannot hide one missing node canary
+  interval: 1m
+  input_series:
+  - series: kube_node_info{node="k8s-rpi1"}
+    values: 1+0x20
+  - series: kube_node_info{node="k8s-rpi2"}
+    values: 1+0x20
+  - series: os_log_canary_recent_records{namespace="cattle-monitoring-system",node="k8s-rpi1"}
+    values: 5+0x20
+  - series: up{namespace="cattle-monitoring-system",job="alloy-node-logs",pod="collector-2"}
+    values: 1+0x20
+  - series: kube_daemonset_status_number_available{namespace="cattle-monitoring-system",daemonset="alloy-node-logs"}
+    values: 2+0x20
+  - series: kube_daemonset_status_desired_number_scheduled{namespace="cattle-monitoring-system",daemonset="alloy-node-logs"}
+    values: 2+0x20
+  alert_rule_test:
+  - eval_time: 4m
+    alertname: OSLogCanaryMissing
+    exp_alerts: []
+  - eval_time: 6m
+    alertname: OSLogCanaryMissing
+    exp_alerts:
+    - &id002
+      exp_labels:
+        severity: warning
+        namespace: cattle-monitoring-system
+        incident: log-delivery
+        node: k8s-rpi2
+      exp_annotations:
+        summary: OS journal evidence is not reaching queries for a node
+        description: No host canary from k8s-rpi2 was observed in Loki during the last five-minute window. Check
+          the Ansible timer, journal reader, payload queue, backend and query path. This checks actual OS-source-to-query
+          delivery, independently of pod readiness.
+        runbook_url: https://github.com/abhi1693/home-lab/blob/master/docs/runbooks/incident-coverage.md
+  - eval_time: 6m
+    alertname: AlloyNodeLogsUnavailable
+    exp_alerts: []
+  - eval_time: 6m
+    alertname: AlloyNodeLogsMetricsUnavailable
+    exp_alerts: []
+- name: successful checker scrape cannot hide failed Loki queries
+  interval: 1m
+  input_series:
+  - series: up{namespace="cattle-monitoring-system",job="alloy-os-log-monitor",pod="checker-a"}
+    values: 1+0x20
+  - series: os_log_monitor_query_success{namespace="cattle-monitoring-system",job="alloy-os-log-monitor",pod="checker-a"}
+    values: 0+0x20
+  alert_rule_test:
+  - eval_time: 4m
+    alertname: OSLogMonitorQueryFailed
+    exp_alerts: []
+  - eval_time: 6m
+    alertname: OSLogMonitorQueryFailed
+    exp_alerts:
+    - exp_labels:
+        namespace: cattle-monitoring-system
+        job: alloy-os-log-monitor
+        pod: checker-a
+        severity: warning
+        incident: log-delivery
+      exp_annotations:
+        summary: OS log delivery cannot be verified through Loki
+        description: The independent read-only checker cannot query Loki. Source coverage cannot be certified until
+          queries succeed. Check gateway, backend and network policy; use SSH evidence collection if the cluster
+          API or Loki is unavailable.
+  - eval_time: 6m
+    alertname: OSLogMonitorUnavailable
+    exp_alerts: []
+- name: initialized traces and metrics queues do not satisfy the required log queue
+  interval: 1m
+  input_series:
+  - series: up{namespace="cattle-monitoring-system",job="alloy-node-logs",pod="collector-a"}
+    values: 1+0x20
+  - series: otelcol_exporter_queue_capacity{namespace="cattle-monitoring-system",job="alloy-node-logs",pod="collector-a",component_id="otelcol.exporter.otlphttp.loki",exporter="otlp_http/otelcol.exporter.otlphttp.loki",data_type="metrics"}
+    values: 100+0x20
+  - series: otelcol_exporter_queue_capacity{namespace="cattle-monitoring-system",job="alloy-node-logs",pod="collector-a",component_id="otelcol.exporter.otlphttp.loki",exporter="otlp_http/otelcol.exporter.otlphttp.loki",data_type="traces"}
+    values: 100+0x20
+  alert_rule_test:
+  - eval_time: 4m
+    alertname: AlloyNodeOTelLogQueueMissing
+    exp_alerts: []
+  - eval_time: 6m
+    alertname: AlloyNodeOTelLogQueueMissing
+    exp_alerts:
+    - exp_labels:
+        namespace: cattle-monitoring-system
+        job: alloy-node-logs
+        pod: collector-a
+        severity: warning
+        incident: log-delivery
+      exp_annotations:
+        summary: A scraped node collector is missing an OTel log queue
+        description: Inspect the effective Alloy configuration and component health on collector-a. A successful
+          scrape alone does not establish that both OS and bulk log exporters exist.
+- name: both log queues satisfy the per-pod scrape coverage check
+  interval: 1m
+  input_series:
+  - series: up{namespace="cattle-monitoring-system",job="alloy-node-logs",pod="collector-a"}
+    values: 1+0x20
+  - series: otelcol_exporter_queue_capacity{namespace="cattle-monitoring-system",job="alloy-node-logs",pod="collector-a",component_id="otelcol.exporter.otlphttp.loki",exporter="otlp_http/otelcol.exporter.otlphttp.loki",data_type="logs"}
+    values: 100+0x20
+  - series: otelcol_exporter_queue_capacity{namespace="cattle-monitoring-system",job="alloy-node-logs",pod="collector-a",component_id="otelcol.exporter.otlphttp.os",exporter="otlp_http/otelcol.exporter.otlphttp.os",data_type="logs"}
+    values: 100+0x20
+  alert_rule_test:
+  - eval_time: 10m
+    alertname: AlloyNodeOTelLogQueueMissing
+    exp_alerts: []
+- name: sustained log byte queue pressure alerts after five minutes
+  interval: 1m
+  input_series:
+  - series: otelcol_exporter_queue_size{namespace="cattle-monitoring-system",job="alloy-node-logs",pod="collector-a",component_id="otelcol.exporter.otlphttp.loki",exporter="otlp_http/otelcol.exporter.otlphttp.loki",data_type="logs"}
+    values: 90+0x20
+  - series: otelcol_exporter_queue_capacity{namespace="cattle-monitoring-system",job="alloy-node-logs",pod="collector-a",component_id="otelcol.exporter.otlphttp.loki",exporter="otlp_http/otelcol.exporter.otlphttp.loki",data_type="logs"}
+    values: 100+0x20
+  - series: otelcol_exporter_queue_capacity{namespace="cattle-monitoring-system",job="alloy-node-logs",pod="collector-a",component_id="otelcol.exporter.otlphttp.os",exporter="otlp_http/otelcol.exporter.otlphttp.os",data_type="logs"}
+    values: 100+0x20
+  alert_rule_test:
+  - eval_time: 4m
+    alertname: AlloyNodeOTelLogQueueHigh
+    exp_alerts: []
+  - eval_time: 6m
+    alertname: AlloyNodeOTelLogQueueHigh
+    exp_alerts:
+    - exp_labels:
+        namespace: cattle-monitoring-system
+        job: alloy-node-logs
+        pod: collector-a
+        component_id: otelcol.exporter.otlphttp.loki
+        exporter: otlp_http/otelcol.exporter.otlphttp.loki
+        data_type: logs
+        severity: warning
+        incident: log-delivery
+      exp_annotations:
+        summary: A node persistent log queue is above 80 percent
+        description: Inspect Loki availability, permanent rejections and local disk pressure on collector-a. Queue
+          size is serialized bytes; pressure is a risk signal, not a count of permanently lost records.
+        runbook_url: https://github.com/abhi1693/home-lab/blob/master/docs/runbooks/incident-coverage.md
+- name: high initialized non-log queues do not trigger a log pressure alert
+  interval: 1m
+  input_series:
+  - series: otelcol_exporter_queue_size{namespace="cattle-monitoring-system",job="alloy-node-logs",pod="collector-a",component_id="otelcol.exporter.otlphttp.loki",exporter="otlp_http/otelcol.exporter.otlphttp.loki",data_type="logs"}
+    values: 20+0x20
+  - series: otelcol_exporter_queue_capacity{namespace="cattle-monitoring-system",job="alloy-node-logs",pod="collector-a",component_id="otelcol.exporter.otlphttp.loki",exporter="otlp_http/otelcol.exporter.otlphttp.loki",data_type="logs"}
+    values: 100+0x20
+  - series: otelcol_exporter_queue_capacity{namespace="cattle-monitoring-system",job="alloy-node-logs",pod="collector-a",component_id="otelcol.exporter.otlphttp.os",exporter="otlp_http/otelcol.exporter.otlphttp.os",data_type="logs"}
+    values: 100+0x20
+  - series: otelcol_exporter_queue_size{namespace="cattle-monitoring-system",job="alloy-node-logs",pod="collector-a",component_id="otelcol.exporter.otlphttp.loki",exporter="otlp_http/otelcol.exporter.otlphttp.loki",data_type="metrics"}
+    values: 99+0x20
+  - series: otelcol_exporter_queue_capacity{namespace="cattle-monitoring-system",job="alloy-node-logs",pod="collector-a",component_id="otelcol.exporter.otlphttp.loki",exporter="otlp_http/otelcol.exporter.otlphttp.loki",data_type="metrics"}
+    values: 100+0x20
+  - series: otelcol_exporter_queue_size{namespace="cattle-monitoring-system",job="alloy-node-logs",pod="collector-a",component_id="otelcol.exporter.otlphttp.loki",exporter="otlp_http/otelcol.exporter.otlphttp.loki",data_type="traces"}
+    values: 99+0x20
+  - series: otelcol_exporter_queue_capacity{namespace="cattle-monitoring-system",job="alloy-node-logs",pod="collector-a",component_id="otelcol.exporter.otlphttp.loki",exporter="otlp_http/otelcol.exporter.otlphttp.loki",data_type="traces"}
+    values: 100+0x20
+  alert_rule_test:
+  - eval_time: 10m
+    alertname: AlloyNodeOTelLogQueueHigh
+    exp_alerts: []
+- name: final send failure alerts immediately with permanent-loss semantics and holds recovery
+  interval: 1m
+  input_series:
+  - series: otelcol_exporter_send_failed_log_records_total{namespace="cattle-monitoring-system",job="alloy-node-logs",pod="collector-a",component_id="otelcol.exporter.otlphttp.loki",exporter="otlp_http/otelcol.exporter.otlphttp.loki",error_permanent="true",error_type="InvalidArgument"}
+    values: 0 5+0x30
+  alert_rule_test:
+  - eval_time: 0m
+    alertname: AlloyNodeOTelLogExportFailed
+    exp_alerts: []
+  - eval_time: 1m
+    alertname: AlloyNodeOTelLogExportFailed
+    exp_alerts:
+    - &id001
+      exp_labels:
+        severity: warning
+        namespace: cattle-monitoring-system
+        incident: log-delivery
+        pod: collector-a
+        exporter: otlp_http/otelcol.exporter.otlphttp.loki
+        data_loss: permanent
+      exp_annotations:
+        summary: A node OTel exporter failed final log delivery
+        description: Exporter otlp_http/otelcol.exporter.otlphttp.loki on collector-a reported ~5 failed log records
+          in 10m after its retry handler returned. Check permanent HTTP errors, shutdown and cancellation. Retryable
+          backend outages remain queued; Loki partial rejections are monitored separately. Do not sum these counters
+          with Loki rejection counts.
+        runbook_url: https://github.com/abhi1693/home-lab/blob/master/docs/runbooks/incident-coverage.md
+  - eval_time: 19m
+    alertname: AlloyNodeOTelLogExportFailed
+    exp_alerts:
+    - *id001
+  # Check inside and after the hold, avoiding a version-dependent exact
+  # range-window boundary at 20m (the runtime is Prometheus 3.15).
+  - eval_time: 21m
+    alertname: AlloyNodeOTelLogExportFailed
+    exp_alerts: []
+- name: enqueue failure warns without asserting permanent delivery loss
+  interval: 1m
+  input_series:
+  - series: otelcol_exporter_enqueue_failed_log_records_total{namespace="cattle-monitoring-system",job="alloy-node-logs",pod="collector-a",component_id="otelcol.exporter.otlphttp.loki",exporter="otlp_http/otelcol.exporter.otlphttp.loki"}
+    values: 0 3+0x20
+  alert_rule_test:
+  - eval_time: 1m
+    alertname: AlloyNodeOTelLogEnqueueFailed
+    exp_alerts:
+    - exp_labels:
+        severity: warning
+        namespace: cattle-monitoring-system
+        incident: log-delivery
+        pod: collector-a
+        exporter: otlp_http/otelcol.exporter.otlphttp.loki
+      exp_annotations:
+        summary: Node log payloads could not enter the persistent queue
+        description: Check the bounded queue filesystem, permissions, I/O errors and queue capacity on collector-a.
+          This failure precedes exporter retries. Some sources can retry; the journal bridge cannot acknowledge
+          a durable enqueue, so evidence may have been lost.
+        runbook_url: https://github.com/abhi1693/home-lab/blob/master/docs/runbooks/incident-coverage.md
+  - eval_time: 1m
+    alertname: AlloyNodeOTelLogExportFailed
+    exp_alerts: []
+- name: a recovered host canary clears its source coverage alert
+  interval: 1m
+  input_series:
+  - series: kube_node_info{node="k8s-rpi2"}
+    values: 1+0x20
+  - series: os_log_canary_recent_records{namespace="cattle-monitoring-system",node="k8s-rpi2"}
+    values: 0+0x6 2+0x15
+  alert_rule_test:
+  - eval_time: 5m
+    alertname: OSLogCanaryMissing
+    exp_alerts:
+    - *id002
+  - eval_time: 7m
+    alertname: OSLogCanaryMissing
+    exp_alerts: []
+- name: HA checker replicas produce one node filesystem pressure alert
+  interval: 1m
+  input_series:
+  - series: os_log_queue_available_bytes{namespace="cattle-monitoring-system",node="k8s-rpi2",pod="checker-a"}
+    values: 10+0x20
+  - series: os_log_queue_capacity_bytes{namespace="cattle-monitoring-system",node="k8s-rpi2",pod="checker-a"}
+    values: 100+0x20
+  - series: os_log_queue_available_bytes{namespace="cattle-monitoring-system",node="k8s-rpi2",pod="checker-b"}
+    values: 11+0x20
+  - series: os_log_queue_capacity_bytes{namespace="cattle-monitoring-system",node="k8s-rpi2",pod="checker-b"}
+    values: 100+0x20
+  alert_rule_test:
+  - eval_time: 4m
+    alertname: OSLogQueueFilesystemLow
+    exp_alerts: []
+  - eval_time: 6m
+    alertname: OSLogQueueFilesystemLow
+    exp_alerts:
+    - exp_labels:
+        severity: warning
+        namespace: cattle-monitoring-system
+        incident: log-delivery
+        node: k8s-rpi2
+      exp_annotations:
+        summary: A bounded OS log queue filesystem is running out of space
+        description: Node k8s-rpi2 has less than 20 percent free space in its 4GiB payload filesystem. Inspect queue
+          drain and bbolt compaction headroom before changing limits; never delete payload or cursor files as a
+          repair.
+- name: export failures from other components and namespaces are excluded
+  interval: 1m
+  input_series:
+  - series: otelcol_exporter_send_failed_log_records_total{namespace="cattle-monitoring-system",job="alloy-node-logs",pod="collector-a",component_id="otelcol.exporter.otlphttp.other",exporter="otlp_http/otelcol.exporter.otlphttp.loki"}
+    values: 0 7+0x20
+  - series: otelcol_exporter_send_failed_log_records_total{namespace="other",job="alloy-node-logs",pod="collector-a",component_id="otelcol.exporter.otlphttp.loki",exporter="otlp_http/otelcol.exporter.otlphttp.loki"}
+    values: 0 9+0x20
+  alert_rule_test:
+  - eval_time: 1m
+    alertname: AlloyNodeOTelLogExportFailed
+    exp_alerts: []
+
+- name: bulk log queue alone cannot hide a missing OS queue
+  interval: 1m
+  input_series:
+  - series: up{namespace="cattle-monitoring-system",job="alloy-node-logs",pod="collector-a"}
+    values: 1+0x20
+  - series: otelcol_exporter_queue_capacity{namespace="cattle-monitoring-system",job="alloy-node-logs",pod="collector-a",component_id="otelcol.exporter.otlphttp.loki",exporter="otlp_http/otelcol.exporter.otlphttp.loki",data_type="logs"}
+    values: 100+0x20
+  alert_rule_test:
+  - eval_time: 4m
+    alertname: AlloyNodeOTelLogQueueMissing
+    exp_alerts: []
+  - eval_time: 6m
+    alertname: AlloyNodeOTelLogQueueMissing
+    exp_alerts:
+    - exp_labels:
+        namespace: cattle-monitoring-system
+        job: alloy-node-logs
+        pod: collector-a
+        severity: warning
+        incident: log-delivery
+      exp_annotations:
+        summary: A scraped node collector is missing an OTel log queue
+        description: Inspect the effective Alloy configuration and component health on collector-a. A successful
+          scrape alone does not establish that both OS and bulk log exporters exist.
+- name: 'OS exporter: sustained log byte queue pressure alerts after five minutes'
+  interval: 1m
+  input_series:
+  - series: otelcol_exporter_queue_size{namespace="cattle-monitoring-system",job="alloy-node-logs",pod="collector-a",component_id="otelcol.exporter.otlphttp.os",exporter="otlp_http/otelcol.exporter.otlphttp.os",data_type="logs"}
+    values: 90+0x20
+  - series: otelcol_exporter_queue_capacity{namespace="cattle-monitoring-system",job="alloy-node-logs",pod="collector-a",component_id="otelcol.exporter.otlphttp.os",exporter="otlp_http/otelcol.exporter.otlphttp.os",data_type="logs"}
+    values: 100+0x20
+  alert_rule_test:
+  - eval_time: 4m
+    alertname: AlloyNodeOTelLogQueueHigh
+    exp_alerts: []
+  - eval_time: 6m
+    alertname: AlloyNodeOTelLogQueueHigh
+    exp_alerts:
+    - exp_labels:
+        namespace: cattle-monitoring-system
+        job: alloy-node-logs
+        pod: collector-a
+        component_id: otelcol.exporter.otlphttp.os
+        exporter: otlp_http/otelcol.exporter.otlphttp.os
+        data_type: logs
+        severity: warning
+        incident: log-delivery
+      exp_annotations:
+        summary: A node persistent log queue is above 80 percent
+        description: Inspect Loki availability, permanent rejections and local disk pressure on collector-a. Queue
+          size is serialized bytes; pressure is a risk signal, not a count of permanently lost records.
+        runbook_url: https://github.com/abhi1693/home-lab/blob/master/docs/runbooks/incident-coverage.md
+- name: 'OS exporter: final send failure alerts immediately with permanent-loss semantics and holds recovery'
+  interval: 1m
+  input_series:
+  - series: otelcol_exporter_send_failed_log_records_total{namespace="cattle-monitoring-system",job="alloy-node-logs",pod="collector-a",component_id="otelcol.exporter.otlphttp.os",exporter="otlp_http/otelcol.exporter.otlphttp.os",error_permanent="true",error_type="InvalidArgument"}
+    values: 0 5+0x30
+  alert_rule_test:
+  - eval_time: 0m
+    alertname: AlloyNodeOTelLogExportFailed
+    exp_alerts: []
+  - eval_time: 1m
+    alertname: AlloyNodeOTelLogExportFailed
+    exp_alerts:
+    - exp_labels:
+        severity: warning
+        namespace: cattle-monitoring-system
+        incident: log-delivery
+        pod: collector-a
+        exporter: otlp_http/otelcol.exporter.otlphttp.os
+        data_loss: permanent
+      exp_annotations:
+        summary: A node OTel exporter failed final log delivery
+        description: Exporter otlp_http/otelcol.exporter.otlphttp.os on collector-a reported ~5 failed log records
+          in 10m after its retry handler returned. Check permanent HTTP errors, shutdown and cancellation. Retryable
+          backend outages remain queued; Loki partial rejections are monitored separately. Do not sum these counters
+          with Loki rejection counts.
+        runbook_url: https://github.com/abhi1693/home-lab/blob/master/docs/runbooks/incident-coverage.md
+  - eval_time: 19m
+    alertname: AlloyNodeOTelLogExportFailed
+    exp_alerts:
+    - exp_labels:
+        severity: warning
+        namespace: cattle-monitoring-system
+        incident: log-delivery
+        pod: collector-a
+        exporter: otlp_http/otelcol.exporter.otlphttp.os
+        data_loss: permanent
+      exp_annotations:
+        summary: A node OTel exporter failed final log delivery
+        description: Exporter otlp_http/otelcol.exporter.otlphttp.os on collector-a reported ~5 failed log records
+          in 10m after its retry handler returned. Check permanent HTTP errors, shutdown and cancellation. Retryable
+          backend outages remain queued; Loki partial rejections are monitored separately. Do not sum these counters
+          with Loki rejection counts.
+        runbook_url: https://github.com/abhi1693/home-lab/blob/master/docs/runbooks/incident-coverage.md
+  - eval_time: 21m
+    alertname: AlloyNodeOTelLogExportFailed
+    exp_alerts: []
+- name: 'OS exporter: enqueue failure warns without asserting permanent delivery loss'
+  interval: 1m
+  input_series:
+  - series: otelcol_exporter_enqueue_failed_log_records_total{namespace="cattle-monitoring-system",job="alloy-node-logs",pod="collector-a",component_id="otelcol.exporter.otlphttp.os",exporter="otlp_http/otelcol.exporter.otlphttp.os"}
+    values: 0 3+0x20
+  alert_rule_test:
+  - eval_time: 1m
+    alertname: AlloyNodeOTelLogEnqueueFailed
+    exp_alerts:
+    - exp_labels:
+        severity: warning
+        namespace: cattle-monitoring-system
+        incident: log-delivery
+        pod: collector-a
+        exporter: otlp_http/otelcol.exporter.otlphttp.os
+      exp_annotations:
+        summary: Node log payloads could not enter the persistent queue
+        description: Check the bounded queue filesystem, permissions, I/O errors and queue capacity on collector-a.
+          This failure precedes exporter retries. Some sources can retry; the journal bridge cannot acknowledge
+          a durable enqueue, so evidence may have been lost.
+        runbook_url: https://github.com/abhi1693/home-lab/blob/master/docs/runbooks/incident-coverage.md
+  - eval_time: 1m
+    alertname: AlloyNodeOTelLogExportFailed
+    exp_alerts: []
+
+- name: OS log queue alone cannot hide a missing bulk queue
+  interval: 1m
+  input_series:
+  - series: up{namespace="cattle-monitoring-system",job="alloy-node-logs",pod="collector-a"}
+    values: 1+0x20
+  - series: otelcol_exporter_queue_capacity{namespace="cattle-monitoring-system",job="alloy-node-logs",pod="collector-a",component_id="otelcol.exporter.otlphttp.os",exporter="otlp_http/otelcol.exporter.otlphttp.os",data_type="logs"}
+    values: 100+0x20
+  alert_rule_test:
+  - eval_time: 4m
+    alertname: AlloyNodeOTelLogQueueMissing
+    exp_alerts: []
+  - eval_time: 6m
+    alertname: AlloyNodeOTelLogQueueMissing
+    exp_alerts:
+    - exp_labels:
+        namespace: cattle-monitoring-system
+        job: alloy-node-logs
+        pod: collector-a
+        severity: warning
+        incident: log-delivery
+      exp_annotations:
+        summary: A scraped node collector is missing an OTel log queue
+        description: Inspect the effective Alloy configuration and component health on collector-a. A successful
+          scrape alone does not establish that both OS and bulk log exporters exist.

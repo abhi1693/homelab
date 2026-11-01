@@ -3,6 +3,5 @@ galaxy_info:
   author: home-lab
   description: Configure Rancher Fleet app reconciliation.
   license: MIT
-  min_ansible_version: "2.15"
-
+  min_ansible_version: '2.15'
 dependencies: []

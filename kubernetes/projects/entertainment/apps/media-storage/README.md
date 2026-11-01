@@ -33,10 +33,9 @@ Sonarr and Radarr mount the completed-media PVC at `/data`. Jellyfin mounts the
 same PVC at `/media`, while keeping application state in PostgreSQL and shared
 files on `jellyfin-shared-data-nfs`; `/config` and `/data` are pod-local.
 
-The retired music applications' app-owned Longhorn PVCs are deleted with their
-Fleet bundles. Their old shared-export directories—`music/Lidarr`,
-`music/Aurral`, and `downloads/slskd`—remain on the NAS. Those paths are
-operator-owned retained data and are not removed by Kubernetes retirement.
+The NAS paths `music/Lidarr`, `music/Aurral` and `downloads/slskd` are
+operator-owned retained data outside the active media workload inventory.
+Review their retention before deleting or reusing them.
 
 The retained `media-library-nfs-csi` claim points at
 `192.168.3.115:/nfs/media_new` as a read-only rollback source. Active consumers

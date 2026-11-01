@@ -47,10 +47,9 @@ Additional catalogs under `platform-catalogs/` cover Ansible-owned platforms.
 The validator reports current application and controller counts.
 
 The restore-point prerequisites are classified with their existing applications:
-`media-state-backups` is shared support for `media-stack`, while
-`rack-state-backups` and `recommender-state-backups` are components of `rack-ops`
-and `cluster-ops`. Their retained claims, helper configuration, and storage
-acceptance Jobs do not constitute independent services.
+`media-state-backups` is shared support for `media-stack`. Its retained claims,
+helper configuration, and storage acceptance Jobs do not constitute independent
+services.
 
 Detailed catalogs can record retained stores, stable endpoints, and named
 dependencies without duplicating Pods, ReplicaSets, Pod IPs, completed Jobs,
@@ -99,3 +98,6 @@ to compare Git, runtime, hardware, controller telemetry, and NetBox without
 turning transient Kubernetes resources into inventory. Use the
 [UniFi-to-NetBox drift runbook](../../docs/runbooks/networking/unifi-netbox-drift-reconciliation.md)
 for the stricter infrastructure-only controller workflow.
+
+The Fleet Longhorn maintenance-policy Setting is classified as a Longhorn
+component in workload-catalog exclusions; it is not an independent application.

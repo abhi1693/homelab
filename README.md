@@ -66,6 +66,18 @@ applications are modeled as Git-managed bundles.
 
 ## Hardware Details
 
+All eight nodes use Ubuntu Server 26.04.1 with Canonical's packaged raspi
+kernel, native BTF and 4 KiB pages. Ansible owns Ubuntu bootstrap, persistent
+NTP/sudo/source policy, vendor A/B boot checks and host storage health.
+
+Application placement uses architecture, node roles and replica-spreading rules
+without hostname-specific preferences or exclusions. USB-attached CUPS/NUT retain their hardware placement constraints.
+
+User-facing application web, API and image services run at most two replicas.
+Singleton and paused workloads retain their lower replica counts. Background
+workers and infrastructure services use their independently sized replica counts.
+DevFeed's high and default worker pools temporarily run two consumers each.
+
 The Kubernetes node pool is intentionally homogeneous: eight Raspberry Pi 5 Model
 B systems with local NVMe storage and wired Ethernet. Serial numbers, MAC
 addresses, cabling, procurement, and lifecycle metadata belong in NetBox or
@@ -103,6 +115,7 @@ and selected application integrations.
 | Let's Encrypt | Public TLS certificates through cert-manager ACME. | cert-manager ClusterIssuer settings. |
 | UniFi gateway | LAN routing, internal DNS, mDNS reflection, and scoped cross-VLAN player control. | ExternalDNS UniFi app plus VLAN and firewall notes; Kubernetes VIPs use ordinary connected-VLAN routing. |
 | NAS | NFS exports for media plus retained per-PVC shared application storage. | Static media PVs, the `nfs-shared-retain` StorageClass, application claims, and storage runbooks. |
+| Network time | Distribution-managed NTP/NTS sources keep node clocks synchronized. | Ansible preserves chrony or systemd-timesyncd, enables it at boot and validates synchronization. |
 | External registries | Upstream images from Docker Hub, GHCR, OCI registries, and vendor registries. | Harbor proxy/cache paths and Renovate update comments. |
 | App SaaS APIs | App-specific integrations such as GitHub, Clerk, Sanity, payment APIs, and similar services. | Per-app manifests and README secret contracts. |
 
@@ -137,11 +150,40 @@ ansible-playbook --syntax-check playbooks/site.yml
 ansible-playbook playbooks/k3s_server.yml -e k3s_server_entrypoint=validation
 ```
 
+Node preparation enables and validates NTP before package and K3s work. The
+[time-only Ansible entrypoints](infrastructure/ansible/roles/os_prep/README.md#network-time-on-all-nodes)
+converge all nodes without OS upgrades, forced clock steps or reboots, preserving
+the distribution's chrony/NTS or systemd-timesyncd configuration.
+
+All eight nodes have a [remote recovery policy](infrastructure/ansible/roles/os_prep/README.md#remote-node-recovery-and-kernel-evidence):
+critical kernel forwarding to independent LAN peers and monitored evidence
+collection. The ineffective PID 1 hardware-watchdog policy has been retired.
+The serial Ansible workflow needs no console access or planned reboot; normal logs continue through Alloy and Loki.
+rpi7 also has an [opt-in macb TX-stall mitigation](infrastructure/ansible/roles/os_prep/README.md#macb-network-tx-stall-canary),
+with persisted offload settings and minute NIC evidence. It is a canary, pending
+sustained network-stability observation.
+The [Pi recovery receiver](kubernetes/projects/system/apps/pi-recovery/README.md)
+checks alerts against node, switch and directional traffic evidence before a
+bounded PoE power cycle, with a durable interlock and cooldowns.
+It checks newly firing alerts immediately and can use the reviewed node-to-port
+mapping when a silent NIC's learned MAC entry has aged out; the complete stall
+pattern and all other safety checks remain required.
+Receiver updates are independent of monitoring DaemonSet readiness so a node
+outage cannot block deployment of recovery fixes.
+The receiver's local Helm chart bootstraps a retained recovery ledger; normal
+upgrades leave its runtime state and action history untouched.
+Application code and tests live in [Pi Recovery](https://github.com/abhi1693/pi-recovery).
+Fleet deploys its ARM64-only `v0.0.3` release by immutable image digest, with
+control-plane priority and a configurable five-minute default cooldown.
+
 Use the [rolling OS update workflow](infrastructure/ansible/roles/os_prep/README.md#rolling-os-updates)
-for HTTPS Debian sources, verified package downloads, worker canaries, serial
-Debian and Raspberry Pi kernel upgrades, ordering around database primaries,
+for HTTPS Ubuntu sources, verified package downloads, worker canaries, serial
+Ubuntu vendor kernel upgrades, ordering around database primaries,
 and bounded recovery after each reboot.
 Persistent package and CA trust baselines are checked during routine validation.
+
+Monitoring configuration updates can continue while a deployed NFS bundle has
+unhealthy node agents, keeping alert changes available during node recovery.
 
 Upgrade applications one at a time through Git and Fleet. Capture workload,
 database/storage, Fleet, and public-route health first. For first-party apps,
@@ -156,8 +198,8 @@ release failures, coupled image cohorts and live acceptance checks.
 Blog runtime credential changes follow a [staged GitOps cutover](docs/runbooks/personal-blog-credential-cutover.md):
 encrypted provider-response recovery, Secret materialization before the normal
 image/revision rollout, private Pod environment proof, and exact old-key retirement.
-The required Sanity preview token remains intact while privileged recovery access
-is unavailable; its rotation status remains explicitly blocked.
+Verify privileged Sanity recovery access before rotating the required preview
+token.
 
 Keep paused replicas and suspended jobs paused. Wait for matching Fleet desired
 and applied bundle IDs, healthy replacement pods, the expected runtime/image,
@@ -329,7 +371,6 @@ flowchart TD
     mediaProject["Entertainment"]
     homeProject["Home automation"]
     systemProject["System"]
-    devProject["Development"]
   end
 
   operator --> repo
@@ -359,7 +400,6 @@ flowchart TD
   fleet --> mediaProject
   fleet --> homeProject
   fleet --> systemProject
-  fleet --> devProject
 
   dbProject --> postgres
   dbProject --> valkey
@@ -479,7 +519,7 @@ in-cluster app still receives normal Kubernetes service traffic.
 Tunnel connectors use required hostname anti-affinity scoped to each rollout
 revision, preserving node separation while allowing rolling image updates.
 The [controller runbook](kubernetes/projects/home-automation/apps/cloudflare-tunnel-ingress-controller/README.md)
-documents the two-stage Fleet migration from the older scheduling rule.
+documents connector scheduling and upgrade validation.
 
 Examples include the portfolio, blog, ShipyardHQ, Wardn AI website, Wardn Hub,
 and Wardn License Server. The app bundle usually owns:
@@ -579,7 +619,12 @@ For a CLI-only update, run `playbooks/cilium.yml -e cilium_entrypoint=cli` from
 `infrastructure/ansible/`; this entrypoint changes the CLI on the bootstrap
 server without rendering values or touching the Cilium dataplane.
 
-Cilium stays at **1.20.1** on the current Raspberry Pi kernels. Bootstrap and
+Cilium stays at **1.20.1** until its separately authorized upgrade. All eight
+nodes use Canonical's vendor-maintained BTF-enabled raspi kernel. Native BTF
+compatibility checks stay in the Cilium role; no custom kernel packages or
+detached metadata are built, deployed or used. Longhorn's PDB and evacuation
+protections remain in the [maintenance policy](kubernetes/projects/system/apps/longhorn-maintenance-policy/README.md).
+Bootstrap and
 read-only role validation share a guard that rejects **1.20.2 and later** when
 any node lacks `/sys/kernel/btf/vmlinux`; newer patch or minor versions cannot
 skip that guard. Keep this hold until an upstream compatibility fix is verified
@@ -649,10 +694,6 @@ The repo is divided by responsibility rather than by tool alone.
 | Runbooks and ADRs | `docs/` | Operational procedures and design decisions that need more context than a manifest. |
 | Scripts | `scripts/` | Small utilities used by operators or migration workflows. |
 
-The [DevFeed identity migration runbook](docs/runbooks/devfeed-identity-migration.md)
-covers moving existing accounts to the dedicated authentication instance while
-preserving application data through a Fleet-coordinated cutover.
-
 The main architectural rule is locality: files that explain or operate an app
 should live next to the app. For example, an application directory can contain
 its Deployment, Service, Ingress, NetworkPolicy, Fleet metadata, values,
@@ -668,7 +709,7 @@ Important bootstrap roles:
 
 | Role | What it does |
 | --- | --- |
-| `os_prep` | Base operating-system preparation, persistent host security baselines, and rolling OS upgrades with reboot recovery gates. |
+| `os_prep` | Base operating-system preparation, persistent NTP validation, persistent host security baselines, and rolling OS upgrades with reboot recovery gates. |
 | `rpi_prep` | Raspberry Pi-specific host setup and telemetry helpers. |
 | `k3s_server` | Serial K3s server configuration with Node, etcd consensus, and platform recovery gates; explicit bootstrap mode and a separately prepared pinned etcd client. |
 | `k3s_agent` | K3s worker/agent configuration with one-at-a-time execution and post-restart Node lease, version, and readiness gates. |
@@ -698,7 +739,7 @@ node outage does not pause GitOps reconciliation.
 | `home-lab-database` | PostgreSQL, Valkey, database operators, and database network policy. |
 | `home-lab-applications` | Public and personal application workloads. |
 | `home-lab-entertainment` | Media stack and supporting automation. |
-| `home-lab-home-automation` | Home Assistant, NetBox and its MCP server, rack automation, USB printing, UPS monitoring, and Cloudflare tunnel controller. |
+| `home-lab-home-automation` | Home Assistant, NetBox and its MCP server, USB printing, UPS monitoring, and Cloudflare tunnel controller. |
 
 This split has practical benefits:
 
@@ -723,7 +764,8 @@ These services are not just "apps"; they are the platform other apps depend on.
 | Rancher | Bootstrap/system | Cluster management plane and Fleet host. |
 | Fleet | Bootstrap/system | GitOps reconciliation engine. |
 | CloudNativePG | Database | PostgreSQL operator and shared database cluster. |
-| PostgreSQL | Database | Shared relational database with app-specific roles and poolers; PostgreSQL instance images are managed centrally through a CNPG ImageCatalog. |
+| ClickHouse | Database | Shared analytics in the `clickhouse` namespace with per-app databases, scoped credentials, bounded admission sized for producer fanout, 1 CPU / 2304 MiB reservations and 3 CPU / 6 GiB limits, retained backup storage, native Prometheus metrics and a ClickHouse Overview Grafana dashboard. |
+| PostgreSQL | Database | Shared relational database with app-specific roles and poolers; PostgreSQL instance images are managed centrally through a CNPG ImageCatalog. Debian base upgrades require the documented [NetBox collation check and index maintenance](kubernetes/projects/database/apps/postgresql/README.md#bookworm-collation-maintenance). |
 | Valkey | Database | Shared cache/queue service with Sentinel. |
 | Harbor | Applications | Local registry and proxy/cache layer for images. |
 | SOPS Secrets Operator | System | Converts encrypted SOPS resources into native Kubernetes Secrets. |
@@ -740,10 +782,8 @@ These services are not just "apps"; they are the platform other apps depend on.
 
 | App | What it does | Notable dependencies |
 | --- | --- | --- |
-| [DevFeed](kubernetes/projects/applications/apps/devfeed/README.md) | Developer news on 0.1.2 with saved My feed columns, reader layouts and independently budgeted administration read-model publishers on schema 0034; source/article lifecycle boards, sign-in recovery and SSO sign-out, public API/OAuth/MCP discovery and tier-based partner imports; tag discovery and follows, collection sharing, contextual partner promotions, the partners.devfeed.tech portal and enabled adaptive polling; individual search content-type filters, restored feed navigation, managed publisher logos, background sitemap snapshots and lighter public-page loading; daily Must Reads, weekly streak progress, compact lists and improved mobile navigation; avatar uploads, reading leaderboards, improved Dev Card navigation, admin reader-profile and activity views, enabled X sign-up attribution, HTTPS redirects and stronger reader/admin content security policies; per-user language preferences, feed sorting, reading streaks and shareable Dev Cards; managed topic logos with bounded SVG conversion and 32/64/96-pixel variants; PgBouncer connection reuse, redundant web/APIs, dedicated background workers and a search indexer; OAuth MCP agent connections, native OpenTelemetry metrics and refreshed Grafana dashboards, probes, logs, traces and profiles; automatic pre-upgrade [migration hooks](kubernetes/projects/applications/apps/devfeed/migrations.md). | PostgreSQL, Typesense, shared Valkey Sentinel, Chimely, dedicated Codex and internal imgproxy, R2 article images and topic logos, Zitadel, public Cloudflare Tunnel and internal Traefik. |
+| [DevFeed](kubernetes/projects/applications/apps/devfeed/README.md) | Developer news, reader and partner portals, administration, search and evidence-gated background processing. | PostgreSQL, Typesense, Valkey Sentinel, Chimely, Codex, imgproxy, R2, Zitadel and Cloudflare Tunnel. |
 | Firefly III | Personal finance application with a monthly active window; the in-cluster scaler owns web replicas and daily-cron suspension. | PostgreSQL pooler, NFS upload PVC, internal Traefik ingress, scoped Home Assistant API access. |
-| [Hyperlocal Kitchen](kubernetes/projects/applications/apps/hyperlocal-kitchen/README.md) | Paused marketplace and admin portal: UI, APIs, worker, Redis, and dedicated pooler at zero replicas; migrations suspended and data retained. | PostgreSQL pooler, persistent Redis, Zitadel, SOPS, Harbor, retained Cloudflare Tunnel hostnames. |
-| [Launchboard](kubernetes/projects/applications/apps/launchboard/README.md) | Paused pay-to-rank product and People leaderboard: web and dedicated pooler at zero replicas, X automation suspended, database and configuration retained. | PostgreSQL, SOPS, Harbor, retained Cloudflare Tunnel hostnames. |
 | Harbor | Local registry and proxy/cache registry. | PostgreSQL, Valkey, NFS storage, monitoring. |
 | [SonarQube MCP Server](kubernetes/projects/applications/apps/sonarqube-mcp-server/README.md) | Read-only SonarCloud MCP access for DevFeed at `https://sonar.mcp.home/mcp`. | SonarCloud, per-client user tokens, Harbor, internal Traefik, local CA. |
 | Personal Blog | Public blog deployment. | Harbor image, Cloudflare Tunnel, Sanity revalidation secret. |
@@ -753,7 +793,6 @@ These services are not just "apps"; they are the platform other apps depend on.
 | Wardn AI Website | Public product website for Wardn AI. | Harbor image, Cloudflare Tunnel. |
 | Wardn Hub | Public registry with API, frontend, and scoring online; consolidated worker and Codex temporarily paused at zero replicas, with refresh hook skipped and login state retained. | PostgreSQL, OpenTelemetry, Harbor, Cloudflare Tunnel, NFS build cache, Longhorn Codex state. |
 | [Zitadel](kubernetes/projects/applications/apps/zitadel/README.md) | Central identity provider on v4.20.0 with signed Login UI cookies, a custom GitHub registration retry and an isolated DevFeed virtual instance at auth.devfeed.tech. | PostgreSQL, SOPS secrets, Cloudflare Tunnel. |
-| Wardn License Server | Private entitlement issuer, Dodo webhook worker, and administration console. | PostgreSQL, Zitadel, Harbor, Dodo, Cloudflare Tunnel. |
 
 ### Database Project
 
@@ -765,6 +804,10 @@ These services are not just "apps"; they are the platform other apps depend on.
 | Database network policies | Boundary policies for database access. |
 | PostgreSQL pooler PDBs | Availability policy for app-specific poolers. |
 
+The [retained DevFeed analytics recovery evidence](docs/runbooks/devfeed-clickhouse-recovery-evidence.md)
+documents protected tables, detached data and verification after temporary repair
+resources are retired.
+
 The [database Helm repository bundle](kubernetes/projects/database/apps/database-helm-repositories/README.md)
 refreshes the Bitnami Valkey OCI catalog every 15 minutes so transient download
 errors receive regular recovery attempts through Rancher reconciliation.
@@ -773,18 +816,27 @@ errors receive regular recovery attempts through Rancher reconciliation.
 
 | App | What it does |
 | --- | --- |
+| Media acquisition schedule | Runs qBittorrent and the acquisition apps 22:00–10:00 IST on nights starting Monday–Friday; keeps playback, requests and FlareSolverr online. |
 | qBittorrent | Torrent client with category paths, state snapshots, download-layout repair, smart-queue bandwidth policy, and LoadBalancer peer port exposure. |
 | Prowlarr | Indexer manager for media applications. |
 | Profilarr | Quality profile, custom format, and quality-definition management for Radarr and Sonarr. |
 | Sonarr | TV library management. |
 | Episeerr | Complete-current-season downloads with Jellyfin-driven next-season prefetch. |
 | Radarr | Movie library management. |
-| Ryokan | Anime request/import workflow with direct public-indexer HTTPS egress and receipt-verified batch cleanup. |
-| Shoko | Anime metadata and library management for Jellyfin/Shokofin. |
+| Ryokan | Temporarily paused (0 replicas). Anime request/import workflow with direct public-indexer HTTPS egress and receipt-verified batch cleanup. |
+| Shoko | Temporarily paused (0 replicas). Anime metadata and library management for Jellyfin/Shokofin. |
 | Jellyfin | Media server using custom image work and PostgreSQL-oriented experiments. |
 | Jellyseerr / Seerr | Media request portal backed by Jellyfin. |
 | FlareSolverr | Browser-challenge helper for selected indexers and the DevFeed solver worker (2Gi memory cap, CPU bursts allowed). |
 | media-storage | Shared NFS CSI declarations for the completed library and downloads. |
+
+The [acquisition schedule](kubernetes/projects/entertainment/apps/media-acquisition-schedule/README.md)
+keeps qBittorrent, Smart Queues, Sonarr, Radarr, Episeerr, Prowlarr and Profilarr at
+zero replicas outside that window, retaining their queues, configuration and
+media. Friday's window ends Saturday at 10:00. Jellyseerr, Jellyfin and
+FlareSolverr stay online; Ryokan and Shoko retain their separately paused state.
+New requests received during the scheduled downtime can be retried automatically
+after acquisition is Ready; failures from before schedule activation are left alone.
 
 The media stack is intentionally split between download storage and completed
 library storage. Download clients write to a NAS-backed downloads PVC, and
@@ -801,7 +853,6 @@ scans the completed video library, not partial downloads.
 | NetBox | Source of truth for IPAM, infrastructure inventory, cabling, DNS, lifecycle documentation, and the Git-backed catalog of durable K3s applications and controllers; every project app directory is cataloged or explicitly classified, while UniFi Network clients and transient or operator-generated Kubernetes objects remain excluded. |
 | NetBox MCP Server | Authenticated per-user MCP access to NetBox through an ARM64, TLS-proxied, network-isolated service. |
 | Cloudflare Tunnel ingress controller | Maps Kubernetes ingress intent to Cloudflare Tunnel routes. |
-| Rack Ops controllers | Rack/node automation, policy, monitoring, and guarded actions; shed workloads restore when mains returns, without waiting for battery recharge. |
 | UPS Monitoring | Network UPS Tools, PeaNUT dashboard, exporter, Grafana dashboard, and alerts. |
 
 ### System Project
@@ -828,9 +879,13 @@ Most applications do not run their own database. The database project owns a
 shared PostgreSQL cluster and app-specific roles, databases, and PgBouncer-style
 poolers.
 
-Each of the three PostgreSQL instances requests and limits memory to 3Gi,
-reserving 9Gi across the cluster so any replica can become primary. CPU remains
-uncapped with a 250m request per instance.
+Each of the three PostgreSQL instances requests and limits memory to 5Gi,
+reserving 15Gi across the cluster so any replica can become primary. CPU remains
+uncapped with a 750m request per instance, reserving 2.25 cores across the cluster.
+Each instance uses 512MiB of PostgreSQL shared buffers and a 3GiB planner cache
+estimate within its existing memory budget.
+DevFeed's migration hook manages its [role/database JIT default](kubernetes/projects/applications/apps/devfeed/migrations.md#devfeed-jit-default)
+without changing JIT for other applications or restarting PostgreSQL.
 Each instance has a 32Gi data PVC and a separate 4Gi WAL PVC, for 108Gi of
 provisioned volumes and 324Gi of nominal capacity with three Longhorn replicas.
 
@@ -878,9 +933,8 @@ through the Harbor GHCR proxy cache, for example
 K3s, Cilium, Rancher, Longhorn, MetalLB, and CSI NFS remain manually governed.
 NUT updates accept only `2.x.y-rN` container tags because its upstream OCI
 repository also contains Helm chart artifacts under bare version tags.
-Valkey chart upgrades also require a guarded `OnDelete` rollout, and completed
-Rack Ops bootstrap Jobs require an explicit new Job revision; Renovate excludes
-those two manifests to preserve their operational contracts.
+Valkey chart upgrades require a guarded `OnDelete` rollout, so that HelmOp pin
+remains excluded from automated updates.
 
 Wardn Hub image updates form a reviewed backend/frontend/Codex cohort. All 14
 image references must share one release version and one immutable digest per
@@ -915,12 +969,16 @@ PostgreSQL poolers retain one warm backend per database/user pool and release
 excess unused server connections after 120 seconds to preserve connection headroom. Long-running queries and client-attached sessions are unaffected;
 see the [PgBouncer operating notes](kubernetes/projects/database/apps/postgresql/README.md#pgbouncer-connection-budgets).
 
-DevFeed 0.1.2 reserves four additional publisher connections separately from its
-twenty interactive slots. RQ workers and the scheduler remain at zero through
-migration and read-model validation. Clear the owned pause before a later Fleet
-revision restores the original workers and scheduler together. Use the
-[phased read-model cutover](kubernetes/projects/applications/apps/devfeed/read-model-rollout.md)
-and fresh global connection counts; keep both poolers from rolling together.
+DevFeed uses twenty interactive pooler slots and a direct writer connection for
+its bounded analytics reconciliation process. Independent high/default/low
+worker pools retain capacity for each priority, with Images and solver isolated.
+Its completed queue-routing cutover used staged Git/Fleet drain revisions and
+preserved 805 queued deliveries and 29 historical failed records. The temporary
+transport hooks are retired; compatible patch releases use the ongoing schema
+hook and normal rolling image upgrades;
+schema or serving-policy changes require the reviewed
+[migration lifecycle](kubernetes/projects/applications/apps/devfeed/migrations.md).
+Check fresh global connection counts and keep both poolers from rolling together.
 
 ### Ingress coupling
 
@@ -954,6 +1012,20 @@ storage nodes, including PostgreSQL data/WAL and Valkey data. Those services
 also retain application-level replication, intentionally stacking block and
 application redundancy; PostgreSQL object-store backups remain its independent
 recovery path.
+Replica recovery admits one incoming Longhorn rebuild per node to leave
+headroom on the shared root NVMe and 1 GbE network, including embedded etcd
+disk writes on control-plane nodes. Queued recovery can take longer; existing
+copies finish without interruption.
+The [storage pools policy](kubernetes/projects/system/apps/longhorn-storage-pools/README.md)
+keeps control-plane application replicas on `k8s-rpi1`–`k8s-rpi3` and worker
+application replicas on `k8s-rpi4`–`k8s-rpi8`. New claims are routed to the
+corresponding StorageClass; existing claims retain their bindings. RWX share
+managers follow the same pool.
+The same GitOps policy keeps the existing default class until no PVC or PV
+references `longhorn`, then makes `longhorn-workers` default and retires the old
+class. Changing replica placement does not change a bound PVC's class name.
+Three control-plane replicas use all three eligible nodes, so maintenance
+cannot restore full redundancy until the missing control-plane node returns.
 The upstream NFS CSI driver mounts NAS-backed storage where shared file
 semantics are more important than Kubernetes-local block storage. Static PVs
 retain the existing media exports, while the opt-in `nfs-shared-retain`
@@ -1013,21 +1085,20 @@ operations become part of the platform, not an afterthought.
 
 Observability is built into the system project and then extended by app bundles.
 
-The [upstream monitoring migration](docs/runbooks/rancher-monitoring-migration.md)
-uses `kube-prometheus-stack` `92.2.0` and Rancher dashboard integration
-`110.0.1+up0.1.4`. Existing Prometheus/Alertmanager names, PVC bindings, dashboard
-UIDs and datasource UIDs remain stable. K3s scraping uses authenticated native
-kubelet endpoints. The 2026-10-01 cutover has an explicit operator exception to
-the backup gate. The follow-up uses upstream runtime images and chart-managed
-stock dashboards, with Prometheus 3.15.0, Grafana 13.2.3 and Alertmanager 0.34.1.
-`scripts/monitoring-migration-state.py` captures private inventories outside Git.
+[Monitoring](kubernetes/projects/system/apps/rancher-monitoring/README.md) uses
+upstream kube-prometheus-stack and Rancher dashboard integration. The owning
+HelmOps and values files define chart/runtime versions, retained PVC bindings,
+Service names and dashboard/datasource identities. K3s scraping uses
+authenticated native kubelet endpoints. Review stateful backup and recovery
+requirements before every upgrade; previous maintenance approval is not standing
+authority for another operation.
 
 | Signal | System |
 | --- | --- |
 | Metrics | Two upstream Prometheus scrapers, Thanos Query, and ServiceMonitor resources. |
 | Dashboards | Grafana dashboards from labeled ConfigMaps. |
 | Alerts | PrometheusRules and AlertmanagerConfig resources. |
-| Logs | Node-local Alloy container/K3s/kernel collection, clustered Kubernetes event collection and two Loki gateways; Loki storage remains single-replica. |
+| Logs | CPU-bounded Alloy node collection of container logs, retained OS journals, API audit and selected OS files; persistent OTel export queues and OS-source-to-query checks; clustered events and two Loki gateways. Loki storage remains single-replica. |
 | Traces | Two OpenTelemetry gateways, two tail-sampling processors, and Tempo with a 2Gi Longhorn claim. |
 | Profiles | Pyroscope with a 2Gi Longhorn claim; Raft state and profiles survive pod replacement. |
 | Network flows | Cilium agent/operator metrics and bounded Hubble flow aggregates. |
@@ -1042,11 +1113,24 @@ pending period. Local capture validation exercises routing and rendering without
 posting test messages to Slack.
 
 The [incident coverage runbook](docs/runbooks/incident-coverage.md) describes
-the container-log handover, host journal boundaries, native etcd metrics and
-Cilium/Hubble scrapes. File positions survive collector restarts on the same
-node; pending write batches remain in memory. Kernel journals on quiet nodes
-may contain no recent entries, so collector health and actual log delivery are
-checked separately.
+the container-log handover, full retained OS journals, API audit, native etcd
+metrics and Cilium/Hubble scrapes. Ansible bounds journal retention and mounts
+4GiB local payload filesystems. Node Alloy splits a combined 64MiB durable payload budget
+into a 56MiB bulk queue and an independent 8MiB OS/kernel queue. The two consumers
+share the same 250m CPU ceiling, so bulk catch-up does not block current OS
+evidence. Collector recovery updates can proceed while a deployed Loki bundle
+is degraded. It fsyncs OTel payload queues separately
+from source positions; source-to-queue crash windows remain explicit. The
+**OS / Host Metrics** dashboard reads existing host metrics without querying
+Loki. A separate **OS / Logs** dashboard provides source-specific journal,
+audit and file browsing with explicit event/stored timestamps and unchanged
+original-record drilldowns. Informational host canaries support source-to-query
+checks. Grafana requires authentication and original log bodies
+are preserved without redaction. `python3 scripts/collect-os-incident.py`
+captures bounded private SSH evidence even when Loki or Kubernetes is down. Dashboard query fixtures run locally with the pinned Loki image:
+`python3 scripts/check-os-dashboard-queries.py`.
+Kernel journals on quiet nodes are checked through reader health rather than
+requiring a recent error.
 
 [Trace and profile persistence](docs/runbooks/observability-persistence.md)
 keeps both backends' data on bounded persistent volumes, with 24-hour retention
@@ -1062,9 +1146,9 @@ monitoring view.
 DevFeed has one operational overview for availability, reader latency/errors,
 worker progress and search backlog; its telemetry and alerts remain enabled.
 
-Wardn-specific Grafana dashboards and dedicated API/worker metric scrapes are
-retired; Codex metric export is disabled. Shared cluster resource monitoring,
-application logs, and traces remain available.
+Wardn Hub uses shared cluster resource monitoring; dedicated API/worker metric
+scrapes and Codex metric export are disabled. Application logs and traces
+remain available.
 
 The observability stack is intentionally local and modest. OpenTelemetry uses
 two stateless gateways and two stateful processors with identity-aware routing;
@@ -1077,20 +1161,21 @@ made the lab worse. Prometheus scrapes the dedicated API server target
 for `apiserver_*` metrics; the parallel K3s server scrape retains K3s, cAdvisor,
 and probe metrics without ingesting duplicate API server series.
 
-The [monitoring coverage and HA review](docs/runbooks/monitoring-ha-review.md)
-records the remaining etcd, host-log, Grafana database, and Loki storage gaps.
+See the [monitoring availability boundary](kubernetes/projects/system/apps/rancher-monitoring/README.md#coverage-and-ha-boundary)
+before changing replicas or storage.
 The metrics backend is redundant; the complete observability stack is not yet HA.
 
 Scheduler reservations are periodically right-sized from Prometheus history
 while CPU remains burstable for storage and database hot paths. Longhorn
 instance managers reserve 12% CPU **per instance-manager pod** on a four-core
-node, Rancher replicas request 200m, and PostgreSQL instances request 250m.
-Recommendation profiles use a 5%
-material-change gate with conservative 10% maximum decrease steps. Application
-and system requests are kept below the allocatable CPU remaining after one
-four-core node is lost; placement constraints and per-node headroom still need
-checking. See the [resource policy](docs/runbooks/kubernetes-resource-policy.md)
-for sizing and validation.
+node, Rancher replicas request 200m, and PostgreSQL instances request 750m.
+The recommendation engine has been retired; resource changes are reviewed
+and deployed through Git/Fleet. Historical resource reviews preserve
+measured burst headroom and land in verified batches; short-history services and
+stateful rollout safeguards remain explicit. Check application and system requests against
+the allocatable CPU remaining after one four-core node is lost, including
+placement constraints and per-node headroom. See the [resource policy](docs/runbooks/kubernetes-resource-policy.md)
+for sizing, validation, and the [dated capacity assessment](docs/runbooks/kubernetes-resource-policy.md#capacity-after-the-28-october-review).
 
 Platform version badges describe desired state, not live rollout status.
 K3s maintenance requires [server preparation and recovery gates](infrastructure/ansible/roles/k3s_server/README.md#prepare-before-maintenance).
@@ -1137,7 +1222,7 @@ repository. This repository continues to own the Firefly III GitOps deployment.
 Shared CI and container builds use the current contracts in
 [`abhi1693/actions`](https://github.com/abhi1693/actions), with one native
 runner/platform matrix for ARM64 and multi-platform builds. See
-[repository automation](.github/README.md).
+[repository workflows](.github/workflows/).
 
 Typical change flow:
 
@@ -1148,6 +1233,12 @@ Typical change flow:
 5. Use read-only inspection to diagnose convergence.
 6. Encode fixes back into Git instead of mutating live resources by hand.
 
+If a HelmOp summary remains stale after recovery, verify the live workload and
+child BundleDeployment readiness and matching desired/applied IDs. Update
+`metadata.annotations["home-lab.io/status-reconcile-at"]` to a new UTC timestamp
+in its Git-managed HelmOp manifest, commit and push, then verify the refreshed
+HelmOp and parent Fleet summaries. Keep the refresh on HelmOp metadata.
+
 This workflow keeps the cluster understandable over time. Manual commands may
 still be needed for break-glass repair or initial secret creation, but they
 should not become the normal deployment mechanism.
@@ -1155,7 +1246,7 @@ should not become the normal deployment mechanism.
 ## Validation
 
 Container publication uses centrally maintained security gates for SBOMs, provenance
-and runtime scanning. See [repository automation](.github/README.md). The personal
+and runtime scanning. See [repository workflows](.github/workflows/). The personal
 blog tracks final published Docker images, so a source release cannot select an
 image before its native real-CMS build and security/runtime gates pass. Its
 existing single-image branch-update policy remains enabled; acceptance verifies
@@ -1303,6 +1394,14 @@ Runtime secrets are handled in two ways:
 App README files should document the required secret contract without storing
 the value.
 
+The public [`abhi1693/homelab`](https://github.com/abhi1693/homelab) mirror is
+published from tracked source files by `.github/workflows/mirror-public.yml`.
+Its fail-closed export excludes private inventories, inventory-derived recovery
+topology generators, credential resources and key material, scans every reachable public ref, and preserves the mirror's
+funding metadata. Source and mirror have separate histories. See the
+[public mirror security policy](docs/runbooks/public-mirror-security.md) for
+export boundaries, validation and publication controls.
+
 ## Benefits
 
 This design has concrete advantages:
@@ -1368,7 +1467,6 @@ Project indexes:
 | --- | --- |
 | [kubernetes/projects/applications/README.md](kubernetes/projects/applications/README.md) | Public and internal application workloads. |
 | [kubernetes/projects/database/README.md](kubernetes/projects/database/README.md) | PostgreSQL, Valkey, operators, pooling, and database contracts. |
-| [kubernetes/projects/development/README.md](kubernetes/projects/development/README.md) | Developer services and workspace-adjacent apps. |
 | [kubernetes/projects/entertainment/README.md](kubernetes/projects/entertainment/README.md) | Media stack, storage flow, and app coupling. |
 | [kubernetes/projects/home-automation/README.md](kubernetes/projects/home-automation/README.md) | Home Assistant, NetBox, UPS, tunnels, and hardware-adjacent services. |
 | [kubernetes/projects/system/README.md](kubernetes/projects/system/README.md) | Monitoring, logging, tracing, DNS, backup, and cluster add-ons. |
@@ -1392,9 +1490,7 @@ App and component deep dives:
 | [kubernetes/projects/applications/apps/personal-blog/README.md](kubernetes/projects/applications/apps/personal-blog/README.md) | Personal blog deployment. |
 | [kubernetes/projects/applications/apps/portfolio/README.md](kubernetes/projects/applications/apps/portfolio/README.md) | Portfolio deployment. |
 | [kubernetes/projects/applications/apps/shipyardhq/README.md](kubernetes/projects/applications/apps/shipyardhq/README.md) | ShipyardHQ deployment. |
-| [kubernetes/projects/applications/apps/wardn-ai-website/README.md](kubernetes/projects/applications/apps/wardn-ai-website/README.md) | Wardn AI public website deployment. |
 | [kubernetes/projects/applications/apps/wardn-hub/README.md](kubernetes/projects/applications/apps/wardn-hub/README.md) | Wardn Hub deployment. |
-| [kubernetes/projects/applications/apps/wardn-license-server/README.md](kubernetes/projects/applications/apps/wardn-license-server/README.md) | Wardn entitlement issuer and Dodo fulfillment deployment. |
 | [kubernetes/projects/database/apps/cnpg-operator/README.md](kubernetes/projects/database/apps/cnpg-operator/README.md) | CloudNativePG operator. |
 | [kubernetes/projects/database/apps/database-helm-repositories/README.md](kubernetes/projects/database/apps/database-helm-repositories/README.md) | Database Helm repository registrations. |
 | [kubernetes/projects/database/apps/postgresql/README.md](kubernetes/projects/database/apps/postgresql/README.md) | PostgreSQL cluster, roles, and poolers. |
@@ -1417,11 +1513,8 @@ App and component deep dives:
 | [kubernetes/projects/home-automation/apps/home-assistant-go2rtc/README.md](kubernetes/projects/home-automation/apps/home-assistant-go2rtc/README.md) | Authenticated LAN-reachable WebRTC relay for Home Assistant cameras. |
 | [kubernetes/projects/home-automation/apps/home-automation-helm-repositories/README.md](kubernetes/projects/home-automation/apps/home-automation-helm-repositories/README.md) | Home automation Helm repository registrations. |
 | [kubernetes/projects/home-automation/apps/netbox/README.md](kubernetes/projects/home-automation/apps/netbox/README.md) | NetBox application deployment. |
-| [kubernetes/projects/home-automation/apps/netbox-mcp-server/README.md](kubernetes/projects/home-automation/apps/netbox-mcp-server/README.md) | Authenticated NetBox MCP server deployment. |
-| [kubernetes/projects/home-automation/apps/rack-ops-controllers/README.md](kubernetes/projects/home-automation/apps/rack-ops-controllers/README.md) | Rack and node automation controllers. |
 | [kubernetes/projects/home-automation/apps/ups-monitoring/README.md](kubernetes/projects/home-automation/apps/ups-monitoring/README.md) | UPS monitoring. |
 | [kubernetes/projects/home-automation/apps/cups/README.md](kubernetes/projects/home-automation/apps/cups/README.md) | USB printing, LAN IPP, and moving the printer between Pi nodes. |
-| [kubernetes/projects/system/apps/alloy-faro/README.md](kubernetes/projects/system/apps/alloy-faro/README.md) | Alloy Faro frontend telemetry collector. |
 | [kubernetes/projects/system/apps/alloy-logs/README.md](kubernetes/projects/system/apps/alloy-logs/README.md) | Alloy cluster pod and event log collectors. |
 | [kubernetes/projects/system/apps/csi-driver-nfs/README.md](kubernetes/projects/system/apps/csi-driver-nfs/README.md) | Upstream NFS CSI driver for static exports and retained per-PVC NAS directories. |
 | [kubernetes/projects/system/apps/external-dns-unifi/README.md](kubernetes/projects/system/apps/external-dns-unifi/README.md) | ExternalDNS integration for UniFi DNS. |
@@ -1445,8 +1538,8 @@ Runbooks and architecture decisions:
 | [docs/runbooks/completed-torrent-import-recovery.md](docs/runbooks/completed-torrent-import-recovery.md) | Recover completed torrents with copy-first Arr mapping repair, exact library verification, and gated payload cleanup. |
 | [docs/runbooks/media-download-recovery.md](docs/runbooks/media-download-recovery.md) | Repair Arr authentication, unresolved Episeerr request holds, and verify download handoff. |
 | [docs/runbooks/kubernetes-cpu-overcommit.md](docs/runbooks/kubernetes-cpu-overcommit.md) | N-1 scheduler capacity diagnosis and evidence-backed CPU request sizing. |
-| [docs/runbooks/kubernetes-resource-policy.md](docs/runbooks/kubernetes-resource-policy.md) | Production resource policy, September 19 CPU sizing evidence, generated-container defaults, and Longhorn exceptions. |
-| [docs/runbooks/k3s-node-maintenance.md](docs/runbooks/k3s-node-maintenance.md) | Sequential Raspberry Pi node drain, clean shutdown, and recovery with kube-vip, PDB, Longhorn, Fleet, and controller gates. |
+| [docs/runbooks/kubernetes-resource-policy.md](docs/runbooks/kubernetes-resource-policy.md) | Resource sizing, generated-container defaults, and Longhorn exceptions. |
+| [docs/runbooks/k3s-node-maintenance.md](docs/runbooks/k3s-node-maintenance.md) | Sequential node maintenance and guarded emergency runtime recovery, with etcd, storage, Fleet, and controller gates. |
 | [docs/runbooks/k3s-unplanned-node-failure.md](docs/runbooks/k3s-unplanned-node-failure.md) | Authorized failover after confirmed host power loss, Longhorn replica evacuation, and hardware return-to-service gates. |
 | [docs/runbooks/node-saturation-and-zombie-processes.md](docs/runbooks/node-saturation-and-zombie-processes.md) | Node load, I/O, CPU, and zombie-process diagnosis with targeted recovery. |
 | [docs/runbooks/statefulset-ondelete-rollout-recovery.md](docs/runbooks/statefulset-ondelete-rollout-recovery.md) | Safe sequential Valkey OnDelete rollout and Sentinel failover procedure. |
@@ -1470,52 +1563,18 @@ Runbooks and architecture decisions:
 - Prefer Git-managed cluster changes over live `kubectl` or `helm` mutation.
 - Do not revert unrelated local changes when working in this repository.
 
-DevFeed production telemetry now uses build-derived release labels and alerts on
-shared Alloy/Loki delivery loss. The shared PostgreSQL cluster retains three
-32Gi data and 4Gi WAL claims (324Gi nominal Longhorn replica capacity). See the
-[PostgreSQL operating notes](kubernetes/projects/database/apps/postgresql/README.md)
-and [Loki delivery notes](kubernetes/projects/system/apps/loki/README.md).
+The [28 October app retirement record](docs/runbooks/2026-10-28-app-retirements.md)
+lists removed services, retained data and the Episeerr activity decision.
 
-The public [`abhi1693/homelab`](https://github.com/abhi1693/homelab) mirror is
-published by `.github/workflows/mirror-public.yml` from regular tracked files at
-one source commit. Its text-only export removes private inventories, network
-configuration, unrendered Helm generators, actual Secret/ConfigMap/SOPS/SealedSecret
-resources, certificate/key material, credentials, and stale excluded files.
-Declarative certificate resources and resource references remain public; private
-credential-fingerprint annotations are omitted. It preserves the public mirror's
-existing `.github/FUNDING.yml` byte for byte and excludes other GitHub metadata.
-Read, decode, parse, or credential-scan errors stop publication before a public
-commit; a checksummed Gitleaks scan has no baseline or local/inline ignore escape.
-Every reachable public commit, branch and tag is checked with the same artifact
-policy and credential scanner, so a clean tip cannot hide deleted private files.
-One publisher runs at a time, and push credentials exist only in its final step.
-The public mirror has separate history; the private source history is never
-rewritten. See the [public mirror security runbook](docs/runbooks/public-mirror-security.md)
-for policy, regression commands and incident history cleanup.
 
-Media controller upgrades use [verified pre-start restore points](kubernetes/projects/entertainment/apps/media-state-backups/README.md) on dedicated retained NFS claims; the SQLite snapshot uses bounded node scratch before application init or schema writes. Backup helpers use an independently public, immutable [Chainguard Python pin](kubernetes/projects/entertainment/apps/media-state-backups/public-helper-image.json), so storage acceptance has no dependency on app-owned registry credentials. Persisted receipts use the explicit [NAS storage policy](kubernetes/projects/entertainment/apps/media-state-backups/backup-storage-policy.json): mapped UID 977:GID 988, protected directories 0770/files 0660 (or stricter 0700/0600), with claim root 0777 recorded separately and no owner-only or encryption claim.
+Fleet agent CPU requests are reconciled explicitly at 150m per replica.
+CPU reservations for low-volume media services and NetBox are sized separately
+from burst limits. NetBox runs its inventory UI/API without a background worker;
+queued jobs require re-enabling that worker. Longhorn admits one replica rebuild
+and one heavy snapshot operation per node to bound recovery contention.
 
-Every Git-tracked project application `fleet.yaml`, including new prerequisites,
-must be discovered exactly once by the local
-[project GitRepo paths](kubernetes/fleet/fleet-project-gitrepos/README.md). A generic
-registration regression checks explicit paths and globs; backup contract tests
-check dependency ordering and storage safety.
+The **Training** Rancher project contains the `instructor` namespace for the instructor NetBox lab, using separate credentials and a retained PostgreSQL database.
 
-Restore-point writer image updates retain Renovate branch automerge with
-[passing branch checks](kubernetes/projects/applications/apps/renovate/README.md#restore-point-writer-branch-checks).
-Dynamic regressions bind both qBit pins, Recommender clone/main pins and backup
-cohort labels to actual writer versions before a Renovate branch can merge.
+Instructor NetBox uses the official community chart 8.3.98 with ARM64 NetBox 4.7.4 at `https://instructor.netbox.home`, with one web and one worker replica in Training.
 
-Ryokan credential sync uses the same verified standard-library runtime as its backup helper, retaining its existing transaction and Secret references after the backup gate.
-
-Recommender's namespace-local [storage prerequisite](kubernetes/projects/home-automation/apps/recommender-state-backups/README.md)
-is registered with the home-automation GitRepo in the same change. It validates
-one retained NFS destination in `cluster-ops` before the separately reviewed
-application backup init and image rollout; source state and namespace ownership
-remain with the existing app.
-
-Rack's namespace-local [storage prerequisite](kubernetes/projects/home-automation/apps/rack-state-backups/README.md)
-is registered with the home-automation GitRepo in the same change. It validates
-one retained NFS destination in `rack-ops` before the separately reviewed controller
-backup init and image rollout; existing source state, device policy and namespace
-ownership remain with the application.
+Training NetBox instances inherit common chart and application settings with explicit per-instance overrides; see [Training configuration](kubernetes/projects/training/README.md). Regenerate Fleet inputs with `python3 scripts/render-training-netbox.py` and validate with `--check`.

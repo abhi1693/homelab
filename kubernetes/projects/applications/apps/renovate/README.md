@@ -159,10 +159,8 @@ python scripts/check-renovate-policy.py
 ```
 
 Some version sets remain manual even though they are not cluster-foundational.
-The Valkey `helmop.yaml` chart pin requires a guarded `OnDelete` rollout, and
-Rack Ops `secret-bootstrap.yaml` is a completed immutable Job whose name and
-selector must advance together for a deliberate rerun. Both files are excluded
-from scanning; their metadata still documents the upstream dependency.
+The Valkey `helmop.yaml` chart pin requires a guarded `OnDelete` rollout and is
+excluded from scanning; its metadata still documents the upstream dependency.
 The Jellyfin plugin bundle couples release URLs, checksums, ABI metadata, and
 the generated metadata file. PyCharm and Portable Desktop pins likewise couple
 versions, download URLs, and checksums. Native Renovate managers cannot safely
@@ -224,8 +222,7 @@ Scoring tracks its private repository-owned runtime package independently.
 License backend and frontend use the Docker datasource in one reviewed group
 with digest pinning and `automerge: false`. Keep the API, console and direct-writer
 migration hook together. Only stable `0.1.x` releases from `0.1.2` are eligible;
-a minor-version change requires a compatibility review. This policy change
-preserves the current image selections and does not roll the old images again.
+a minor-version change requires a compatibility review.
 
 A GitHub release starts the source repository's image workflow. Final component
 tags appear only after native image checks, and publication across repositories
@@ -236,17 +233,15 @@ merging. The source repository is private and explicitly disables unsupported
 GitHub artifact attestations; do not claim signed provenance for this cohort.
 The policy guard checks Docker metadata and limits review exceptions to the
 Hub and License groups; other enabled dependencies retain branch automerge.
-Once the verified release pins are applied, the strict License cohort guard
-also rejects mixed versions, missing/invalid digest pins, mismatched backend
+The strict License cohort guard rejects mixed versions, missing/invalid digest pins, mismatched backend
 digests, swapped API/frontend containers and omitted/unreviewed references.
 Run `python3 scripts/check-renovate-policy.py` and the app's
 `tests/test_image_cohort.py` regressions before accepting an update.
 
 ## Restore-point writer branch checks
 
-qBittorrent Smart Queues, Ryokan, K8s Recommendation Engine and Rack Ops keep
-branch automerge enabled. A late exact-package Docker rule sets `ignoreTests:
-false` for these four packages; the default `ignoreTests: true` for unrelated
+qBittorrent Smart Queues and Ryokan keep branch automerge enabled. A late
+exact-package Docker rule sets `ignoreTests: false` for these two packages; the default `ignoreTests: true` for unrelated
 dependencies and the final manual Chainguard helper rule are unchanged.
 Infrastructure regressions runs on `renovate/**` branch pushes as well as master
 and pull requests, so the writer update must pass checks before branch automerge.
@@ -264,9 +259,6 @@ its canonical label is `qbit-<actual version>`, with an optional historical
 semantic version but need not match current Ryokan; a Ryokan-only upgrade leaves
 the controller Pod spec and historical label unchanged. A stale own qBit version
 or any other suffix fails the guard. No runtime label is rewritten by these tests.
-It always requires Recommender clone/main image equality, and checks Recommender
-and Rack cohort labels against their actual writer tags once each phased backup
-init is installed. The per-app phase contracts require that init to remain first.
 These tests derive release versions from manifests; no release number is frozen
 in the assertion. Update affected pins and labels together in the same Git change.
 This gate does not add a restart, disable automerge, or verify image provenance.
@@ -286,5 +278,10 @@ Its source release starts the real CMS image build; only final registry tags
 published after native scan/SBOM/runtime gates are eligible. The policy guard
 rejects a return to source-release tracking or removal of its enabled registry
 rule. Verify the release commit, ARM64 index/config and signed GitHub attestation
-before accepting the Fleet rollout. No review exception or image selection is
-introduced by the tracking change.
+before accepting the Fleet rollout.
+
+The 2026-10-28 app retirement removes Wardn AI, Wardn AI Website and Wardn
+License Server update rules and active-image cohort checks. Active Hub and
+other application image gates remain in force.
+
+Training NetBox generated `apps/*-netbox/values.yaml` and `helmop.yaml` are excluded from dependency edits. Their canonical versions and images live under `kubernetes/projects/training/_shared/netbox/`; after a source update, run `python3 scripts/render-training-netbox.py` and commit the rendered outputs. The shared configuration drift check prevents merging stale instance renders.

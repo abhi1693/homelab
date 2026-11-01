@@ -1,0 +1,108 @@
+---
+apiVersion: longhorn.io/v1beta2
+kind: Setting
+metadata:
+  name: node-drain-policy
+  namespace: longhorn-system
+  annotations:
+    helm.sh/resource-policy: keep
+value: block-for-eviction
+---
+apiVersion: longhorn.io/v1beta2
+kind: Setting
+metadata:
+  name: concurrent-replica-rebuild-per-node-limit
+  namespace: longhorn-system
+  annotations:
+    helm.sh/resource-policy: keep
+value: "1"
+---
+apiVersion: longhorn.io/v1beta2
+kind: Setting
+metadata:
+  name: snapshot-heavy-task-concurrent-limit
+  namespace: longhorn-system
+  annotations:
+    helm.sh/resource-policy: keep
+value: "1"
+---
+apiVersion: longhorn.io/v1beta2
+kind: Setting
+metadata:
+  name: system-managed-csi-components-resource-limits
+  namespace: longhorn-system
+  annotations:
+    helm.sh/resource-policy: keep
+value: |-
+  {
+    "csi-attacher": {
+      "requests": {
+        "cpu": "10m",
+        "memory": "32Mi"
+      },
+      "limits": {
+        "cpu": "250m",
+        "memory": "128Mi"
+      }
+    },
+    "csi-provisioner": {
+      "requests": {
+        "cpu": "10m",
+        "memory": "32Mi"
+      },
+      "limits": {
+        "cpu": "250m",
+        "memory": "128Mi"
+      }
+    },
+    "csi-resizer": {
+      "requests": {
+        "cpu": "10m",
+        "memory": "32Mi"
+      },
+      "limits": {
+        "cpu": "250m",
+        "memory": "128Mi"
+      }
+    },
+    "csi-snapshotter": {
+      "requests": {
+        "cpu": "10m",
+        "memory": "32Mi"
+      },
+      "limits": {
+        "cpu": "250m",
+        "memory": "128Mi"
+      }
+    },
+    "longhorn-csi-plugin": {
+      "requests": {
+        "cpu": "10m",
+        "memory": "64Mi"
+      },
+      "limits": {
+        "cpu": "500m",
+        "memory": "256Mi"
+      }
+    },
+    "node-driver-registrar": {
+      "requests": {
+        "cpu": "5m",
+        "memory": "32Mi"
+      },
+      "limits": {
+        "cpu": "250m",
+        "memory": "128Mi"
+      }
+    },
+    "longhorn-liveness-probe": {
+      "requests": {
+        "cpu": "5m",
+        "memory": "32Mi"
+      },
+      "limits": {
+        "cpu": "100m",
+        "memory": "64Mi"
+      }
+    }
+  }

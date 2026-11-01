@@ -1,0 +1,7 @@
+---
+apiVersion: v2
+name: pi-recovery
+description: Guarded Raspberry Pi recovery with a preserved action ledger
+type: application
+version: 0.0.3
+appVersion: "0.0.3"

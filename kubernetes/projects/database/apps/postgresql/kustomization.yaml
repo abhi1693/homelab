@@ -16,6 +16,7 @@ resources:
   - namespace.yaml
   - limitrange.yaml
   - secrets.sops.yaml
+  - instructor-secrets.sops.yaml
   - registry-secrets.sops.yaml
   - db-performance-grafana-dashboard.yaml
   - grafana-dashboard.yaml

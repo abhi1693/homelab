@@ -1,0 +1,147 @@
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: devfeed-analytics-importer
+  namespace: devfeed
+  labels:
+    app.kubernetes.io/part-of: devfeed
+spec:
+  replicas: 1
+  revisionHistoryLimit: 2
+  strategy:
+    type: Recreate
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: devfeed-analytics-importer
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: devfeed-analytics-importer
+        app.kubernetes.io/part-of: devfeed
+        devfeed-database-client: 'true'
+        devfeed-redis-client: 'true'
+        devfeed-clickhouse-client: 'true'
+        devfeed-telemetry: 'true'
+    spec:
+      serviceAccountName: devfeed
+      automountServiceAccountToken: false
+      imagePullSecrets:
+      - name: harbor-registry
+      nodeSelector:
+        kubernetes.io/arch: arm64
+      securityContext:
+        fsGroup: 10001
+        fsGroupChangePolicy: OnRootMismatch
+        seccompProfile:
+          type: RuntimeDefault
+      terminationGracePeriodSeconds: 180
+      containers:
+      - name: analytics-importer
+        # renovate: datasource=docker depName=ghcr.io/abhi1693/devfeed.tech/backend
+        image: registry.home/ghcr.io/abhi1693/devfeed.tech/backend:0.1.8@sha256:1fb3087acd900c6e18cef096df53ae34d19d6226bba58531324f2dcb3786ca3e
+        imagePullPolicy: IfNotPresent
+        resources:
+          requests:
+            cpu: 100m
+            memory: 256Mi
+          limits:
+            cpu: 500m
+            memory: 512Mi
+        securityContext:
+          runAsNonRoot: true
+          runAsUser: 10001
+          runAsGroup: 10001
+          allowPrivilegeEscalation: false
+          readOnlyRootFilesystem: true
+          capabilities:
+            drop:
+            - ALL
+        command:
+        - python
+        - -m
+        - devfeed_core.analytics_worker
+        envFrom:
+        - configMapRef:
+            name: devfeed-telemetry
+        - configMapRef:
+            name: devfeed
+        - secretRef:
+            name: devfeed-database
+        - configMapRef:
+            name: devfeed-clickhouse-client
+        - secretRef:
+            name: devfeed-clickhouse-ingest
+        env:
+        # These non-secret inputs keep the importer policy aligned with the admin API.
+        - name: DEVFEED_AI_ENABLED
+          valueFrom:
+            configMapKeyRef:
+              name: devfeed-automation
+              key: DEVFEED_AI_ENABLED
+        - name: DEVFEED_FULL_AUTOMATION
+          valueFrom:
+            configMapKeyRef:
+              name: devfeed-automation
+              key: DEVFEED_FULL_AUTOMATION
+        - name: DEVFEED_CODEX_MODEL
+          valueFrom:
+            configMapKeyRef:
+              name: devfeed-automation
+              key: DEVFEED_CODEX_MODEL
+        - name: DEVFEED_CODEX_APP_SERVER_URL
+          valueFrom:
+            configMapKeyRef:
+              name: devfeed-automation
+              key: DEVFEED_CODEX_APP_SERVER_URL
+        - name: DEVFEED_TOPIC_KIND_MAP_PATH
+          value: /etc/devfeed/topic-kind-map.json
+        - name: DEVFEED_DATABASE_URL
+          valueFrom:
+            secretKeyRef:
+              name: devfeed-database
+              key: DEVFEED_DIRECT_DATABASE_URL
+        - name: DEVFEED_ANALYTICS_BACKFILL_BATCH_SIZE
+          value: '1000'
+        - name: DEVFEED_ANALYTICS_POLL_SECONDS
+          value: '1'
+        - name: DEVFEED_ANALYTICS_BACKFILL_POLL_SECONDS
+          value: '0.1'
+        volumeMounts:
+        - name: tmp
+          mountPath: /tmp
+        - name: topic-kind-map
+          mountPath: /etc/devfeed
+          readOnly: true
+        readinessProbe:
+          exec:
+            command: &id001
+            - python
+            - -c
+            - "import time\nfrom devfeed_core.runtime_files import runtime_marker\n\
+              try:\n    stamp = float(runtime_marker(\"analytics-worker\").read_text())\n\
+              except (FileNotFoundError, ValueError):\n    raise SystemExit(1) from\
+              \ None\nraise SystemExit(0 if 0 <= time.time() - stamp <= 120 else 1)\n"
+          periodSeconds: 30
+          timeoutSeconds: 10
+          failureThreshold: 4
+        livenessProbe:
+          exec:
+            command: *id001
+          periodSeconds: 30
+          timeoutSeconds: 10
+          failureThreshold: 4
+          initialDelaySeconds: 180
+        startupProbe:
+          exec:
+            command: *id001
+          periodSeconds: 10
+          timeoutSeconds: 10
+          failureThreshold: 90
+      volumes:
+      - name: topic-kind-map
+        configMap:
+          name: devfeed-topic-kind-map
+      - name: tmp
+        emptyDir:
+          sizeLimit: 256Mi

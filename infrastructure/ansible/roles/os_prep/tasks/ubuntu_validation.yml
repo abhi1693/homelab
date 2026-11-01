@@ -1,0 +1,21 @@
+---
+- name: Validate official Ubuntu stable sources and supervised upgrade policy
+  ansible.builtin.command:
+    argv:
+      - python3
+      - -c
+      - |
+        from pathlib import Path
+        import subprocess
+        import sys
+        fields = dict(line.split(':', 1) for line in Path('/etc/apt/sources.list.d/ubuntu.sources').read_text().splitlines()
+                      if line.strip() and not line.lstrip().startswith('#') and ':' in line)
+        assert fields['URIs'].strip() == sys.argv[1], 'Unexpected Ubuntu archive'
+        assert fields['Suites'].split() == ['resolute', 'resolute-updates', 'resolute-security'], 'Missing stable update pockets'
+        assert fields['Signed-By'].strip() == '/usr/share/keyrings/ubuntu-archive-keyring.gpg', 'Unexpected signing key'
+        policy = subprocess.check_output(['apt-config', 'dump'], text=True)
+        assert 'APT::Periodic::Unattended-Upgrade "0";' in policy, 'Unattended upgrades enabled'
+        assert 'Unattended-Upgrade::Automatic-Reboot "false";' in policy, 'Autonomous reboot policy not disabled'
+        print('Official Ubuntu stable sources and operator-controlled upgrades verified')
+      - "{{ os_prep.ubuntu_archive_uri }}"
+  changed_when: false

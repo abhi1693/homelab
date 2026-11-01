@@ -20,8 +20,7 @@ same `/var/pyroscope` mount and survive pod replacement. Longhorn replication
 does not provide an application backup or make this single-pod backend highly
 available; replacement briefly interrupts ingestion and queries.
 
-The claim is bounded at `2Gi`, matching the previous ephemeral cap. The current
-24-hour retention and query limits remain in place. V2 retention operates on
+The claim is bounded at `2Gi`, with 24-hour retention and query limits. V2 retention operates on
 partitions and deletes objects asynchronously, so 24 hours is not a strict disk
 quota or an exact deletion deadline. Watch PVC capacity, metastore cleanup,
 compaction, ingestion and memory. Increase the requested storage through Git
@@ -33,33 +32,20 @@ Set both `-metastore.raft.dir` and `-metastore.raft.snapshots-dir`: the snapshot
 path has an independent default inside the container filesystem. Keeping only
 the WAL on the volume loses snapshots on container replacement and can cause
 `panic: log not found` when Raft replays compacted logs. Container restarts retain
-the complete state, and the PVC now also retains it when the pod is replaced.
+the complete state, and the PVC retains it across pod replacement.
 The pod has 120 seconds to shut down Raft and in-flight compaction cleanly.
 
 The pod requests `128Mi` of memory and has a `256Mi` container limit, while
 `GOMEMLIMIT=120MiB` keeps the Go runtime target conservative. The runtime target
-does not bound all resident memory. On 5 October 2026 the previous `160Mi` cap
-caused repeated OOM kills during v2 compaction, including a restart killed just
-after a level-2 job began. Prometheus recorded about `160Mi` resident/container
-memory despite a Go heap peak of about `81Mi`; the working-set peak was about
-`133Mi`. The higher container cap leaves room for compaction and memory outside
-the Go runtime without increasing the runtime target.
+does not bound all resident memory. Review cgroup usage, compaction peaks,
+readiness and ingestion after resource changes. The configured memory limit
+must leave room for Go heap, mapped files, Raft and compaction buffers.
 
-`-compaction-worker.job-concurrency=1` limits compaction to one job at a time.
-The default uses the node's CPU count, which started four workers on these
-Raspberry Pi nodes. Serial compaction reduces overlapping memory demand; monitor
-completed jobs, ingestion, memory peaks, and restarts before increasing it.
-Changing the Deployment replaces the pod while preserving its profiling history
-on the existing claim.
+`-compaction-worker.job-concurrency=1` serializes compaction to bound overlapping
+memory demand. Monitor compaction, ingestion and memory peaks before increasing
+concurrency.
 
 ## Recovery and validation
-
-The first `emptyDir` to PVC cutover starts a new queryable profiling history.
-Archive the surviving old data and export representative profiles before the
-Fleet-managed replacement. An archive taken while ingestion continues is best
-effort and is not a consistent backup. It preserves files for offline recovery
-but does not make old profiles queryable in the new backend. Later replacements
-reuse the claim and preserve their existing history.
 
 For a missing-snapshot failure, retain and archive the entire PVC before an
 operator recovery action. Do not delete the WAL independently of its snapshots,
@@ -93,9 +79,20 @@ DevFeed API/frontend and execution processes also send profiles over the private
 Python native profiling initializes only after the final RQ fork; parent workers
 export their process/execution metrics independently. Default sampling is 19 Hz CPU
 and 1 MiB heap allocation intervals. Monitor ingest/storage/memory growth as this
-additional workload establishes its baseline; existing 24-hour retention and
-storage ownership are preserved.
+profiling workload changes; preserve 24-hour retention and storage ownership.
 
 Upstream references: [v2 architecture](https://grafana.com/docs/pyroscope/latest/reference-pyroscope-v2-architecture/about-pyroscope-v2-architecture/),
 [metastore persistence](https://grafana.com/docs/pyroscope/latest/reference-pyroscope-v2-architecture/components/metastore/),
 and the [v2.4.0 Raft configuration](https://github.com/grafana/pyroscope/blob/v2.4.0/pkg/metastore/raftnode/node.go).
+
+## Resource review — 28 October 2026
+
+Values use the 28 October historical review in
+[the resource policy](../../../../../docs/runbooks/kubernetes-resource-policy.md#2026-10-28-historical-resource-review).
+CPU reservations cover measured sustained demand with headroom; existing burst
+policies remain in place. Memory caps preserve the observed fourteen-day peaks
+and extra headroom where OOM records show clipping.
+
+| Container / value path | CPU request | Memory request | Memory limit |
+| --- | --- | --- | --- |
+| `cattle-monitoring-system/pyroscope/pyroscope` | 10m → 100m | 128Mi → 224Mi | 256Mi → 256Mi |

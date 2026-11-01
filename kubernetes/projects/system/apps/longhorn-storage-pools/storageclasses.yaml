@@ -1,0 +1,40 @@
+---
+apiVersion: storage.k8s.io/v1
+kind: StorageClass
+metadata:
+  name: longhorn-control-plane
+  annotations:
+    helm.sh/resource-policy: keep
+provisioner: driver.longhorn.io
+allowVolumeExpansion: true
+reclaimPolicy: Delete
+volumeBindingMode: Immediate
+parameters:
+  numberOfReplicas: "3"
+  staleReplicaTimeout: "30"
+  fsType: ext4
+  dataEngine: v1
+  dataLocality: best-effort
+  disableRevisionCounter: "true"
+  nodeSelector: storage-control-plane
+  shareManagerNodeSelector: home-lab.io/storage-pool:control-plane
+---
+apiVersion: storage.k8s.io/v1
+kind: StorageClass
+metadata:
+  name: longhorn-workers
+  annotations:
+    helm.sh/resource-policy: keep
+provisioner: driver.longhorn.io
+allowVolumeExpansion: true
+reclaimPolicy: Delete
+volumeBindingMode: Immediate
+parameters:
+  numberOfReplicas: "3"
+  staleReplicaTimeout: "30"
+  fsType: ext4
+  dataEngine: v1
+  dataLocality: best-effort
+  disableRevisionCounter: "true"
+  nodeSelector: storage-worker
+  shareManagerNodeSelector: home-lab.io/storage-pool:worker

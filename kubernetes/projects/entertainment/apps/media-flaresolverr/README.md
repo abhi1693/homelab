@@ -19,14 +19,9 @@ The container runs with `LOG_LEVEL=info`, HTML logging disabled, a 60-second
 browser timeout, and `https://www.google.com` as the test URL. The service
 requests `150m` CPU and `800Mi` memory, and permits `2Gi` memory. There is no
 CPU limit: numeric `resources.limits.cpu: 0` disables the TrueCharts default,
-allowing browser challenge bursts. On October 21, 2026, the former `1000m`
-cap throttled roughly 79–86 percent of CPU periods during DevFeed solver
-traffic. Removing the cap addresses that throttling; upstream challenges can
-still fail or time out, so verify real solver outcomes as well as readiness.
-On September 21,
-2026, a browser workload was OOMKilled under the former 1536Mi cap; the sampled
-48-hour working-set peak was 1518Mi. The 2Gi cap adds headroom for browser bursts.
-Verify restarts and peak memory during real challenge traffic after rollout. DevFeed
+allowing browser challenge bursts. The 2Gi memory limit bounds browser usage.
+Verify solver outcomes, timeouts, restarts and peak memory under real traffic;
+readiness alone does not establish successful challenge handling. DevFeed
 serializes its requests through one solver worker and a shared lease; Prowlarr
 remains an independent client, so monitor combined concurrency.
 
@@ -54,3 +49,19 @@ browser behavior and upstream TLS checking are provider-specific.
 The Fleet bundle and HelmOp fetch the pinned chart directly from its OCI repository.
 They do not depend on the optional Rancher chart-catalog bundle, whose index refresh
 failures must not block solver configuration repairs.
+
+## Resource review — 28 October 2026
+
+Values use the 28 October historical review in
+[the resource policy](../../../../../docs/runbooks/kubernetes-resource-policy.md#2026-10-28-historical-resource-review).
+CPU reservations cover measured sustained demand with headroom; existing burst
+policies remain in place. Memory caps preserve the observed fourteen-day peaks
+and extra headroom where OOM records show clipping.
+
+| Container / value path | CPU request | Memory request | Memory limit |
+| --- | --- | --- | --- |
+| `media/flaresolverr/flaresolverr` | 150m → 200m | 800Mi → 1024Mi | 2Gi → 2560Mi |
+
+## CPU reservation
+
+CPU request is 75m; browser work retains its uncapped CPU burst policy.

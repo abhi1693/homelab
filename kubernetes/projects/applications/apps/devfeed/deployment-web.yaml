@@ -23,10 +23,9 @@ spec:
   template:
     metadata:
       annotations:
-        devfeed.tech/telemetry-config-sha256: 698b964592a0f7572d09d4cec58d46bb29ebdedc3f7f20eb8a18b1b4b944b41b
+        devfeed.tech/telemetry-config-sha256: c7cdfe2c911043d8a622839eb5f1c90c208fb751b34de45ee18f8361da9269e7
       labels:
         devfeed-telemetry: 'true'
-        devfeed-faro: 'true'
         app.kubernetes.io/name: devfeed-web
         app.kubernetes.io/part-of: devfeed
     spec:
@@ -52,17 +51,15 @@ spec:
       containers:
         - name: web
           # renovate: datasource=docker depName=ghcr.io/abhi1693/devfeed.tech/web
-          image: registry.home/ghcr.io/abhi1693/devfeed.tech/web:0.1.2@sha256:15a1f0d31ba66560594061d75c37598f7a13750d0c9ddcbd5b4615a7b6e64519
+          image: registry.home/ghcr.io/abhi1693/devfeed.tech/web:0.1.8@sha256:214776cd42038222dbf7d3d2d9f734d154e63dc56a414e1a548ff9de2acdc870
           imagePullPolicy: IfNotPresent
           envFrom:
             - configMapRef:
                 name: devfeed-telemetry
-            - secretRef:
-                name: devfeed-faro
           resources:
             requests:
-              cpu: 100m
-              memory: 128Mi
+              cpu: 250m
+              memory: 384Mi
             limits:
               memory: 512Mi
           securityContext:
@@ -86,8 +83,6 @@ spec:
               value: https://mcp.devfeed.tech/mcp
             - name: DEVFEED_USER_EXTENSION_IDS
               value: '["hliakjocndflpkmfajndigbpngfcekdm","iihaipjedchahiehignbngclgpklbddo"]'
-            - name: DEVFEED_FARO_ENABLED
-              value: 'true'
             - name: DEVFEED_X_PIXEL_ENABLED
               value: 'true'
             - name: DEVFEED_ANALYTICS_ENABLED

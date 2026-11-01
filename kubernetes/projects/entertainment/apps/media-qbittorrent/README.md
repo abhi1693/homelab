@@ -3,14 +3,23 @@
 qBittorrent and its state-backup CronJob use ARM64 workers. Required pod
 affinity keeps the backup on the node holding qBittorrent's RWO config volume.
 
-This bundle runs the qBittorrent client used by the media stack. qBittorrent
-and the Smart Queues controller each run with one replica, and the maintenance
-CronJobs are active. Fleet reconciles their desired state from this bundle.
+This bundle runs the qBittorrent client used by the media stack. The
+[acquisition schedule](../media-acquisition-schedule/README.md) runs qBittorrent
+and Smart Queues at one replica each from 22:00–10:00 Asia/Kolkata (IST), on
+nights starting Monday–Friday. Friday night continues until Saturday at 10:00.
+Outside that window their pods stop and the maintenance CronJobs are suspended;
+download queues, configuration PVCs, and media remain retained.
+
+Fleet installs a paused baseline of zero replicas and suspended maintenance.
+The schedule owns only runtime replica and suspend fields; all other drift
+correction remains enabled. FlareSolverr stays online because DevFeed uses it.
+
+The quarter-hour backup and layout jobs have a five-minute catch-up deadline.
+Tracker refresh runs at 03:17 IST Tuesday–Saturday, within the preceding
+weekday night's acquisition window.
 
 qBittorrent requests `125m` CPU. Set TrueCharts `resources.limits.cpu: 0` to remove its
 inherited CPU cap and allow hashing/transfer bursts. Let Fleet roll this singleton only in a quiet transfer window.
-The [September 19 resource review](../../../../../docs/runbooks/kubernetes-resource-policy.md#2026-09-19-cpu-sizing-review)
-records the usage evidence and retained storage checks.
 
 The smart queues controller code lives in
 `https://github.com/abhi1693/qbittorrent-smart-queues` and runs from the
@@ -47,9 +56,8 @@ caps upload at `512 KiB/s` (`524,288 B/s`) so peer traffic stays bounded while
 still giving peers enough return bandwidth for healthier swarms. The five-worker
 cap, plus at most two parked stalled listeners, bounds qBittorrent and Cilium
 CPU load on the client node.
-These lower normal-mode limits are a conservative response to sustained NFS
-write waits observed on the qBittorrent node; monitor node load and I/O wait for
-at least the 15-minute alert window before increasing them again.
+Monitor NFS latency, node load and I/O wait through at least the 15-minute
+alert window before increasing normal-mode limits.
 The configured quota guardrail is `1 PB`; storage, thermal, backup-WAN,
 and qBittorrent-authentication guards still apply. If UDM quota data is
 unavailable, the controller fails closed by applying the 1 B/s safety limits and
@@ -91,32 +99,10 @@ then atomically publishes one archive, checksum, and `latest.txt` to NFS. This
 avoids rereading the NAS during archive creation and gives both maintenance
 jobs bounded longer deadlines for temporary array latency.
 
-The controller checks Thanos Query's deduplicated Prometheus view for Raspberry
-Pi CPU and NVMe temperatures before it can start or raise downloads. Thermal mitigation is
-staged: first throttle qBittorrent, then pause torrents and suspend configured
-batch CronJobs, and only allow host shutdown as a last-resort protection at the
-higher emergency thresholds. The cooling lock is persisted in
-`/state/rpi-cooling.json`, so a controller restart does not forget the active
-thermal state.
-
-Clean shutdown, when last-resort shutdown is enabled and eligible, is performed
-by node-pinned `rpi-shutdown-*` DaemonSets in the `rack-ops` namespace. They are
-privileged because they chroot into the host root and run the host
-`systemctl poweroff` or `shutdown -h now` command. The controller does not
-cordon or drain nodes before shutdown.
-
-Automatic PoE off/on recovery through Home Assistant is currently disabled. Thermal throttling, pausing, and guarded clean shutdown remain
-active, but powered-off nodes require manual PoE recovery until replacement
-actuators are deliberately introduced.
-
-The smart queues controller discovers the webhook targets from optional
-`QBT_RPI_COOLING_POWER_OFF_URLS` and `QBT_RPI_COOLING_POWER_ON_URLS` values in
-the `media/media-qbittorrent-smart-queues` Secret. Use newline or comma
-separated `node=url` entries. Those values must remain unset while Home
-Assistant has no matching webhook automations. When configured in a future
-revision, the controller calls the off URL after the node becomes `NotReady`,
-waits the cooldown window, calls the on URL, and keeps the lock until the node
-is `Ready` again.
+Rack-managed cooling, batch suspension and node power actions are disabled with
+`QBT_RPI_COOLING_ENABLED=false`. The standalone NVMe thermal, storage, quota and
+backup-WAN guards remain configured independently. Node maintenance uses
+operator-controlled workflows rather than application shutdown webhooks.
 
 ## Download connectivity
 
@@ -144,7 +130,8 @@ self-signed browser URL. They should keep using the in-cluster HTTP WebUI API at
 services for category-specific clients. TLS is terminated at Traefik only; the
 qBittorrent pod still listens on HTTP port `8080`.
 
-`qbittorrent-tracker-refresh` runs once daily and refreshes the fallback list
+`qbittorrent-tracker-refresh` runs at 03:17 IST Tuesday–Saturday and refreshes
+the fallback list
 from `https://raw.githubusercontent.com/ngosang/trackerslist/master/trackers_all.txt`
 through the qBittorrent Web API. It uses the existing
 `media-qbittorrent-cleanup` Secret for WebUI credentials and updates
@@ -188,8 +175,8 @@ combined primary-WAN download and upload usage. The billing cycle starts on the
 It normally derives a daily guardrail by dividing the monthly guardrail by the
 number of days in the current billing cycle. The configured daily and monthly quota stop points are intentionally
 lifted and the local-time uncapped window spans `00:00` through `00:00`, which
-the controller treats as a full-day window. There is no client-activity based
-bypass.
+the controller treats as a full-day window while it is running. The acquisition
+schedule above controls pod availability. There is no client-activity based bypass.
 
 UniFi usage periods follow the reporting timezone discovered from the gateway,
 currently `Asia/Kolkata`, rather than UTC. Completed local days come from daily
@@ -225,8 +212,9 @@ selection resumes only after both active-WAN state and combined usage accounting
 are available again.
 
 `qbittorrent-smart-queues` runs as a single-replica Deployment in continuous
-mode, polling every 30 seconds after each pass. Five is the useful-worker
-ceiling under the full-day uncapped policy, not a fixed target. The
+mode while the acquisition window is open, polling every 30 seconds after each
+pass. Five is the useful-worker ceiling under the configured uncapped bandwidth
+policy, not a fixed target. The
 controller begins with up to two discovery workers when nothing is productive,
 then adds at most two probe slots beside known productive downloads while
 aggregate throughput remains below 80% of the effective download capacity. It
@@ -277,10 +265,7 @@ unselects files beneath secondary-media directories such as `Extras/`,
 `Samples/`, and `Trailers/`. The release root is ignored for this check, so a
 root title that advertises `[Extras]` does not hide its real numbered episodes.
 This keeps the client from spending worker slots on repeatedly poor releases.
-The controller is excluded from `k8s-rpi5`: that node's hard NFS mounts entered
-uninterruptible I/O during rollout and prevented the first queue decision from
-completing even after the pod became Ready. Remove the exclusion only after
-node-local NFS reads and a full Smart Queues decision cycle are verified there.
+The controller has no hostname-specific scheduling exclusions.
 If a newly selected torrent does not make enough progress over the one-minute
 probe window, the guard either parks it within the bounded listener pool or
 cools it down and immediately probes a replacement while the run budget allows.
@@ -538,14 +523,51 @@ Recreate pod starts. See [the backup contract](../media-state-backups/README.md)
 retention, bounded node scratch, failure behavior, and offline restoration.
 The existing qBittorrent core catalog backup remains independent.
 
-## Controller runtime 0.2.13
+After an interrupted atomic state write, the pre-start backup preserves empty
+or strictly valid complete JSON at the two known `.json.tmp` paths alongside
+the required authoritative JSON. It never promotes or deletes those artifacts;
+malformed or unknown temporary files still block startup.
 
-The controller and Ryokan import reconciler use the same verified immutable
-0.2.13 index `sha256:cd54a54c19a2ef40e450b1e53759a10c206eea3247263f6a15d5b67fa793db18`. Native ARM64
-release checks cover controller/reconciler behavior, package/version parity,
-SQLite/TLS and nonroot ownership, strict scans and an SBOM; the signed GitHub
-attestation is verified against source `343b677f` before Fleet changes. The
-runtime uses Python 3.14.9 and omits pip/ensurepip. Existing policy, source PVCs,
-Recreate behavior and media credentials stay in place. First init creates a
-retained restore-verified point before either new writer starts; Ryokan core
-remains 1.9.12 during this cohort.
+## Controller runtime and placement
+
+The controller and Ryokan import reconciler must use the same immutable image.
+Before updating both pins, verify native ARM64 controller/reconciler tests,
+source/version parity, SQLite/TLS and non-root smoke checks, scans, SBOM and
+signed provenance. Their first init must create and restore-verify a retained
+state backup before either writer starts. Keep media credentials and source
+PVC identities intact.
+
+qBittorrent uses its workload-specific soft spread and does not participate in
+the shared `heavy-media` group. Plan placement using explicit CPU/memory
+reservations and storage constraints. The state-backup CronJob waits for the actual qBittorrent Pod through
+its existing affinity rule.
+
+## Resource review — 28 October 2026
+
+Values use the 28 October historical review in
+[the resource policy](../../../../../docs/runbooks/kubernetes-resource-policy.md#2026-10-28-historical-resource-review).
+CPU reservations cover measured sustained demand with headroom; existing burst
+policies remain in place. Memory caps preserve the observed fourteen-day peaks
+and extra headroom where OOM records show clipping.
+
+| Container / value path | CPU request | Memory request | Memory limit |
+| --- | --- | --- | --- |
+| `media/qbittorrent/qbittorrent` | 370m → 250m | 1960Mi → 1960Mi | 2Gi → 3072Mi |
+| `media/qbittorrent-smart-queues/qbittorrent-smart-queues` | 90m → 75m | 62Mi → 64Mi | 144Mi → 144Mi |
+
+The 1960MiB qBittorrent memory reservation is retained for large torrent sets
+and reconnect/hash-check bursts. Its higher 3GiB cap covers the previously
+clipped peak; idle measurements do not justify shrinking its startup budget.
+
+## Import recovery maintenance — 28 October 2026
+
+The controller was paused through Fleet while completed downloads were
+classified, imported and verified, then restored to its single replica. Two TV
+files and four anime episodes were verified byte-for-byte before exact-hash
+source cleanup. Ten unmatched or alternate releases remain in the
+`manual-review-anime` category with their payloads and paths preserved; nine
+incomplete downloads were retained. Review-category files must not be bulk
+deleted or assigned to a guessed series. Sonarr and Radarr now use 14-day
+recycle protection for replacements. Ryokan retains all 720 prior receipts
+plus four new imports; its stale logs were compacted from roughly 4.1GiB to
+84MiB without removing the 573 recorded errors.

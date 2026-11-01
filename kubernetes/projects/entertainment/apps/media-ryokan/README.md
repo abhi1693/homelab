@@ -1,17 +1,19 @@
 # Ryokan
 
-Ryokan replaces the old Sonarr Anime instance as the anime-only PVR.
+Ryokan is the anime-only request and import service.
 
-The deployment runs as a single replica with persistent configuration and
-library mounts.
+The deployment is temporarily paused at zero replicas through GitOps. Its
+configuration PVC, backup claim, library mounts, Secrets, Service and Ingress
+are retained.
+
+To resume, restore `spec.replicas: 1` in [deployment.yaml](deployment.yaml),
+commit the change and let Fleet reconcile. The startup backup and credential
+sync run before the service resumes. The recommendation profile already
+disables replica scaling and availability recovery, so it does not reactivate
+the paused deployment.
 
 It retains two ReplicaSet revisions; Git and Fleet history remain the primary
 rollback path.
-
-The `media-anime` recommendation profile observes CPU and memory usage every
-five minutes and retains learning history for right-sizing. Resource and
-replica changes remain disabled while the initial operational baseline is
-collected.
 
 The web UI is available at `http://requests.anime.media.home`.
 
@@ -61,20 +63,14 @@ The web UI is available at `http://requests.anime.media.home`.
 Ryokan mounts `/downloads` so it can read qBittorrent's reported anime torrent
 paths, and `/media/anime` as the NAS-backed anime library.
 
-Since 1.9.12, Ryokan stores a durable checkpoint after each file reaches its final
+Ryokan stores a durable checkpoint after each file reaches its final
 library path. If the process restarts while a multi-file grab is still pending,
 the next pass verifies and resumes completed files instead of copying or
 recycling them again. It also finishes deferred replacement bookkeeping after
 an interrupted upgrade. Existing destinations created before checkpoint
-support are adopted only after a full byte comparison. The release retains the
-per-indexer Torznab/Newznab categories, serialized metadata-provider requests,
-redacted diagnostic URLs, interrupted replacement staging, and runtime
-`ffprobe` support from 1.9.4.
-
-The deployment uses one read-only verification worker for that one-time byte
-comparison. Two workers were slower on the shared storage path, so verification
-stays sequential to avoid extra contention. Import placement, replacement
-bookkeeping, and database writes remain serialized.
+support are adopted only after a full byte comparison. Verification uses one
+read-only worker to bound shared-storage contention. Import placement,
+replacement bookkeeping and database writes remain serialized.
 Each completed grab processes at most one new file per pass, then yields to the
 next pending grab. Durable checkpoints let large batches continue on later
 passes without making other ready downloads wait for the whole batch.
@@ -160,13 +156,10 @@ kubectl -n media exec deployment/ryokan -- df -h /data
 Do not delete `ryokan.db`, its WAL files, or artwork blobs manually. Expand the
 Fleet-managed PVC when capacity is the problem, then rerun the native rebuild.
 
-The October 2026 expansion from 4Gi to 8Gi preserves the active SQLite database,
-its WAL, and retained recovery snapshots after `/data` reached 100% usage. All
-Longhorn disks had more than 320Gi available before expansion. Verify both PVC
-capacity and the mounted filesystem after Fleet reconciliation; increasing the
-request alone does not prove filesystem expansion completed. PVCs cannot be
-shrunk to roll this change back. Review retention of old recovery snapshots
-separately rather than deleting database files during an alert response.
+The data claim declares 8Gi. Preserve SQLite, WAL, artwork and recovery snapshots.
+After expanding through Fleet, verify the PVC capacity and mounted filesystem;
+a larger request does not prove filesystem expansion. Claims cannot shrink.
+Review recovery-snapshot retention separately from database storage alerts.
 
 ## Connection troubleshooting
 
@@ -232,3 +225,66 @@ disposable fixture. Production acceptance requires both init containers to exit
 successfully, expected image identities, the retained source/key metadata and
 healthy anonymous login/assets; no synthetic production credentials or writes
 are used for verification.
+
+## Resource review — 28 October 2026
+
+Values use the 28 October historical review in
+[the resource policy](../../../../../docs/runbooks/kubernetes-resource-policy.md#2026-10-28-historical-resource-review).
+CPU reservations cover measured sustained demand with headroom; existing burst
+policies remain in place. Memory caps preserve the observed fourteen-day peaks
+and extra headroom where OOM records show clipping.
+
+| Container / value path | CPU request | Memory request | Memory limit |
+| --- | --- | --- | --- |
+| `media/ryokan/ryokan` | 75m → 25m | 512Mi → 1152Mi | 2Gi → 2Gi |
+| `media/ryokan/import-reconciler` | 10m → 10m | 32Mi → 96Mi | 256Mi → 256Mi |
+
+## Guarded import-state recovery
+
+Updating the shared immutable pre-start backup helper also recreates Ryokan.
+Before starting either application container, the init validates retained
+restore points and creates and restores a new backup. Large historical archives
+can keep this phase busy for several minutes; check init logs and I/O progress
+and allow its configured deadline before treating it as a stalled rollout.
+
+The 28 October review found a roughly 4.1GiB database dominated by repeated
+post-processing warnings for unrelated torrents assigned to the wrong series.
+Quarantine those torrents before repairing state; preserving their source files
+keeps classification reversible and prevents the same retry loop.
+
+`scripts/recover-import-state.py` is an operator tool, not a startup hook or
+periodic controller. It defaults to dry-run. Use it only after the current
+Pod's `backup-state-before-start` init exits zero with a `status: verified`
+termination record. Verify the Pod/PVC identities and archive receipt first.
+Keep Smart Queues paused through Git/Fleet while classifying or deleting payloads.
+
+The reviewed JSON plan supplies that backup record, the existing receipt count,
+and exact completed torrent hashes, source paths/sizes, series identities and
+episode numbers. The tool refuses incomplete, already-tracked or mismatched
+downloads, requires copy mode and recycle protection, preserves old import
+receipts, and lets Ryokan perform the actual imports. It does not move or delete
+media. Logs retain the newest 100,000 non-error rows and 10,000 errors; bounded
+transactions and WAL/disk checks protect the small volume before compaction.
+This one-off maintenance does not alter Ryokan's normal retention scheduler.
+
+Run the dry-run and inspect the plan before adding `--apply`; execute in the
+existing reconciler container with its normal application UID and mounts.
+It mounts the database and library, but not downloads. For adoption, collect
+fresh, nonsymlink source-file stats through the existing Sonarr downloads mount
+and include `source_verification` in the plan (Pod UID, Unix `verified_at`, and
+exact `files` observations). Verify that Pod UID before and after collection;
+observations expire after five minutes. Recheck qBittorrent completion/hash/name
+and content path before executing. No new Pod or writable source mount is needed.
+For log-only maintenance, supply an empty adoption list. The helper selects the
+writable database directory for SQLite temporary files and checkpoints the WAL
+after compaction; a read-only container root is not valid scratch space.
+Archive the plan, output and verification locally, never credentials or private
+torrent metadata in Git. Verify new receipts and byte-matched library copies
+before any qBittorrent source cleanup, then restore the single controller replica.
+
+A measured 4.1GiB legacy database exceeded the former 1,800-second backup
+deadline. The bounded backup allowance is now 3,600 seconds, Deployment
+progress allowance 4,800 seconds, and Fleet Helm timeout 5,400 seconds.
+Full database, archive readback and restored-file checks remain enabled.
+Reducing the stale log backlog is still required; longer deadlines do not
+replace the guarded maintenance procedure.

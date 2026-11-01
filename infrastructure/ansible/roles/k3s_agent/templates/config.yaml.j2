@@ -10,3 +10,15 @@ kubelet-arg:
   - "{{ arg }}"
 {% endfor %}
 {% endif %}
+{% if k3s_agent.node_labels | default({}) | length > 0 %}
+node-label:
+{% for key, value in k3s_agent.node_labels | dictsort %}
+  - {{ (key ~ '=' ~ value) | to_json }}
+{% endfor %}
+{% endif %}
+{% if k3s_agent.node_taints | default([]) | length > 0 %}
+node-taint:
+{% for taint in k3s_agent.node_taints %}
+  - {{ taint | to_json }}
+{% endfor %}
+{% endif %}

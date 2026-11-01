@@ -1,0 +1,32 @@
+---
+- name: Install receiver files only outside check mode
+  when: not ansible_check_mode
+  block:
+    - name: Install host recovery files
+      ansible.builtin.include_tasks: recovery_files.yml
+
+    - name: Install the independent LAN kernel receiver unit
+      ansible.builtin.template:
+        src: home-lab-kernel-receiver.service.j2
+        dest: /etc/systemd/system/home-lab-kernel-receiver.service
+        owner: root
+        group: root
+        mode: '0644'
+      register: os_prep_recovery_receiver_unit
+
+    - name: Start the receiver and restart only changed code or topology  # noqa no-handler
+      ansible.builtin.systemd_service:
+        name: home-lab-kernel-receiver.service
+        daemon_reload: "{{ os_prep_recovery_receiver_unit is changed }}"
+        enabled: true
+        state: "{{ 'restarted' if os_prep_recovery_program is changed or os_prep_recovery_config is changed or os_prep_recovery_receiver_unit is changed else 'started' }}"
+
+    - name: Verify receiver service is active
+      ansible.builtin.command: systemctl is-active home-lab-kernel-receiver.service
+      changed_when: false
+
+    - name: Verify a local UDP socket exists before enabling senders
+      ansible.builtin.wait_for:
+        path: /proc/net/udp
+        search_regex: ':1A0A '
+        timeout: 15

@@ -62,8 +62,9 @@ and Ryokan import completed downloads into the final library. Jellyfin and
 metadata tools read from the completed library. The old
 `media-library-nfs-csi` claim remains retained and unmounted as rollback.
 
-The retired music applications' old `music/Lidarr`, `music/Aurral`, and
-`downloads/slskd` directories remain operator-owned data on NFS.
+The NAS paths `music/Lidarr`, `music/Aurral` and `downloads/slskd` are
+operator-owned retained data outside the active media workload inventory.
+Review their retention before deleting or reusing them.
 
 ## Traffic Flow
 

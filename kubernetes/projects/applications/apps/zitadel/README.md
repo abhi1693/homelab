@@ -86,13 +86,9 @@ Verify a successful CNPG backup and continuous archiving before rollout.
 A Core upgrade or downgrade requires a separate
 database compatibility review.
 
-The v4.20.0 upgrade adds proof signing for verification, identity linking, and
-device flows using the existing per-instance Login cookie secret. In-flight
-flows may need to be repeated. List APIs now default to 100 results with a
-maximum of 1000; callers must paginate. The refreshed Go and Node runtimes
-reject the compromised CA chains. See the
-[upstream v4.20.0 release notes](https://github.com/zitadel/zitadel/releases/tag/v4.20.0)
-and [preceding v4.19.5 notes](https://github.com/zitadel/zitadel/releases/tag/v4.19.5).
+List API clients must paginate: the default page contains 100 results and the
+maximum is 1000. Login verification, linking and device flows use the shared
+per-instance cookie secret for proof signing.
 
 Login UI replicas share `ZITADEL_SESSION_COOKIE_SECRET` through
 `login.sessionCookieSecretName: zitadel-login-env`. The SOPS-managed value must
@@ -114,11 +110,10 @@ not establish session continuity. See the
 DevFeed uses a separate virtual instance at `https://auth.devfeed.tech`, sharing
 only the ZITADEL backend and PostgreSQL infrastructure. Its organizations,
 users, clients, branding and SMTP configuration are independent of the home-lab
-instance. DevFeed reader, admin and partner clients use this issuer after the
-2026-10-20 [identity migration](../../../../../docs/runbooks/devfeed-identity-migration.md),
-which retained existing application account UUIDs and social-login links.
+instance. DevFeed reader, admin and partner clients use this issuer. When repairing
+instance/client mappings, preserve account UUIDs and external provider links;
+an email match alone does not establish identity ownership.
 
-The initial temporary System API identity was removed after provisioning.
 Ongoing automation uses an account scoped only to DevFeed. The initial
 administrator password is SOPS encrypted in `devfeed-secrets.sops.yaml`, under
 `name: zitadel-devfeed-admin` and `stringData.admin-password`.
@@ -142,6 +137,10 @@ implicit TLS, plain SMTP authentication over that TLS connection, and the
 configured Cloudflare API token as its password. UI changes to this managed
 provider are reconciled back to Git every five minutes.
 
+Finished SMTP reconciliation Jobs expire after one hour, with at most one
+successful and two failed Jobs retained during that window. This preserves recent
+diagnostics and prevents resolved historical failures remaining red indefinitely.
+
 To populate the token, run from the repository root:
 
 ```sh
@@ -162,3 +161,17 @@ Validate the app with `kubectl kustomize`, render the pinned Helm chart with
 `devfeed-login.yaml` and `devfeed-smtp.yaml`. After Fleet convergence, verify
 both original workloads and both DevFeed login replicas, discovery issuers,
 Login V2 readiness and the SMTP CronJob's pending/success status.
+
+## Resource review — 28 October 2026
+
+Values use the 28 October historical review in
+[the resource policy](../../../../../docs/runbooks/kubernetes-resource-policy.md#2026-10-28-historical-resource-review).
+CPU reservations cover measured sustained demand with headroom; existing burst
+policies remain in place. Memory caps preserve the observed fourteen-day peaks
+and extra headroom where OOM records show clipping.
+
+| Container / value path | CPU request | Memory request | Memory limit |
+| --- | --- | --- | --- |
+| `zitadel/zitadel/zitadel` | 50m → 25m | 207Mi → 256Mi | 768Mi → 768Mi |
+| `zitadel/zitadel-login/zitadel-login` | 70m → 25m | 168Mi → 224Mi | 256Mi → 256Mi |
+| `zitadel/zitadel-devfeed-login/login` | 70m → 25m | 146Mi → 256Mi | 256Mi → 384Mi |

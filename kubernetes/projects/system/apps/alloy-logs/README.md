@@ -24,12 +24,31 @@ egress to the `kube-apiserver` entity on 443/6443. Runtime policies explicitly
 target `cattle-monitoring-system`; only HelmOp and values belong in `fleet-local`.
 Fleet orders installation after `system-helm-repositories` and `loki-helmop`.
 
-The API pod-log source was removed during the node collector handover. Do not
-restore it alongside permanent node pod forwarding: use the staged handover and
-rollback procedure in [incident coverage](../../../../../docs/runbooks/incident-coverage.md).
+Node-local Alloy owns pod logs; this bundle collects Kubernetes events. Do not
+enable a duplicate API pod-log source. See the handover and recovery procedure in
+[incident coverage](../../../../../docs/runbooks/incident-coverage.md).
 Verify both event replicas are Ready on distinct nodes, fresh events reach Loki,
 and node pod collection remains healthy after a configuration change.
 
-The pinned chart is Grafana Alloy 1.13.1 (Alloy 1.20.1). Requests remain 55m CPU
-and 224Mi memory per replica across Alloy and its config reloader. Use measured
-usage before changing these bounds.
+The pinned chart is Grafana Alloy 1.13.1 (Alloy 1.20.1). Each replica requests 15m CPU and 128Mi memory across Alloy and its config
+reloader. Alloy is capped at 100m CPU with `GOMAXPROCS=1`; its reloader is
+capped at 25m. Event bursts may take longer to export under these limits.
+
+## Resource review — 28 October 2026
+
+Values use the 28 October historical review in
+[the resource policy](../../../../../docs/runbooks/kubernetes-resource-policy.md#2026-10-28-historical-resource-review).
+CPU reservations cover measured sustained demand with headroom. The CPU ceilings
+above supersede the former unlimited burst policy. Memory caps preserve the observed fourteen-day peaks
+and extra headroom where OOM records show clipping.
+
+| Container / value path | CPU request | Memory request | Memory limit |
+| --- | --- | --- | --- |
+| `cattle-monitoring-system/alloy-logs/alloy` | 50m → 10m | 192Mi → 96Mi | 256Mi → 384Mi |
+
+## Fleet status refresh
+
+The HelmOp metadata annotation `home-lab.io/status-reconcile-at` records the
+latest Git-managed request to refresh its health summary after workload recovery.
+Follow the [operational workflow](../../../../../README.md#operational-workflow)
+and verify both the child bundle and live workload before requesting another refresh.

@@ -19,8 +19,8 @@
   order: inventory
   become: true
   gather_facts: true
-  serial: "{{ 1 if os_prep_selected_entrypoint in ['os_updates_plan', 'os_updates', 'os_updates_validation'] else '100%' }}"
-  any_errors_fatal: "{{ os_prep_selected_entrypoint in ['os_updates_plan', 'os_updates', 'os_updates_validation'] }}"
+  serial: "{{ 1 if os_prep_selected_entrypoint in ['logging', 'os_updates_plan', 'os_updates', 'os_updates_validation'] else '100%' }}"
+  any_errors_fatal: "{{ os_prep_selected_entrypoint in ['logging', 'os_updates_plan', 'os_updates', 'os_updates_validation'] }}"
 
   vars:
     os_prep_selected_entrypoint: "{{ os_prep_entrypoint | default('main') }}"
@@ -29,7 +29,7 @@
     - name: Assert os_prep entrypoint is supported
       ansible.builtin.assert:
         that:
-          - os_prep_selected_entrypoint in ['main', 'validation', 'os_updates_plan', 'os_updates', 'os_updates_validation']
+          - os_prep_selected_entrypoint in ['main', 'validation', 'time', 'time_validation', 'logging', 'logging_validation', 'os_updates_plan', 'os_updates', 'os_updates_validation']
         fail_msg: "Unsupported os_prep entrypoint {{ os_prep_selected_entrypoint }}"
         success_msg: "Running os_prep entrypoint {{ os_prep_selected_entrypoint }}"
 

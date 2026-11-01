@@ -357,19 +357,19 @@
     - csi-snapshotter
   when: k3s_node.cluster_init | bool
 
-- name: Wait for Longhorn storage class to exist
+- name: Wait for Longhorn CSI driver to exist
   ansible.builtin.command:
     argv:
       - /usr/local/bin/k3s
       - kubectl
       - get
-      - storageclass
-      - longhorn
+      - csidriver
+      - driver.longhorn.io
   environment:
     KUBECONFIG: /etc/rancher/k3s/k3s.yaml
-  register: longhorn_storage_class
+  register: longhorn_csi_driver
   changed_when: false
-  until: longhorn_storage_class.rc == 0
+  until: longhorn_csi_driver.rc == 0
   retries: 90
   delay: 5
   when: k3s_node.cluster_init | bool

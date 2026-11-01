@@ -37,7 +37,7 @@ class BackupWriterMergePolicyTests(unittest.TestCase):
             self.assertTrue(self.check(CONFIG.replace(RULE, changed)))
 
     def test_gate_cannot_expand_to_unrelated_packages(self):
-        changed = RULE.replace('"ghcr.io/abhi1693/rack-ops"', '"ghcr.io/abhi1693/rack-ops", "ghcr.io/example/unrelated"')
+        changed = RULE.replace('"ghcr.io/abhi1693/ryokan"', '"ghcr.io/abhi1693/ryokan", "ghcr.io/example/unrelated"')
         self.assertTrue(self.check(CONFIG.replace(RULE, changed)))
 
     def test_later_override_and_displaced_manual_helper_rule_rejected(self):
@@ -72,4 +72,4 @@ class BackupWriterMergePolicyTests(unittest.TestCase):
 
     def test_writer_manifest_push_path_gap_rejected(self):
         self.assertTrue(self.check(workflow=WORKFLOW.replace(
-            '      - "kubernetes/projects/home-automation/apps/cluster-ops/**"\n', '', 1)))
+            '      - "kubernetes/projects/entertainment/apps/media-ryokan/**"\n', '', 1)))

@@ -350,50 +350,10 @@ spec:
       - key: app.kubernetes.io/name
         operator: In
         values:
-          - devfeed-worker-background
-          - devfeed-worker-ingestion
-          - devfeed-worker-source-discovery
-          - devfeed-worker-article-enrichment
-          - devfeed-worker-source-enrichment
+          - devfeed-worker-high
+          - devfeed-worker-default
+          - devfeed-worker-low
           - devfeed-worker-images
-  policyTypes:
-    - Egress
-  egress:
-    - to:
-        - ipBlock:
-            cidr: 0.0.0.0/0
-            except:
-              - 10.0.0.0/8
-              - 100.64.0.0/10
-              - 127.0.0.0/8
-              - 169.254.0.0/16
-              - 172.16.0.0/12
-              - 192.168.0.0/16
-      ports:
-        - protocol: TCP
-          port: 80
-        - protocol: TCP
-          port: 443
----
-apiVersion: networking.k8s.io/v1
-kind: NetworkPolicy
-metadata:
-  name: devfeed-worker-ai-public-egress
-  namespace: devfeed
-  labels:
-    app.kubernetes.io/part-of: devfeed
-spec:
-  podSelector:
-    matchExpressions:
-      - key: app.kubernetes.io/name
-        operator: In
-        values:
-          - devfeed-worker-ai
-          - devfeed-worker-article-analysis
-          - devfeed-worker-topic-analysis
-          - devfeed-worker-research-verification
-          - devfeed-worker-source-analysis
-          - devfeed-worker-relationships
   policyTypes:
     - Egress
   egress:
@@ -769,19 +729,16 @@ spec:
     ports:
     - protocol: TCP
       port: 3000
-
 ---
 apiVersion: networking.k8s.io/v1
 kind: NetworkPolicy
 metadata:
-  name: devfeed-read-model-database-egress
+  name: devfeed-analytics-importer-database
   namespace: devfeed
-  labels:
-    app.kubernetes.io/part-of: devfeed
 spec:
   podSelector:
     matchLabels:
-      devfeed-read-model-client: 'true'
+      app.kubernetes.io/name: devfeed-analytics-importer
   policyTypes:
     - Egress
   egress:
@@ -791,7 +748,8 @@ spec:
               kubernetes.io/metadata.name: postgresql
           podSelector:
             matchLabels:
-              cnpg.io/poolerName: postgresql-pooler-devfeed-read-model-rw
+              cnpg.io/cluster: postgresql
+              cnpg.io/podRole: instance
       ports:
         - protocol: TCP
           port: 5432

@@ -1,0 +1,36 @@
+---
+- name: Require the reviewed stable Ubuntu archive and update pockets
+  ansible.builtin.assert:
+    that:
+      - os_prep.ubuntu_archive_uri in ['https://archive.ubuntu.com/ubuntu/', 'https://ports.ubuntu.com/ubuntu-ports/']
+      - os_prep.ubuntu_suites == ['resolute', 'resolute-updates', 'resolute-security']
+
+- name: Manage official Ubuntu release updates and security sources
+  ansible.builtin.copy:
+    dest: /etc/apt/sources.list.d/ubuntu.sources
+    owner: root
+    group: root
+    mode: '0644'
+    content: |
+      Types: deb
+      URIs: {{ os_prep.ubuntu_archive_uri }}
+      Suites: {{ os_prep.ubuntu_suites | join(' ') }}
+      Components: main restricted universe multiverse
+      Signed-By: /usr/share/keyrings/ubuntu-archive-keyring.gpg
+  register: os_prep_ubuntu_sources
+
+- name: Keep Ubuntu upgrades and reboots operator-controlled
+  ansible.builtin.copy:
+    dest: /etc/apt/apt.conf.d/99-home-lab-maintenance
+    owner: root
+    group: root
+    mode: '0644'
+    content: |
+      // Updates are installed by supervised single-node Ansible maintenance.
+      APT::Periodic::Unattended-Upgrade "0";
+      Unattended-Upgrade::Automatic-Reboot "false";
+
+- name: Refresh metadata after changing Ubuntu update pockets
+  ansible.builtin.apt:
+    update_cache: true
+  when: os_prep_ubuntu_sources.changed

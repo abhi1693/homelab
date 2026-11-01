@@ -1,0 +1,65 @@
+---
+- name: Report the bounded non-reboot recovery plan
+  ansible.builtin.debug:
+    msg: Remove the obsolete PID 1 watchdog policy; retain redundant critical-kernel forwarding and minute evidence checks without rebooting hosts.
+  when: ansible_check_mode
+
+- name: Apply host recovery outside check mode
+  when: not ansible_check_mode
+  block:
+    - name: Install host recovery files
+      ansible.builtin.include_tasks: recovery_files.yml
+
+    - name: Read the current PID 1 watchdog setting before retirement
+      ansible.builtin.command: systemctl show --property=RuntimeWatchdogUSec --value
+      register: os_prep_recovery_previous_timeout
+      changed_when: false
+
+    - name: Remove the retired PID 1 hardware watchdog policy
+      ansible.builtin.file:
+        path: /etc/systemd/system.conf.d/90-home-lab-recovery.conf
+        state: absent
+      register: os_prep_recovery_watchdog
+
+    - name: Install startup and ongoing recovery units
+      ansible.builtin.template:
+        src: "{{ item }}.j2"
+        dest: "/etc/systemd/system/{{ item }}"
+        owner: root
+        group: root
+        mode: '0644'
+      loop:
+        - home-lab-netconsole.service
+        - home-lab-boot-evidence.service
+        - home-lab-recovery-health.service
+        - home-lab-recovery-health.timer
+      register: os_prep_recovery_units
+
+    # A manager reload re-reads system.conf and adjusts watchdog state; no reexec or reboot.
+    - name: Reload PID 1 configuration and managed units  # noqa no-handler
+      ansible.builtin.systemd_service:
+        daemon_reload: true
+      when: os_prep_recovery_watchdog is changed or os_prep_recovery_units is changed or os_prep_recovery_previous_timeout.stdout != '0'
+
+    - name: Enable dynamic critical-kernel forwarding  # noqa no-handler
+      ansible.builtin.systemd_service:
+        name: home-lab-netconsole.service
+        enabled: true
+        state: "{{ 'restarted' if os_prep_recovery_program is changed or os_prep_recovery_config is changed or os_prep_recovery_units is changed else 'started' }}"
+
+    - name: Enable the bounded previous-boot evidence summary
+      ansible.builtin.systemd_service:
+        name: home-lab-boot-evidence.service
+        enabled: true
+        state: started
+
+    - name: Enable host recovery health refresh
+      ansible.builtin.systemd_service:
+        name: home-lab-recovery-health.timer
+        enabled: true
+        state: started
+
+    - name: Refresh host recovery metrics once before validation  # noqa no-handler
+      ansible.builtin.systemd_service:
+        name: home-lab-recovery-health.service
+        state: started

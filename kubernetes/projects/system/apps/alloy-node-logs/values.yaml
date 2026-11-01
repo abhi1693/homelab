@@ -17,6 +17,7 @@ controller:
   # checkpoints before the enabled replacements start.
   podAnnotations:
     home-lab.io/log-handover-stage: forwarding-v1
+    home-lab.io/log-delivery-revision: priority-queues-v1
   nodeSelector:
     kubernetes.io/arch: arm64
     kubernetes.io/os: linux
@@ -42,6 +43,16 @@ controller:
         hostPath:
           path: /run/log/journal
           type: Directory
+      - name: os-log-files
+        hostPath:
+          path: /var/log
+          type: Directory
+      - name: audit-logs
+        # Ansible exposes only the server log directory at this alias; workers
+        # have an empty directory. Never mount the K3s server/credential tree.
+        hostPath:
+          path: /var/log/kubernetes-audit
+          type: Directory
       - name: machine-id
         hostPath:
           path: /etc/machine-id
@@ -50,6 +61,12 @@ controller:
         hostPath:
           path: /var/lib/alloy-node-logs
           type: DirectoryOrCreate
+      - name: otel-queue
+        # Ansible creates data only inside the verified bounded filesystem.
+        # Directory must not create a fallback on the underlying root disk.
+        hostPath:
+          path: /var/lib/alloy-node-logs/otel/data
+          type: Directory
 
 rbac:
   # The chart concatenates clusterRules/rules; an empty side renders invalid
@@ -58,10 +75,18 @@ rbac:
 
 alloy:
   enableReporting: false
+  # Persistent OTel file storage is Public Preview in the pinned Alloy.
+  extraArgs:
+    - --stability.level=public-preview
   clustering:
     enabled: false
   storagePath: /var/lib/alloy-node-logs
   extraEnv:
+    - name: GOMAXPROCS
+      value: "1"
+    # Leave cgroup memory headroom for journal mappings and the bbolt queue.
+    - name: GOMEMLIMIT
+      value: "256MiB"
     - name: NODE_NAME
       valueFrom:
         fieldRef:
@@ -77,11 +102,21 @@ alloy:
       - name: runtime-journal
         mountPath: /run/log/journal
         readOnly: true
+      - name: os-log-files
+        mountPath: /host/var/log
+        readOnly: true
+      - name: audit-logs
+        mountPath: /var/log/kubernetes-audit
+        readOnly: true
       - name: machine-id
         mountPath: /etc/machine-id
         readOnly: true
       - name: alloy-state
         mountPath: /var/lib/alloy-node-logs
+      - name: otel-queue
+        # Explicitly bind the verified child rather than relying on propagation
+        # of a nested host mount through the parent state directory.
+        mountPath: /var/lib/alloy-node-logs/otel
   # Host CRI logs are root:root 0640; root with no capabilities can read them.
   # Journal directories and files are root owned, so no host group is required.
   securityContext:
@@ -166,7 +201,7 @@ alloy:
         {{- end }}
         file_match {
           enabled     = true
-          sync_period = "5s"
+          sync_period = "15s"
         }
       }
 
@@ -181,7 +216,7 @@ alloy:
       }
 
       loki.process "pods" {
-        forward_to = [loki.write.local.receiver]
+        forward_to = [otelcol.receiver.loki.node.receiver]
         stage.cri {
           max_partial_lines              = 100
           max_partial_line_size          = 262144
@@ -206,13 +241,15 @@ alloy:
         }
       }
 
-      // Separate exact matches avoid unsupported journal OR syntax and keep
-      // auth/session/general system logs outside the collection boundary.
+      // Preserve these component IDs and cursors. A stale saved cursor is also
+      // bounded by max_age. Zero explicitly disables the age cutoff; read all
+      // bounded retained journals, including
+      // records from a boot with a badly wrong wall clock.
       // Empty path searches both persistent and volatile journal directories.
       loki.source.journal "k3s_server" {
         path           = ""
         matches        = "_SYSTEMD_UNIT=k3s.service"
-        max_age        = "5m"
+        max_age        = "0s"
         format_as_json = true
         labels         = { cluster = "local", node = sys.env("NODE_NAME"), source = "journal", unit = "k3s.service", job = "node/k3s" }
         forward_to     = [loki.process.journal.receiver]
@@ -220,7 +257,7 @@ alloy:
       loki.source.journal "k3s_agent" {
         path           = ""
         matches        = "_SYSTEMD_UNIT=k3s-agent.service"
-        max_age        = "5m"
+        max_age        = "0s"
         format_as_json = true
         labels         = { cluster = "local", node = sys.env("NODE_NAME"), source = "journal", unit = "k3s-agent.service", job = "node/k3s" }
         forward_to     = [loki.process.journal.receiver]
@@ -228,45 +265,290 @@ alloy:
       loki.source.journal "kernel" {
         path           = ""
         matches        = "_TRANSPORT=kernel"
-        max_age        = "5m"
+        max_age        = "0s"
         format_as_json = true
         labels         = { cluster = "local", node = sys.env("NODE_NAME"), source = "journal", unit = "kernel", job = "node/kernel" }
-        forward_to     = [loki.process.journal.receiver]
+        forward_to     = [loki.process.os_journal.receiver]
       }
       loki.process "journal" {
-        forward_to = [loki.write.local.receiver]
-        stage.drop {
-          older_than          = "336h"
-          drop_counter_reason = "expired_retention"
+        // Retained boot records can predate the acceptance window due to a
+        // wrong clock. Normalize explicitly below instead of discarding them.
+        forward_to = [otelcol.receiver.loki.node.receiver]
+      }
+
+      // Keep current OS/kernel evidence independent of K3s and audit replay.
+      loki.process "os_journal" {
+        forward_to = [otelcol.receiver.loki.os.receiver]
+      }
+
+      // One authoritative path for every journal record: the original three
+      // readers own K3s/kernel; this reader covers all other OS services,
+      // authentication, time, networking, shutdown and storage records.
+      loki.relabel "system_journal" {
+        forward_to = []
+        rule {
+          source_labels = ["__journal__systemd_unit"]
+          regex         = "k3s(-agent)?\\.service"
+          action        = "drop"
+        }
+        rule {
+          source_labels = ["__journal__transport"]
+          regex         = "kernel"
+          action        = "drop"
+        }
+        // Keep dynamic sessions/scopes/templated units out of the index.
+        // The complete actual unit remains in the JSON and systemd.unit.
+        rule {
+          target_label = "unit"
+          replacement  = "other"
+        }
+        rule {
+          source_labels = ["__journal__systemd_unit"]
+          regex         = "((systemd-(networkd|resolved|timesyncd|journald|logind|udevd|oomd|fsck|remount-fs)|NetworkManager|networking|chrony|chronyd|ntp|ntpd|ssh|sshd|cron|crond|rsyslog|containerd|udisks2|multipathd|smartd|dbus|polkit|home-lab-(kernel-receiver|netconsole|recovery-health|boot-evidence))\\.service)"
+          target_label  = "unit"
+          replacement   = "$1"
+        }
+        // Short-lived logger processes can exit before journald resolves their
+        // systemd unit. Give the known canary identifier its own bounded stream
+        // so health queries never parse the full OS backfill.
+        rule {
+          source_labels = ["__journal_syslog_identifier"]
+          regex         = "home-lab-log-canary"
+          target_label  = "unit"
+          replacement   = "home-lab-log-canary"
+        }
+      }
+      loki.source.journal "system" {
+        path           = ""
+        max_age        = "0s"
+        format_as_json = true
+        relabel_rules  = loki.relabel.system_journal.rules
+        labels         = { cluster = "local", node = sys.env("NODE_NAME"), source = "journal", job = "node/system" }
+        forward_to     = [loki.process.os_journal.receiver]
+      }
+
+      // Audit is already written locally by the API server. This reads its
+      // narrow host alias, including timestamped lumberjack rotations.
+      otelcol.storage.file "offsets" {
+        directory = "/var/lib/alloy-node-logs/otel/offsets"
+        fsync     = true
+      }
+      otelcol.receiver.filelog "audit" {
+        poll_interval     = "1s"
+        max_concurrent_files = 4
+        file_cache_advise  = true
+        include           = ["/var/log/kubernetes-audit/audit*.log"]
+        include_file_path = true
+        start_at          = "beginning"
+        storage           = otelcol.storage.file.offsets.handler
+        resource = {
+          cluster = "local",
+          node    = sys.env("NODE_NAME"),
+          source  = "audit",
+          unit    = "kube-apiserver",
+          job     = "node/audit",
+        }
+        operators = [{
+          type       = "json_parser",
+          parse_to   = "attributes.audit",
+          on_error   = "send",
+          timestamp = {
+            parse_from  = "attributes.audit.requestReceivedTimestamp",
+            layout_type = "gotime",
+            layout      = "2006-01-02T15:04:05.999999999Z07:00",
+          },
+        }]
+        retry_on_failure {
+          enabled          = true
+          initial_interval = "1s"
+          max_interval     = "1m"
+          max_elapsed_time = "0s"
+        }
+        output {
+          logs = [otelcol.processor.groupbyattrs.compatibility.input]
         }
       }
 
-      loki.write "local" {
-        endpoint {
-          url = "http://loki-gateway.cattle-monitoring-system.svc.cluster.local/loki/api/v1/push"
-          batch_size          = "256KiB"
-          retry_on_http_429    = true
-          min_backoff_period  = "1s"
-          max_backoff_period  = "1m"
-          max_backoff_retries = 20
+      // Package/install/bootstrap evidence may only exist in files. Keep the
+      // allowlist explicit; do not also collect syslog/kern/auth mirrors of the
+      // journal or compressed history under a second identity.
+      otelcol.receiver.filelog "os_files" {
+        poll_interval = "1s"
+        max_concurrent_files = 4
+        file_cache_advise = true
+        include = [
+          "/host/var/log/apt/history.log",
+          "/host/var/log/apt/term.log",
+          "/host/var/log/dpkg.log",
+          "/host/var/log/unattended-upgrades/*.log",
+          "/host/var/log/cloud-init.log",
+          "/host/var/log/cloud-init-output.log",
+          "/host/var/log/alternatives.log",
+          "/host/var/log/rpi-clone.log",
+          "/host/var/log/bootstrap.log",
+          // Controlled native K3s/kernel exports recover old skipped evidence
+          // without resetting the authoritative journal readers' cursors.
+          "/host/var/log/home-lab-incident-backfill/*.jsonl",
+        ]
+        include_file_path = true
+        start_at          = "beginning"
+        storage           = otelcol.storage.file.offsets.handler
+        attributes        = { "timestamp.quality" = "observed" }
+        resource = {
+          cluster = "local",
+          node    = sys.env("NODE_NAME"),
+          source  = "os-file",
+          unit    = "os-file",
+          job     = "node/os-file",
+        }
+        retry_on_failure {
+          enabled          = true
+          initial_interval = "1s"
+          max_interval     = "1m"
+          max_elapsed_time = "0s"
+        }
+        output {
+          logs = [otelcol.processor.groupbyattrs.compatibility.input]
         }
       }
+
+      // The bridge preserves source timestamps and bodies. It is a channel
+      // handoff, not a transaction between the source cursor and disk queue.
+      otelcol.receiver.loki "node" {
+        output {
+          logs = [otelcol.processor.groupbyattrs.compatibility.input]
+        }
+      }
+      otelcol.receiver.loki "os" {
+        output {
+          logs = [otelcol.processor.groupbyattrs.compatibility_os.input]
+        }
+      }
+      // Reuse normalization while keeping the two downstream queues independent.
+      {{- range $pipeline := list (dict "group" "compatibility" "normalize" "normalize" "exporter" "loki") (dict "group" "compatibility_os" "normalize" "normalize_os" "exporter" "os") }}
+      otelcol.processor.groupbyattrs "{{ $pipeline.group }}" {
+        keys = ["cluster", "node", "source", "unit", "job", "namespace", "pod", "container", "app", "part_of", "component", "service", "severity"]
+        output {
+          logs = [otelcol.processor.transform.{{ $pipeline.normalize }}.input]
+        }
+      }
+      otelcol.processor.transform "{{ $pipeline.normalize }}" {
+        error_mode = "ignore"
+        log_statements {
+          context = "log"
+          statements = [
+            `set(observed_time, Now())`,
+            `set(attributes["source.timestamp_unix_nano"], time_unix_nano) where resource.attributes["source"] != "os-file"`,
+            // File-only OS formats are heterogeneous. Do not invent a parsed
+            // producer time: keep original text and mark observed-time quality.
+            `set(time, observed_time) where resource.attributes["source"] == "os-file"`,
+            // Preserve the original time and record why the query timestamp
+            // changed. Journals/audit use this recovery policy; CRI is unchanged.
+            `set(attributes["clock.timestamp_adjusted"], true) where (resource.attributes["source"] == "journal" or resource.attributes["source"] == "audit") and time_unix_nano < observed_time_unix_nano - 1209600000000000`,
+            `set(attributes["clock.timestamp_adjustment_reason"], "source_older_than_14d") where (resource.attributes["source"] == "journal" or resource.attributes["source"] == "audit") and time_unix_nano < observed_time_unix_nano - 1209600000000000`,
+            `set(attributes["clock.timestamp_adjusted"], true) where (resource.attributes["source"] == "journal" or resource.attributes["source"] == "audit") and time_unix_nano > observed_time_unix_nano + 600000000000`,
+            `set(attributes["clock.timestamp_adjustment_reason"], "source_more_than_10m_in_future") where (resource.attributes["source"] == "journal" or resource.attributes["source"] == "audit") and time_unix_nano > observed_time_unix_nano + 600000000000`,
+            `set(time, observed_time) where attributes["clock.timestamp_adjusted"] == true`,
+            `set(resource.attributes["k8s.cluster.name"], resource.attributes["cluster"])`,
+            `set(resource.attributes["k8s.node.name"], resource.attributes["node"])`,
+            `set(resource.attributes["host.name"], resource.attributes["node"])`,
+            `set(resource.attributes["k8s.namespace.name"], resource.attributes["namespace"]) where resource.attributes["namespace"] != nil`,
+            `set(resource.attributes["k8s.pod.name"], resource.attributes["pod"]) where resource.attributes["pod"] != nil`,
+            `set(resource.attributes["k8s.container.name"], resource.attributes["container"]) where resource.attributes["container"] != nil`,
+            `set(resource.attributes["service.name"], resource.attributes["service"]) where resource.attributes["service"] != nil`,
+            `set(resource.attributes["service.name"], resource.attributes["app"]) where resource.attributes["service.name"] == nil and resource.attributes["app"] != nil`,
+            `set(resource.attributes["service.name"], resource.attributes["job"]) where resource.attributes["service.name"] == nil`,
+            `set(severity_text, resource.attributes["severity"]) where resource.attributes["severity"] != nil`,
+            `set(attributes["audit.id"], attributes["audit"]["auditID"]) where resource.attributes["source"] == "audit" and attributes["audit"]["auditID"] != nil`,
+            `set(attributes["audit.stage"], attributes["audit"]["stage"]) where resource.attributes["source"] == "audit" and attributes["audit"]["stage"] != nil`,
+            `set(attributes["audit.verb"], attributes["audit"]["verb"]) where resource.attributes["source"] == "audit" and attributes["audit"]["verb"] != nil`,
+            // Parse a copy; preserve the complete original journal JSON body.
+            `set(cache["journal"], ParseJSON(body)) where resource.attributes["source"] == "journal"`,
+            `set(attributes["host.boot.id"], cache["journal"]["_BOOT_ID"]) where cache["journal"]["_BOOT_ID"] != nil`,
+            `set(attributes["systemd.unit"], cache["journal"]["_SYSTEMD_UNIT"]) where cache["journal"]["_SYSTEMD_UNIT"] != nil`,
+            `set(attributes["journal.transport"], cache["journal"]["_TRANSPORT"]) where cache["journal"]["_TRANSPORT"] != nil`,
+            `set(attributes["journal.priority"], cache["journal"]["PRIORITY"]) where cache["journal"]["PRIORITY"] != nil`,
+            `set(attributes["journal.source_realtime_timestamp"], cache["journal"]["_SOURCE_REALTIME_TIMESTAMP"]) where cache["journal"]["_SOURCE_REALTIME_TIMESTAMP"] != nil`,
+            `set(attributes["journal.monotonic_timestamp"], cache["journal"]["__MONOTONIC_TIMESTAMP"]) where cache["journal"]["__MONOTONIC_TIMESTAMP"] != nil`,
+            `set(attributes["journal.source_monotonic_timestamp"], cache["journal"]["_SOURCE_MONOTONIC_TIMESTAMP"]) where cache["journal"]["_SOURCE_MONOTONIC_TIMESTAMP"] != nil`,
+            `set(severity_text, "critical") where cache["journal"]["PRIORITY"] == "0" or cache["journal"]["PRIORITY"] == "1" or cache["journal"]["PRIORITY"] == "2"`,
+            `set(severity_number, SEVERITY_NUMBER_FATAL) where cache["journal"]["PRIORITY"] == "0" or cache["journal"]["PRIORITY"] == "1" or cache["journal"]["PRIORITY"] == "2"`,
+            `set(severity_text, "error") where cache["journal"]["PRIORITY"] == "3"`,
+            `set(severity_number, SEVERITY_NUMBER_ERROR) where cache["journal"]["PRIORITY"] == "3"`,
+            `set(severity_text, "warn") where cache["journal"]["PRIORITY"] == "4"`,
+            `set(severity_number, SEVERITY_NUMBER_WARN) where cache["journal"]["PRIORITY"] == "4"`,
+            `set(severity_text, "info") where cache["journal"]["PRIORITY"] == "5" or cache["journal"]["PRIORITY"] == "6"`,
+            `set(severity_number, SEVERITY_NUMBER_INFO) where cache["journal"]["PRIORITY"] == "5" or cache["journal"]["PRIORITY"] == "6"`,
+            `set(severity_text, "debug") where cache["journal"]["PRIORITY"] == "7"`,
+            `set(severity_number, SEVERITY_NUMBER_DEBUG) where cache["journal"]["PRIORITY"] == "7"`,
+          ]
+        }
+        output {
+          logs = [otelcol.exporter.otlphttp.{{ $pipeline.exporter }}.input]
+        }
+      }
+      {{- end }}
+      // Payload storage is separate from the existing file/journal cursors.
+      // The owning host role bounds /var/lib/alloy-node-logs/otel to 4GiB.
+      otelcol.storage.file "payloads" {
+        directory = "/var/lib/alloy-node-logs/otel/payloads"
+        fsync     = true
+        compaction {
+          on_rebound                    = true
+          rebound_needed_threshold_mib  = 128
+          rebound_trigger_threshold_mib = 32
+        }
+      }
+      // Retain the legacy loki queue and its backlog; OS/kernel use a reserved queue.
+      {{- range $exporter := list (dict "name" "loki" "capacity" 58720256) (dict "name" "os" "capacity" 8388608) }}
+      otelcol.exporter.otlphttp "{{ $exporter.name }}" {
+        client {
+          endpoint    = "http://loki-gateway.cattle-monitoring-system.svc.cluster.local/otlp"
+          compression = "gzip"
+          timeout     = "10s"
+        }
+        retry_on_failure {
+          initial_interval = "1s"
+          max_interval     = "1m"
+          max_elapsed_time = "0s"
+        }
+        sending_queue {
+          storage           = otelcol.storage.file.payloads.handler
+          sizer             = "bytes"
+          // Bound active bbolt data so replay fits alongside source mappings.
+          queue_size        = {{ $exporter.capacity }}
+          num_consumers     = 1
+          block_on_overflow = true
+          batch {
+            sizer         = "bytes"
+            min_size      = 65536
+            max_size      = 262144
+            flush_timeout = "2s"
+          }
+        }
+      }
+
+      {{- end }}
+
   resources:
     requests:
-      cpu: 50m
-      memory: 128Mi
+      cpu: 100m
+      # Reserve steady-state memory; retain the 640Mi limit for replay peaks.
+      memory: 384Mi
       ephemeral-storage: 16Mi
     limits:
-      memory: 256Mi
+      cpu: 250m
+      memory: 640Mi
       ephemeral-storage: 128Mi
 
 configReloader:
   resources:
     requests:
       cpu: 5m
-      memory: 16Mi
-    limits:
       memory: 32Mi
+    limits:
+      cpu: 25m
+      memory: 64Mi
 
 serviceMonitor:
   enabled: true

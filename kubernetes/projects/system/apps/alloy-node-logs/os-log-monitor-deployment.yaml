@@ -1,0 +1,106 @@
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: alloy-os-log-monitor
+  namespace: cattle-monitoring-system
+  labels:
+    app.kubernetes.io/name: alloy-os-log-monitor
+    app.kubernetes.io/component: log-delivery
+    app.kubernetes.io/part-of: rancher-monitoring
+    home-lab.io/project-slug: system
+spec:
+  replicas: 2
+  revisionHistoryLimit: 2
+  strategy:
+    rollingUpdate:
+      maxUnavailable: 0
+      maxSurge: 1
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: alloy-os-log-monitor
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: alloy-os-log-monitor
+        app.kubernetes.io/component: log-delivery
+        app.kubernetes.io/part-of: rancher-monitoring
+        home-lab.io/project-slug: system
+    spec:
+      automountServiceAccountToken: false
+      nodeSelector:
+        kubernetes.io/arch: arm64
+        node-role.kubernetes.io/control-plane: "true"
+      tolerations:
+        - key: CriticalAddonsOnly
+          operator: Equal
+          value: "true"
+          effect: NoExecute
+      affinity:
+        podAntiAffinity:
+          requiredDuringSchedulingIgnoredDuringExecution:
+            - labelSelector:
+                matchLabels:
+                  app.kubernetes.io/name: alloy-os-log-monitor
+              topologyKey: kubernetes.io/hostname
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 10001
+        runAsGroup: 10001
+        seccompProfile:
+          type: RuntimeDefault
+      terminationGracePeriodSeconds: 15
+      containers:
+        - name: monitor
+          # renovate: datasource=docker depName=docker.io/library/python
+          # Verified linux/arm64 manifest for Python 3.15.0 on Alpine 3.23.
+          image: registry.home/docker.io/library/python:3.15.0-alpine3.23@sha256:de62099c4b9118cc85e553055fcc9f84764c165803d8d4cb0fb85c6c83b236cc
+          imagePullPolicy: IfNotPresent
+          command: [python3, -u, /app/os_log_monitor.py]
+          env:
+            - name: PYTHONDONTWRITEBYTECODE
+              value: "1"
+            - name: LOKI_QUERY_URL
+              value: http://loki-gateway.cattle-monitoring-system.svc.cluster.local/loki/api/v1/query
+            - name: POLL_INTERVAL_SECONDS
+              value: "60"
+            - name: QUERY_TIMEOUT_SECONDS
+              value: "10"
+            - name: HTTP_PORT
+              value: "9091"
+          ports:
+            - name: metrics
+              containerPort: 9091
+              protocol: TCP
+          resources:
+            requests:
+              cpu: 5m
+              memory: 32Mi
+            limits:
+              memory: 64Mi
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities:
+              drop: [ALL]
+          readinessProbe:
+            httpGet:
+              path: /healthz
+              port: metrics
+            periodSeconds: 15
+            timeoutSeconds: 3
+          livenessProbe:
+            httpGet:
+              path: /healthz
+              port: metrics
+            initialDelaySeconds: 60
+            periodSeconds: 30
+            timeoutSeconds: 3
+          volumeMounts:
+            - name: code
+              mountPath: /app
+              readOnly: true
+      volumes:
+        - name: code
+          configMap:
+            name: alloy-os-log-monitor-code

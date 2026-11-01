@@ -1,0 +1,12 @@
+# Managed by Ansible os_prep logging.
+[Unit]
+Description=Check host log generation every minute
+
+[Timer]
+OnBootSec=30s
+OnUnitActiveSec=60s
+AccuracySec=1s
+Unit=home-lab-log-canary.service
+
+[Install]
+WantedBy=timers.target

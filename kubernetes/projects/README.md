@@ -9,7 +9,6 @@ workloads by operational domain:
 
 - application workloads;
 - shared database services;
-- development tooling;
 - media automation;
 - home automation;
 - system services.
@@ -23,7 +22,6 @@ and drift correction easier to reason about than a single flat app directory.
 | --- | --- | --- |
 | Applications | `applications/` | Public apps, personal apps, Harbor, Renovate image automation, and application-specific workers. |
 | Database | `database/` | CloudNativePG, PostgreSQL, Valkey, poolers, and database network boundaries. |
-| Development | `development/` | Reserved for future developer services and workspace-adjacent apps; currently has no app bundles. |
 | Entertainment | `entertainment/` | Media stack, media storage, torrent/import workflows, and request portals. |
 | Home Automation | `home-automation/` | Home Assistant, NetBox, rack automation, Cloudflare tunnel control, and UPS monitoring. |
 | System | `system/` | Monitoring, logging, tracing, profiling, DNS, backup, compliance, operators, and cluster maintenance. |

@@ -5,8 +5,8 @@ chart. Rancher Fleet reconciles this directory and K3s' Helm controller installs
 the resulting `HelmChart` resource.
 
 - endpoint: `http://ha.home`
-- chart version: `0.3.85`
-- app version: `2026.10.1`
+- chart version: `0.3.89`
+- app version: `2026.10.4`
 - namespace: `home-assistant`
 - replicas: `1`, using `Recreate` updates
 - persistence: Longhorn `4Gi` RWX PVC `home-assistant-pvc`
@@ -126,17 +126,14 @@ Recurring bills sum only recorded payments and remaining due dates in the
 selected period; annual bills appear in their due month and future starts do
 not inflate today's total. The Investments panel shows a compact contribution
 donut grouped by investment label, separate recorded/pending totals, and income
-after the period's commitments. Provider labels are an informational legend;
-the redundant dated payment list and expand controls are removed. Annual trends
+after the period's commitments. Provider labels identify contribution sources. Annual trends
 and month/year comparisons remain visible; the donut includes both recorded and
 scheduled contributions.
 `finance-investments.yaml` owns the private account classifications and current
 plans, mounted read-only at `/finance/investments.json` and selected with
 `FAMILY_FINANCE_INVESTMENT_FILE`. Keep actual household amounts in this private
-repository; the public source contains only generic schedule support. Current
-plans begin September 2026: Groww monthly on the 1st and SafeGold weekly on
-Tuesday. The former additional monthly contribution is not scheduled. Weekly
-counts follow the actual calendar. Existing Razorpay debits are currently
+repository; the public source contains only generic schedule support. The file defines active plans and start dates, including monthly Groww and
+weekly SafeGold schedules. Weekly counts follow the actual calendar. Existing Razorpay debits are currently
 recorded against Firefly's Groww investment account, so SafeGold's matcher uses
 that account plus its distinct narration. Recorded payments also receive the
 provider label when source, destination, amount and narration match uniquely,
@@ -198,7 +195,7 @@ promptly; a timeout indicates a connectivity problem, while 401 confirms the
 API still requires a token.
 
 Keep the explicit `:80` in the native integration's URL: the `pyfirefly` version
-bundled with Home Assistant 2026.9.1 defaults to port 9000 when the URL omits its
+bundled with Home Assistant defaults to port 9000 when the URL omits its
 port, even for `http://finance.home`. Browsers use port 80 for the same bare URL.
 Verify connectivity with the integration's own `Firefly.get_about()` client
 when troubleshooting setup; a browser or generic HTTP probe alone misses this
@@ -236,3 +233,15 @@ kubectl apply --dry-run=server -f kubernetes/projects/home-automation/apps/home-
 
 After Fleet reconciles, inspect the child bundle, Deployment rollout, init
 container logs, Home Assistant config check, dashboard files and HTTP health.
+
+## Resource review — 28 October 2026
+
+Values use the 28 October historical review in
+[the resource policy](../../../../../docs/runbooks/kubernetes-resource-policy.md#2026-10-28-historical-resource-review).
+CPU reservations cover measured sustained demand with headroom; existing burst
+policies remain in place. Memory caps preserve the observed fourteen-day peaks
+and extra headroom where OOM records show clipping.
+
+| Container / value path | CPU request | Memory request | Memory limit |
+| --- | --- | --- | --- |
+| `home-assistant/home-assistant/home-assistant` | 25m → 50m | 576Mi → 1024Mi | 864Mi → 1536Mi |

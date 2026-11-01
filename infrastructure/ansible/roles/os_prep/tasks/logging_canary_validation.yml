@@ -1,0 +1,48 @@
+---
+- name: Verify the source canary timer is enabled
+  ansible.builtin.command: systemctl is-enabled home-lab-log-canary.timer
+  changed_when: false
+  check_mode: false
+
+- name: Verify the source canary timer is running
+  ansible.builtin.command: systemctl is-active home-lab-log-canary.timer  # noqa command-instead-of-module
+  changed_when: false
+  check_mode: false
+
+- name: Verify the source canary service has a successful result
+  ansible.builtin.command: systemctl show home-lab-log-canary.service --property=Result --property=ExecMainStatus
+  register: os_prep_logging_canary_result
+  changed_when: false
+  check_mode: false
+  failed_when: >-
+    'Result=success' not in os_prep_logging_canary_result.stdout_lines or
+    'ExecMainStatus=0' not in os_prep_logging_canary_result.stdout_lines
+
+- name: Verify a recent informational canary reached the local journal
+  ansible.builtin.command:
+    argv:
+      - journalctl
+      - --identifier=home-lab-log-canary
+      - --since=-3min
+      - --lines=1
+      - --output=json
+      - --no-pager
+  register: os_prep_logging_canary_record
+  changed_when: false
+  retries: 6
+  delay: 5
+  until: os_prep_logging_canary_record.stdout | trim | length > 0
+  check_mode: false
+
+- name: Verify canary identity and informational severity without claiming central delivery
+  ansible.builtin.assert:
+    that:
+      - (os_prep_logging_canary_record.stdout | from_json).SYSLOG_IDENTIFIER == 'home-lab-log-canary'
+      - (os_prep_logging_canary_record.stdout | from_json).PRIORITY == '6'
+      - ((os_prep_logging_canary_record.stdout | from_json).MESSAGE | from_json).event == 'os-log-canary'
+      - ((os_prep_logging_canary_record.stdout | from_json).MESSAGE | from_json).node == ansible_facts.nodename
+      - (((os_prep_logging_canary_record.stdout | from_json).MESSAGE | from_json).boot_id | replace('-', '')) == (os_prep_logging_canary_record.stdout | from_json)._BOOT_ID
+      - ((os_prep_logging_canary_record.stdout | from_json).MESSAGE | from_json).unix_time is integer
+      - ((os_prep_logging_canary_record.stdout | from_json).MESSAGE | from_json).queue_available_bytes | int > 0
+      - ((os_prep_logging_canary_record.stdout | from_json).MESSAGE | from_json).queue_capacity_bytes | int <= os_prep.logging.queue_size_mib | int * 1024 * 1024
+    success_msg: The local INFO canary exists; independent Loki query checks must prove central delivery.

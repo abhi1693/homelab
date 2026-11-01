@@ -9,7 +9,7 @@ metadata:
     app.kubernetes.io/part-of: shipyardhq
 spec:
   revisionHistoryLimit: 2
-  replicas: 4
+  replicas: 2
   minReadySeconds: 15
   progressDeadlineSeconds: 4200
   selector:
@@ -24,7 +24,6 @@ spec:
   template:
     metadata:
       annotations:
-        home-lab.io/faro-config-revision: "2026-07-01-faro-key-rebuild"
         home-lab.io/reconcile-token: "20260713T1846Z"
         home-lab.io/secret-revision: "2026-07-14-cloudflare-analytics"
       labels:
@@ -65,7 +64,7 @@ spec:
       initContainers:
         - name: restore-next-build
           # renovate: datasource=docker depName=ghcr.io/abhi1693/shipyardhq
-          image: registry.home/ghcr.io/abhi1693/shipyardhq:1.5.41@sha256:2d183579c6f045f002e6d795b0d82fa0a3f54da2ddcbd6643a40adb3ef73fa55
+          image: registry.home/ghcr.io/abhi1693/shipyardhq:1.5.43@sha256:72e15b5707b4839a1e487aa459a0a79a211f1ddd2cfabac2c9862b5a2a36662d
           imagePullPolicy: IfNotPresent
           command:
             - /bin/sh
@@ -74,7 +73,7 @@ spec:
             - |
               set -eu
 
-              cache_version=next-build-v12
+              cache_version=next-build-v13
               cache_root=/app/.next-build-cache
               artifact_root="$cache_root/artifacts"
               build_root=/app/.next
@@ -158,6 +157,7 @@ spec:
               env_key="$(
                 env | LC_ALL=C sort \
                   | grep -E '^((CLERK_|CLOUDFLARE_|DODO_|GA_|GOOGLE_|IMGPROXY_|MONTHLY_WINNER_|NEXT_PUBLIC_|R2_)[A-Za-z0-9_]+|APP_VERSION|NODE_VERSION|CACHE_ENV_PREFIX|NEXT_STATIC_GENERATION_MAX_CONCURRENCY|NEXT_STATIC_GENERATION_RETRY_COUNT|NEXT_STATIC_PAGE_GENERATION_TIMEOUT|POSTGRES_DB|PRODUCT_PRERENDER_LIMIT|USE_CASE_PRERENDER_LIMIT)=' \
+                  | grep -Ev '^NEXT_PUBLIC_FARO_' \
                   | sha256sum | awk '{print $1}'
               )"
               build_key="$(printf '%s\n%s\n%s\n' "$cache_version" "$source_key" "$env_key" | sha256sum | awk '{print $1}')"
@@ -208,11 +208,11 @@ spec:
             requests:
               cpu: 125m
               ephemeral-storage: 2Gi
-              memory: 1280Mi
+              memory: 384Mi
             limits:
               cpu: "3"
               ephemeral-storage: 8Gi
-              memory: 5Gi
+              memory: 1024Mi
           securityContext:
             allowPrivilegeEscalation: false
             capabilities:
@@ -229,7 +229,7 @@ spec:
       containers:
         - name: web
           # renovate: datasource=docker depName=ghcr.io/abhi1693/shipyardhq
-          image: registry.home/ghcr.io/abhi1693/shipyardhq:1.5.41@sha256:2d183579c6f045f002e6d795b0d82fa0a3f54da2ddcbd6643a40adb3ef73fa55
+          image: registry.home/ghcr.io/abhi1693/shipyardhq:1.5.43@sha256:72e15b5707b4839a1e487aa459a0a79a211f1ddd2cfabac2c9862b5a2a36662d
           imagePullPolicy: IfNotPresent
           command:
             - node
@@ -309,12 +309,12 @@ spec:
               protocol: TCP
           resources:
             requests:
-              cpu: 220m
+              cpu: 125m
               ephemeral-storage: 2Gi
-              memory: 1280Mi
+              memory: 896Mi
             limits:
               ephemeral-storage: 6Gi
-              memory: 5Gi
+              memory: 2048Mi
           startupProbe:
             httpGet:
               path: /robots.txt
@@ -435,7 +435,7 @@ spec:
       containers:
         - name: worker
           # renovate: datasource=docker depName=ghcr.io/abhi1693/shipyardhq
-          image: registry.home/ghcr.io/abhi1693/shipyardhq:1.5.41@sha256:2d183579c6f045f002e6d795b0d82fa0a3f54da2ddcbd6643a40adb3ef73fa55
+          image: registry.home/ghcr.io/abhi1693/shipyardhq:1.5.43@sha256:72e15b5707b4839a1e487aa459a0a79a211f1ddd2cfabac2c9862b5a2a36662d
           imagePullPolicy: IfNotPresent
           command:
             - npm
@@ -506,10 +506,10 @@ spec:
               value: postgresql://$(POSTGRES_USER):$(POSTGRES_PASSWORD)@postgresql-pooler-shipyardhq-rw.postgresql.svc.cluster.local:5432/$(POSTGRES_DB)?sslmode=disable
           resources:
             requests:
-              cpu: 70m
-              memory: 498Mi
+              cpu: 30m
+              memory: 384Mi
             limits:
-              memory: 896Mi
+              memory: 1280Mi
           securityContext:
             allowPrivilegeEscalation: false
             capabilities:

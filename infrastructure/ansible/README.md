@@ -91,10 +91,10 @@ ansible-playbook playbooks/k3s_server.yml -e k3s_server_entrypoint=validation
 The [home inventory](inventories/home/) owns server and worker hostnames,
 addresses, and role membership.
 
-The `os_updates_plan` entrypoint converges inventory-managed Debian sources to
+The `os_updates_plan` entrypoint converges inventory-managed Ubuntu sources to
 HTTPS, refreshes current APT metadata, and reports the package transaction without
 changing installed packages. `os_updates` verifies all package downloads before
-upgrading packages from the existing Debian 13 repositories, including the
+upgrading packages from the existing Ubuntu 26.04 repositories, including the
 Raspberry Pi kernel and firmware, and reboots one host at a time when required.
 The plan reports current database primaries; apply leaves their worker hosts
 until the other selected workers are updated. Recovery permits a bounded
@@ -158,96 +158,48 @@ The important handoff is the `fleet_apps` role. It creates Fleet GitRepo
 resources pointing back to this repository, after which app and platform
 bundles are reconciled by Rancher Fleet rather than by Ansible.
 
-## Infrastructure upgrade checkpoint (2026-10-02)
+## Infrastructure maintenance
 
-Rancher 2.15.2, cert-manager 1.21.2, and kube-vip 1.2.4 have been deployed.
-The table records the bootstrap upgrades:
+Inventory variables and the owning roles define platform pins. Rancher owns
+compatible Fleet, webhook and Turtles versions; do not upgrade them independently.
+K3s servers and agents roll serially with API, etcd, storage and workload recovery
+gates. Cilium runtime changes belong to Fleet after bootstrap; validation checks
+node-local dataplane and Hubble health. Keep its compatibility gate in force.
 
-| Component | Previous | Deployed | Deployment entrypoint |
-| --- | --- | --- | --- |
-| Rancher | 2.15.1 | 2.15.2 | `playbooks/rancher.yml` |
-| Cilium CLI | 0.19.4 | 0.20.1 | `playbooks/cilium.yml -e cilium_entrypoint=cli` |
-| cert-manager | 1.20.3 | 1.21.2 | `playbooks/cert_manager.yml` |
-| Cilium | 1.20.1 | 1.20.1 | `playbooks/cilium.yml` for initial bootstrap; Fleet thereafter |
-| kube-vip | 1.2.1 | 1.2.4 | `playbooks/kube_vip.yml` |
+Rancher's chart hardcodes one surge replica. Three replicas with required
+hostname anti-affinity cannot surge on only three eligible servers. The role
+refuses a HelmChart change under those conditions. Keep required anti-affinity;
+require chart support for zero surge or additional eligible capacity before an
+upgrade. A post-rollout strategy patch does not remove the initial upgrade risk.
 
-The platform-changing entrypoints mutate bootstrap-managed cluster resources
-outside Fleet. Under the repository cluster policy, AI execution requires
-explicit break-glass approval; changing the inventory alone does not deploy
-them. Run them individually, observe readiness after each, and retain existing
-values and scheduling constraints.
-The Cilium `cli` entrypoint changes only `/usr/local/bin/cilium` on the bootstrap
-server. It does not render chart values, run `cilium upgrade`, or restart pods.
-Use it when the CLI pin changes independently of the Cilium dataplane version.
-The Cilium role detects `fleet-local/cilium` targeting the existing
-`kube-system/cilium` release and skips CLI install/upgrade operations after
-handoff. Change the [Fleet Cilium bundle](../../kubernetes/projects/system/apps/cilium/README.md)
-for runtime updates, keeping the inventory and bootstrap template equal to its
-full Helm values. Run `scripts/check-cilium-observability.py` from the repository
-root to check that equality. Agent/operator/Hubble metrics are enabled without
-Relay or UI; the separate Cilium monitoring bundle owns Prometheus discovery.
-Keep the Cilium dataplane on 1.20.1 for the Raspberry Pi OS nodes. Cilium
-1.20.2 cannot initialize its socket load-balancing BPF programs on kernels
-without BTF, leaving new pods unable to get networking even while the Cilium
-DaemonSet reports Ready. All eight current nodes lack
-`/sys/kernel/btf/vmlinux`. Upstream tracks this as
-[cilium/cilium#48778](https://github.com/cilium/cilium/issues/48778); the
-documented workaround is to downgrade to 1.20.1. Both the role's bootstrap and
-read-only validation entrypoints reject **1.20.2 and later**, including later
-patch and minor releases, when any cluster node lacks kernel BTF. The shared
-gate has no bypass; relax it only after an upstream compatibility fix and the
-actual host kernels are verified. Local role fixtures exercise the production
-Ansible condition across legacy, current, and future version boundaries. From
-the repository root, run:
+Preserve CRDs, certificate Secrets, namespaces, storage and release ownership.
+Review issuer RBAC when changing cert-manager or service-account-backed issuers.
+Rollback uses each platform's supported restore procedure and verified recovery
+points; reverting a chart pin alone is not a data-recovery plan.
+
+cert-manager is pinned to `v1.21.3`, which removes trust in the compromised
+eMudhra CA and fixes ACME ARI renewal loops and private-key Secret ownership
+checks. The bootstrap `cert_manager` role owns its K3s `HelmChart`; merging an
+inventory pin does not deploy this component through Fleet. Under the repository
+cluster change policy, obtain explicit break-glass authorization before running
+the owning role's `main` entrypoint for an upgrade:
 
 ```sh
-python3 -m unittest discover -s infrastructure/ansible/roles/cilium/tests -v
+ansible-playbook playbooks/cert_manager.yml
+ansible-playbook playbooks/cert_manager.yml -e cert_manager_entrypoint=validation
 ```
 
-Rancher owns the compatible Fleet, webhook and Turtles versions; do not
-upgrade those independently.
-Cilium's inventory pins the live cluster name, disabled BGP control plane,
-VXLAN routing, and single-node agent and Envoy rollout limits. The operator
-uses the third control-plane node for a surge replica while keeping both
-existing replicas available. Bootstrap waits for Helm-driven rollouts and does
-not force a second Cilium restart. Subsequent runtime rollouts are Fleet-owned;
-the read-only validation entrypoint checks readiness and node-local agent and
-Hubble metrics.
+Before applying, back up cert-manager resources and certificate Secrets securely,
+render the chart with the inventory values, and perform a server-side dry run.
+Preserve Helm ownership, CRDs, certificate Secrets, and two replicas per component.
+Afterward verify all three Deployments use the pinned version, the webhook
+accepts dry-run requests, and existing Certificates and ClusterIssuers stay Ready.
+See the [upstream patch notes](https://github.com/cert-manager/cert-manager/releases/tag/v1.21.3).
 
-The upstream Rancher chart hardcodes `maxSurge: 1` and exposes no Helm value for
-the Deployment strategy. With three replicas, required hostname anti-affinity,
-and three eligible servers, this creates Pending surge pods during a chart
-upgrade. The role now refuses a future HelmChart manifest change under those
-conditions before mutating bootstrap resources. Keep required anti-affinity;
-wait for chart support for `maxSurge: 0` or add eligible server capacity before
-the next Rancher upgrade. The inventory's `maxSurge: 0` is reconciled only after
-the chart rollout, so it does not remove that upgrade risk.
+## Ubuntu host validation
 
-K3s is pinned to stable `v1.36.5+k3s1`, within Rancher 2.15.2's supported
-Kubernetes 1.36 range. Upgrade servers and then workers one at a time through
-the rolling playbooks, checking active user-facing endpoints between nodes.
-The release updates bundled Traefik to chart 40; this cluster does not configure
-the renamed ingress-nginx migration provider. CoreDNS and metrics-server image
-overrides match the release's bundled versions. Their manifest-driven rollouts
-keep both replicas available by allowing one surge pod at a time. Longhorn remains
-1.12.1, the latest chart in its configured Rancher channel. MetalLB 0.16.1,
-NFS CSI 4.13.4 and CloudNativePG 1.30.1 are current in their configured channels.
-Fleet deployed Rancher Backup chart `110.0.2+up11.0.3` (operator 11.0.3) and
-SOPS Secrets Operator chart `0.28.1` (operator 0.21.2); both operators and the
-Backup CRD HelmOp became Ready. No UNAS target is configured or used. Cilium
-remains at 1.20.1 after the 1.20.2 BTF regression. kube-vip 1.2.4 rolled
-across all three control-plane nodes with the API VIP and user-facing routes
-available; its three replacement pods have zero restarts.
-
-For cert-manager 1.21, the removed metrics path/port override values must be
-absent, and issuers using `serviceAccountRef` require a separate RBAC review.
-The current issuers use Cloudflare DNS01, the local CA and self-signed certificates.
-The cert-manager rollout retained all nine certificate Secrets with unchanged
-data and UIDs; all six new pods, three ClusterIssuers and nine Certificates
-became Ready. For Cilium and kube-vip, require
-all node agents and the API VIP to recover before proceeding.
-
-Rollback bootstrap chart versions through their original owners using the
-previous values. Rancher rollback requires its documented restore procedure;
-review available existing recovery points before execution. Do not uninstall
-CRDs or delete certificate Secrets, namespaces or storage to perform an upgrade.
+All eight nodes use Canonical's packaged raspi kernel and native BTF. The
+permanent `os_prep`, `rpi_prep` and `smartctl_exporter` roles own package/source,
+NTP/sudo, real NFS access, vendor boot/module and physical NVMe validation.
+See the [OS role](roles/os_prep/README.md) for supervised Ubuntu package/kernel
+maintenance and the live-canary qualification boundary.

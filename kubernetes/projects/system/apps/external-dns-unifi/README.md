@@ -7,8 +7,7 @@ reconciles matching records into UniFi DNS through the
 Current choices:
 
 - chart: `external-dns`
-- chart version: `1.22.0`
-- external-dns version: `0.22.0`
+- chart and controller version: declared by the pinned chart in `fleet.yaml`
 - Fleet/Helm release name: `external-dns-unifi`
 - workload name: `external-dns-unifi`
 - UniFi webhook image:
@@ -52,7 +51,7 @@ example, the CUPS Service owns `printer.home`, pointing directly to
 create records; no FQDN template is configured. The Traefik ingress-class
 filter continues to apply to the Ingress source.
 
-Validate changes by rendering chart `1.22.0` with `values.yaml`, checking both
+Validate changes by rendering the pinned chart with `values.yaml`, checking both
 `--source=ingress` and `--source=service`, and server-dry-running the rendered
 resources. After Fleet reconciliation, verify the controller is ready, check
 its reconciliation logs, and query `dig @192.168.3.1 printer.home +short`.
@@ -60,7 +59,17 @@ Keep the Service annotation and Service source enabled together: with `sync`,
 removing either can remove the managed printer DNS record.
 
 The UniFi API key is SOPS-encrypted under the companion SopsSecret template's
-`stringData.api-key`; `data` requires base64-encoded input. The 2026-10-01
-operator upgrade exposed a stale invalid source value. The encrypted desired
-state was reconciled to the existing working child Secret key without rotating
-the credential or recreating the Secret.
+`stringData.api-key`; `data` requires base64-encoded input. Keep the encrypted
+template and generated Secret consistent when rotating credentials.
+
+## Resource review — 28 October 2026
+
+Values use the 28 October historical review in
+[the resource policy](../../../../../docs/runbooks/kubernetes-resource-policy.md#2026-10-28-historical-resource-review).
+CPU reservations cover measured sustained demand with headroom; existing burst
+policies remain in place. Memory caps preserve the observed fourteen-day peaks
+and extra headroom where OOM records show clipping.
+
+| Container / value path | CPU request | Memory request | Memory limit |
+| --- | --- | --- | --- |
+| `kube-public/external-dns-unifi/external-dns` | 10m → 10m | 32Mi → 80Mi | 96Mi → 128Mi |

@@ -1,0 +1,21 @@
+---
+apiVersion: management.cattle.io/v3
+kind: Project
+metadata:
+  name: p-training
+  namespace: local
+  annotations:
+    meta.helm.sh/release-name: rancher-project-training
+    meta.helm.sh/release-namespace: local
+  labels:
+    app.kubernetes.io/managed-by: Helm
+    app.kubernetes.io/name: training
+    app.kubernetes.io/part-of: rancher-projects
+spec:
+  clusterName: local
+  displayName: Training
+  containerDefaultResourceLimit: {}
+  namespaceDefaultResourceQuota:
+    limit: {}
+  resourceQuota:
+    limit: {}

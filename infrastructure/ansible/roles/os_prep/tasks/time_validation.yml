@@ -1,0 +1,32 @@
+---
+- name: Read persistent time client state
+  ansible.builtin.service_facts:
+
+- name: Collect running supported NTP clients
+  ansible.builtin.set_fact:
+    os_prep_running_time_clients: >-
+      {{ [ansible_facts.services.get('chrony.service', {}),
+          ansible_facts.services.get('systemd-timesyncd.service', {})]
+         | selectattr('state', 'defined') | selectattr('state', 'equalto', 'running') | list }}
+
+- name: Require exactly one enabled and running distribution NTP client
+  ansible.builtin.assert:
+    that:
+      - os_prep_running_time_clients | length == 1
+      - os_prep_running_time_clients[0].status | default('') == 'enabled'
+    fail_msg: An enabled running chrony or systemd-timesyncd client is required.
+
+- name: Verify NTP remains enabled
+  ansible.builtin.command: timedatectl show --property=NTP --value
+  register: os_prep_validation_ntp_enabled
+  changed_when: false
+  failed_when: os_prep_validation_ntp_enabled.stdout != 'yes'
+
+- name: Wait for the kernel clock to synchronize with network time
+  ansible.builtin.command: timedatectl show --property=NTPSynchronized --value
+  register: os_prep_validation_ntp_synced
+  changed_when: false
+  until: os_prep_validation_ntp_synced.stdout == 'yes'
+  retries: 24
+  delay: 5
+  failed_when: os_prep_validation_ntp_synced.stdout != 'yes'

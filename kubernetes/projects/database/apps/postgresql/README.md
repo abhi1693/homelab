@@ -3,10 +3,14 @@
 CloudNativePG injects a `bootstrap-controller` init container into each Pooler
 Deployment without exposing a Pooler-specific resource field. The namespace
 `LimitRange` supplies missing `10m` CPU and `32Mi` memory requests plus a
-`128Mi` memory limit. Explicit PostgreSQL and PgBouncer resources are unchanged.
+`128Mi` memory limit. The defaults leave explicitly configured PostgreSQL and
+PgBouncer resources intact.
 
 This app owns the CloudNativePG cluster, application roles, databases, and
 PgBouncer poolers used by home-lab apps.
+
+Private client-specific database contracts and credentials are documented in
+their private deployment bundles.
 
 ## PostgreSQL image catalog
 
@@ -14,13 +18,42 @@ The chart creates the namespaced `ImageCatalog` named `postgresql` from
 `imageCatalog.images` in `values.yaml`. The cluster selects it through
 `cluster.imageCatalogRef`, using `version.postgresql` as the major version.
 All three PostgreSQL instances use the selected catalog image. The catalog
-pins PostgreSQL 17.11 by its multi-platform OCI index SHA-256 digest, verified
-against both GHCR and the Harbor proxy; the index includes Linux ARM64.
+pins the PostgreSQL 17.11 Bookworm image by multi-platform OCI index digest,
+including Linux ARM64. Verify GHCR/Harbor index parity before changing it.
 The exact `tag@sha256` reference is declared once in `values.yaml`.
 Update that entry through Git and Fleet to roll out future image changes;
 do not also set `cluster.imageName`. PgBouncer images remain configured separately.
-To undo the catalog migration, restore `cluster.imageName` to the same image
-and remove the catalog reference and catalog values through Git.
+### Bookworm collation maintenance
+
+Image changes can update collation libraries independently of PostgreSQL.
+Wait for Fleet convergence, three healthy instances on the intended digest,
+streaming replication, continuous archiving and application access before
+separately authorized database maintenance.
+
+All database defaults use `C` collation. NetBox additionally uses the ICU
+`public.natural_sort` collation (`und-u-kn`), including indexes in its branch
+schemas. A library upgrade can change its sort order even though PostgreSQL's
+version is unchanged. Run the checked-in maintenance script on the current
+primary after the rollout:
+
+```sh
+primary=$(kubectl --context local -n postgresql get cluster postgresql -o jsonpath='{.status.currentPrimary}')
+kubectl --context local -n postgresql exec -i "$primary" -c postgres -- \
+  psql -X -U postgres -d netbox -v ON_ERROR_STOP=1 \
+  < kubernetes/projects/database/apps/postgresql/netbox-collation-maintenance.sql
+```
+
+The script skips an already-matching collation version. Otherwise it rebuilds
+every index using `public.natural_sort` concurrently, checks index validity, and
+only then refreshes the recorded collation version. It stops on errors; inspect
+any invalid concurrent-build leftovers before retrying. Never refresh the
+version merely to suppress a warning. Check NetBox health and collation versions
+on every instance afterwards. Database maintenance is an explicitly authorized
+operator action, not an automatic Fleet reconciliation hook.
+
+Rolling back the image also rolls back the collation libraries: repeat the
+collation check and rebuild on the restored image before refreshing its version.
+Reverting the image alone does not undo indexes built with newer ICU libraries.
 
 ## Monitoring collector database
 
@@ -66,13 +99,10 @@ three-day recovery window. CloudNativePG removes obsolete backups after a
 successful backup completes. A base backup older than three days and the WAL
 needed to recover from it may remain to cover the start of that window.
 
-`backup-20260916.yaml` requests a one-off full physical backup through Fleet
-after the September 16 reduction to seven days. Its fixed resource name prevents
-ordinary reconciliations from requesting another backup. Check the Backup's
-`status.phase` and instance logs for completion and retention cleanup; old
-Kubernetes Backup records alone do not prove that their remote objects remain.
-The `-retry` request prefers a standby after a primary OOM and failover aborted
-the original attempt's PostgreSQL backup session.
+Use the ScheduledBackup and current Backup status plus remote object inventory
+to establish recovery coverage. A retained Kubernetes Backup object does not
+prove its remote data is still available. Do not rerun dated one-shot Backup
+manifests as a recurring schedule.
 
 ## PgBouncer connection budgets
 
@@ -80,10 +110,9 @@ Every pooler sets `min_pool_size: 1` and `server_idle_timeout: 120` to preserve
 a warm backend per database/user pool while retiring excess unused connections
 after two minutes instead of the ten-minute default. The minimum is a retention
 floor, not an eagerly allocated reservation for every possible database; PgBouncer
-only replenishes it for pools with a connected client or forced database user. A September 2026
-sample showed 135 of 160 PostgreSQL connections while PgBouncer held 94 unused
-backends and only 33 client-attached backends. Authentication pools also retain
-connections and must be counted alongside application pools.
+only replenishes it for pools with a connected client or forced database user.
+Count authentication-pool connections alongside application pools when reviewing
+PostgreSQL headroom.
 
 This timeout applies only after a backend is returned to the unused pool. It
 does not kill running queries, long transactions, or idle sessions still attached
@@ -110,40 +139,29 @@ declared app-side maximum connection demand.
 | Role | Pooler | App-side budget | Backend capacity | Role limit |
 | --- | --- | ---: | ---: | ---: |
 | `devfeed` | `devfeed-rw` | Interactive APIs and ordinary background workers | 20 | 40 |
-| `devfeed` | `devfeed-read-model-rw` | Two single-calculation publishers | 4 | 40 (shared role) |
 | `devfeed_chimely` | `devfeed-rw` | Chimely-managed | 20 | 24 |
 | `jellyfin` | `jellyfin-rw` | 14 | 30 | 32 |
-| `shipyardhq` | `shipyardhq-rw` | 20 | 28 | 32 |
-| `kitchen` | `hyperlocal-kitchen-rw` | paused | 0 | 52 |
-| `launchboard` | `launchboard-rw` | paused | 0 | 10 |
+| `shipyardhq` | `shipyardhq-rw` | 20 | 30 | 32 |
 | `harbor` | `harbor-rw` | chart-managed | 24 | 36 |
 | `netbox` | direct | implicit | n/a | 10 |
 | `wardn_hub` | `wardn-hub-rw` | implicit | 12 | 12 |
 | `wardn_ai` | `wardn-ai-rw` | paused | 0 | 12 |
-| `wardn_license` | `wardn-license-rw` | implicit | 8 | 12 |
+| `wardn_license` | `wardn-license-rw` | paused | 0 | 12 |
 | `firefly` | `firefly-iii-rw` | implicit | 4 | 10 |
 | `zitadel` | `zitadel-rw` | 16 | 32 | 32 |
 | `home_assistant` | `home-assistant-rw` | implicit | 10 | 12 |
 
-DevFeed preserves its twenty interactive slots and adds four separately bounded
-publisher slots. Simultaneous pooler rollouts can temporarily use thirty plus
-six slots; one direct migration remains below the shared role limit of forty.
-That role ceiling does not reserve global PostgreSQL capacity: authentication
-pools consume additional slots. Do not roll both poolers simultaneously; this
-release reloads existing parameters and provisions the new pool separately.
+DevFeed preserves its twenty interactive slots. The finite analytics importer uses
+a separately bounded direct writer connection, below the shared role limit of forty.
+The retired pipeline/report projector pooler and access policies are removed after
+producer handoff. The role ceiling does not reserve global PostgreSQL capacity.
 Recheck live global headroom, include authentication connections, and follow
-the [phased read-model cutover](../../../applications/apps/devfeed/read-model-rollout.md)
-before deploying schema `0034`.
+the [migration maintenance gates](../../../applications/apps/devfeed/migrations.md#maintenance-gates)
+before changing the application schema.
 
 `wardn-ai-rw` is paused at zero instances alongside Wardn AI. Its database and
 role remain retained in the shared cluster. Restoring its single instance
 provides six backend slots.
-
-`hyperlocal-kitchen-rw` is also paused at zero instances with the Kitchen
-application. Its database, role, and credentials remain retained. Restoring two
-session pooler instances provides 48 backend slots for three backend processes
-with a normal maximum demand of 45 connections. Its dedicated PDB is omitted
-while paused; restore that budget with the pooler when resuming Kitchen.
 
 Jellyfin caps its Npgsql pool at 14 connections. Each session-mode PgBouncer
 replica has 15 backend slots, so either replica can absorb the application's
@@ -153,16 +171,12 @@ entire connection budget even if Service hashing is uneven. The two replicas'
 `shipyardhq` has database-side headroom above the normal runtime budget:
 `3 web pods * PG_POOL_MAX 4 + 2 worker pods * PG_POOL_MAX 4 = 20`.
 The release builder uses `PG_POOL_MAX=1` in each of its two Next.js workers,
-limiting its direct connection path to two sessions. Even if the 28 pooler
-backend slots are all occupied, two role connections remain available for
-short-lived build and reconnect activity.
-`launchboard` has a dedicated retained database and role; it does not read or
-write ShipyardHQ's database. Its pooler is paused at zero instances with the web
-application and automation. Its dedicated PDB is omitted until resumption.
-Restoring two session-mode poolers exposes eight backend slots against a
-four-connection app pool, leaving two direct role connections for migrations
-and reconnect activity. Follow the application
-[resumption procedure](../../../applications/apps/launchboard/README.md#shutdown-state).
+limiting its direct connection path to two sessions. Each session-mode pooler
+provides 15 backend slots after one 14-slot instance showed waiting clients
+while PostgreSQL sessions were idle during the 28 October recovery. The two
+poolers expose 30 backend slots, leaving two role connections for the direct
+build path within the unchanged limit of 32. Pool mode and app-side limits
+remain unchanged.
 ZITADEL caps each of its two replicas at eight open connections. Each
 session-pool replica can therefore absorb the full 16-connection steady-state
 budget even when service load balancing is uneven. The two poolers expose 32
@@ -182,38 +196,66 @@ Poolers rely on CloudNativePG's generated TCP readiness probe against the
 local PgBouncer port 5432 and intentionally have no backend-coupled liveness
 probe. A backend DNS, connection, or PostgreSQL availability interruption must
 not restart an otherwise healthy proxy.
-Each PostgreSQL instance requests `250m` CPU and `3Gi` memory, with a `3Gi`
-memory limit. The three instances reserve `9Gi` in total so every replica has
-capacity to become primary. CPU is uncapped, so the pods remain Burstable.
-The previous `1536Mi` limit caused primary OOMs with roughly 140 client
-connections; observed working-set peaks reached 1533Mi. Preserve the added
-headroom for connection memory, startup, replication, and maintenance.
+Each PostgreSQL instance requests `750m` CPU and `5Gi` memory, with a `5Gi`
+memory limit. The three instances reserve `2.25` CPU cores and `15Gi` in total
+so every replica has capacity to become primary. CPU is uncapped, so the pods
+remain Burstable. The CPU request protects scheduling share under contention;
+it does not reduce the amount of database work.
+Budget memory for connection state, filesystem cache, startup, replication and
+maintenance. Check cgroup reclaim/refault activity as well as working-set usage
+before changing the resource allocation.
+
+Changing cluster resources through Fleet triggers CloudNativePG's normal
+rolling update: replicas are replaced one at a time, then the existing
+`unsupervised` / `switchover` policy promotes an updated replica before replacing
+the former primary. Expect interrupted database connections for applications
+sharing this cluster; Kubernetes in-place resize support does not make this a
+restart-free change. Confirm node reservation headroom and healthy, caught-up
+replicas before merging the resource change.
 After a resource change, verify Fleet convergence, all three instances' live
 resources and readiness, streaming replication, application database access,
-and memory usage through a complete workload and backup cycle.
+and memory usage through a complete workload and backup cycle. Compare fresh
+cgroup reclaim/refault deltas and normal report-publisher query durations after
+the cache warms, rather than treating a ready pod as performance recovery.
 
 ## PostgreSQL runtime tuning
 
 The connection and memory settings are sized for the shared PostgreSQL pod
-and the 18 active PgBouncer replicas:
+and the declared PgBouncer connection budgets:
 
 | Parameter | Value | Rationale |
 | --- | ---: | --- |
-| `max_connections` | 160 | The 14-day maximum was 104 and p99 was 90. Adding Wardn License Server raises the modeled pooler, control, replication, monitoring, and direct-client ceiling to about 148. |
-| `shared_buffers` | 256MiB | Preserves the existing buffer allocation so the larger pod budget provides connection and maintenance headroom. |
-| `effective_cache_size` | 768MiB | Preserves the conservative planner cache hint; it does not allocate memory. |
+| `max_connections` | 160 | Bounds aggregate pooler, direct-client, monitoring, control and replication demand; review headroom before enabling paused clients. |
+| `shared_buffers` | 512MiB | Adds buffer capacity while retaining filesystem-cache, connection and maintenance headroom within the 5GiB container budget. |
+| `effective_cache_size` | 3GiB | Models shared buffers and usable filesystem cache for query planning; it does not allocate or reserve memory. |
 | `work_mem` | 4MiB | Avoids multiplying a larger allocation across concurrent sort and hash operations. Expensive maintenance queries must use statement-local overrides. |
-| `wal_buffers` | 16MiB | The previous automatic 8MiB allocation recorded about 1.27 million buffer-full events over 14 days. |
-| `checkpoint_timeout` | 15 minutes | Almost all checkpoints were time-driven while checkpoint writes totaled about 26.8GiB over 14 days. The 1GiB WAL ceiling remains unchanged. |
+| `wal_buffers` | 16MiB | Bounds WAL buffering independently of connection count; monitor buffer-full events. |
+| `checkpoint_timeout` | 15 minutes | Allows longer checkpoint intervals with the configured 1GiB `max_wal_size` soft limit; retained WAL can exceed it. |
 | `autovacuum_vacuum_scale_factor` | 0.1 | Vacuums changing tables when dead tuples exceed 50 plus 10% of the last analyzed row estimate, unless a table overrides these settings. |
 | `autovacuum_analyze_scale_factor` | 0.02 | Refreshes stale row estimates sooner after bulk deletes so vacuum thresholds reflect current table size. |
 | `idle_in_transaction_session_timeout` | 5 minutes | Releases locks and snapshots abandoned inside transactions without terminating ordinary idle pooled sessions. |
+
+Changing `shared_buffers` requires a PostgreSQL restart. Reconcile buffer and
+resource changes through Fleet and verify all three instances' live settings,
+resources and readiness after CloudNativePG finishes its rolling update.
+Compare query durations, physical reads and cgroup reclaim/refault deltas after
+cache warmup. A higher buffer hit ratio or a lower CPU percentage relative to
+the larger request alone does not prove lower workload demand. Keep monitoring
+requested checkpoints and WAL free space with the existing 1GiB `max_wal_size`
+and 4GiB WAL volume.
 
 `log_lock_waits` is enabled to make waits longer than the existing one-second
 `deadlock_timeout` visible in PostgreSQL logs. Do not set a global
 `statement_timeout` or `idle_session_timeout`: migrations and maintenance can
 legitimately run for longer, and session-mode PgBouncer intentionally keeps
 ordinary backend sessions idle.
+
+DevFeed's [migration hook](../../../applications/apps/devfeed/migrations.md#devfeed-jit-default)
+sets `jit=off` only for the `devfeed` role in the `devfeed` database. The shared
+server default and other roles/databases, including `devfeed_chimely`, stay
+unchanged. Existing pooled backends inherit the default on their next PostgreSQL
+connection; the hook verifies a fresh direct session without restarting the
+cluster or poolers.
 
 ## Table-local autovacuum
 
@@ -266,7 +308,7 @@ tables, then remeasure `n_live_tup`, `n_dead_tup`,
 
 Changing `max_connections` or `wal_buffers` requires a PostgreSQL restart. A
 decrease to a hot-standby-sensitive parameter makes CloudNativePG restart the
-primary in place before its replicas. Cluster chart 0.8.1 exposes `stopDelay`,
+primary in place before its replicas. Cluster chart 0.9.0 exposes `stopDelay`,
 which is set to 300 seconds instead of CNPG's conservative 1800-second default.
 The operator's default 180-second `smartShutdownTimeout` leaves two minutes for
 fast shutdown and WAL/archive completion before the kubelet's termination
@@ -303,19 +345,40 @@ drop out when they are no longer active in that window.
 
 ## Data-volume headroom
 
-The September 2026 change increased retained data claims from 10Gi to 20Gi.
-On 19 October, the data volumes crossed the upstream 70% warning threshold,
-with roughly 30% free, while WAL volumes retained roughly 80% free. Increase
-the data claims to 32Gi through CNPG/Fleet; WAL remains 4Gi. The latest scheduled
-backup succeeded and continuous archiving was healthy before this change; each
-Longhorn disk had more than 320Gi free. Verify all three PVC capacities and
-in-pod filesystem sizes after reconciliation, then check replication and the
-low-disk alert.
-Volume expansion cannot be rolled back by shrinking the PVC. Retain all claims
-and database records; this change does not introduce an analysis-history deletion policy.
+Each instance declares a 32Gi data claim and a separate 4Gi WAL claim.
+Monitor capacity, WAL growth and object-store backup health. Expand through
+CNPG/Fleet; verify all three PVC capacities, in-pod filesystem sizes, replication
+and disk alerts after reconciliation. PVCs cannot shrink, so volume expansion
+has no capacity rollback. Retain claims and database records during recovery.
 
-Hyperlocal Kitchen has a retained `kitchen` database and role with SOPS-managed
-credentials. Its dedicated pooler is currently at zero instances. When active,
-two session pooler instances each allow 24 backend connections; the role limit
-of 52 leaves four slots for direct migrations and schema checks.
-See `kubernetes/projects/applications/apps/hyperlocal-kitchen/README.md`.
+`wardn-license-rw` is operator-paused at zero instances alongside its API and
+console. Its database, role and credentials are retained; its dedicated PDB is
+omitted until the [application resumption procedure](../../../applications/apps/wardn-license-server/README.md#shutdown-state)
+is explicitly requested.
+
+## Resource review — 28 October 2026
+
+Each PostgreSQL instance reserves `2560Mi`, preserving the `5Gi` limit,
+`750m` CPU request, burstable CPU, shared buffers, connection limits, and
+three-instance synchronous topology. The follow-up fourteen-day review measured
+a `2357Mi` per-container working-set peak with no recorded OOM events. Reducing
+the request from `3Gi` releases `1536Mi` across three instances while retaining
+the existing burst allowance. This changes scheduler reservations, not cache
+allocation; CPU remains sized for primary failover.
+
+Existing poolers with sufficient history reserve 96Mi instead of 56Mi because
+observed working-set peaks were 55–77Mi. The busy DevFeed pooler reserves 100m
+CPU; Wardn Hub and Jellyfin poolers reserve 10m and remain CPU-burstable. The
+new commerce pooler is unchanged because its history is too short.
+
+The CNPG operator performs the existing sequential rollout;
+verify 3/3 Ready, streaming replication, archiving, and unchanged PVC identities.
+
+## Retired app poolers — 28 October 2026
+
+Hyperlocal Kitchen, Launchboard, Wardn AI and Wardn License Server pooler
+definitions were removed after app retirement. They already had zero
+instances. Their PostgreSQL databases, roles and credentials remain retained;
+shared cluster sizing and active application poolers are unchanged.
+
+The Training instructor uses the retained `netbox_instructor` database and its own non-superuser role, limited to ten connections. Credentials are SOPS-managed independently of production NetBox.

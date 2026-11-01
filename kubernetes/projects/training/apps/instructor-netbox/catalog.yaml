@@ -1,0 +1,59 @@
+---
+apiVersion: home-lab.io/v1alpha1
+kind: WorkloadCatalog
+metadata:
+  name: instructor-netbox
+spec:
+  displayName: Instructor NetBox
+  purpose: Instructor NetBox lab for classroom practice.
+  owner: home-lab
+  project: training
+  cluster: home-k3s
+  lifecycle: active
+  criticality: low
+  dataClassification: sensitive
+  repository: https://github.com/abhi1693/home-lab
+  gitPath: kubernetes/projects/training/apps/instructor-netbox
+  runbook: kubernetes/projects/training/apps/instructor-netbox/README.md
+  dashboard: https://instructor.netbox.home
+  knownLimitations:
+  - A single web replica and a single worker make planned maintenance visible to users.
+  workloads:
+  - key: home-k3s/instructor/apps/deployment/instructor-netbox
+    namespace: instructor
+    apiGroup: apps
+    kind: Deployment
+    name: instructor-netbox
+    desiredReplicas: 1
+    sourcePath: kubernetes/projects/training/apps/instructor-netbox/values.yaml
+    images:
+    - ghcr.io/netbox-community/netbox
+  - key: home-k3s/instructor/apps/deployment/instructor-netbox-worker
+    namespace: instructor
+    apiGroup: apps
+    kind: Deployment
+    name: instructor-netbox-worker
+    desiredReplicas: 1
+    sourcePath: kubernetes/projects/training/apps/instructor-netbox/values.yaml
+    images:
+    - ghcr.io/netbox-community/netbox
+  - key: home-k3s/instructor/batch/cronjob/instructor-netbox-housekeeping
+    namespace: instructor
+    apiGroup: batch
+    kind: CronJob
+    name: instructor-netbox-housekeeping
+    sourcePath: kubernetes/projects/training/apps/instructor-netbox/values.yaml
+    images:
+    - ghcr.io/netbox-community/netbox
+  persistentStores: []
+  endpoints:
+  - key: instructor-netbox/web
+    name: web
+    url: https://instructor.netbox.home
+    dnsName: instructor.netbox.home
+    exposure: internal
+    protocol: https
+    ports:
+    - 443
+    sourcePath: kubernetes/projects/training/apps/instructor-netbox/values.yaml
+  dependencies: []

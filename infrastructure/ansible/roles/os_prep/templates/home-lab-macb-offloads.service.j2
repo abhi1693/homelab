@@ -1,0 +1,19 @@
+[Unit]
+Description=Mitigate Raspberry Pi macb TX stalls by disabling TSO and SG
+Wants=network-online.target
+After=network-online.target
+Before=k3s.service k3s-agent.service
+
+[Service]
+Type=oneshot
+RemainAfterExit=yes
+ExecStartPre=/usr/bin/grep -qx DRIVER=macb /sys/class/net/eth0/device/uevent
+ExecStart=/usr/sbin/ethtool -K eth0 tso off sg off
+ExecStartPost=/usr/bin/python3 /usr/local/libexec/home-lab-macb-network validate
+TimeoutStartSec=20s
+NoNewPrivileges=yes
+ProtectHome=yes
+PrivateTmp=yes
+
+[Install]
+WantedBy=multi-user.target

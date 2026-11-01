@@ -35,7 +35,7 @@ spec:
         memory: 448Mi
       default:
         cpu: 1
-        memory: 768Mi
+        memory: 1Gi
 ---
 apiVersion: v1
 kind: LimitRange

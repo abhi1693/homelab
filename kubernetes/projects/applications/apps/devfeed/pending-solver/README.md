@@ -1,7 +1,9 @@
-# Solver worker activation
+# Solver worker configuration
 
-The prepared solver manifests were activated in DevFeed v0.0.6. Their maintained
-locations are now [the deployment](../deployment-solver-worker.yaml) and
-[the network policy](../networkpolicy-solver.yaml), both in the active Kustomization.
-See the [DevFeed runbook](../README.md#search-and-solver-operation) for operation,
-provider limitations and retry behavior.
+The active solver configuration is maintained in
+[the worker Deployment](../deployment-worker-solver.yaml) and
+[its network policy](../networkpolicy-solver.yaml), both included by the parent
+Kustomization. This directory is not a separate Fleet workload.
+
+See [solver operation](../README.md#search-and-solver-operation) for provider
+boundaries and retry behavior.

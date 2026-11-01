@@ -12,7 +12,7 @@ subsystem.
 | Playbook | Scope |
 | --- | --- |
 | `site.yml` | Full bootstrap sequence. |
-| `os_prep.yml` | Base OS preparation, package plans, rolling OS upgrades and reboots, and persistent security validation. |
+| `os_prep.yml` | Base OS preparation, time-only NTP convergence/validation, package plans, rolling OS upgrades and reboots, and persistent security validation. |
 | `rpi_prep.yml` | Raspberry Pi-specific preparation. |
 | `k3s_server.yml` | Serial K3s server changes with Node, etcd, and platform recovery gates. |
 | `k3s_server_tools.yml` | Prepare the checksum-pinned etcd client before server maintenance; no restarts. |

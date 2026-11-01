@@ -1,9 +1,10 @@
 # CUPS USB printing
 
 Fleet runs one CUPS instance for the HP Deskjet 2510 series attached to
-`k8s-rpi1` (`192.168.3.243`). The printer was detected as USB ID `03f0:ac11`,
-serial `CN31T3HGYM05TX`, on USB topology path `3-2`. Neither the physical USB
-port nor the transient bus/device number is part of the queue configuration.
+`k8s-rpi1` (`192.168.3.243`). Queue discovery matches USB ID `03f0:ac11` and serial
+`CN31T3HGYM05TX`.
+Physical USB topology paths and transient bus/device numbers are not part of
+the queue configuration.
 
 ## Connect a client
 
@@ -173,3 +174,15 @@ Helm's keep annotation; removing the Fleet path alone is not a data cleanup.
 References: [image source](https://github.com/olbat/dockerfiles/tree/master/cupsd),
 [CUPS server configuration](https://openprinting.github.io/cups/doc/man-cupsd.conf.html),
 [queue configuration](https://openprinting.github.io/cups/doc/man-lpadmin.html).
+
+## Resource review — 28 October 2026
+
+Values use the 28 October historical review in
+[the resource policy](../../../../../docs/runbooks/kubernetes-resource-policy.md#2026-10-28-historical-resource-review).
+CPU reservations cover measured sustained demand with headroom; existing burst
+policies remain in place. Memory caps preserve the observed fourteen-day peaks
+and extra headroom where OOM records show clipping.
+
+| Container / value path | CPU request | Memory request | Memory limit |
+| --- | --- | --- | --- |
+| `cups/cups/cups` | 25m → 25m | 128Mi → 64Mi | 512Mi → 512Mi |

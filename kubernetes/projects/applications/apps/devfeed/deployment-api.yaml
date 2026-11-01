@@ -29,6 +29,7 @@ spec:
         devfeed-database-client: 'true'
         devfeed-redis-client: 'true'
         devfeed-search-client: 'true'
+        devfeed-clickhouse-client: 'true'
     spec:
       serviceAccountName: devfeed
       automountServiceAccountToken: false
@@ -51,14 +52,14 @@ spec:
       terminationGracePeriodSeconds: 180
       containers:
       - name: api
-        image: registry.home/ghcr.io/abhi1693/devfeed.tech/backend:0.1.2@sha256:77d8cadbcc9e78701d06912ef0e54b7f96947e6f4625ef864b6f814c77478133
+        image: registry.home/ghcr.io/abhi1693/devfeed.tech/backend:0.1.8@sha256:1fb3087acd900c6e18cef096df53ae34d19d6226bba58531324f2dcb3786ca3e
         imagePullPolicy: IfNotPresent
         resources:
           requests:
-            cpu: 100m
-            memory: 256Mi
+            cpu: 200m
+            memory: 320Mi
           limits:
-            memory: 1Gi
+            memory: 768Mi
         securityContext:
           runAsNonRoot: true
           runAsUser: 10001
@@ -79,6 +80,10 @@ spec:
             name: devfeed
         - secretRef:
             name: devfeed-database
+        - configMapRef:
+            name: devfeed-clickhouse-client
+        - secretRef:
+            name: devfeed-clickhouse-public
         env:
         - name: DEVFEED_PARTNER_TRACKING_KEY
           valueFrom:
@@ -143,7 +148,7 @@ spec:
             app.kubernetes.io/part-of: devfeed
       initContainers:
       - name: wait-for-schema
-        image: registry.home/ghcr.io/abhi1693/devfeed.tech/backend:0.1.2@sha256:77d8cadbcc9e78701d06912ef0e54b7f96947e6f4625ef864b6f814c77478133
+        image: registry.home/ghcr.io/abhi1693/devfeed.tech/backend:0.1.8@sha256:1fb3087acd900c6e18cef096df53ae34d19d6226bba58531324f2dcb3786ca3e
         imagePullPolicy: IfNotPresent
         securityContext:
           runAsNonRoot: true
