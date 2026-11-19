@@ -49,3 +49,10 @@ verified image if the replacement fails these checks.
 Release `0.1.12` removes the Faro SDK and private source-map collection.
 The retired collector and runtime/build flags are removed. Backend tracing, logs,
 profiling, and application analytics are preserved.
+
+
+## Owner-testable previews
+
+[Yashika PR 1 preview v1](previews/pr1-v1/README.md) is an isolated static
+preview managed by this bundle. Its versioned host and selectors are separate
+from the main portfolio. See its README for validation and Git rollback.

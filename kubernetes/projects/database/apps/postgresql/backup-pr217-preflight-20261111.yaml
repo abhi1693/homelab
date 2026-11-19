@@ -1,0 +1,14 @@
+---
+apiVersion: postgresql.cnpg.io/v1
+kind: Backup
+metadata:
+  name: postgresql-pr217-preflight-20261111
+  namespace: postgresql
+  labels:
+    app.kubernetes.io/name: postgresql
+    app.kubernetes.io/part-of: postgresql
+spec:
+  cluster:
+    name: postgresql
+  method: barmanObjectStore
+  target: prefer-standby

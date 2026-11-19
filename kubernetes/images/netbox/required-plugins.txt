@@ -1,6 +1,5 @@
-# NetBox 4.6 compatible netbox-metatype-importer branch, pinned for repeatable builds.
-https://github.com/Onemind-Services-LLC/netbox-metatype-importer/archive/fbeb6b95817170a34bb2b8dec209a331f5155a4d.tar.gz
-netboxlabs-netbox-custom-objects==0.7.0
-netbox-topology-views==4.7.0
+# Compatible NetBox 4.7 plugins; the importer is disabled pending upstream support.
+netboxlabs-netbox-custom-objects==1.0.0
+netbox-topology-views==5.0.2
 netbox-plugin-dns==1.7.3
-netbox-lifecycle==1.1.10
+netbox-lifecycle==1.1.11

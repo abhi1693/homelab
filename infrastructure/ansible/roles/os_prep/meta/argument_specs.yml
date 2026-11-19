@@ -18,6 +18,17 @@ argument_specs:
             required: true
             description:
               - System timezone to enforce on the host.
+          k3s_time_gate:
+            type: dict
+            required: false
+            description:
+              - Bounded fail-closed Chrony synchronization required before K3s startup.
+            options:
+              enabled: {type: bool, required: true}
+              max_tries: {type: int, required: true}
+              interval_seconds: {type: int, required: true}
+              max_correction_seconds: {type: float, required: true}
+              timeout_seconds: {type: int, required: true}
           logging:
             type: dict
             required: true
@@ -51,6 +62,11 @@ argument_specs:
             required: false
             description:
               - Installed package names and minimum acceptable package versions.
+          safe_package_pins:
+            type: dict
+            required: false
+            description:
+              - Exact reviewed library and diagnostic-tool versions for the bounded package-only playbook.
           distrusted_ca_sha256:
             type: list
             elements: str

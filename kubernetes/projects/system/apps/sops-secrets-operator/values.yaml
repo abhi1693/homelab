@@ -1,5 +1,7 @@
 ---
 namespaced: false
+image:
+  tag: "0.22.2@sha256:b537f619306df75d56fbf6adf38120cf1ff25c4231577b9816b21c20f55f0a13"
 nodeSelector:
   kubernetes.io/arch: arm64
   node-role.kubernetes.io/control-plane: "true"

@@ -91,6 +91,74 @@ ansible-playbook playbooks/k3s_server.yml -e k3s_server_entrypoint=validation
 The [home inventory](inventories/home/) owns server and worker hostnames,
 addresses, and role membership.
 
+OS preparation also removes the prohibited `rpi-clone` scripts and standard
+home checkouts on all managed nodes; validation detects their return. The
+[cleanup workflow](roles/os_prep/README.md#prohibited-cloning-tools) provides
+dedicated preview, cleanup and read-only validation entrypoints.
+
+### Final worker: k8s-rpi9
+
+`worker-6` is configured as `k8s-rpi9` in
+[`host_vars/worker-6.yml`](inventories/home/host_vars/worker-6.yml). Its entry in
+[`hosts.yml`](inventories/home/hosts.yml) is enabled with the confirmed address
+`192.168.3.245`. It is included in the `k3s_workers` and `k3s_nodes` groups.
+Do not reuse `192.168.3.9`: that address currently belongs to `worker-5`
+(`k8s-rpi8`). Pi9 is a Raspberry Pi 5 Model B Rev 1.1 with a 500GB WD Blue
+SN5100 NVMe, NVMe-backed root and firmware filesystems, and 1 GbE.
+
+Initial acceptance on 2026-11-02 verified nine Ready, schedulable Kubernetes
+nodes, Cilium connectivity to all nine peers, healthy node-local DaemonSets,
+the worker Longhorn disk/pool, NFS access, central metrics and Loki logs, and
+host kernel-log delivery. All existing Fleet bundles remained Ready and applied.
+Physical switch-port verification and external inventory/recovery mappings
+remain separate from this host and Kubernetes acceptance.
+
+The onboarding sequence is:
+
+1. Confirm its ARM64 Ubuntu image, NVMe/root layout, Ethernet connection, unique
+   IP, SSH host key, `asaharan` SSH access and sudo access. Record the actual
+   hardware and network details in the private inventory/NetBox.
+2. Verify selection without connecting to hosts, from this directory:
+
+   ```sh
+   ansible-playbook playbooks/os_prep.yml --limit worker-6 --list-hosts
+   ansible-playbook playbooks/rpi_prep.yml --limit worker-6 --list-hosts
+   ansible-playbook playbooks/k3s_agent.yml --limit worker-6 --list-hosts
+   ```
+
+3. In the provisioning session, run the prepared single-worker playbook from
+   this directory (omit `--ask-become-pass` if passwordless sudo already works):
+
+   ```sh
+   ansible-playbook playbooks/add_worker.yml --limit worker-6 --ask-become-pass
+   ```
+
+   This runs OS preparation/validation, Raspberry Pi preparation/validation,
+   K3s agent join/validation and smartctl exporter setup/validation. Its first
+   play rejects a wider host selection and the unchanged IP placeholder before
+   connecting to any node. The existing cluster already has Cilium, so the join
+   retains normal rolling lease, version and Ready gates. Do not run the full
+   `site.yml` bootstrap to add this worker. OS/Pi preparation can reboot the
+   selected new host; the agent join changes cluster membership. These steps
+   require the Pi to be ready and provisioning to be requested.
+4. Verify Cilium, CSI, monitoring and other expected DaemonSets on the new node,
+   Longhorn disk health and worker-pool classification, and Fleet convergence.
+   Keep any required Kubernetes desired-state changes in Fleet-managed Git;
+   bootstrap commands are not authorization for manual cluster mutations.
+5. Refresh host recovery topology after the worker is Ready. This updates the
+   three control-plane kernel-log receivers to allow the new source and installs
+   the worker sender/evidence units without K3s restarts or server reboots:
+
+   ```sh
+   ansible-playbook playbooks/node_recovery.yml --limit 'k3s_servers:worker-6'
+   ```
+
+   UniFi/NetBox cabling and the Pi Recovery application's reviewed switch-port
+   mapping are separate operator records; do not infer them from the node name.
+6. After acceptance, update current node counts, root README capacity badges and
+   hardware tables from measured facts, and the node lists in the Longhorn
+   storage-pool README and NetBox reconciliation runbook.
+
 The `os_updates_plan` entrypoint converges inventory-managed Ubuntu sources to
 HTTPS, refreshes current APT metadata, and reports the package transaction without
 changing installed packages. `os_updates` verifies all package downloads before
@@ -198,7 +266,7 @@ See the [upstream patch notes](https://github.com/cert-manager/cert-manager/rele
 
 ## Ubuntu host validation
 
-All eight nodes use Canonical's packaged raspi kernel and native BTF. The
+All nine nodes use Canonical's packaged raspi kernel and native BTF. The
 permanent `os_prep`, `rpi_prep` and `smartctl_exporter` roles own package/source,
 NTP/sudo, real NFS access, vendor boot/module and physical NVMe validation.
 See the [OS role](roles/os_prep/README.md) for supervised Ubuntu package/kernel

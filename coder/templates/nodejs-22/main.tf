@@ -2,11 +2,11 @@ terraform {
   required_providers {
     coder = {
       source  = "coder/coder"
-      version = "2.19.0"
+      version = "2.20.0"
     }
     kubernetes = {
       source  = "hashicorp/kubernetes"
-      version = "3.3.0"
+      version = "3.5.0"
     }
   }
 }
@@ -359,7 +359,7 @@ module "jetbrains" {
   count = data.coder_workspace.me.start_count
 
   source  = "registry.coder.com/coder/jetbrains/coder"
-  version = "1.4.0"
+  version = "1.4.1"
 
   agent_id = coder_agent.main.id
   folder   = local.jetbrains_project_dir

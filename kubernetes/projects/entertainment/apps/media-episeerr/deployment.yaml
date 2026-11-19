@@ -9,7 +9,7 @@ metadata:
     app.kubernetes.io/part-of: media-stack
     home-lab.io/project-slug: entertainment
 spec:
-  replicas: 0
+  replicas: 1
   revisionHistoryLimit: 2
   strategy:
     type: Recreate
@@ -36,7 +36,7 @@ spec:
       initContainers:
         - name: seed-config
           # renovate: datasource=docker depName=ghcr.io/abhi1693/home-lab-episeerr
-          image: registry.home/ghcr.io/abhi1693/home-lab-episeerr:3.9.6-2@sha256:ea5961a513fd660e9c7fecc07a305ef51aac355ae516da57a44f91d04e748c31
+          image: registry.home/ghcr.io/abhi1693/home-lab-episeerr:4.0.5-1@sha256:3ebfce67d5cb6c99d220b12c89480f5ceeb1d04821ddc9db0cb90835306d0e42
           imagePullPolicy: IfNotPresent
           command:
             - python
@@ -70,7 +70,7 @@ spec:
       containers:
         - name: episeerr
           # renovate: datasource=docker depName=ghcr.io/abhi1693/home-lab-episeerr
-          image: registry.home/ghcr.io/abhi1693/home-lab-episeerr:3.9.6-2@sha256:ea5961a513fd660e9c7fecc07a305ef51aac355ae516da57a44f91d04e748c31
+          image: registry.home/ghcr.io/abhi1693/home-lab-episeerr:4.0.5-1@sha256:3ebfce67d5cb6c99d220b12c89480f5ceeb1d04821ddc9db0cb90835306d0e42
           imagePullPolicy: IfNotPresent
           command:
             - python

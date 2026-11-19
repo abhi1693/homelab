@@ -77,7 +77,7 @@ spec:
               args:
                 - --namespace=postgresql
                 - wait
-                - --for=jsonpath='{.spec.replicas}'=1
+                - --for=jsonpath={.spec.replicas}=1
                 - --timeout=10m
                 - deployment/postgresql-pooler-firefly-iii-rw
               resources:

@@ -1,0 +1,53 @@
+---
+- name: Assert every cluster node has exactly one active Cilium agent
+  ansible.builtin.assert:
+    that:
+      - cilium_validation_node_names | length > 0
+      - cilium_validation_agent_pods | length == cilium_validation_node_names | length
+      - cilium_validation_agent_pods | map(attribute='spec.nodeName') | sort | list == cilium_validation_node_names
+    fail_msg: Every cluster node must have exactly one non-terminating Cilium agent.
+  vars:
+    cilium_validation_node_names: >-
+      {{ (cilium_validation_nodes.stdout | from_json)['items'] | map(attribute='metadata.name') | sort | list }}
+    cilium_validation_agent_pods: >-
+      {{ (cilium_validation_agents.stdout | from_json)['items'] | rejectattr('metadata.deletionTimestamp', 'defined') | list }}
+
+- name: Assert each active Cilium agent pod is Ready
+  ansible.builtin.assert:
+    that:
+      - item.status.phase == 'Running'
+      - item.status.conditions | default([]) | selectattr('type', 'equalto', 'Ready') | selectattr('status', 'equalto', 'True') | list | length == 1
+    fail_msg: "Cilium agent {{ item.metadata.name }} on {{ item.spec.nodeName }} is not Ready."
+  loop: >-
+    {{ (cilium_validation_agents.stdout | from_json)['items'] | rejectattr('metadata.deletionTimestamp', 'defined') | list }}
+  loop_control:
+    label: "{{ item.spec.nodeName }}"
+
+- name: Check running Cilium agent health on every node
+  ansible.builtin.command:
+    argv:
+      - /usr/local/bin/k3s
+      - kubectl
+      - -n
+      - kube-system
+      - exec
+      - "{{ item.metadata.name }}"
+      - -c
+      - cilium-agent
+      - --
+      - cilium-dbg
+      - status
+      - --brief
+  environment:
+    KUBECONFIG: /etc/rancher/k3s/k3s.yaml
+  loop: >-
+    {{ (cilium_validation_agents.stdout | from_json)['items'] | rejectattr('metadata.deletionTimestamp', 'defined') | list }}
+  loop_control:
+    label: "{{ item.spec.nodeName }}"
+  register: cilium_validation_agent_health
+  changed_when: false
+  until:
+    - cilium_validation_agent_health.rc == 0
+    - cilium_validation_agent_health.stdout | trim == 'OK'
+  retries: 6
+  delay: 5

@@ -1,0 +1,60 @@
+---
+- name: Read time-client services before installing startup gates
+  ansible.builtin.service_facts:
+
+- name: Require the configured Chrony startup-gate policy
+  ansible.builtin.assert:
+    that:
+      - os_prep.k3s_time_gate.enabled | bool
+      - ansible_facts.services.get('chrony.service', {}).get('state') == 'running'
+      - ansible_facts.services.get('chrony.service', {}).get('status') == 'enabled'
+      - os_prep.k3s_time_gate.max_tries | int > 0
+      - os_prep.k3s_time_gate.interval_seconds | int > 0
+      - os_prep.k3s_time_gate.max_correction_seconds | float > 0
+      - os_prep.k3s_time_gate.max_correction_seconds | float <= 0.5
+      - os_prep.k3s_time_gate.timeout_seconds | int >= (os_prep.k3s_time_gate.max_tries | int) * (os_prep.k3s_time_gate.interval_seconds | int)
+      - os_prep.k3s_time_gate.timeout_seconds | int <= 600
+    fail_msg: The K3s startup gate requires enabled/running Chrony and a bounded reviewed policy; it never switches time clients automatically.
+
+- name: Verify the startup-gate executables are installed
+  ansible.builtin.stat:
+    path: "{{ item }}"
+  register: os_prep_time_gate_executables
+  loop: [/usr/bin/chronyc, /usr/bin/timeout]
+
+- name: Require startup-gate executables
+  ansible.builtin.assert:
+    that:
+      - item.stat.exists
+      - item.stat.executable
+  loop: "{{ os_prep_time_gate_executables.results }}"
+  loop_control:
+    label: "{{ item.item }}"
+
+- name: Ensure both K3s service drop-in directories exist for bootstrap and installed nodes
+  ansible.builtin.file:
+    path: "/etc/systemd/system/{{ item }}.service.d"
+    state: directory
+    owner: root
+    group: root
+    mode: '0755'
+  loop: [k3s, k3s-agent]
+
+- name: Install bounded synchronization gates without restarting K3s
+  ansible.builtin.template:
+    src: k3s-time-sync.conf.j2
+    dest: "/etc/systemd/system/{{ item }}.service.d/20-home-lab-time-sync.conf"
+    owner: root
+    group: root
+    mode: '0644'
+  register: os_prep_time_gate_dropins
+  loop: [k3s, k3s-agent]
+
+- name: Reload service definitions without restarting any running service
+  ansible.builtin.systemd_service:
+    daemon_reload: true
+  when: os_prep_time_gate_dropins is changed
+
+- name: Validate installed startup gates and current synchronization
+  ansible.builtin.include_tasks: time_startup_gate_validation.yml
+  when: not ansible_check_mode

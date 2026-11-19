@@ -17,8 +17,8 @@
   ansible.builtin.assert:
     that:
       - item.stat.exists
-    fail_msg: "Expected Rancher manifest {{ item.stat.path }} to exist"
-    success_msg: "Rancher manifest {{ item.stat.path }} exists"
+    fail_msg: "Expected Rancher manifest {{ item.item }} to exist"
+    success_msg: "Rancher manifest {{ item.item }} exists"
   loop: "{{ rancher_manifest_stats.results }}"
 
 - name: Check configured Fleet image pull Secret manifest

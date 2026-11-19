@@ -1,0 +1,34 @@
+---
+studentPlugins: true
+values:
+  fullnameOverride: student1-netbox
+  existingSecret: student1-netbox
+  superuser:
+    name: admin
+    email: student1@home.invalid
+    existingSecret: student1-netbox-admin
+  allowedHosts:
+  - netbox-lab1.practicelab.dev
+  csrf:
+    trustedOrigins:
+    - https://netbox-lab1.practicelab.dev
+  ingress:
+    enabled: true
+    className: cloudflare-tunnel
+    hosts:
+    - host: netbox-lab1.practicelab.dev
+      paths:
+      - /
+  externalDatabase:
+    database: netbox_student1
+    username: netbox_student1
+    existingSecretName: student1-netbox
+  tasksDatabase:
+    database: 14
+  cachingDatabase:
+    database: 15
+  podAnnotations:
+    home-lab.io/bootstrap-revision: training-v1
+  worker:
+    podAnnotations:
+      home-lab.io/bootstrap-revision: training-v1

@@ -2,12 +2,8 @@
 
 This bundle installs Sonarr through a Fleet `HelmOp` for TV library automation.
 
-The [acquisition schedule](../media-acquisition-schedule/README.md) runs one
-replica from 22:00–10:00 Asia/Kolkata (IST), on nights starting Monday–Friday;
-Friday night continues until Saturday at 10:00. Git keeps a paused baseline of
-zero replicas, and the schedule owns only the runtime replica field. Outside
-the window the pod stops while queues, configuration PVCs, and media remain
-retained. FlareSolverr stays online because DevFeed uses it.
+Runs continuously with one replica managed by Git/Fleet. Configuration, queues
+and media remain on their existing persistent storage.
 
 ## Runtime Shape
 

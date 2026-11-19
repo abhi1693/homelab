@@ -1,0 +1,31 @@
+---
+name: netbox-upgrade-backup
+defaultNamespace: netbox
+labels:
+  app.kubernetes.io/part-of: netbox
+  home-lab.io/project-slug: home-automation
+dependsOn:
+  - name: netbox-secrets
+correctDrift:
+  enabled: true
+  force: false
+  keepFailHistory: true
+targetCustomizations:
+  - name: local-preserve-backup-identities
+    clusterName: local
+    correctDrift:
+      enabled: true
+      force: false
+      keepFailHistory: true
+helm:
+  force: false
+  takeOwnership: true
+  waitForJobs: true
+  timeoutSeconds: 900
+diff:
+  comparePatches:
+    - apiVersion: v1
+      kind: PersistentVolumeClaim
+      name: netbox-pre-upgrade-backup-nfs
+      namespace: netbox
+      jsonPointers: [/spec/volumeName]

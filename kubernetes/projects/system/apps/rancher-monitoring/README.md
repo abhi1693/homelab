@@ -1,9 +1,9 @@
 # Upstream kube-prometheus-stack
 
 The monitoring runtime uses upstream `prometheus-community/kube-prometheus-stack`
-`92.2.0`: Prometheus 3.15.0, Grafana 13.2.3, Alertmanager 0.34.1 and operator
-0.94.1. Prometheus, Alertmanager, Grafana, the Grafana sidecar and Thanos use
-upstream images. Thanos query and sidecars run 0.42.4. Existing storage identities
+`92.22.0`: Prometheus 3.16.0, Grafana 13.3.0, Alertmanager 0.34.2 and operator
+0.94.2. Prometheus, Alertmanager, Grafana, the Grafana sidecar and Thanos use
+upstream images. Thanos query and sidecars run 0.42.5. Existing storage identities
 are retained. Review backups and a supported recovery path before stateful maintenance.
 
 The upstream chart is fetched from its official GHCR OCI repository, avoiding
@@ -18,6 +18,11 @@ Rancher UI integration. Namespaces belong to wrapper manifests, not HelmOps.
 Use the active files for changes; the release and resource names preserve
 storage bindings, selectors and consumers.
 
+If the wrapper retains an old dependency message after the stack HelmOp and
+its child BundleDeployment are Ready with matching desired/applied IDs, refresh
+the stack HelmOp's `home-lab.io/status-reconcile-at` annotation through Git.
+Verify the refreshed parent summary and preserved workload pod identities.
+
 Fleet accepts the NFS dependency in `Ready` or `NotReady` state so an unhealthy
 node agent does not block monitoring rule and dashboard updates. Missing or
 undeployed dependencies remain blocked.
@@ -30,7 +35,7 @@ dashboards remain in their owning namespaces, and UI-created content lives in
 Grafana's database. Preserve dashboard UIDs and datasource references.
 
 Grafana 13's SQLite migration uses a 64 MiB migration cache and Parquet staging;
-the Grafana container has a 1 GiB memory limit and its existing UID/GID 472.
+the Grafana container has a 1280 MiB memory limit and its existing UID/GID 472.
 
 Native `monitoring-prometheus`, `monitoring-alertmanager` and
 `monitoring-grafana` Services back the maintained Rancher UI proxies. Grafana's
@@ -116,7 +121,7 @@ select control-plane nodes and tolerate `CriticalAddonsOnly=true:NoExecute`.
 Thanos Query prefers worker nodes, and its two replicas have required pod
 anti-affinity. Node exporter remains node-local across servers and workers,
 retaining port `9796`, its host textfile collector, and both `NoSchedule` and
-`NoExecute` tolerations so all eight nodes remain covered.
+`NoExecute` tolerations so all nine nodes remain covered.
 
 The Linux-only cluster disables the chart's Windows exporter dependency so it
 does not render an unschedulable Windows DaemonSet. Grafana's `init-chown-data`
@@ -419,7 +424,7 @@ only while the currently deployed images and build-cache keys still expect them.
 
 ## Host hang recovery monitoring
 
-All eight nodes export minute host-recovery textfile metrics. Raspberry Pi rules
+All nine nodes export minute host-recovery textfile metrics. Raspberry Pi rules
 warn about incomplete netconsole targets, a stopped kernel receiver, stale/missing
 health metrics. Boot-time changes remain available as metrics without a repeated-reboot
 alert, since planned maintenance and clock adjustments can trigger it. The retired
@@ -431,3 +436,37 @@ Received records reach Loki through Alloy as `node/system` with
 `unit="home-lab-kernel-receiver.service"`. The indexed `node` identifies the
 receiver; extract journal `MESSAGE` then parse JSON `source_node` to select the failed sender. Critical
 kernel forwarding is UDP and does not guarantee capture of an unlogged hang.
+
+## Authenticated preservation snapshots
+
+The read-only `scripts/monitoring-migration-state.py snapshot` command accepts
+`GRAFANA_HTTP_AUTHORIZATION` from the process environment for authenticated
+Grafana read APIs. It does not fetch Kubernetes Secrets or record the header.
+An unauthorized response remains a failure rather than an incomplete dashboard
+backup. Preserve a consistent Grafana database backup as well as API exports
+before stateful chart maintenance, and compare private before/after snapshots.
+
+A restored Grafana database must start with its dashboard provider and the
+Git-managed dashboard files already present. The isolated 13.3 rehearsal
+confirmed that omitting the provider triggers cleanup of provisioned resources;
+with the production provider and files, all baseline dashboard/data-source UIDs
+were preserved and the restored database passed integrity checks. Keep these
+provisioning inputs with the recovery evidence.
+
+## Shared-NVMe compaction policy
+
+`prometheus.prometheusSpec.disableCompaction: true` keeps local TSDB blocks at
+two hours rather than repeatedly merging them into larger blocks. Head data
+still persists to blocks, and the existing 30-day / 52GiB retention bounds
+remain in force. The operator implements this with equal minimum and maximum
+block durations. See the [operator API](https://prometheus-operator.dev/docs/api-reference/api/#monitoring.coreos.com/v1.PrometheusSpec).
+
+During the 2026-11-13 storage recovery, both Prometheus replicas spent about
+176–186 seconds per five minutes compacting and wrote about 7–9 MB/s before
+Longhorn replication. Their replicas share control-plane NVMe with embedded
+etcd; host sampling identified a Prometheus Longhorn replica as the dominant
+writer during a WAL-fsync latency alert. This is evidence of competing I/O,
+not evidence of a failed disk. Disabling large block merges is a reversible
+mitigation; retain the etcd latency thresholds and compare current metrics.
+More small blocks can increase query overhead, so validate Thanos queries,
+Prometheus memory, ingestion, and both replicas after rollout.

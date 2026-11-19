@@ -1,0 +1,72 @@
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: student1-netbox-access
+  namespace: postgresql
+spec:
+  podSelector:
+    matchLabels:
+      cnpg.io/cluster: postgresql
+  policyTypes:
+  - Ingress
+  ingress:
+  - from:
+    - namespaceSelector:
+        matchLabels:
+          kubernetes.io/metadata.name: student1
+      podSelector:
+        matchLabels:
+          app.kubernetes.io/instance: student1-netbox
+    ports:
+    - protocol: TCP
+      port: 5432
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: student1-netbox-access
+  namespace: valkey
+spec:
+  podSelector:
+    matchLabels:
+      app.kubernetes.io/instance: valkey
+  policyTypes:
+  - Ingress
+  ingress:
+  - from:
+    - namespaceSelector:
+        matchLabels:
+          kubernetes.io/metadata.name: student1
+      podSelector:
+        matchLabels:
+          app.kubernetes.io/instance: student1-netbox
+    ports:
+    - protocol: TCP
+      port: 6379
+    - protocol: TCP
+      port: 26379
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: student1-netbox-egress
+  namespace: cloudflare
+spec:
+  podSelector:
+    matchLabels:
+      app: controlled-cloudflared-connector
+  policyTypes:
+  - Egress
+  egress:
+  - to:
+    - namespaceSelector:
+        matchLabels:
+          kubernetes.io/metadata.name: student1
+      podSelector:
+        matchLabels:
+          app.kubernetes.io/instance: student1-netbox
+          app.kubernetes.io/component: netbox
+    ports:
+    - protocol: TCP
+      port: 8080

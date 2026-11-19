@@ -1,149 +1,43 @@
----
-# Jellyfin Image
+# Jellyfin image
 
-ARM64 Jellyfin image with the live Jellyfin plugin set and the experimental
-PostgreSQL database provider built in. The upstream published PostgreSQL
-provider image is currently amd64-only, while this cluster is ARM64.
+ARM64 Jellyfin **12.4** with its native SQLite provider and a checksum-pinned
+upstream plugin bundle. The official server base is pinned by digest in both
+the Dockerfile and workflow. The unchanged upstream server and web files run
+on digest-pinned Ubuntu 26.04, with checksum-pinned official Jellyfin FFmpeg
+8.1.3 for Ubuntu, to replace the Debian image’s unpatched dependencies.
+No PostgreSQL provider or patched Jellyfin core
+assembly is included. Security updates are applied during the build.
 
-The image also carries repo-owned Jellyfin core patches under `patches/` for
-state that must be shared between replicas before upstream Jellyfin supports
-this deployment model directly.
+`required-plugins.txt` locks download URLs and SHA-256 hashes;
+`required-plugin-metadata.json` locks plugin identities, versions and ABI
+requirements. Plugin binaries are refreshed from the image on startup while
+persistent configurations remain in `/data/plugins/configurations`.
 
-This image intentionally keeps plugin assemblies as an image concern. Runtime
-database, pooler, credentials, plugin configuration, and migration ordering
-remain Kubernetes and Fleet concerns.
+Shokofin **6.0.5-dev.40** (plugin version `6.0.5.4012`) is the upstream Jellyfin
+12 build. It retains the stable plugin GUID. Its numeric version can exceed
+some future stable builds, so stable adoption must explicitly replace the
+pinned artifact and metadata rather than depend on automatic plugin updates.
+This is the same image deployment procedure used for every other plugin.
 
-## Build Inputs
+The singleton uses Longhorn RWO volumes for `/config` and `/data`; SQLite is at
+`/data/data/jellyfin.db`. Media and generated metadata retain their existing
+NFS paths. The entrypoint preserves the server ID, seeds declared config
+sources, links shared metadata, and disables costly trickplay/chapter jobs when
+requested. Config and plugin credentials remain in SOPS-backed Secrets.
 
-- Base server image: `jellyfin/jellyfin:10.11.8`
-- Jellyfin plugins: pinned in `required-plugins.txt`
-- Jellyfin plugin metadata: pinned in `required-plugin-metadata.json`
-- PostgreSQL provider source: `JPVenson/Jellyfin.Pgsql` tag `10.11.8-1`
-- Jellyfin core patch: `patches/001-device-manager-db-source-of-truth.patch`
-- Published image tag family: `ghcr.io/abhi1693/home-lab-jellyfin:*`
+Production startup requires the PostgreSQL conversion receipt in
+`/data/sqlite-migration.receipt.json`, with `mode=cutover`, a quiesced source
+and successful integrity checks. Set `JELLYFIN_REQUIRE_MIGRATION_RECEIPT=false`
+only for a new empty server such as the isolated CI smoke fixture. Qualification
+uses `JELLYFIN_QUALIFICATION=true` with the separate candidate database.
 
-## Runtime Contract
+The image workflow publishes `12.4-sqlite-1` after native ARM64 build, security
+scans and smoke checks for the exact server version, read-only root filesystem,
+SQLite creation, administrator authentication and every pinned plugin loading.
+Runtime rollout additionally requires data-preservation and API checks.
 
-The container requires:
-
-- `POSTGRES_HOST`
-- `POSTGRES_PORT`
-- `POSTGRES_DB`
-- `POSTGRES_USER`
-- `POSTGRES_PASSWORD`
-
-Optional:
-
-- `POSTGRES_MAX_POOL_SIZE`
-- `POSTGRES_SSLMODE`
-- `POSTGRES_TRUSTSERVERCERTIFICATE`
-- `JELLYFIN_CONFIG_SOURCE_DIRS`
-- `JELLYFIN_DATA_SOURCE_DIRS`
-- `JELLYFIN_PLUGIN_CONFIG_SOURCE_DIRS`
-- `JELLYFIN_ENHANCED_AUTO_SKIP_OUTRO`
-- `JELLYFIN_SHARED_DATA_DIR`
-- `JELLYFIN_SHARED_DATA_PATHS`
-- `JELLYFIN_DISABLE_TRICKPLAY_AND_CHAPTER_IMAGES`
-- `JELLYFIN_SERVER_ID`
-
-The image stores baked plugins under `/opt/jellyfin/plugins/<PluginName>`.
-The final runtime layer applies available Debian security updates when the
-image is built.
-At startup, it syncs those baked plugins into
-`$JELLYFIN_PLUGIN_DIR`, defaulting to `/data/plugins`, creates or updates
-`$JELLYFIN_DATABASE_CONFIG`, defaulting to `/config/database.xml`, and then
-starts Jellyfin. Every replica therefore starts from the same image-defined
-plugin set.
-
-Set `POSTGRES_MAX_POOL_SIZE` to a positive integer to append Npgsql's
-`Maximum Pool Size` setting to the generated PostgreSQL connection string.
-This bounds the container's physical client connections when an external
-session-mode pooler such as PgBouncer is also in use.
-
-The patched `Jellyfin.Server.Implementations.dll` makes `DeviceManager`
-read device sessions and access-token lookups from PostgreSQL instead of only
-the local process cache populated at startup. It also makes device token
-updates and deletes idempotent at the database layer so concurrent replicas do
-not fail when they touch the same device session. This keeps browser and API
-auth tokens portable across active Jellyfin pods.
-
-Plugin auto-updates are disabled in baked `meta.json` files so running replicas
-do not drift. Update `required-plugins.txt` and rebuild the image to change the
-fleet plugin set.
-
-Plugin configuration is runtime state, not image content. Mount ConfigMaps and
-Secrets into either of these default source directories:
-
-- `/opt/jellyfin/plugin-config`
-- `/opt/jellyfin/plugin-secrets`
-
-The entrypoint dereferences Kubernetes projected-volume symlinks and overlays
-those files into `/data/plugins/configurations` in source-directory order before
-starting Jellyfin. Later directories replace files with the same name. Override
-`JELLYFIN_PLUGIN_CONFIG_SOURCE_DIRS` with a colon-separated directory list if
-the chart uses different mount paths.
-
-Set `JELLYFIN_ENHANCED_AUTO_SKIP_OUTRO=false` to force Jellyfin Enhanced's
-`AutoSkipOutro` setting off after plugin configuration overlays are copied. The
-entrypoint patches only that field in existing Jellyfin Enhanced XML and user
-settings files.
-
-Server configuration can be seeded the same way with
-`JELLYFIN_CONFIG_SOURCE_DIRS`. The entrypoint copies those files into
-`/config` before writing the PostgreSQL database configuration.
-
-Set `JELLYFIN_SERVER_ID` to a fixed 32-character hex value to keep
-`/data/data/device.txt` stable across pod replacement. Without this, a pod-local
-data directory can generate a new public server ID during failover or rollout,
-which breaks Jellyfin web clients that have cached the previous selected server.
-
-For active-active pods, keep `/config` and `/data` pod-local and mount shared
-metadata/artwork state separately. Set `JELLYFIN_SHARED_DATA_DIR` to the shared
-mount path and the entrypoint will replace selected data paths with symlinks.
-The default shared paths are:
-
-- `/data/metadata`
-- `/data/data/collections`
-- `/data/data/subtitles`
-- `/data/data/livetv`
-- `/data/data/playlists`
-- `/data/data/imdb-ratings-cache`
-- `/data/root`
-- `/data/Shokofin`
-
-Override `JELLYFIN_SHARED_DATA_PATHS` with a colon-separated relative path list
-when changing the shared state contract.
-
-Set `JELLYFIN_DISABLE_TRICKPLAY_AND_CHAPTER_IMAGES=true` to force existing
-library option files under `/data/root` to disable trickplay image extraction,
-trickplay extraction during scans, chapter image extraction, and chapter image
-extraction during scans before Jellyfin starts. The startup hook follows
-symlinked shared-state paths, so deployments that place `/data/root` on the
-shared data volume are covered.
-
-The baked plugin set currently includes:
-
-- AniDB `11.0.0.0`
-- Collection Sections `2.3.8.0`
-- Custom Tabs `0.2.8.0`
-- DLNA `10.0.0.0`
-- File Transformation `2.5.9.0`
-- Home Screen Sections `2.5.9.0`
-- IMDb Ratings `1.0.0.19`
-- JavaScript Injector `3.4.0.0`
-- Jellyfin Enhanced `11.9.0.0`
-- Media Bar `2.4.10.0`
-- Merge Versions `10.11.0.1`
-- Plugin Pages `2.4.9.0`
-- Shoko `6.0.5.11`
-- TMDb Box Sets `13.0.0.0`
-- Trakt `29.0.0.0`
-- Webhook `21.0.0.0`
-
-## Risk
-
-The PostgreSQL provider is experimental upstream. Treat this image as the
-foundation for a lab cutover and fork hardening, not as a drop-in production
-replacement for SQLite. The device-token patch intentionally changes Jellyfin
-core behavior and must be reviewed when Jellyfin or the PostgreSQL provider is
-updated.
+For rollback, stop the singleton through Fleet, restore the matching pre-upgrade
+SQLite/configuration backup, and restore the matching image through Git. Do not
+start an older Jellyfin against a database upgraded by a newer server. The
+original PostgreSQL database and pre-cutover dump remain retained for the
+separate provider-migration rollback boundary.

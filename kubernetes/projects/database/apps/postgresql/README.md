@@ -12,6 +12,16 @@ PgBouncer poolers used by home-lab apps.
 Private client-specific database contracts and credentials are documented in
 their private deployment bundles.
 
+Removing an application also removes its managed role configuration, Database
+declaration, pooler and dedicated prerequisite dependencies. Removing a role
+from the managed list does not explicitly drop the existing PostgreSQL role.
+A Database with `databaseReclaimPolicy: retain` preserves its SQL database when
+its Kubernetes declaration is removed. Such retained data requires a separately
+authorized disposal decision. Application retirement must preserve the shared
+cluster and its six data/WAL PVCs; these volumes are not per-application storage.
+Review Fleet pruning and credential-controller ownership before merging a
+retirement PR, because reconciliation can stop application access.
+
 ## PostgreSQL image catalog
 
 The chart creates the namespaced `ImageCatalog` named `postgresql` from
@@ -19,10 +29,20 @@ The chart creates the namespaced `ImageCatalog` named `postgresql` from
 `cluster.imageCatalogRef`, using `version.postgresql` as the major version.
 All three PostgreSQL instances use the selected catalog image. The catalog
 pins the PostgreSQL 17.11 Bookworm image by multi-platform OCI index digest,
-including Linux ARM64. Verify GHCR/Harbor index parity before changing it.
+including Linux ARM64. The current build is `202611090810`; PostgreSQL remains
+17.11. GHCR and Harbor OCI index bytes were verified identical for this build.
+Verify GHCR/Harbor index parity before changing it. Retained completed backup
+Jobs keep their original image pin because their pod templates are immutable.
 The exact `tag@sha256` reference is declared once in `values.yaml`.
 Update that entry through Git and Fleet to roll out future image changes;
 do not also set `cluster.imageName`. PgBouncer images remain configured separately.
+
+If Fleet retains an old `WaitApplied` summary after the PostgreSQL HelmOp and
+child BundleDeployment are Ready with matching desired/applied IDs, verify all
+three database instances and refresh the HelmOp's `home-lab.io/status-reconcile-at`
+metadata annotation through Git. Confirm parent readiness and preserved pod
+identities after reconciliation, following the root operational workflow.
+
 ### Bookworm collation maintenance
 
 Image changes can update collation libraries independently of PostgreSQL.
@@ -55,6 +75,71 @@ Rolling back the image also rolls back the collation libraries: repeat the
 collation check and rebuild on the restored image before refreshing its version.
 Reverting the image alone does not undo indexes built with newer ICU libraries.
 
+### Unused built-in collation metadata
+
+Old `pg_catalog` collation versions can remain after an operating-system
+upgrade even when no application object uses them. The explicit operator tool
+`scripts/maintain-unused-collations.py` audits this case and refreshes only
+unused built-in collations applicable to the database's encoding. PostgreSQL
+ignores catalogue entries for other encodings; the tool preserves those entries
+and the pristine, connection-disabled `template0` database. It includes the
+connectable `template1`, so new databases inherit current applicable versions.
+
+Run an audit only after all three instances are Ready on the selected image,
+replicas are streaming, archiving is healthy, and the named completed backup
+and its required WAL objects have been verified. Store private evidence outside
+the checkout. Review the resulting database allowlist, physical cluster identity,
+pod identities, image, backup and SQL/driver hashes before the explicit apply:
+
+```sh
+python3 scripts/maintain-unused-collations.py audit \
+  --kubeconfig "$KUBECONFIG" --backup "$COLLATION_BACKUP_NAME" \
+  --output "$COLLATION_AUDIT_JSON"
+python3 scripts/maintain-unused-collations.py apply \
+  --kubeconfig "$KUBECONFIG" --backup "$COLLATION_BACKUP_NAME" \
+  --plan "$COLLATION_AUDIT_JSON" --output "$COLLATION_RESULT_JSON"
+```
+
+Apply requires an unchanged reviewed plan less than 30 minutes old and a
+completed backup less than 24 hours old. Every database batch rechecks the
+physical cluster, primary, server version and target database. Catalogue locks
+briefly fence schema writes while ordinary application DML continues. The
+default batch is 32 collations, capped at 64, with a one-second lock timeout
+and 15-second statement timeout. Any mismatch with stored dependencies,
+columns, indexes, types, ranges or a non-catalogue definition stops the repair;
+used collations need a separately reviewed rebuild such as the NetBox procedure
+above. OID resolution and every non-version definition field are preserved.
+
+Each batch is transactional. A later failure leaves earlier successful batches
+committed; retain the progress JSONL, inspect the failure, then create a fresh
+audit before retrying. Do not restore old version markers as a rollback: image
+rollback requires rechecking the restored libraries and affected objects.
+Afterward verify application collations, database defaults, replication,
+archiving, image/pod identities and application access. This tool performs SQL
+operator maintenance and does not create or patch Kubernetes resources.
+
+Qualify the SQL guards in a fresh disposable CNPG PostgreSQL 17 image before
+maintenance. Set `COLLATION_FIXTURE_IMAGE` to the reviewed image digest. The
+fixture uses only tmpfs, has no network or host data mounts, and deliberately
+creates inconsistent synthetic metadata to test refusal and concurrency paths:
+
+```sh
+docker run --detach --rm --name collation-metadata-fixture \
+  --label home-lab.task=unused-collation-metadata-fixture \
+  --network none --read-only --cap-drop ALL \
+  --security-opt no-new-privileges --user 26 \
+  --tmpfs /tmp:rw,uid=26,gid=26,mode=1777 \
+  --entrypoint /bin/bash "$COLLATION_FIXTURE_IMAGE" -ec \
+  'initdb -D /tmp/collation-fixture --username=postgres --auth-local=trust --no-locale --encoding=UTF8 >/tmp/initdb.log; exec postgres -D /tmp/collation-fixture -p 55432 -c listen_addresses= -c unix_socket_directories=/tmp -c max_connections=20 -c shared_buffers=16MB -c allow_system_table_mods=on'
+python3 scripts/qualify-unused-collation-guards.py \
+  --container collation-metadata-fixture --output "$COLLATION_FIXTURE_JSON"
+docker rm -f collation-metadata-fixture
+```
+
+The qualification covers successful refresh, preserved incompatible encodings,
+idempotence, used-collation refusal, cluster-identity refusal, bounded catalogue
+lock contention and new-DDL fencing while ordinary DML continues.
+
 ## Monitoring collector database
 
 The cluster uses `app` as its `cluster.initdb.database` and owner, matching
@@ -79,6 +164,19 @@ The custom Prometheus rules alert when `cnpg_last_error` remains non-zero and
 when fewer ready PostgreSQL instances expose
 `cnpg_pg_stat_database_xact_commit`. These checks detect partial exporter
 failure even when the metrics endpoint and Prometheus target remain up.
+
+Replication lag uses seconds. The chart's `CNPGClusterHighReplicationLag`
+warning remains unchanged at more than one second for five minutes. Its
+identical physical warning is excluded. The physical critical alert keeps its
+name, labels, threshold of more than 15 seconds, and five-minute hold in the
+owned rule, with its description corrected to seconds. Only those two chart
+rules are excluded; the remaining default alerts stay enabled.
+
+Run `python scripts/check-postgresql-observability.py` from the repository root
+to validate the owned alerts. Add `--rendered-cluster /path/to/cluster-render.yaml`
+with the exact pinned chart rendered using this app's values to also validate
+default alert ownership, warning/critical boundaries, the five-minute holds,
+brief lag spikes, and recovery.
 
 ## Storage redundancy
 
@@ -382,3 +480,27 @@ instances. Their PostgreSQL databases, roles and credentials remain retained;
 shared cluster sizing and active application poolers are unchanged.
 
 The Training instructor uses the retained `netbox_instructor` database and its own non-superuser role, limited to ten connections. Credentials are SOPS-managed independently of production NetBox.
+
+## Pre-upgrade recovery point
+
+`backup-pr217-preflight-20261111.yaml` requests one retained, standby-preferred
+Barman backup after the node/storage incident. The previous daily/manual
+requests failed their target-pod health checks; they remain as audit records.
+Verify this new Backup completes, continuous WAL archiving is healthy, and the
+cluster reports a successful recoverability point before the image refresh.
+This finite request does not replace the daily schedule or change retention.
+
+Application-specific roles reference their app-specific SOPS password Secret.
+When an application lives in another namespace, its local Secret must be updated
+with the same credential during rotation. This established pattern is manually
+coordinated; it is not automatic CNPG secret generation or cross-namespace mounting.
+
+Student 1 NetBox uses retained database and login role `netbox_student1`.
+
+Student 2 NetBox uses retained database and login role `netbox_student2`.
+
+Student 3 NetBox uses retained database and login role `netbox_student3`.
+
+Student 4 NetBox uses retained database and login role `netbox_student4`.
+
+Student 5 NetBox uses retained database and login role `netbox_student5`.

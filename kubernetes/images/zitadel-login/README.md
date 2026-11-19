@@ -19,6 +19,29 @@ missing entries and unreviewed major/prerelease changes. It runs before the real
 frozen-lockfile installation; compilation, runtime scanning and smoke tests remain
 separate release gates. Package managers are removed from the runtime.
 
+The November security refresh pins Zod 4.6.6, Undici 6.29.1/7.30.1,
+Joi 18.3.1, follow-redirects 1.16.2, systeminformation 5.33.16,
+body-parser 1.20.9/2.4.0, fast-uri 3.1.9, qs 6.16.1 and
+`@hono/node-server` 2.1.6. Existing package major versions are preserved.
+The November 13 patch raises the Hono Node server floor to 2.1.6 for
+GHSA-qv5m-9pm6-hqp3 and GHSA-jpvv-r467-5p4w. The existing MCP SDK
+transitive dependency is retained; no other package resolutions change.
+
+Remaining reviewed Dependabot findings are not dismissed: minimatch
+GHSA-g3hv-75wg-m249 and glob GHSA-3g3m-2fjr-6pw4 need cross-major
+upgrades across the upstream build toolchain (including Nx, ESLint and npm
+packaging tools), requiring compilation and compatibility qualification rather
+than blanket overrides. Login also directly depends on deepmerge 4.3.1;
+GHSA-gcqx-w48m-w2h4 has no patched version in the advisory as of November 13.
+A source-level replacement or reviewed upstream patch is needed for that
+finding. Repository remediation alone does not update the deployed Login image.
+
+Regenerate the lockfile with the Dockerfile's pinned pnpm against the pinned
+upstream source after applying `patch-register.py`, including its test-only
+dependency removals. Verify a frozen lockfile-only install against that patched
+source before committing; never edit resolved integrity hashes manually. Source and
+runtime checks must pass before deploying a newly published image.
+
 Runtime source remains strictly type-checked; integration/test fixtures run
 through their own checks. The custom image changes Login only. Qualify Core and
 its embedded Console independently, and keep Login dependency changes separate

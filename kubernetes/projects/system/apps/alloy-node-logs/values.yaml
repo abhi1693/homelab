@@ -3,8 +3,8 @@ crds:
   create: false
 
 image:
-  # ARM64 manifest for grafana/alloy:v1.20.1, verified from the OCI index.
-  digest: sha256:830fe0d4e1cde1fb1d15b23a792939c88c81bf41aac8ed34180143acaaa9889b
+  # OCI index with Linux ARM64 for grafana/alloy:v1.21.3, verified from the OCI index.
+  digest: sha256:8ab871206bd2d8f89277f53abffee5f452a293980788d52f85fa183a87a505a4
 
 # Stage one primes file offsets while the existing API collector owns pod logs.
 # Keep the API pod source until every forwarding replacement is Ready.
@@ -117,11 +117,11 @@ alloy:
         # Explicitly bind the verified child rather than relying on propagation
         # of a nested host mount through the parent state directory.
         mountPath: /var/lib/alloy-node-logs/otel
-  # Host CRI logs are root:root 0640; root with no capabilities can read them.
-  # Journal directories and files are root owned, so no host group is required.
+  # Root owns CRI/journal files. Selected OS logs can be syslog:adm 0640;
+  # Ubuntu's adm GID 4 grants read access without DAC bypass capabilities.
   securityContext:
     runAsUser: 0
-    runAsGroup: 0
+    runAsGroup: 4
     allowPrivilegeEscalation: false
     readOnlyRootFilesystem: true
     capabilities:

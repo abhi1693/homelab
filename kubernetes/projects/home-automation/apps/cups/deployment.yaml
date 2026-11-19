@@ -21,7 +21,7 @@ spec:
         app.kubernetes.io/name: cups
         app.kubernetes.io/part-of: home-automation
       annotations:
-        home-lab.io/config-revision: "7"
+        home-lab.io/config-revision: "8"
     spec:
       automountServiceAccountToken: false
       terminationGracePeriodSeconds: 60
@@ -80,6 +80,8 @@ spec:
               mountPath: /dev/bus/usb
             - name: state
               mountPath: /var/lib/cups-state
+            - name: render-tmp
+              mountPath: /tmp/cups-tmp
             - name: bootstrap
               mountPath: /bootstrap
               readOnly: true
@@ -94,6 +96,9 @@ spec:
         - name: state
           persistentVolumeClaim:
             claimName: cups-state
+        - name: render-tmp
+          emptyDir:
+            sizeLimit: 1Gi
         - name: bootstrap
           configMap:
             name: cups-bootstrap

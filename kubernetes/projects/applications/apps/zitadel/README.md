@@ -52,7 +52,7 @@ SOPS-managed `zitadel-env` secret and must be changed at first login.
 The ZITADEL master key is intentionally stored in `zitadel-masterkey`. Losing
 that key makes encrypted ZITADEL data unrecoverable.
 
-The Login UI runs the digest-pinned `home-lab-zitadel-login:4.20.0-idp-retry2-ddd2af6`
+The Login UI runs the digest-pinned `home-lab-zitadel-login:4.20.0-idp-retry2-c77a3e2`
 image. It retries only session lookup after successful GitHub account creation
 and linking, covering transient user projection delay. See
 [the image source](../../../../images/zitadel-login/README.md) for regression
@@ -175,3 +175,14 @@ and extra headroom where OOM records show clipping.
 | `zitadel/zitadel/zitadel` | 50m → 25m | 207Mi → 256Mi | 768Mi → 768Mi |
 | `zitadel/zitadel-login/zitadel-login` | 70m → 25m | 168Mi → 224Mi | 256Mi → 256Mi |
 | `zitadel/zitadel-devfeed-login/login` | 70m → 25m | 146Mi → 256Mi | 256Mi → 384Mi |
+
+## November Login security patch
+
+Both primary and DevFeed Login deployments use immutable ARM64 image
+`4.20.0-idp-retry2-c77a3e2` from native build
+[41519880568](https://github.com/abhi1693/home-lab/actions/runs/41519880568).
+The image passed the strict HIGH/CRITICAL and secret scan, SBOM publication,
+retry regressions, runtime version/trust-store checks and isolated startup smoke.
+It updates dependency patches while preserving Login 4.20.0 and the existing
+identity-provider retry patch. Core is unchanged and has no new database migration.
+The Login source dependency alert closure does not establish Core remediation.

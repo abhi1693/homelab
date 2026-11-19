@@ -2,7 +2,7 @@
 
 ExternalDNS watches Kubernetes Ingress hosts and annotated Services, then
 reconciles matching records into UniFi DNS through the
-`kashalls/external-dns-unifi-webhook` provider.
+`home-operations/external-dns-unifi-webhook` provider.
 
 Current choices:
 
@@ -11,7 +11,7 @@ Current choices:
 - Fleet/Helm release name: `external-dns-unifi`
 - workload name: `external-dns-unifi`
 - UniFi webhook image:
-  `registry.home/ghcr.io/kashalls/external-dns-unifi-webhook:v0.9.0`
+  `registry.home/ghcr.io/home-operations/external-dns-unifi-webhook:0.11.0`
 - namespace: `kube-public`
 - sources: `ingress`, `service`
 - ingress class: `traefik`
@@ -31,6 +31,27 @@ infrastructure-only.
 
 The UniFi webhook image is pulled through the public `ghcr.io` Harbor proxy
 cache project, so it does not need an image pull Secret.
+
+## Upgrade to webhook 0.11.0
+
+This version uses the UniFi Network static-DNS API and expects a site name,
+not an Integration API site UUID. `UNIFI_SITE=default` is explicitly pinned
+after verifying the live site's name and UniFi Network 10.6.109 with the
+existing API key. The minimum upstream Network version is 9.0.0.
+
+Before rollout, the exact candidate image returned the same 50 DNS records,
+including all 23 TXT ownership records, as the running provider. An isolated
+ExternalDNS 0.23.0 reconciliation with the live source filters, owner ID,
+registry and sync policy in dry-run mode reported all records already current.
+No DNS changes were applied during qualification. Keep `txtOwnerId`,
+`txtPrefix`, sources, ingress class and domain filter unchanged when migrating.
+
+After Fleet applies the ARM64 image, verify provider readiness, clean
+reconciliation, record/ownership preservation and LAN DNS responses. Rollback
+reverts the migration as a unit: return to the old image and remove the new
+`UNIFI_SITE=default` override so the old Integration API client resumes its
+previous site discovery. Keep the same Secret and TXT ownership settings; do not
+delete controller DNS records to recover the provider.
 
 Rotate the key only by updating the encrypted `api-key` field with SOPS. Never
 commit or print the plaintext key, and do not create a competing Secret by hand

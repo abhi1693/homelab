@@ -1,6 +1,6 @@
-# syntax=docker/dockerfile:1.28
+# syntax=docker/dockerfile:1.29
 
-ARG BASE_IMAGE=codercom/enterprise-base:ubuntu-20261012
+ARG BASE_IMAGE=codercom/enterprise-base:ubuntu-20261119
 FROM ${BASE_IMAGE}
 
 ARG BASE_IMAGE

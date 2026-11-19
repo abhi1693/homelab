@@ -1,0 +1,14 @@
+---
+name: student1-netbox-helmop
+defaultNamespace: fleet-local
+labels:
+  app.kubernetes.io/name: student1-netbox
+  app.kubernetes.io/part-of: netbox
+  home-lab.io/project-slug: training
+dependsOn:
+- name: student1-prerequisites
+- name: postgresql-helmop
+- name: valkey-helmop
+- name: csi-driver-nfs-helmop
+helm:
+  force: false

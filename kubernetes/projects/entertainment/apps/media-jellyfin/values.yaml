@@ -1,10 +1,11 @@
+---
 TZ: Asia/Kolkata
 chartContext:
   appUrl: http://watch.media.home
 image:
   repository: registry.home/ghcr.io/abhi1693/home-lab-jellyfin
   # renovate: datasource=docker depName=ghcr.io/abhi1693/home-lab-jellyfin
-  tag: 10.11.8-pgsql.10.11.8-1-webhook-v21-overlay2
+  tag: 12.4-sqlite-1@sha256:a49d52d6b1e4bfe6463c1b9e2aa8297bffce08fdd3131ea62b04ef733dac8991
   pullPolicy: IfNotPresent
 imagePullSecret:
   harbor-registry:
@@ -19,14 +20,15 @@ workload:
     replicas: 1
     strategy: Recreate
     podSpec:
-      automountServiceAccountToken: false
+      automountServiceAccountToken: true
       securityContext:
-        fsGroup: 0
+        fsGroup: 568
         fsGroupChangePolicy: OnRootMismatch
         supplementalGroups:
-          - 1000
+        - 0
+        - 1000
       annotations:
-        home-lab.io/config-seed-revision: "20260831"
+        home-lab.io/config-seed-revision: '20260831'
       labels:
         home-lab.io/topology-group: heavy-media
       initContainers:
@@ -36,101 +38,71 @@ workload:
           imageSelector: image
           resources:
             limits:
-              # Retain the former cap for finite config initialization only.
               cpu: 2500m
           command:
-            - /bin/bash
-            - -ec
-            - |
-              source_dir=/opt/jellyfin/plugin-secrets
-              target_dir=/opt/jellyfin/plugin-overrides
-
-              mkdir -p "$target_dir"
-              patched=0
-
-              shopt -s nullglob
-              for source_file in \
-                "$source_dir"/Jellyfin.Plugin.JellyfinEnhanced.xml \
-                "$source_dir"/*JellyfinEnhanced*.xml \
-                "$source_dir"/*Enhanced*.xml; do
-                target_file="$target_dir/$(basename "$source_file")"
-                cp "$source_file" "$target_file"
-
-                if [ "$(xmlstarlet select -t -v 'count(//*[local-name()="AutoSkipOutro"])' "$target_file" 2>/dev/null || echo 0)" != "0" ]; then
-                  xmlstarlet edit \
-                    --inplace \
-                    -u '//*[local-name()="AutoSkipOutro"]' \
-                    -v false \
-                    "$target_file"
-                  patched=1
-                  echo "Jellyfin Enhanced: set AutoSkipOutro=false in $target_file"
-                fi
-              done
-
-              if [ "$patched" -eq 0 ]; then
-                echo "Jellyfin Enhanced: AutoSkipOutro was not found in mounted plugin config"
-              fi
+          - /bin/bash
+          - -ec
+          - "source_dir=/opt/jellyfin/plugin-secrets\ntarget_dir=/opt/jellyfin/plugin-overrides\n\
+            \nmkdir -p \"$target_dir\"\npatched=0\n\nshopt -s nullglob\nfor source_file\
+            \ in \\\n  \"$source_dir\"/Jellyfin.Plugin.JellyfinEnhanced.xml \\\n \
+            \ \"$source_dir\"/*JellyfinEnhanced*.xml \\\n  \"$source_dir\"/*Enhanced*.xml;\
+            \ do\n  target_file=\"$target_dir/$(basename \"$source_file\")\"\n  cp\
+            \ \"$source_file\" \"$target_file\"\n\n  if [ \"$(xmlstarlet select -t\
+            \ -v 'count(//*[local-name()=\"AutoSkipOutro\"])' \"$target_file\" 2>/dev/null\
+            \ || echo 0)\" != \"0\" ]; then\n    xmlstarlet edit \\\n      --inplace\
+            \ \\\n      -u '//*[local-name()=\"AutoSkipOutro\"]' \\\n      -v false\
+            \ \\\n      \"$target_file\"\n    patched=1\n    echo \"Jellyfin Enhanced:\
+            \ set AutoSkipOutro=false in $target_file\"\n  fi\ndone\n\nif [ \"$patched\"\
+            \ -eq 0 ]; then\n  echo \"Jellyfin Enhanced: AutoSkipOutro was not found\
+            \ in mounted plugin config\"\nfi\n"
+        backup-before-upgrade:
+          enabled: true
+          type: init
+          imageSelector: sqliteMigratorImage
+          command:
+          - python
+          - /opt/upgrade/backup-before-upgrade.py
+          env:
+            PYTHONPATH: /app
+            POD_NAME:
+              fieldRef:
+                fieldPath: metadata.name
+          securityContext:
+            runAsUser: 568
+            runAsGroup: 568
+            runAsNonRoot: true
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities:
+              drop:
+              - ALL
+          resources:
+            requests:
+              cpu: 100m
+              memory: 256Mi
+            limits:
+              memory: 1Gi
       containers:
         main:
           command:
-            - /bin/bash
-            - -ec
-            - |
-              patched_entrypoint=/tmp/jellyfin-entrypoint.sh
-              sed_args=(
-                -e '/plugin_name="$(basename "${image_plugin_dir}")"/a\
-                  case "${plugin_name}" in\
-                    "Intro Skipper_"*|"InPlayer Episode Preview_"*|"Playback Reporting_"*)\
-                      continue\
-                      ;;\
-                  esac
-                ' \
-                -e 's|find "${data_root}/root" -type f -name options.xml -print0|find -L "${data_root}/root" -type f -name options.xml -print0|'
-              )
-              if ! grep -q 'POSTGRES_MAX_POOL_SIZE' /entrypoint.sh; then
-                sed_args+=(
-                  -e 's|connection_string="Password=${POSTGRES_PASSWORD};User ID=${POSTGRES_USER};Host=${POSTGRES_HOST};Port=${POSTGRES_PORT};Database=${POSTGRES_DB}"|connection_string="Password=${POSTGRES_PASSWORD};User ID=${POSTGRES_USER};Host=${POSTGRES_HOST};Port=${POSTGRES_PORT};Database=${POSTGRES_DB};Maximum Pool Size=${POSTGRES_MAX_POOL_SIZE}"|'
-                )
-              fi
-              sed "${sed_args[@]}" /entrypoint.sh > "${patched_entrypoint}"
-              chmod +x "${patched_entrypoint}"
-
-              exec "${patched_entrypoint}"
+          - /entrypoint.sh
           env:
             JELLYFIN_SERVER_ID: 6f2af3a6478c417ebf645566121042a1
-            POSTGRES_HOST: postgresql-pooler-jellyfin-rw.postgresql.svc.cluster.local
-            POSTGRES_PORT: "5432"
-            POSTGRES_DB:
-              secretKeyRef:
-                name: media-jellyfin-postgresql
-                key: dbname
-                expandObjectName: false
-            POSTGRES_USER:
-              secretKeyRef:
-                name: media-jellyfin-postgresql
-                key: username
-                expandObjectName: false
-            POSTGRES_PASSWORD:
-              secretKeyRef:
-                name: media-jellyfin-postgresql
-                key: password
-                expandObjectName: false
-            POSTGRES_MAX_POOL_SIZE: "14"
-            POSTGRES_SSLMODE: Disable
             JELLYFIN_CONFIG_SOURCE_DIRS: /opt/jellyfin/config-secrets
             JELLYFIN_PLUGIN_CONFIG_SOURCE_DIRS: /opt/jellyfin/plugin-config:/opt/jellyfin/plugin-episeerr:/opt/jellyfin/plugin-secrets:/opt/jellyfin/plugin-overrides
-            JELLYFIN_ENHANCED_AUTO_SKIP_OUTRO: "false"
+            JELLYFIN_ENHANCED_AUTO_SKIP_OUTRO: 'false'
             JELLYFIN_SHARED_DATA_DIR: /shared-data
             JELLYFIN_SHARED_DATA_PATHS: metadata:data/collections:data/subtitles:data/livetv:data/playlists:data/imdb-ratings-cache:data/trickplay:root:Shokofin
-            JELLYFIN_DISABLE_TRICKPLAY_AND_CHAPTER_IMAGES: "true"
+            JELLYFIN_DISABLE_TRICKPLAY_AND_CHAPTER_IMAGES: 'true'
+            JELLYFIN_REQUIRE_MIGRATION_RECEIPT: 'true'
           probes:
             liveness:
               enabled: true
               type: exec
               command:
-                - /entrypoint.sh
-                - healthcheck
-                - liveness
+              - /entrypoint.sh
+              - healthcheck
+              - liveness
               spec:
                 initialDelaySeconds: 12
                 periodSeconds: 15
@@ -141,9 +113,10 @@ workload:
               enabled: true
               type: exec
               command:
-                - /entrypoint.sh
-                - healthcheck
-                - readiness
+              - /bin/bash
+              - -ec
+              - curl -fsS --max-time 3 http://127.0.0.1:8096/System/Info/Public |
+                jq -e '.StartupWizardCompleted == true' >/dev/null
               spec:
                 initialDelaySeconds: 10
                 periodSeconds: 12
@@ -154,15 +127,17 @@ workload:
               enabled: true
               type: exec
               command:
-                - /entrypoint.sh
-                - healthcheck
-                - startup
+              - /bin/bash
+              - -ec
+              - curl -fsS --max-time 3 http://127.0.0.1:8096/System/Info/Public |
+                jq -e '.StartupWizardCompleted == true' >/dev/null
               spec:
                 initialDelaySeconds: 5
                 periodSeconds: 5
                 successThreshold: 1
                 timeoutSeconds: 3
                 failureThreshold: 60
+      serviceAccountName: jellyfin-sqlite-migrator
 podOptions:
   defaultSpread: false
   defaultAffinity: false
@@ -173,7 +148,6 @@ resources:
     cpu: 100m
     memory: 768Mi
   limits:
-    # TrueCharts: numeric zero omits the CPU limit instead of inheriting a cap.
     cpu: 0
     memory: 4Gi
 ingress:
@@ -181,10 +155,10 @@ ingress:
     enabled: true
     ingressClassName: traefik
     hosts:
-      - host: watch.media.home
-        paths:
-          - path: /
-            pathType: Prefix
+    - host: watch.media.home
+      paths:
+      - path: /
+        pathType: Prefix
     tls: []
 service:
   main:
@@ -199,11 +173,28 @@ service:
       app.kubernetes.io/instance: jellyfin
 persistence:
   config:
-    type: emptyDir
-    size: 512Mi
+    enabled: true
+    type: pvc
+    existingClaim: jellyfin-sqlite-config
+    mountPath: /config
+    targetSelector:
+      main:
+        main:
+          mountPath: /config
+        backup-before-upgrade:
+          mountPath: /config
+          readOnly: true
   data:
-    type: emptyDir
-    size: 2Gi
+    enabled: true
+    type: pvc
+    existingClaim: jellyfin-sqlite-data
+    mountPath: /data
+    targetSelector:
+      main:
+        main:
+          mountPath: /data
+        backup-before-upgrade:
+          mountPath: /data
   config-seed:
     enabled: true
     type: secret
@@ -212,20 +203,20 @@ persistence:
     mountPath: /opt/jellyfin/config-secrets
     readOnly: true
     items:
-      - key: aspnet-data-protection-key.xml
-        path: .aspnet/DataProtection-Keys/aspnet-data-protection-key.xml
-      - key: encoding.xml
-        path: encoding.xml
-      - key: livetv.xml
-        path: livetv.xml
-      - key: logging.default.json
-        path: logging.default.json
-      - key: metadata.xml
-        path: metadata.xml
-      - key: network.xml
-        path: network.xml
-      - key: system.xml
-        path: system.xml
+    - key: aspnet-data-protection-key.xml
+      path: .aspnet/DataProtection-Keys/aspnet-data-protection-key.xml
+    - key: encoding.xml
+      path: encoding.xml
+    - key: livetv.xml
+      path: livetv.xml
+    - key: logging.default.json
+      path: logging.default.json
+    - key: metadata.xml
+      path: metadata.xml
+    - key: network.xml
+      path: network.xml
+    - key: system.xml
+      path: system.xml
   plugin-config-seed:
     enabled: true
     type: secret
@@ -263,6 +254,13 @@ persistence:
     type: pvc
     existingClaim: jellyfin-shared-data-nfs
     mountPath: /shared-data
+    targetSelector:
+      main:
+        main:
+          mountPath: /shared-data
+        backup-before-upgrade:
+          mountPath: /shared-data
+          readOnly: true
   media:
     enabled: true
     type: pvc
@@ -270,6 +268,18 @@ persistence:
     mountPath: /media
   transcode:
     enabled: false
+  upgrade-backup-script:
+    enabled: true
+    type: configmap
+    objectName: jellyfin-upgrade-backup
+    expandObjectName: false
+    mountPath: /opt/upgrade
+    readOnly: true
+    targetSelector:
+      main:
+        backup-before-upgrade:
+          mountPath: /opt/upgrade
+          readOnly: true
 podDisruptionBudget:
   main:
     enabled: true
@@ -282,123 +292,118 @@ networkPolicy:
     enabled: true
     policyType: ingress
     ingress:
-      - from:
-          - namespaceSelector:
-              matchLabels:
-                kubernetes.io/metadata.name: kube-system
-            podSelector:
-              matchLabels:
-                app.kubernetes.io/name: traefik
-          - podSelector:
-              matchLabels:
-                app.kubernetes.io/instance: jellyseerr
-                app.kubernetes.io/name: seerr-chart
-          - podSelector:
-              matchLabels:
-                app.kubernetes.io/instance: sonarr
-                app.kubernetes.io/name: sonarr
-          - podSelector:
-              matchLabels:
-                app.kubernetes.io/instance: radarr
-                app.kubernetes.io/name: radarr
-          - podSelector:
-              matchLabels:
-                app.kubernetes.io/name: ryokan
-          - namespaceSelector:
-              matchLabels:
-                kubernetes.io/metadata.name: media
-            podSelector:
-              matchLabels:
-                app.kubernetes.io/instance: qbittorrent-smart-queues
-                app.kubernetes.io/name: qbittorrent-smart-queues
-          - podSelector:
-              matchLabels:
-                app.kubernetes.io/name: episeerr
-          - namespaceSelector:
-              matchLabels:
-                kubernetes.io/metadata.name: home-assistant
-            podSelector:
-              matchLabels:
-                app.kubernetes.io/instance: home-assistant
-                app.kubernetes.io/name: home-assistant
-        ports:
-          - protocol: TCP
-            port: 8096
+    - from:
+      - namespaceSelector:
+          matchLabels:
+            kubernetes.io/metadata.name: kube-system
+        podSelector:
+          matchLabels:
+            app.kubernetes.io/name: traefik
+      - podSelector:
+          matchLabels:
+            app.kubernetes.io/instance: jellyseerr
+            app.kubernetes.io/name: seerr-chart
+      - podSelector:
+          matchLabels:
+            app.kubernetes.io/instance: sonarr
+            app.kubernetes.io/name: sonarr
+      - podSelector:
+          matchLabels:
+            app.kubernetes.io/instance: radarr
+            app.kubernetes.io/name: radarr
+      - podSelector:
+          matchLabels:
+            app.kubernetes.io/name: ryokan
+      - namespaceSelector:
+          matchLabels:
+            kubernetes.io/metadata.name: media
+        podSelector:
+          matchLabels:
+            app.kubernetes.io/instance: qbittorrent-smart-queues
+            app.kubernetes.io/name: qbittorrent-smart-queues
+      - podSelector:
+          matchLabels:
+            app.kubernetes.io/name: episeerr
+      - namespaceSelector:
+          matchLabels:
+            kubernetes.io/metadata.name: home-assistant
+        podSelector:
+          matchLabels:
+            app.kubernetes.io/instance: home-assistant
+            app.kubernetes.io/name: home-assistant
+      ports:
+      - protocol: TCP
+        port: 8096
   egress:
     enabled: true
     policyType: egress
     egress:
-      - to:
-          - namespaceSelector:
-              matchLabels:
-                kubernetes.io/metadata.name: kube-system
-            podSelector:
-              matchLabels:
-                k8s-app: kube-dns
-        ports:
-          - protocol: UDP
-            port: 53
-          - protocol: TCP
-            port: 53
-      - to:
-          - ipBlock:
-              cidr: 10.43.0.1/32
-        ports:
-          - protocol: TCP
-            port: 443
-      - to:
-          - podSelector:
-              matchLabels:
-                app.kubernetes.io/name: shoko
-        ports:
-          - protocol: TCP
-            port: 8111
-      - to:
-          - namespaceSelector:
-              matchLabels:
-                kubernetes.io/metadata.name: postgresql
-            podSelector:
-              matchLabels:
-                cnpg.io/poolerName: postgresql-pooler-jellyfin-rw
-        ports:
-          - protocol: TCP
-            port: 5432
-      - to:
-          - podSelector:
-              matchLabels:
-                app.kubernetes.io/instance: jellyseerr
-                app.kubernetes.io/name: seerr-chart
-        ports:
-          - protocol: TCP
-            port: 5055
-          - protocol: TCP
-            port: 10241
-      - to:
-          - podSelector:
-              matchLabels:
-                app.kubernetes.io/instance: radarr
-                app.kubernetes.io/name: radarr
-        ports:
-          - protocol: TCP
-            port: 7878
-      - to:
-          - podSelector:
-              matchLabels:
-                app.kubernetes.io/instance: sonarr
-                app.kubernetes.io/name: sonarr
-        ports:
-          - protocol: TCP
-            port: 8989
-      - to:
-          - podSelector:
-              matchLabels:
-                app.kubernetes.io/name: episeerr
-        ports:
-          - protocol: TCP
-            port: 5002
-      - to:
-          - ipBlock:
-              cidr: 0.0.0.0/0
-              except:
-                - 10.42.0.0/16
-                - 10.43.0.0/16
+    - to:
+      - namespaceSelector:
+          matchLabels:
+            kubernetes.io/metadata.name: kube-system
+        podSelector:
+          matchLabels:
+            k8s-app: kube-dns
+      ports:
+      - protocol: UDP
+        port: 53
+      - protocol: TCP
+        port: 53
+    - to:
+      - ipBlock:
+          cidr: 10.43.0.1/32
+      ports:
+      - protocol: TCP
+        port: 443
+    - to:
+      - podSelector:
+          matchLabels:
+            app.kubernetes.io/name: shoko
+      ports:
+      - protocol: TCP
+        port: 8111
+    - to:
+      - podSelector:
+          matchLabels:
+            app.kubernetes.io/instance: jellyseerr
+            app.kubernetes.io/name: seerr-chart
+      ports:
+      - protocol: TCP
+        port: 5055
+      - protocol: TCP
+        port: 10241
+    - to:
+      - podSelector:
+          matchLabels:
+            app.kubernetes.io/instance: radarr
+            app.kubernetes.io/name: radarr
+      ports:
+      - protocol: TCP
+        port: 7878
+    - to:
+      - podSelector:
+          matchLabels:
+            app.kubernetes.io/instance: sonarr
+            app.kubernetes.io/name: sonarr
+      ports:
+      - protocol: TCP
+        port: 8989
+    - to:
+      - podSelector:
+          matchLabels:
+            app.kubernetes.io/name: episeerr
+      ports:
+      - protocol: TCP
+        port: 5002
+    - to:
+      - ipBlock:
+          cidr: 0.0.0.0/0
+          except:
+          - 10.42.0.0/16
+          - 10.43.0.0/16
+sqliteMigratorImage:
+  repository: registry.home/ghcr.io/abhi1693/home-lab-jellyfin-sqlite-migrator
+  # renovate: datasource=docker depName=ghcr.io/abhi1693/home-lab-jellyfin-sqlite-migrator
+  tag: 10.11.8-1@sha256:d218716f8cf0d27d6c9e31b98aea9ff7f6ca7cef516c2771f9bd39e49ecfb0b8
+  pullPolicy: IfNotPresent

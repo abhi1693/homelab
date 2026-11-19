@@ -11,6 +11,23 @@ metadata:
     home-lab.io/project-slug: database
 spec:
   groups:
+    - name: postgresql.replication
+      rules:
+        - alert: CNPGClusterPhysicalReplicationLagCritical
+          expr: |
+            max(cnpg_pg_replication_lag{namespace="postgresql",pod=~"postgresql-([1-9][0-9]*)$"}) > 15
+          for: 5m
+          labels:
+            severity: critical
+            namespace: postgresql
+            cnpg_cluster: postgresql
+          annotations:
+            summary: CNPG Cluster very high physical replication lag
+            description: |-
+              CloudNativePG Cluster "postgresql/postgresql" is experiencing a very high physical replication lag of {{ $value }}s.
+
+              High replication lag indicates network issues, busy instances, slow queries or suboptimal configuration.
+            runbook_url: https://github.com/cloudnative-pg/charts/blob/main/charts/cluster/docs/runbooks/CNPGClusterPhysicalReplicationLag.md
     - name: postgresql.cnpg-collector
       rules:
         - alert: CNPGCollectorQueryErrors

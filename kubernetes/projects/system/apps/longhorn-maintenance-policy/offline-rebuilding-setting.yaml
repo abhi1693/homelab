@@ -1,0 +1,10 @@
+---
+apiVersion: longhorn.io/v1beta2
+kind: Setting
+metadata:
+  name: offline-replica-rebuilding
+  namespace: longhorn-system
+  annotations:
+    helm.sh/resource-policy: keep
+# Match the Ansible default after the 2026-11-13 media-volume recovery.
+value: "true"

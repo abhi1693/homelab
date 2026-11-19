@@ -16,3 +16,4 @@ spec:
   gitPath: kubernetes/projects/applications/apps/portfolio
   workloads:
     - {key: home-k3s/portfolio/apps/deployment/portfolio, namespace: portfolio, apiGroup: apps, kind: Deployment, name: portfolio, desiredReplicas: 1, sourcePath: kubernetes/projects/applications/apps/portfolio/deployment.yaml}
+    - {key: home-k3s/portfolio/apps/deployment/yashika-preview-pr1-v1, namespace: portfolio, apiGroup: apps, kind: Deployment, name: yashika-preview-pr1-v1, desiredReplicas: 1, sourcePath: kubernetes/projects/applications/apps/portfolio/previews/pr1-v1/resources.yaml}

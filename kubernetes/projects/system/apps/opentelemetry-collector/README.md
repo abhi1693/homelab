@@ -1,5 +1,9 @@
 # OpenTelemetry Collector
 
+Both gateway and processor tiers pin Collector Contrib `0.165.0` to the same
+immutable OCI digest. Validate both configurations and preserve trace/metric
+affinity, two processor backends, and both Prometheus destinations during rollout.
+
 Both `prometheus-write-*` Services target Prometheus's native HTTP port 9090.
 Processor NetworkPolicy permits 9090 and the configured compatibility port 8081.
 The monitoring bundle's `prometheus-native-write` policy permits OTLP writes

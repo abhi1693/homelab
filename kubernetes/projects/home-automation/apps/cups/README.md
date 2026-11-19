@@ -95,7 +95,13 @@ available when the USB cable is disconnected and does not prove device readiness
   cache under `/var/lib/cups-state`. Completed documents and job history are
   discarded. Pending jobs persist across restarts and may print when the device
   reconnects. CUPS limits jobs to 50 and each request to 100 MiB; the PVC is the
-  overall capacity bound.
+  persistent spool capacity bound.
+- Rendering scratch files use a separate 1 GiB disk-backed `emptyDir` at
+  `/tmp/cups-tmp`, owned by `lp` with mode `0700`. `TempDir` in
+  `cups-files.conf` directs filters there while queued documents remain on the
+  PVC. The node's enforced Ghostscript AppArmor profile permits temporary
+  files under `/tmp`; it denies the custom PVC spool path. Scratch files are
+  discarded with the pod, and AppArmor remains enforced.
 - Fleet ignores the controller-assigned PVC `spec.volumeName` during drift
   comparison, matching the repository's other persistent apps. The binding
   remains owned by Kubernetes rather than being reset by drift correction.

@@ -3,6 +3,7 @@
   hosts: "{{ rancher_target_hosts | default('server-1') }}"
   become: true
   gather_facts: true
+  any_errors_fatal: true
 
   vars:
     rancher_selected_entrypoint: "{{ rancher_entrypoint | default('main') }}"

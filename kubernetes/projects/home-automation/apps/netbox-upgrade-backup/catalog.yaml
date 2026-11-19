@@ -1,0 +1,36 @@
+---
+apiVersion: home-lab.io/v1alpha1
+kind: WorkloadCatalog
+metadata:
+  name: netbox-upgrade-backup
+spec:
+  displayName: NetBox upgrade rollback point
+  purpose: Preserve a one-time private NAS database dump and encrypted configuration before the NetBox 4.7 cutover.
+  owner: home-lab
+  project: home-automation
+  cluster: home-k3s
+  lifecycle: active
+  criticality: high
+  dataClassification: restricted
+  repository: https://github.com/abhi1693/home-lab
+  gitPath: kubernetes/projects/home-automation/apps/netbox-upgrade-backup
+  runbook: kubernetes/projects/home-automation/apps/netbox-upgrade-backup/README.md
+  workloads:
+    - key: home-k3s/netbox/batch/job/netbox-pre-upgrade-474-backup-20261103
+      namespace: netbox
+      apiGroup: batch
+      kind: Job
+      name: netbox-pre-upgrade-474-backup-20261103
+      sourcePath: kubernetes/projects/home-automation/apps/netbox-upgrade-backup/job.yaml
+  persistentStores:
+    - key: home-k3s/netbox/persistentvolumeclaim/netbox-pre-upgrade-backup-nfs
+      namespace: netbox
+      type: PersistentVolumeClaim
+      name: netbox-pre-upgrade-backup-nfs
+      storageClass: nfs-shared-retain
+      capacity: 1Gi
+      accessModes: [ReadWriteMany]
+      retention: retain
+      backup: One-time rollback dump; existing R2 base backups and WAL archiving remain independent.
+      dataClassification: restricted
+      sourcePath: kubernetes/projects/home-automation/apps/netbox-upgrade-backup/pvc.yaml

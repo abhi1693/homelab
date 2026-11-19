@@ -41,7 +41,7 @@ spec:
       containers:
         - name: chimely
           # renovate: datasource=docker depName=ghcr.io/dodopayments/chimely
-          image: registry.home/ghcr.io/dodopayments/chimely:0.2.2@sha256:9a0f49ff99c3f7a587e8e2348379b0645306eb919bdb83ff54bf6cf900526a60
+          image: registry.home/ghcr.io/dodopayments/chimely:0.2.5@sha256:9eb349bfb5345145b3e7f793abbcbeb04411da803d6824da50c0cb42507d8932
           imagePullPolicy: IfNotPresent
           resources:
             requests:

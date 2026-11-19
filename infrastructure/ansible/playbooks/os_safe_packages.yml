@@ -1,0 +1,125 @@
+---
+- name: Apply reviewed library and diagnostic-tool patches without rebooting
+  hosts: k3s_nodes
+  become: true
+  gather_facts: true
+  serial: 1
+  any_errors_fatal: true
+
+  tasks:
+    - name: Validate the supported Ubuntu host
+      ansible.builtin.include_role:
+        name: os_prep
+        tasks_from: profile
+        rolespec_validate: false
+
+    - name: Bound this entrypoint to the reviewed package family
+      ansible.builtin.assert:
+        that:
+          - os_prep.safe_package_pins is mapping
+          - os_prep.safe_package_pins | length > 0
+          - os_prep.safe_package_pins | list | difference(['libbrotli1', 'bpftool', 'linux-libc-dev', 'linux-perf', 'linux-tools-common', 'tmux']) | length == 0
+        fail_msg: Kernel images, boot firmware, service packages and unreviewed packages require the rolling maintenance procedure.
+
+    - name: Require full cluster health before the package transaction
+      ansible.builtin.include_role:
+        name: os_prep
+        tasks_from: os_updates_health
+        rolespec_validate: false
+      vars:
+        os_prep_os_health_phase: preflight
+
+    - name: Preserve this boot identity
+      ansible.builtin.command: cat /proc/sys/kernel/random/boot_id
+      register: os_safe_boot_before
+      changed_when: false
+      check_mode: false
+
+    - name: Reject an existing pending reboot
+      ansible.builtin.stat:
+        path: /var/run/reboot-required
+      register: os_safe_reboot_before
+
+    - name: Require a completed prior maintenance cycle
+      ansible.builtin.assert:
+        that:
+          - not os_safe_reboot_before.stat.exists
+
+    - name: Refresh Ubuntu package metadata
+      ansible.builtin.apt:
+        update_cache: true
+        cache_valid_time: 0
+        auto_install_module_deps: false
+      when: not ansible_check_mode
+
+    - name: Build the exact reviewed package arguments
+      ansible.builtin.set_fact:
+        os_safe_package_arguments: "{{ os_prep.safe_package_pins | dict2items | map(attribute='key') | zip(os_prep.safe_package_pins | dict2items | map(attribute='value')) | map('join', '=') | list }}"
+
+    - name: Simulate only the reviewed installed-package transaction
+      ansible.builtin.command:
+        argv: "{{ ['apt-get', '--simulate', '--no-install-recommends', '--only-upgrade', 'install'] + os_safe_package_arguments }}"
+      environment:
+        LC_ALL: C
+      register: os_safe_plan
+      changed_when: false
+      check_mode: false
+
+    - name: Reject removals or dependency changes outside the reviewed package list
+      ansible.builtin.assert:
+        that:
+          - os_safe_plan.stdout | regex_findall('(?m)^Remv ') | length == 0
+          - os_safe_plan.stdout | regex_findall('(?m)^Inst ([^ :\n]+)') | difference(os_prep.safe_package_pins | list) | length == 0
+        fail_msg: The simulated APT transaction escaped the reviewed package boundary.
+
+    - name: Apply only the bounded package transaction with service restarts suppressed
+      ansible.builtin.apt:
+        name: "{{ os_safe_package_arguments }}"
+        state: present
+        only_upgrade: true
+        install_recommends: false
+        force_apt_get: true
+        auto_install_module_deps: false
+        autoremove: false
+        policy_rc_d: 101
+        lock_timeout: 120
+      environment:
+        NEEDRESTART_MODE: l
+
+    - name: Recheck the boot identity
+      ansible.builtin.command: cat /proc/sys/kernel/random/boot_id
+      register: os_safe_boot_after
+      changed_when: false
+      check_mode: false
+
+    - name: Require an unchanged boot
+      ansible.builtin.assert:
+        that:
+          - os_safe_boot_after.stdout == os_safe_boot_before.stdout
+
+    - name: Check package database consistency
+      ansible.builtin.command: dpkg --audit
+      register: os_safe_audit
+      changed_when: false
+      check_mode: false
+
+    - name: Require a completed package transaction
+      ansible.builtin.assert:
+        that:
+          - os_safe_audit.stdout | trim == ''
+
+    - name: Validate the host package and CA security floors
+      ansible.builtin.include_role:
+        name: os_prep
+        tasks_from: security_validation
+        rolespec_validate: false
+      when: not ansible_check_mode
+
+    - name: Require full cluster health before advancing to another host
+      ansible.builtin.include_role:
+        name: os_prep
+        tasks_from: os_updates_health
+        rolespec_validate: false
+      vars:
+        os_prep_os_health_phase: validation
+      when: not ansible_check_mode

@@ -30,12 +30,12 @@ tag by `github.com/abhi1693/harbor`.
 Create these secrets before Fleet reconciles the Harbor HelmOp:
 
 - `postgresql/harbor-postgresql-app` with key `password`
-- `harbor/harbor-secrets` with keys `HARBOR_ADMIN_PASSWORD`, `password`, and
+- `harbor/harbor` with keys `HARBOR_ADMIN_PASSWORD`, `password`, and
   `secretKey`
 
 Harbor component secrets for core, jobservice, registry, registryctl, Trivy,
 and token signing are left chart-managed so the values file does not need to
-carry plaintext keys. The `password` value in `harbor/harbor-secrets` must
+carry plaintext keys. The `password` value in `harbor/harbor` must
 match `postgresql/harbor-postgresql-app`, and `secretKey` must be a stable
 16-character value.
 

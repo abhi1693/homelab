@@ -6,7 +6,7 @@ the resulting `HelmChart` resource.
 
 - endpoint: `http://ha.home`
 - chart version: `0.3.89`
-- app version: `2026.10.4`
+- app version: `2026.11.1`
 - namespace: `home-assistant`
 - replicas: `1`, using `Recreate` updates
 - persistence: Longhorn `4Gi` RWX PVC `home-assistant-pvc`
@@ -36,7 +36,7 @@ Review it before cleanup; never overwrite live Recorder files during recovery.
 Portable Home Assistant source is owned by the public
 [`abhi1693/home-assistant`](https://github.com/abhi1693/home-assistant)
 repository. This deployment pins commit
-`ba4ae51a6636de1aca2dca21be5a0d7e921df7bc` and the SHA-256 of its GitHub source
+`a5c5f7a44cb7fa44954d294beb9051f05108aa96` and the SHA-256 of its GitHub source
 archive. The `install-home-assistant-source` init container verifies the archive
 before running its standard-library-only bootstrap against `/config`.
 
@@ -50,6 +50,55 @@ ingress, policies, registry credentials and local CA trust. Update the source
 commit, archive checksum and `HOME_ASSISTANT_SOURCE_REVISION` together to deploy
 a new Home Assistant source revision. The environment value deliberately changes
 the pod template and triggers a `Recreate` rollout.
+
+## Home air quality
+
+The pinned source uses the existing WAQI station 8685 for Home air quality,
+with US-AQI categories and the stable sensor.home_waqi_aqi entity. Integration
+credentials remain in Home Assistant persistent storage. Google Air Quality
+is disabled only after the deployed dashboard and WAQI reading are verified;
+its configuration and history are retained for rollback.
+
+## Office room interface
+
+The pinned source exposes the existing Office HushJet through a dedicated
+purifier card with indoor particulate readings, 24-hour trends, time-weighted
+averages and recorded peaks, availability timestamps, continuous monitoring,
+a 0–540 minute sleep timer and electrostatic/carbon filter details. Timer
+requests do not imply remaining-time telemetry. Only Office opts into the compact unavailable ceiling-fan state;
+other pages and household automations remain unchanged. The source repository
+contains focused mocked-control and responsive regression tests.
+
+## Dyson HushJet integration
+
+The source bootstrap installs the complete [ha-dyson PR #321](https://github.com/libdyson-wg/ha-dyson/pull/321)
+from commit `de7cf57bab409892850ccb1af0b115728a24c9d8`, verified against
+SHA-256 `8ceba1470406bdb8cec9fb7023a55234c8bb851fb447a2e85ddf03366ebb7067`.
+The integration reports version `1.8.0` and requires `libdyson-neon==1.6.0`.
+This enables HushJet HJ10 (product type `897`) setup, speed/Auto controls,
+PM2.5/PM10 and filter-life sensors. Keep this source-owned pin until an upstream
+release includes support; Marketplace updates can overwrite the integration
+until the next bootstrap restores it. Preserve the old integration directory
+and config-entry backup for rollback; reverting the source pin alone does not
+restore overwritten third-party files.
+
+## 2026.11 migration and recovery
+
+The pinned source includes the built-in Marketplace bootstrap guard from
+[home-assistant PR #5](https://github.com/abhi1693/home-assistant/pull/5).
+Core owns the HACS migration and removal of legacy files; subsequent init runs
+must not reinstall legacy HACS. Preserve the full `/config` backup, including
+`.storage`, together with a recoverable Recorder database backup before rollout.
+A downgrade can require restoring both configuration storage and the Recorder
+schema; changing the image alone does not undo migrations.
+
+Validate a restored configuration copy using the exact new image, with external
+network access disabled and placeholder credentials. Confirm the pinned source
+bootstrap and the config check both succeed on that copy. After Fleet's singleton
+Recreate rollout, check authentication, Recorder writes, custom integrations,
+Marketplace migration and the go2rtc camera path. Entity naming can change in
+2026.11 while entity IDs remain stable; inspect configured UniFi Protect entities
+against the official release's removed legacy HDR/UP Sense entities.
 
 ## User-facing access
 

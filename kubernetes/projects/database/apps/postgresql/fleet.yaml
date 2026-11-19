@@ -1,0 +1,8 @@
+---
+name: postgresql-helmop
+defaultNamespace: fleet-local
+labels:
+  app.kubernetes.io/part-of: postgresql
+  home-lab.io/project-slug: database
+helm:
+  takeOwnership: true

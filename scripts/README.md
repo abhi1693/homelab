@@ -7,14 +7,17 @@ Ansible role or Kubernetes app bundle.
 
 | Script | Purpose |
 | --- | --- |
-| `render-training-netbox.py` | Renders shared Training NetBox chart/defaults plus per-instance overrides; `--check` rejects generated configuration drift. Requires PyYAML. |
-| `monitoring-migration-state.py` | Captures private monitoring/dashboard inventories using read-only APIs and compares resource identities, scrape/rule coverage, and preparation gates. |
+| `check-harbor-upgrade.py` | Verifies a published matching Harbor chart and the complete immutable ARM64 runtime cohort without changing services. |
+| `render-training-netbox.py` | Renders shared Training NetBox chart/defaults plus per-instance overrides and tracked maintenance projections for main NetBox plus complete nonsecret instructor Helm values; `--check` rejects generated configuration drift. Requires PyYAML. |
+| `monitoring-migration-state.py` | Captures private monitoring/dashboard inventories using read-only APIs and compares resource identities, scrape/rule coverage, and preparation gates. Authenticated Grafana APIs may use `GRAFANA_HTTP_AUTHORIZATION` from the environment; the script does not fetch Secrets or log the header. |
+| `maintain-unused-collations.py` | Audits and explicitly refreshes only unused, encoding-applicable PostgreSQL catalogue versions. A reviewed plan freezes cluster, database, pod, image, backup and code identities; bounded SQL batches fence schema races and preserve application collations. See the PostgreSQL README for maintenance gates. |
+| `qualify-unused-collation-guards.py` | Exercises the collation maintenance SQL in an explicitly labelled, isolated PostgreSQL 17 Docker fixture. Verifies dependency/identity refusal, encoding selection, idempotence, and DDL fencing while normal DML continues. |
 | `migrate-devfeed-identities.py` | Plans or atomically remaps DevFeed user, partner and admin-preference identities while preserving account UUIDs; apply requires all three sign-in APIs stopped through Fleet. |
 | `k8s-secret-to-sops-secret.py` | Converts an existing Kubernetes Secret shape into a SOPS Secrets Operator style resource. |
 | `benchmark-clickhouse-admission.py` | Compares baseline and proposed ClickHouse admission in isolated native ARM64 Docker containers with retained rows, concurrent writers/readers, overload recovery and acknowledged-write verification. |
 | `check-kubernetes-resource-bounds.py` | Requires CPU/memory requests and memory limits on directly authored Kubernetes workloads, and rejects recommendation profiles whose minimum-change threshold can block their maximum decrease step. |
 | `check-renovate-policy.py` | Verifies non-critical GitOps dependency coverage and keeps cluster-foundational dependencies under manual upgrade control. |
-| `check-postgresql-observability.py` | Uses `promtool` and PyYAML to validate PostgreSQL alerts, small-table thresholds, table overrides, and primary-only evaluation. |
+| `check-postgresql-observability.py` | Uses `promtool` and PyYAML to validate PostgreSQL alerts, small-table thresholds, table overrides, and primary-only evaluation. Add `--rendered-cluster` with the exact chart render to check default/owned alert uniqueness and replication lag boundaries, holds, transient spikes, and recovery. |
 | `check-loki-observability.py` | Uses `promtool` and PyYAML to validate WAL stalls, permanent drops/rejections, immediate loss detection, brief-gap continuity, recovery, counter resets, and missing telemetry. |
 | `check-etcd-observability.py` | Validates native etcd alert behavior with `promtool`. |
 | `check-cilium-observability.py` | Checks Cilium bootstrap/Fleet value parity and metric alert behavior. |

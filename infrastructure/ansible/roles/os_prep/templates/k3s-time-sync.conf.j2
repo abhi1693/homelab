@@ -1,0 +1,9 @@
+# Managed by Ansible. Appended to existing pre-start commands; never reset them.
+[Unit]
+Wants=chrony.service
+After=chrony.service
+
+[Service]
+# Fail closed on unsynchronized time; the existing K3s Restart policy retries.
+# timeout also bounds chronyc RPC delays, without timing out normal K3s startup.
+ExecStartPre=/usr/bin/timeout --signal=TERM --kill-after=5s {{ os_prep.k3s_time_gate.timeout_seconds }}s /usr/bin/chronyc -h 127.0.0.1,::1 waitsync {{ os_prep.k3s_time_gate.max_tries }} {{ os_prep.k3s_time_gate.max_correction_seconds }} 0.0 {{ os_prep.k3s_time_gate.interval_seconds }}

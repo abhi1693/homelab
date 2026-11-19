@@ -28,11 +28,12 @@ spec:
       sourcePath: kubernetes/projects/home-automation/apps/netbox/values.yaml
       images:
         - ghcr.io/abhi1693/home-lab-netbox
-    - key: home-k3s/netbox/batch/cronjob/netbox-housekeeping
+    - key: home-k3s/netbox/apps/deployment/netbox-worker
       namespace: netbox
-      apiGroup: batch
-      kind: CronJob
-      name: netbox-housekeeping
+      apiGroup: apps
+      kind: Deployment
+      name: netbox-worker
+      desiredReplicas: 1
       sourcePath: kubernetes/projects/home-automation/apps/netbox/values.yaml
       images:
         - ghcr.io/abhi1693/home-lab-netbox

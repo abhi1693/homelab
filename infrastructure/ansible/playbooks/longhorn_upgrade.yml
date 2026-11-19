@@ -15,6 +15,40 @@
           - not longhorn.v2_data_engine | bool
           - longhorn.concurrent_automatic_engine_upgrade_per_node_limit | int == 0
 
+    - name: Read published Rancher chart catalog before changing Longhorn
+      ansible.builtin.uri:
+        url: https://charts.rancher.io/index.yaml
+        return_content: true
+        validate_certs: true
+      delegate_to: localhost
+      become: false
+      register: longhorn_upgrade_chart_catalog
+      # uri has no check-mode support; this GET is still required by dry runs.
+      check_mode: false
+
+    - name: Require both requested Longhorn charts to be published
+      ansible.builtin.assert:
+        that:
+          - >-
+            longhorn.chart_version in
+            (((longhorn_upgrade_chart_catalog.content | from_yaml).entries['longhorn']) |
+            map(attribute='version') | list)
+          - >-
+            longhorn.crd_chart_version in
+            (((longhorn_upgrade_chart_catalog.content | from_yaml).entries['longhorn-crd']) |
+            map(attribute='version') | list)
+        fail_msg: Both exact Rancher manager and CRD charts must exist before a staged upgrade.
+
+    - name: Require the selected Longhorn chart pair to target the same release
+      ansible.builtin.assert:
+        that:
+          - >-
+            (((longhorn_upgrade_chart_catalog.content | from_yaml).entries['longhorn']) |
+            selectattr('version', 'equalto', longhorn.chart_version) | first).appVersion ==
+            (((longhorn_upgrade_chart_catalog.content | from_yaml).entries['longhorn-crd']) |
+            selectattr('version', 'equalto', longhorn.crd_chart_version) | first).appVersion
+        fail_msg: The selected manager and CRD charts target different Longhorn application releases.
+
     - name: Check the local API readiness endpoint
       ansible.builtin.command: /usr/local/bin/k3s kubectl get --raw=/readyz
       register: longhorn_upgrade_api

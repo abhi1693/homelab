@@ -1,7 +1,7 @@
-# syntax=docker/dockerfile:1.28
+# syntax=docker/dockerfile:1.29
 
-ARG POSTGRES_PROVIDER_REF=10.11.8-1
-ARG JELLYFIN_IMAGE=jellyfin/jellyfin:10.11.11
+ARG RUNTIME_IMAGE=ubuntu:26.04@sha256:d66b366dac61b575bee2aef07e9c26e8070096fbe84a3d4d3eb0da069b5d76db
+ARG JELLYFIN_IMAGE=jellyfin/jellyfin:12.4@sha256:fea863d0cd9ec445985d9c75fc6ed64e38a1d2766cf0c250a33d553f4fc1b771
 
 FROM --platform=$BUILDPLATFORM alpine:3.24 AS plugin-download
 
@@ -33,57 +33,47 @@ RUN set -eux; \
     find /opt/jellyfin/plugins -name meta.json -print0 \
       | xargs -0 -I '{}' sh -c 'tmp="${1}.tmp"; jq ".autoUpdate = false" "$1" > "${tmp}"; mv "${tmp}" "$1"' sh '{}'
 
-FROM --platform=$BUILDPLATFORM mcr.microsoft.com/dotnet/sdk:11.0 AS postgres-provider-build
-ARG POSTGRES_PROVIDER_REF
+FROM ${JELLYFIN_IMAGE} AS upstream-server
 
-COPY patches/ /tmp/jellyfin-patches/
-
-RUN set -eux; \
-    apt-get update; \
-    apt-get install -y --no-install-recommends ca-certificates git; \
-    rm -rf /var/lib/apt/lists/*
-
-WORKDIR /src
-
-RUN set -eux; \
-    git clone --depth 1 --recurse-submodules --shallow-submodules \
-      --branch "${POSTGRES_PROVIDER_REF}" \
-      https://github.com/JPVenson/Jellyfin.Pgsql.git .
-
-RUN set -eux; \
-    cd /src/jellyfin; \
-    git apply --unidiff-zero /tmp/jellyfin-patches/*.patch
-
-RUN dotnet restore Jellyfin.Plugin.Pgsql.sln
-RUN dotnet restore jellyfin/Jellyfin.Server.Implementations/Jellyfin.Server.Implementations.csproj
-RUN dotnet publish Jellyfin.Plugin.Pgsql.sln \
-    --configuration Release \
-    --no-restore \
-    --output /app/publish
-RUN dotnet build jellyfin/Jellyfin.Server.Implementations/Jellyfin.Server.Implementations.csproj \
-    --configuration Release \
-    --no-restore
-
-FROM ${JELLYFIN_IMAGE}
-
+FROM ${RUNTIME_IMAGE}
+ARG TARGETARCH
 USER root
 
 RUN set -eux; \
     apt-get update; \
     apt-get upgrade -y; \
-    apt-get install -y --no-install-recommends ca-certificates curl jq postgresql-client xmlstarlet; \
+    apt-get install -y --no-install-recommends ca-certificates curl jq sqlite3 xmlstarlet fontconfig libicu78 libfontconfig1 libfreetype6 libjemalloc2; \
+    case "${TARGETARCH}" in \
+      arm64) ffmpeg_sha=8823595cb4323f6e1eea2ef4af7742e8ab4f1728ef52ab6552608b8ae873ca48 ;; \
+      amd64) ffmpeg_sha=2f4cf15936625c4bb13ea8ea0e2f35536be7ecb84af83372ff5df45cd861576a ;; \
+      *) exit 1 ;; \
+    esac; \
+    curl -fsSL "https://repo.jellyfin.org/ubuntu/pool/main/j/jellyfin-ffmpeg/jellyfin-ffmpeg8_8.1.3-1-resolute_${TARGETARCH}.deb" -o /tmp/jellyfin-ffmpeg.deb; \
+    echo "${ffmpeg_sha}  /tmp/jellyfin-ffmpeg.deb" | sha256sum -c -; \
+    apt-get install -y --no-install-recommends /tmp/jellyfin-ffmpeg.deb; \
+    rm /tmp/jellyfin-ffmpeg.deb; \
     rm -rf /opt/jellyfin/plugins; \
     mkdir -p /opt/jellyfin/plugins; \
     rm -rf /var/lib/apt/lists/*
 
+COPY --from=upstream-server /jellyfin/ /jellyfin/
+COPY --from=upstream-server /usr/share/fonts/ /usr/share/fonts/
 COPY --from=plugin-download /opt/jellyfin/plugins/ /opt/jellyfin/plugins/
-COPY --from=postgres-provider-build /app/publish/ /opt/jellyfin/plugins/PostgreSQL/
-COPY --from=postgres-provider-build /src/jellyfin/Jellyfin.Server.Implementations/bin/Release/net9.0/Jellyfin.Server.Implementations.dll /jellyfin/Jellyfin.Server.Implementations.dll
-COPY --from=postgres-provider-build /src/jellyfin/Jellyfin.Server.Implementations/bin/Release/net9.0/Jellyfin.Server.Implementations.pdb /jellyfin/Jellyfin.Server.Implementations.pdb
 COPY entrypoint.sh /entrypoint.sh
 
 RUN set -eux; \
     chmod 0755 /entrypoint.sh; \
     chmod -R a+rX /opt/jellyfin
 
+ENV JELLYFIN_CACHE_DIR=/cache \
+    JELLYFIN_CONFIG_DIR=/config \
+    JELLYFIN_DATA_DIR=/data \
+    JELLYFIN_LOG_DIR=/logs \
+    JELLYFIN_WEB_DIR=/jellyfin/jellyfin-web \
+    JELLYFIN_FFMPEG=/usr/lib/jellyfin-ffmpeg/ffmpeg \
+    LD_PRELOAD=libjemalloc.so.2 \
+    MALLOC_TRIM_THRESHOLD_=131072 \
+    HOME=/config
+RUN fc-cache -f && mkdir -p /config /data /cache /logs && chown 568:568 /config /data /cache /logs
+USER 568:568
 ENTRYPOINT ["/entrypoint.sh"]

@@ -1,0 +1,52 @@
+---
+- name: Read current service definitions
+  ansible.builtin.service_facts:
+
+- name: Read installed K3s startup gates
+  ansible.builtin.slurp:
+    src: "/etc/systemd/system/{{ item }}.service.d/20-home-lab-time-sync.conf"
+  register: os_prep_time_gate_installed
+  loop: [k3s, k3s-agent]
+
+- name: Require exact inventory-managed startup-gate contents
+  ansible.builtin.assert:
+    that:
+      - (item.content | b64decode) == lookup('ansible.builtin.template', 'k3s-time-sync.conf.j2')
+  loop: "{{ os_prep_time_gate_installed.results }}"
+  loop_control:
+    label: "{{ item.item }}"
+
+- name: Read effective pre-start commands on installed K3s services
+  ansible.builtin.command:
+    argv: [systemctl, show, "{{ item }}", --property=ExecStartPre, --value]
+  register: os_prep_time_gate_effective
+  changed_when: false
+  loop: [k3s.service, k3s-agent.service]
+  when: ansible_facts.services.get(item, {}).get('status', 'not-found') != 'not-found'
+
+- name: Require the effective bounded Chrony pre-start gate
+  ansible.builtin.assert:
+    that:
+      - "'/usr/bin/timeout' in item.stdout"
+      - "'waitsync ' ~ (os_prep.k3s_time_gate.max_tries | string) in item.stdout"
+  loop: "{{ os_prep_time_gate_effective.results }}"
+  loop_control:
+    label: "{{ item.item }}"
+  when: not (item.skipped | default(false))
+
+- name: Verify the real startup gate accepts the current synchronized clock
+  ansible.builtin.command:
+    argv:
+      - /usr/bin/timeout
+      - --signal=TERM
+      - --kill-after=5s
+      - "{{ os_prep.k3s_time_gate.timeout_seconds }}s"
+      - /usr/bin/chronyc
+      - -h
+      - 127.0.0.1,::1
+      - waitsync
+      - "{{ os_prep.k3s_time_gate.max_tries | string }}"
+      - "{{ os_prep.k3s_time_gate.max_correction_seconds | string }}"
+      - '0.0'
+      - "{{ os_prep.k3s_time_gate.interval_seconds | string }}"
+  changed_when: false

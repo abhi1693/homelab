@@ -1,0 +1,2172 @@
+[
+  {
+    "table_name": "AccessSchedules",
+    "column_name": "Id",
+    "data_type": "integer",
+    "udt_name": "int4",
+    "is_nullable": "NO"
+  },
+  {
+    "table_name": "AccessSchedules",
+    "column_name": "UserId",
+    "data_type": "uuid",
+    "udt_name": "uuid",
+    "is_nullable": "NO"
+  },
+  {
+    "table_name": "AccessSchedules",
+    "column_name": "DayOfWeek",
+    "data_type": "integer",
+    "udt_name": "int4",
+    "is_nullable": "NO"
+  },
+  {
+    "table_name": "AccessSchedules",
+    "column_name": "StartHour",
+    "data_type": "double precision",
+    "udt_name": "float8",
+    "is_nullable": "NO"
+  },
+  {
+    "table_name": "AccessSchedules",
+    "column_name": "EndHour",
+    "data_type": "double precision",
+    "udt_name": "float8",
+    "is_nullable": "NO"
+  },
+  {
+    "table_name": "ActivityLogs",
+    "column_name": "Id",
+    "data_type": "integer",
+    "udt_name": "int4",
+    "is_nullable": "NO"
+  },
+  {
+    "table_name": "ActivityLogs",
+    "column_name": "Name",
+    "data_type": "character varying",
+    "udt_name": "varchar",
+    "is_nullable": "NO"
+  },
+  {
+    "table_name": "ActivityLogs",
+    "column_name": "Overview",
+    "data_type": "character varying",
+    "udt_name": "varchar",
+    "is_nullable": "YES"
+  },
+  {
+    "table_name": "ActivityLogs",
+    "column_name": "ShortOverview",
+    "data_type": "character varying",
+    "udt_name": "varchar",
+    "is_nullable": "YES"
+  },
+  {
+    "table_name": "ActivityLogs",
+    "column_name": "Type",
+    "data_type": "character varying",
+    "udt_name": "varchar",
+    "is_nullable": "NO"
+  },
+  {
+    "table_name": "ActivityLogs",
+    "column_name": "UserId",
+    "data_type": "uuid",
+    "udt_name": "uuid",
+    "is_nullable": "NO"
+  },
+  {
+    "table_name": "ActivityLogs",
+    "column_name": "ItemId",
+    "data_type": "character varying",
+    "udt_name": "varchar",
+    "is_nullable": "YES"
+  },
+  {
+    "table_name": "ActivityLogs",
+    "column_name": "DateCreated",
+    "data_type": "timestamp with time zone",
+    "udt_name": "timestamptz",
+    "is_nullable": "NO"
+  },
+  {
+    "table_name": "ActivityLogs",
+    "column_name": "LogSeverity",
+    "data_type": "integer",
+    "udt_name": "int4",
+    "is_nullable": "NO"
+  },
+  {
+    "table_name": "ActivityLogs",
+    "column_name": "RowVersion",
+    "data_type": "bigint",
+    "udt_name": "int8",
+    "is_nullable": "NO"
+  },
+  {
+    "table_name": "AncestorIds",
+    "column_name": "ParentItemId",
+    "data_type": "uuid",
+    "udt_name": "uuid",
+    "is_nullable": "NO"
+  },
+  {
+    "table_name": "AncestorIds",
+    "column_name": "ItemId",
+    "data_type": "uuid",
+    "udt_name": "uuid",
+    "is_nullable": "NO"
+  },
+  {
+    "table_name": "ApiKeys",
+    "column_name": "Id",
+    "data_type": "integer",
+    "udt_name": "int4",
+    "is_nullable": "NO"
+  },
+  {
+    "table_name": "ApiKeys",
+    "column_name": "DateCreated",
+    "data_type": "timestamp with time zone",
+    "udt_name": "timestamptz",
+    "is_nullable": "NO"
+  },
+  {
+    "table_name": "ApiKeys",
+    "column_name": "DateLastActivity",
+    "data_type": "timestamp with time zone",
+    "udt_name": "timestamptz",
+    "is_nullable": "NO"
+  },
+  {
+    "table_name": "ApiKeys",
+    "column_name": "Name",
+    "data_type": "character varying",
+    "udt_name": "varchar",
+    "is_nullable": "NO"
+  },
+  {
+    "table_name": "ApiKeys",
+    "column_name": "AccessToken",
+    "data_type": "text",
+    "udt_name": "text",
+    "is_nullable": "NO"
+  },
+  {
+    "table_name": "AttachmentStreamInfos",
+    "column_name": "ItemId",
+    "data_type": "uuid",
+    "udt_name": "uuid",
+    "is_nullable": "NO"
+  },
+  {
+    "table_name": "AttachmentStreamInfos",
+    "column_name": "Index",
+    "data_type": "integer",
+    "udt_name": "int4",
+    "is_nullable": "NO"
+  },
+  {
+    "table_name": "AttachmentStreamInfos",
+    "column_name": "Codec",
+    "data_type": "text",
+    "udt_name": "text",
+    "is_nullable": "YES"
+  },
+  {
+    "table_name": "AttachmentStreamInfos",
+    "column_name": "CodecTag",
+    "data_type": "text",
+    "udt_name": "text",
+    "is_nullable": "YES"
+  },
+  {
+    "table_name": "AttachmentStreamInfos",
+    "column_name": "Comment",
+    "data_type": "text",
+    "udt_name": "text",
+    "is_nullable": "YES"
+  },
+  {
+    "table_name": "AttachmentStreamInfos",
+    "column_name": "Filename",
+    "data_type": "text",
+    "udt_name": "text",
+    "is_nullable": "YES"
+  },
+  {
+    "table_name": "AttachmentStreamInfos",
+    "column_name": "MimeType",
+    "data_type": "text",
+    "udt_name": "text",
+    "is_nullable": "YES"
+  },
+  {
+    "table_name": "BaseItemImageInfos",
+    "column_name": "Id",
+    "data_type": "uuid",
+    "udt_name": "uuid",
+    "is_nullable": "NO"
+  },
+  {
+    "table_name": "BaseItemImageInfos",
+    "column_name": "Path",
+    "data_type": "text",
+    "udt_name": "text",
+    "is_nullable": "NO"
+  },
+  {
+    "table_name": "BaseItemImageInfos",
+    "column_name": "DateModified",
+    "data_type": "timestamp with time zone",
+    "udt_name": "timestamptz",
+    "is_nullable": "YES"
+  },
+  {
+    "table_name": "BaseItemImageInfos",
+    "column_name": "ImageType",
+    "data_type": "integer",
+    "udt_name": "int4",
+    "is_nullable": "NO"
+  },
+  {
+    "table_name": "BaseItemImageInfos",
+    "column_name": "Width",
+    "data_type": "integer",
+    "udt_name": "int4",
+    "is_nullable": "NO"
+  },
+  {
+    "table_name": "BaseItemImageInfos",
+    "column_name": "Height",
+    "data_type": "integer",
+    "udt_name": "int4",
+    "is_nullable": "NO"
+  },
+  {
+    "table_name": "BaseItemImageInfos",
+    "column_name": "Blurhash",
+    "data_type": "bytea",
+    "udt_name": "bytea",
+    "is_nullable": "YES"
+  },
+  {
+    "table_name": "BaseItemImageInfos",
+    "column_name": "ItemId",
+    "data_type": "uuid",
+    "udt_name": "uuid",
+    "is_nullable": "NO"
+  },
+  {
+    "table_name": "BaseItemMetadataFields",
+    "column_name": "Id",
+    "data_type": "integer",
+    "udt_name": "int4",
+    "is_nullable": "NO"
+  },
+  {
+    "table_name": "BaseItemMetadataFields",
+    "column_name": "ItemId",
+    "data_type": "uuid",
+    "udt_name": "uuid",
+    "is_nullable": "NO"
+  },
+  {
+    "table_name": "BaseItemProviders",
+    "column_name": "ItemId",
+    "data_type": "uuid",
+    "udt_name": "uuid",
+    "is_nullable": "NO"
+  },
+  {
+    "table_name": "BaseItemProviders",
+    "column_name": "ProviderId",
+    "data_type": "text",
+    "udt_name": "text",
+    "is_nullable": "NO"
+  },
+  {
+    "table_name": "BaseItemProviders",
+    "column_name": "ProviderValue",
+    "data_type": "text",
+    "udt_name": "text",
+    "is_nullable": "NO"
+  },
+  {
+    "table_name": "BaseItemTrailerTypes",
+    "column_name": "Id",
+    "data_type": "integer",
+    "udt_name": "int4",
+    "is_nullable": "NO"
+  },
+  {
+    "table_name": "BaseItemTrailerTypes",
+    "column_name": "ItemId",
+    "data_type": "uuid",
+    "udt_name": "uuid",
+    "is_nullable": "NO"
+  },
+  {
+    "table_name": "BaseItems",
+    "column_name": "Id",
+    "data_type": "uuid",
+    "udt_name": "uuid",
+    "is_nullable": "NO"
+  },
+  {
+    "table_name": "BaseItems",
+    "column_name": "Type",
+    "data_type": "text",
+    "udt_name": "text",
+    "is_nullable": "NO"
+  },
+  {
+    "table_name": "BaseItems",
+    "column_name": "Data",
+    "data_type": "text",
+    "udt_name": "text",
+    "is_nullable": "YES"
+  },
+  {
+    "table_name": "BaseItems",
+    "column_name": "Path",
+    "data_type": "text",
+    "udt_name": "text",
+    "is_nullable": "YES"
+  },
+  {
+    "table_name": "BaseItems",
+    "column_name": "StartDate",
+    "data_type": "timestamp with time zone",
+    "udt_name": "timestamptz",
+    "is_nullable": "YES"
+  },
+  {
+    "table_name": "BaseItems",
+    "column_name": "EndDate",
+    "data_type": "timestamp with time zone",
+    "udt_name": "timestamptz",
+    "is_nullable": "YES"
+  },
+  {
+    "table_name": "BaseItems",
+    "column_name": "ChannelId",
+    "data_type": "uuid",
+    "udt_name": "uuid",
+    "is_nullable": "YES"
+  },
+  {
+    "table_name": "BaseItems",
+    "column_name": "IsMovie",
+    "data_type": "boolean",
+    "udt_name": "bool",
+    "is_nullable": "NO"
+  },
+  {
+    "table_name": "BaseItems",
+    "column_name": "CommunityRating",
+    "data_type": "real",
+    "udt_name": "float4",
+    "is_nullable": "YES"
+  },
+  {
+    "table_name": "BaseItems",
+    "column_name": "CustomRating",
+    "data_type": "text",
+    "udt_name": "text",
+    "is_nullable": "YES"
+  },
+  {
+    "table_name": "BaseItems",
+    "column_name": "IndexNumber",
+    "data_type": "integer",
+    "udt_name": "int4",
+    "is_nullable": "YES"
+  },
+  {
+    "table_name": "BaseItems",
+    "column_name": "IsLocked",
+    "data_type": "boolean",
+    "udt_name": "bool",
+    "is_nullable": "NO"
+  },
+  {
+    "table_name": "BaseItems",
+    "column_name": "Name",
+    "data_type": "text",
+    "udt_name": "text",
+    "is_nullable": "YES"
+  },
+  {
+    "table_name": "BaseItems",
+    "column_name": "OfficialRating",
+    "data_type": "text",
+    "udt_name": "text",
+    "is_nullable": "YES"
+  },
+  {
+    "table_name": "BaseItems",
+    "column_name": "MediaType",
+    "data_type": "text",
+    "udt_name": "text",
+    "is_nullable": "YES"
+  },
+  {
+    "table_name": "BaseItems",
+    "column_name": "Overview",
+    "data_type": "text",
+    "udt_name": "text",
+    "is_nullable": "YES"
+  },
+  {
+    "table_name": "BaseItems",
+    "column_name": "ParentIndexNumber",
+    "data_type": "integer",
+    "udt_name": "int4",
+    "is_nullable": "YES"
+  },
+  {
+    "table_name": "BaseItems",
+    "column_name": "PremiereDate",
+    "data_type": "timestamp with time zone",
+    "udt_name": "timestamptz",
+    "is_nullable": "YES"
+  },
+  {
+    "table_name": "BaseItems",
+    "column_name": "ProductionYear",
+    "data_type": "integer",
+    "udt_name": "int4",
+    "is_nullable": "YES"
+  },
+  {
+    "table_name": "BaseItems",
+    "column_name": "Genres",
+    "data_type": "text",
+    "udt_name": "text",
+    "is_nullable": "YES"
+  },
+  {
+    "table_name": "BaseItems",
+    "column_name": "SortName",
+    "data_type": "text",
+    "udt_name": "text",
+    "is_nullable": "YES"
+  },
+  {
+    "table_name": "BaseItems",
+    "column_name": "ForcedSortName",
+    "data_type": "text",
+    "udt_name": "text",
+    "is_nullable": "YES"
+  },
+  {
+    "table_name": "BaseItems",
+    "column_name": "RunTimeTicks",
+    "data_type": "bigint",
+    "udt_name": "int8",
+    "is_nullable": "YES"
+  },
+  {
+    "table_name": "BaseItems",
+    "column_name": "DateCreated",
+    "data_type": "timestamp with time zone",
+    "udt_name": "timestamptz",
+    "is_nullable": "YES"
+  },
+  {
+    "table_name": "BaseItems",
+    "column_name": "DateModified",
+    "data_type": "timestamp with time zone",
+    "udt_name": "timestamptz",
+    "is_nullable": "YES"
+  },
+  {
+    "table_name": "BaseItems",
+    "column_name": "IsSeries",
+    "data_type": "boolean",
+    "udt_name": "bool",
+    "is_nullable": "NO"
+  },
+  {
+    "table_name": "BaseItems",
+    "column_name": "EpisodeTitle",
+    "data_type": "text",
+    "udt_name": "text",
+    "is_nullable": "YES"
+  },
+  {
+    "table_name": "BaseItems",
+    "column_name": "IsRepeat",
+    "data_type": "boolean",
+    "udt_name": "bool",
+    "is_nullable": "NO"
+  },
+  {
+    "table_name": "BaseItems",
+    "column_name": "PreferredMetadataLanguage",
+    "data_type": "text",
+    "udt_name": "text",
+    "is_nullable": "YES"
+  },
+  {
+    "table_name": "BaseItems",
+    "column_name": "PreferredMetadataCountryCode",
+    "data_type": "text",
+    "udt_name": "text",
+    "is_nullable": "YES"
+  },
+  {
+    "table_name": "BaseItems",
+    "column_name": "DateLastRefreshed",
+    "data_type": "timestamp with time zone",
+    "udt_name": "timestamptz",
+    "is_nullable": "YES"
+  },
+  {
+    "table_name": "BaseItems",
+    "column_name": "DateLastSaved",
+    "data_type": "timestamp with time zone",
+    "udt_name": "timestamptz",
+    "is_nullable": "YES"
+  },
+  {
+    "table_name": "BaseItems",
+    "column_name": "IsInMixedFolder",
+    "data_type": "boolean",
+    "udt_name": "bool",
+    "is_nullable": "NO"
+  },
+  {
+    "table_name": "BaseItems",
+    "column_name": "Studios",
+    "data_type": "text",
+    "udt_name": "text",
+    "is_nullable": "YES"
+  },
+  {
+    "table_name": "BaseItems",
+    "column_name": "ExternalServiceId",
+    "data_type": "text",
+    "udt_name": "text",
+    "is_nullable": "YES"
+  },
+  {
+    "table_name": "BaseItems",
+    "column_name": "Tags",
+    "data_type": "text",
+    "udt_name": "text",
+    "is_nullable": "YES"
+  },
+  {
+    "table_name": "BaseItems",
+    "column_name": "IsFolder",
+    "data_type": "boolean",
+    "udt_name": "bool",
+    "is_nullable": "NO"
+  },
+  {
+    "table_name": "BaseItems",
+    "column_name": "InheritedParentalRatingValue",
+    "data_type": "integer",
+    "udt_name": "int4",
+    "is_nullable": "YES"
+  },
+  {
+    "table_name": "BaseItems",
+    "column_name": "InheritedParentalRatingSubValue",
+    "data_type": "integer",
+    "udt_name": "int4",
+    "is_nullable": "YES"
+  },
+  {
+    "table_name": "BaseItems",
+    "column_name": "UnratedType",
+    "data_type": "text",
+    "udt_name": "text",
+    "is_nullable": "YES"
+  },
+  {
+    "table_name": "BaseItems",
+    "column_name": "CriticRating",
+    "data_type": "real",
+    "udt_name": "float4",
+    "is_nullable": "YES"
+  },
+  {
+    "table_name": "BaseItems",
+    "column_name": "CleanName",
+    "data_type": "text",
+    "udt_name": "text",
+    "is_nullable": "YES"
+  },
+  {
+    "table_name": "BaseItems",
+    "column_name": "PresentationUniqueKey",
+    "data_type": "text",
+    "udt_name": "text",
+    "is_nullable": "YES"
+  },
+  {
+    "table_name": "BaseItems",
+    "column_name": "OriginalTitle",
+    "data_type": "text",
+    "udt_name": "text",
+    "is_nullable": "YES"
+  },
+  {
+    "table_name": "BaseItems",
+    "column_name": "PrimaryVersionId",
+    "data_type": "text",
+    "udt_name": "text",
+    "is_nullable": "YES"
+  },
+  {
+    "table_name": "BaseItems",
+    "column_name": "DateLastMediaAdded",
+    "data_type": "timestamp with time zone",
+    "udt_name": "timestamptz",
+    "is_nullable": "YES"
+  },
+  {
+    "table_name": "BaseItems",
+    "column_name": "Album",
+    "data_type": "text",
+    "udt_name": "text",
+    "is_nullable": "YES"
+  },
+  {
+    "table_name": "BaseItems",
+    "column_name": "LUFS",
+    "data_type": "real",
+    "udt_name": "float4",
+    "is_nullable": "YES"
+  },
+  {
+    "table_name": "BaseItems",
+    "column_name": "NormalizationGain",
+    "data_type": "real",
+    "udt_name": "float4",
+    "is_nullable": "YES"
+  },
+  {
+    "table_name": "BaseItems",
+    "column_name": "IsVirtualItem",
+    "data_type": "boolean",
+    "udt_name": "bool",
+    "is_nullable": "NO"
+  },
+  {
+    "table_name": "BaseItems",
+    "column_name": "SeriesName",
+    "data_type": "text",
+    "udt_name": "text",
+    "is_nullable": "YES"
+  },
+  {
+    "table_name": "BaseItems",
+    "column_name": "SeasonName",
+    "data_type": "text",
+    "udt_name": "text",
+    "is_nullable": "YES"
+  },
+  {
+    "table_name": "BaseItems",
+    "column_name": "ExternalSeriesId",
+    "data_type": "text",
+    "udt_name": "text",
+    "is_nullable": "YES"
+  },
+  {
+    "table_name": "BaseItems",
+    "column_name": "Tagline",
+    "data_type": "text",
+    "udt_name": "text",
+    "is_nullable": "YES"
+  },
+  {
+    "table_name": "BaseItems",
+    "column_name": "ProductionLocations",
+    "data_type": "text",
+    "udt_name": "text",
+    "is_nullable": "YES"
+  },
+  {
+    "table_name": "BaseItems",
+    "column_name": "ExtraIds",
+    "data_type": "text",
+    "udt_name": "text",
+    "is_nullable": "YES"
+  },
+  {
+    "table_name": "BaseItems",
+    "column_name": "TotalBitrate",
+    "data_type": "integer",
+    "udt_name": "int4",
+    "is_nullable": "YES"
+  },
+  {
+    "table_name": "BaseItems",
+    "column_name": "ExtraType",
+    "data_type": "integer",
+    "udt_name": "int4",
+    "is_nullable": "YES"
+  },
+  {
+    "table_name": "BaseItems",
+    "column_name": "Artists",
+    "data_type": "text",
+    "udt_name": "text",
+    "is_nullable": "YES"
+  },
+  {
+    "table_name": "BaseItems",
+    "column_name": "AlbumArtists",
+    "data_type": "text",
+    "udt_name": "text",
+    "is_nullable": "YES"
+  },
+  {
+    "table_name": "BaseItems",
+    "column_name": "ExternalId",
+    "data_type": "text",
+    "udt_name": "text",
+    "is_nullable": "YES"
+  },
+  {
+    "table_name": "BaseItems",
+    "column_name": "SeriesPresentationUniqueKey",
+    "data_type": "text",
+    "udt_name": "text",
+    "is_nullable": "YES"
+  },
+  {
+    "table_name": "BaseItems",
+    "column_name": "ShowId",
+    "data_type": "text",
+    "udt_name": "text",
+    "is_nullable": "YES"
+  },
+  {
+    "table_name": "BaseItems",
+    "column_name": "OwnerId",
+    "data_type": "text",
+    "udt_name": "text",
+    "is_nullable": "YES"
+  },
+  {
+    "table_name": "BaseItems",
+    "column_name": "Width",
+    "data_type": "integer",
+    "udt_name": "int4",
+    "is_nullable": "YES"
+  },
+  {
+    "table_name": "BaseItems",
+    "column_name": "Height",
+    "data_type": "integer",
+    "udt_name": "int4",
+    "is_nullable": "YES"
+  },
+  {
+    "table_name": "BaseItems",
+    "column_name": "Size",
+    "data_type": "bigint",
+    "udt_name": "int8",
+    "is_nullable": "YES"
+  },
+  {
+    "table_name": "BaseItems",
+    "column_name": "Audio",
+    "data_type": "integer",
+    "udt_name": "int4",
+    "is_nullable": "YES"
+  },
+  {
+    "table_name": "BaseItems",
+    "column_name": "ParentId",
+    "data_type": "uuid",
+    "udt_name": "uuid",
+    "is_nullable": "YES"
+  },
+  {
+    "table_name": "BaseItems",
+    "column_name": "TopParentId",
+    "data_type": "uuid",
+    "udt_name": "uuid",
+    "is_nullable": "YES"
+  },
+  {
+    "table_name": "BaseItems",
+    "column_name": "SeasonId",
+    "data_type": "uuid",
+    "udt_name": "uuid",
+    "is_nullable": "YES"
+  },
+  {
+    "table_name": "BaseItems",
+    "column_name": "SeriesId",
+    "data_type": "uuid",
+    "udt_name": "uuid",
+    "is_nullable": "YES"
+  },
+  {
+    "table_name": "Chapters",
+    "column_name": "ItemId",
+    "data_type": "uuid",
+    "udt_name": "uuid",
+    "is_nullable": "NO"
+  },
+  {
+    "table_name": "Chapters",
+    "column_name": "ChapterIndex",
+    "data_type": "integer",
+    "udt_name": "int4",
+    "is_nullable": "NO"
+  },
+  {
+    "table_name": "Chapters",
+    "column_name": "StartPositionTicks",
+    "data_type": "bigint",
+    "udt_name": "int8",
+    "is_nullable": "NO"
+  },
+  {
+    "table_name": "Chapters",
+    "column_name": "Name",
+    "data_type": "text",
+    "udt_name": "text",
+    "is_nullable": "YES"
+  },
+  {
+    "table_name": "Chapters",
+    "column_name": "ImagePath",
+    "data_type": "text",
+    "udt_name": "text",
+    "is_nullable": "YES"
+  },
+  {
+    "table_name": "Chapters",
+    "column_name": "ImageDateModified",
+    "data_type": "timestamp with time zone",
+    "udt_name": "timestamptz",
+    "is_nullable": "YES"
+  },
+  {
+    "table_name": "CustomItemDisplayPreferences",
+    "column_name": "Id",
+    "data_type": "integer",
+    "udt_name": "int4",
+    "is_nullable": "NO"
+  },
+  {
+    "table_name": "CustomItemDisplayPreferences",
+    "column_name": "UserId",
+    "data_type": "uuid",
+    "udt_name": "uuid",
+    "is_nullable": "NO"
+  },
+  {
+    "table_name": "CustomItemDisplayPreferences",
+    "column_name": "ItemId",
+    "data_type": "uuid",
+    "udt_name": "uuid",
+    "is_nullable": "NO"
+  },
+  {
+    "table_name": "CustomItemDisplayPreferences",
+    "column_name": "Client",
+    "data_type": "character varying",
+    "udt_name": "varchar",
+    "is_nullable": "NO"
+  },
+  {
+    "table_name": "CustomItemDisplayPreferences",
+    "column_name": "Key",
+    "data_type": "text",
+    "udt_name": "text",
+    "is_nullable": "NO"
+  },
+  {
+    "table_name": "CustomItemDisplayPreferences",
+    "column_name": "Value",
+    "data_type": "text",
+    "udt_name": "text",
+    "is_nullable": "YES"
+  },
+  {
+    "table_name": "DeviceOptions",
+    "column_name": "Id",
+    "data_type": "integer",
+    "udt_name": "int4",
+    "is_nullable": "NO"
+  },
+  {
+    "table_name": "DeviceOptions",
+    "column_name": "DeviceId",
+    "data_type": "text",
+    "udt_name": "text",
+    "is_nullable": "NO"
+  },
+  {
+    "table_name": "DeviceOptions",
+    "column_name": "CustomName",
+    "data_type": "text",
+    "udt_name": "text",
+    "is_nullable": "YES"
+  },
+  {
+    "table_name": "Devices",
+    "column_name": "Id",
+    "data_type": "integer",
+    "udt_name": "int4",
+    "is_nullable": "NO"
+  },
+  {
+    "table_name": "Devices",
+    "column_name": "UserId",
+    "data_type": "uuid",
+    "udt_name": "uuid",
+    "is_nullable": "NO"
+  },
+  {
+    "table_name": "Devices",
+    "column_name": "AccessToken",
+    "data_type": "text",
+    "udt_name": "text",
+    "is_nullable": "NO"
+  },
+  {
+    "table_name": "Devices",
+    "column_name": "AppName",
+    "data_type": "character varying",
+    "udt_name": "varchar",
+    "is_nullable": "NO"
+  },
+  {
+    "table_name": "Devices",
+    "column_name": "AppVersion",
+    "data_type": "character varying",
+    "udt_name": "varchar",
+    "is_nullable": "NO"
+  },
+  {
+    "table_name": "Devices",
+    "column_name": "DeviceName",
+    "data_type": "character varying",
+    "udt_name": "varchar",
+    "is_nullable": "NO"
+  },
+  {
+    "table_name": "Devices",
+    "column_name": "DeviceId",
+    "data_type": "character varying",
+    "udt_name": "varchar",
+    "is_nullable": "NO"
+  },
+  {
+    "table_name": "Devices",
+    "column_name": "IsActive",
+    "data_type": "boolean",
+    "udt_name": "bool",
+    "is_nullable": "NO"
+  },
+  {
+    "table_name": "Devices",
+    "column_name": "DateCreated",
+    "data_type": "timestamp with time zone",
+    "udt_name": "timestamptz",
+    "is_nullable": "NO"
+  },
+  {
+    "table_name": "Devices",
+    "column_name": "DateModified",
+    "data_type": "timestamp with time zone",
+    "udt_name": "timestamptz",
+    "is_nullable": "NO"
+  },
+  {
+    "table_name": "Devices",
+    "column_name": "DateLastActivity",
+    "data_type": "timestamp with time zone",
+    "udt_name": "timestamptz",
+    "is_nullable": "NO"
+  },
+  {
+    "table_name": "DisplayPreferences",
+    "column_name": "Id",
+    "data_type": "integer",
+    "udt_name": "int4",
+    "is_nullable": "NO"
+  },
+  {
+    "table_name": "DisplayPreferences",
+    "column_name": "UserId",
+    "data_type": "uuid",
+    "udt_name": "uuid",
+    "is_nullable": "NO"
+  },
+  {
+    "table_name": "DisplayPreferences",
+    "column_name": "ItemId",
+    "data_type": "uuid",
+    "udt_name": "uuid",
+    "is_nullable": "NO"
+  },
+  {
+    "table_name": "DisplayPreferences",
+    "column_name": "Client",
+    "data_type": "character varying",
+    "udt_name": "varchar",
+    "is_nullable": "NO"
+  },
+  {
+    "table_name": "DisplayPreferences",
+    "column_name": "ShowSidebar",
+    "data_type": "boolean",
+    "udt_name": "bool",
+    "is_nullable": "NO"
+  },
+  {
+    "table_name": "DisplayPreferences",
+    "column_name": "ShowBackdrop",
+    "data_type": "boolean",
+    "udt_name": "bool",
+    "is_nullable": "NO"
+  },
+  {
+    "table_name": "DisplayPreferences",
+    "column_name": "ScrollDirection",
+    "data_type": "integer",
+    "udt_name": "int4",
+    "is_nullable": "NO"
+  },
+  {
+    "table_name": "DisplayPreferences",
+    "column_name": "IndexBy",
+    "data_type": "integer",
+    "udt_name": "int4",
+    "is_nullable": "YES"
+  },
+  {
+    "table_name": "DisplayPreferences",
+    "column_name": "SkipForwardLength",
+    "data_type": "integer",
+    "udt_name": "int4",
+    "is_nullable": "NO"
+  },
+  {
+    "table_name": "DisplayPreferences",
+    "column_name": "SkipBackwardLength",
+    "data_type": "integer",
+    "udt_name": "int4",
+    "is_nullable": "NO"
+  },
+  {
+    "table_name": "DisplayPreferences",
+    "column_name": "ChromecastVersion",
+    "data_type": "integer",
+    "udt_name": "int4",
+    "is_nullable": "NO"
+  },
+  {
+    "table_name": "DisplayPreferences",
+    "column_name": "EnableNextVideoInfoOverlay",
+    "data_type": "boolean",
+    "udt_name": "bool",
+    "is_nullable": "NO"
+  },
+  {
+    "table_name": "DisplayPreferences",
+    "column_name": "DashboardTheme",
+    "data_type": "character varying",
+    "udt_name": "varchar",
+    "is_nullable": "YES"
+  },
+  {
+    "table_name": "DisplayPreferences",
+    "column_name": "TvHome",
+    "data_type": "character varying",
+    "udt_name": "varchar",
+    "is_nullable": "YES"
+  },
+  {
+    "table_name": "HomeSection",
+    "column_name": "Id",
+    "data_type": "integer",
+    "udt_name": "int4",
+    "is_nullable": "NO"
+  },
+  {
+    "table_name": "HomeSection",
+    "column_name": "DisplayPreferencesId",
+    "data_type": "integer",
+    "udt_name": "int4",
+    "is_nullable": "NO"
+  },
+  {
+    "table_name": "HomeSection",
+    "column_name": "Order",
+    "data_type": "integer",
+    "udt_name": "int4",
+    "is_nullable": "NO"
+  },
+  {
+    "table_name": "HomeSection",
+    "column_name": "Type",
+    "data_type": "integer",
+    "udt_name": "int4",
+    "is_nullable": "NO"
+  },
+  {
+    "table_name": "ImageInfos",
+    "column_name": "Id",
+    "data_type": "integer",
+    "udt_name": "int4",
+    "is_nullable": "NO"
+  },
+  {
+    "table_name": "ImageInfos",
+    "column_name": "UserId",
+    "data_type": "uuid",
+    "udt_name": "uuid",
+    "is_nullable": "YES"
+  },
+  {
+    "table_name": "ImageInfos",
+    "column_name": "Path",
+    "data_type": "character varying",
+    "udt_name": "varchar",
+    "is_nullable": "NO"
+  },
+  {
+    "table_name": "ImageInfos",
+    "column_name": "LastModified",
+    "data_type": "timestamp with time zone",
+    "udt_name": "timestamptz",
+    "is_nullable": "NO"
+  },
+  {
+    "table_name": "ItemDisplayPreferences",
+    "column_name": "Id",
+    "data_type": "integer",
+    "udt_name": "int4",
+    "is_nullable": "NO"
+  },
+  {
+    "table_name": "ItemDisplayPreferences",
+    "column_name": "UserId",
+    "data_type": "uuid",
+    "udt_name": "uuid",
+    "is_nullable": "NO"
+  },
+  {
+    "table_name": "ItemDisplayPreferences",
+    "column_name": "ItemId",
+    "data_type": "uuid",
+    "udt_name": "uuid",
+    "is_nullable": "NO"
+  },
+  {
+    "table_name": "ItemDisplayPreferences",
+    "column_name": "Client",
+    "data_type": "character varying",
+    "udt_name": "varchar",
+    "is_nullable": "NO"
+  },
+  {
+    "table_name": "ItemDisplayPreferences",
+    "column_name": "ViewType",
+    "data_type": "integer",
+    "udt_name": "int4",
+    "is_nullable": "NO"
+  },
+  {
+    "table_name": "ItemDisplayPreferences",
+    "column_name": "RememberIndexing",
+    "data_type": "boolean",
+    "udt_name": "bool",
+    "is_nullable": "NO"
+  },
+  {
+    "table_name": "ItemDisplayPreferences",
+    "column_name": "IndexBy",
+    "data_type": "integer",
+    "udt_name": "int4",
+    "is_nullable": "YES"
+  },
+  {
+    "table_name": "ItemDisplayPreferences",
+    "column_name": "RememberSorting",
+    "data_type": "boolean",
+    "udt_name": "bool",
+    "is_nullable": "NO"
+  },
+  {
+    "table_name": "ItemDisplayPreferences",
+    "column_name": "SortBy",
+    "data_type": "character varying",
+    "udt_name": "varchar",
+    "is_nullable": "NO"
+  },
+  {
+    "table_name": "ItemDisplayPreferences",
+    "column_name": "SortOrder",
+    "data_type": "integer",
+    "udt_name": "int4",
+    "is_nullable": "NO"
+  },
+  {
+    "table_name": "ItemValues",
+    "column_name": "ItemValueId",
+    "data_type": "uuid",
+    "udt_name": "uuid",
+    "is_nullable": "NO"
+  },
+  {
+    "table_name": "ItemValues",
+    "column_name": "Type",
+    "data_type": "integer",
+    "udt_name": "int4",
+    "is_nullable": "NO"
+  },
+  {
+    "table_name": "ItemValues",
+    "column_name": "Value",
+    "data_type": "text",
+    "udt_name": "text",
+    "is_nullable": "NO"
+  },
+  {
+    "table_name": "ItemValues",
+    "column_name": "CleanValue",
+    "data_type": "text",
+    "udt_name": "text",
+    "is_nullable": "NO"
+  },
+  {
+    "table_name": "ItemValuesMap",
+    "column_name": "ItemId",
+    "data_type": "uuid",
+    "udt_name": "uuid",
+    "is_nullable": "NO"
+  },
+  {
+    "table_name": "ItemValuesMap",
+    "column_name": "ItemValueId",
+    "data_type": "uuid",
+    "udt_name": "uuid",
+    "is_nullable": "NO"
+  },
+  {
+    "table_name": "KeyframeData",
+    "column_name": "ItemId",
+    "data_type": "uuid",
+    "udt_name": "uuid",
+    "is_nullable": "NO"
+  },
+  {
+    "table_name": "KeyframeData",
+    "column_name": "TotalDuration",
+    "data_type": "bigint",
+    "udt_name": "int8",
+    "is_nullable": "NO"
+  },
+  {
+    "table_name": "KeyframeData",
+    "column_name": "KeyframeTicks",
+    "data_type": "ARRAY",
+    "udt_name": "_int8",
+    "is_nullable": "YES"
+  },
+  {
+    "table_name": "MediaSegments",
+    "column_name": "Id",
+    "data_type": "uuid",
+    "udt_name": "uuid",
+    "is_nullable": "NO"
+  },
+  {
+    "table_name": "MediaSegments",
+    "column_name": "ItemId",
+    "data_type": "uuid",
+    "udt_name": "uuid",
+    "is_nullable": "NO"
+  },
+  {
+    "table_name": "MediaSegments",
+    "column_name": "Type",
+    "data_type": "integer",
+    "udt_name": "int4",
+    "is_nullable": "NO"
+  },
+  {
+    "table_name": "MediaSegments",
+    "column_name": "EndTicks",
+    "data_type": "bigint",
+    "udt_name": "int8",
+    "is_nullable": "NO"
+  },
+  {
+    "table_name": "MediaSegments",
+    "column_name": "StartTicks",
+    "data_type": "bigint",
+    "udt_name": "int8",
+    "is_nullable": "NO"
+  },
+  {
+    "table_name": "MediaSegments",
+    "column_name": "SegmentProviderId",
+    "data_type": "text",
+    "udt_name": "text",
+    "is_nullable": "NO"
+  },
+  {
+    "table_name": "MediaStreamInfos",
+    "column_name": "ItemId",
+    "data_type": "uuid",
+    "udt_name": "uuid",
+    "is_nullable": "NO"
+  },
+  {
+    "table_name": "MediaStreamInfos",
+    "column_name": "StreamIndex",
+    "data_type": "integer",
+    "udt_name": "int4",
+    "is_nullable": "NO"
+  },
+  {
+    "table_name": "MediaStreamInfos",
+    "column_name": "StreamType",
+    "data_type": "integer",
+    "udt_name": "int4",
+    "is_nullable": "NO"
+  },
+  {
+    "table_name": "MediaStreamInfos",
+    "column_name": "Codec",
+    "data_type": "text",
+    "udt_name": "text",
+    "is_nullable": "YES"
+  },
+  {
+    "table_name": "MediaStreamInfos",
+    "column_name": "Language",
+    "data_type": "text",
+    "udt_name": "text",
+    "is_nullable": "YES"
+  },
+  {
+    "table_name": "MediaStreamInfos",
+    "column_name": "ChannelLayout",
+    "data_type": "text",
+    "udt_name": "text",
+    "is_nullable": "YES"
+  },
+  {
+    "table_name": "MediaStreamInfos",
+    "column_name": "Profile",
+    "data_type": "text",
+    "udt_name": "text",
+    "is_nullable": "YES"
+  },
+  {
+    "table_name": "MediaStreamInfos",
+    "column_name": "AspectRatio",
+    "data_type": "text",
+    "udt_name": "text",
+    "is_nullable": "YES"
+  },
+  {
+    "table_name": "MediaStreamInfos",
+    "column_name": "Path",
+    "data_type": "text",
+    "udt_name": "text",
+    "is_nullable": "YES"
+  },
+  {
+    "table_name": "MediaStreamInfos",
+    "column_name": "IsInterlaced",
+    "data_type": "boolean",
+    "udt_name": "bool",
+    "is_nullable": "YES"
+  },
+  {
+    "table_name": "MediaStreamInfos",
+    "column_name": "BitRate",
+    "data_type": "integer",
+    "udt_name": "int4",
+    "is_nullable": "YES"
+  },
+  {
+    "table_name": "MediaStreamInfos",
+    "column_name": "Channels",
+    "data_type": "integer",
+    "udt_name": "int4",
+    "is_nullable": "YES"
+  },
+  {
+    "table_name": "MediaStreamInfos",
+    "column_name": "SampleRate",
+    "data_type": "integer",
+    "udt_name": "int4",
+    "is_nullable": "YES"
+  },
+  {
+    "table_name": "MediaStreamInfos",
+    "column_name": "IsDefault",
+    "data_type": "boolean",
+    "udt_name": "bool",
+    "is_nullable": "NO"
+  },
+  {
+    "table_name": "MediaStreamInfos",
+    "column_name": "IsForced",
+    "data_type": "boolean",
+    "udt_name": "bool",
+    "is_nullable": "NO"
+  },
+  {
+    "table_name": "MediaStreamInfos",
+    "column_name": "IsExternal",
+    "data_type": "boolean",
+    "udt_name": "bool",
+    "is_nullable": "NO"
+  },
+  {
+    "table_name": "MediaStreamInfos",
+    "column_name": "Height",
+    "data_type": "integer",
+    "udt_name": "int4",
+    "is_nullable": "YES"
+  },
+  {
+    "table_name": "MediaStreamInfos",
+    "column_name": "Width",
+    "data_type": "integer",
+    "udt_name": "int4",
+    "is_nullable": "YES"
+  },
+  {
+    "table_name": "MediaStreamInfos",
+    "column_name": "AverageFrameRate",
+    "data_type": "real",
+    "udt_name": "float4",
+    "is_nullable": "YES"
+  },
+  {
+    "table_name": "MediaStreamInfos",
+    "column_name": "RealFrameRate",
+    "data_type": "real",
+    "udt_name": "float4",
+    "is_nullable": "YES"
+  },
+  {
+    "table_name": "MediaStreamInfos",
+    "column_name": "Level",
+    "data_type": "real",
+    "udt_name": "float4",
+    "is_nullable": "YES"
+  },
+  {
+    "table_name": "MediaStreamInfos",
+    "column_name": "PixelFormat",
+    "data_type": "text",
+    "udt_name": "text",
+    "is_nullable": "YES"
+  },
+  {
+    "table_name": "MediaStreamInfos",
+    "column_name": "BitDepth",
+    "data_type": "integer",
+    "udt_name": "int4",
+    "is_nullable": "YES"
+  },
+  {
+    "table_name": "MediaStreamInfos",
+    "column_name": "IsAnamorphic",
+    "data_type": "boolean",
+    "udt_name": "bool",
+    "is_nullable": "YES"
+  },
+  {
+    "table_name": "MediaStreamInfos",
+    "column_name": "RefFrames",
+    "data_type": "integer",
+    "udt_name": "int4",
+    "is_nullable": "YES"
+  },
+  {
+    "table_name": "MediaStreamInfos",
+    "column_name": "CodecTag",
+    "data_type": "text",
+    "udt_name": "text",
+    "is_nullable": "YES"
+  },
+  {
+    "table_name": "MediaStreamInfos",
+    "column_name": "Comment",
+    "data_type": "text",
+    "udt_name": "text",
+    "is_nullable": "YES"
+  },
+  {
+    "table_name": "MediaStreamInfos",
+    "column_name": "NalLengthSize",
+    "data_type": "text",
+    "udt_name": "text",
+    "is_nullable": "YES"
+  },
+  {
+    "table_name": "MediaStreamInfos",
+    "column_name": "IsAvc",
+    "data_type": "boolean",
+    "udt_name": "bool",
+    "is_nullable": "YES"
+  },
+  {
+    "table_name": "MediaStreamInfos",
+    "column_name": "Title",
+    "data_type": "text",
+    "udt_name": "text",
+    "is_nullable": "YES"
+  },
+  {
+    "table_name": "MediaStreamInfos",
+    "column_name": "TimeBase",
+    "data_type": "text",
+    "udt_name": "text",
+    "is_nullable": "YES"
+  },
+  {
+    "table_name": "MediaStreamInfos",
+    "column_name": "CodecTimeBase",
+    "data_type": "text",
+    "udt_name": "text",
+    "is_nullable": "YES"
+  },
+  {
+    "table_name": "MediaStreamInfos",
+    "column_name": "ColorPrimaries",
+    "data_type": "text",
+    "udt_name": "text",
+    "is_nullable": "YES"
+  },
+  {
+    "table_name": "MediaStreamInfos",
+    "column_name": "ColorSpace",
+    "data_type": "text",
+    "udt_name": "text",
+    "is_nullable": "YES"
+  },
+  {
+    "table_name": "MediaStreamInfos",
+    "column_name": "ColorTransfer",
+    "data_type": "text",
+    "udt_name": "text",
+    "is_nullable": "YES"
+  },
+  {
+    "table_name": "MediaStreamInfos",
+    "column_name": "DvVersionMajor",
+    "data_type": "integer",
+    "udt_name": "int4",
+    "is_nullable": "YES"
+  },
+  {
+    "table_name": "MediaStreamInfos",
+    "column_name": "DvVersionMinor",
+    "data_type": "integer",
+    "udt_name": "int4",
+    "is_nullable": "YES"
+  },
+  {
+    "table_name": "MediaStreamInfos",
+    "column_name": "DvProfile",
+    "data_type": "integer",
+    "udt_name": "int4",
+    "is_nullable": "YES"
+  },
+  {
+    "table_name": "MediaStreamInfos",
+    "column_name": "DvLevel",
+    "data_type": "integer",
+    "udt_name": "int4",
+    "is_nullable": "YES"
+  },
+  {
+    "table_name": "MediaStreamInfos",
+    "column_name": "RpuPresentFlag",
+    "data_type": "integer",
+    "udt_name": "int4",
+    "is_nullable": "YES"
+  },
+  {
+    "table_name": "MediaStreamInfos",
+    "column_name": "ElPresentFlag",
+    "data_type": "integer",
+    "udt_name": "int4",
+    "is_nullable": "YES"
+  },
+  {
+    "table_name": "MediaStreamInfos",
+    "column_name": "BlPresentFlag",
+    "data_type": "integer",
+    "udt_name": "int4",
+    "is_nullable": "YES"
+  },
+  {
+    "table_name": "MediaStreamInfos",
+    "column_name": "DvBlSignalCompatibilityId",
+    "data_type": "integer",
+    "udt_name": "int4",
+    "is_nullable": "YES"
+  },
+  {
+    "table_name": "MediaStreamInfos",
+    "column_name": "IsHearingImpaired",
+    "data_type": "boolean",
+    "udt_name": "bool",
+    "is_nullable": "YES"
+  },
+  {
+    "table_name": "MediaStreamInfos",
+    "column_name": "Rotation",
+    "data_type": "integer",
+    "udt_name": "int4",
+    "is_nullable": "YES"
+  },
+  {
+    "table_name": "MediaStreamInfos",
+    "column_name": "KeyFrames",
+    "data_type": "text",
+    "udt_name": "text",
+    "is_nullable": "YES"
+  },
+  {
+    "table_name": "MediaStreamInfos",
+    "column_name": "Hdr10PlusPresentFlag",
+    "data_type": "boolean",
+    "udt_name": "bool",
+    "is_nullable": "YES"
+  },
+  {
+    "table_name": "PeopleBaseItemMap",
+    "column_name": "ItemId",
+    "data_type": "uuid",
+    "udt_name": "uuid",
+    "is_nullable": "NO"
+  },
+  {
+    "table_name": "PeopleBaseItemMap",
+    "column_name": "PeopleId",
+    "data_type": "uuid",
+    "udt_name": "uuid",
+    "is_nullable": "NO"
+  },
+  {
+    "table_name": "PeopleBaseItemMap",
+    "column_name": "SortOrder",
+    "data_type": "integer",
+    "udt_name": "int4",
+    "is_nullable": "YES"
+  },
+  {
+    "table_name": "PeopleBaseItemMap",
+    "column_name": "ListOrder",
+    "data_type": "integer",
+    "udt_name": "int4",
+    "is_nullable": "YES"
+  },
+  {
+    "table_name": "PeopleBaseItemMap",
+    "column_name": "Role",
+    "data_type": "text",
+    "udt_name": "text",
+    "is_nullable": "NO"
+  },
+  {
+    "table_name": "Peoples",
+    "column_name": "Id",
+    "data_type": "uuid",
+    "udt_name": "uuid",
+    "is_nullable": "NO"
+  },
+  {
+    "table_name": "Peoples",
+    "column_name": "Name",
+    "data_type": "text",
+    "udt_name": "text",
+    "is_nullable": "NO"
+  },
+  {
+    "table_name": "Peoples",
+    "column_name": "PersonType",
+    "data_type": "text",
+    "udt_name": "text",
+    "is_nullable": "YES"
+  },
+  {
+    "table_name": "Permissions",
+    "column_name": "Id",
+    "data_type": "integer",
+    "udt_name": "int4",
+    "is_nullable": "NO"
+  },
+  {
+    "table_name": "Permissions",
+    "column_name": "UserId",
+    "data_type": "uuid",
+    "udt_name": "uuid",
+    "is_nullable": "YES"
+  },
+  {
+    "table_name": "Permissions",
+    "column_name": "Kind",
+    "data_type": "integer",
+    "udt_name": "int4",
+    "is_nullable": "NO"
+  },
+  {
+    "table_name": "Permissions",
+    "column_name": "Value",
+    "data_type": "boolean",
+    "udt_name": "bool",
+    "is_nullable": "NO"
+  },
+  {
+    "table_name": "Permissions",
+    "column_name": "RowVersion",
+    "data_type": "bigint",
+    "udt_name": "int8",
+    "is_nullable": "NO"
+  },
+  {
+    "table_name": "Permissions",
+    "column_name": "Permission_Permissions_Guid",
+    "data_type": "uuid",
+    "udt_name": "uuid",
+    "is_nullable": "YES"
+  },
+  {
+    "table_name": "Preferences",
+    "column_name": "Id",
+    "data_type": "integer",
+    "udt_name": "int4",
+    "is_nullable": "NO"
+  },
+  {
+    "table_name": "Preferences",
+    "column_name": "UserId",
+    "data_type": "uuid",
+    "udt_name": "uuid",
+    "is_nullable": "YES"
+  },
+  {
+    "table_name": "Preferences",
+    "column_name": "Kind",
+    "data_type": "integer",
+    "udt_name": "int4",
+    "is_nullable": "NO"
+  },
+  {
+    "table_name": "Preferences",
+    "column_name": "Value",
+    "data_type": "character varying",
+    "udt_name": "varchar",
+    "is_nullable": "NO"
+  },
+  {
+    "table_name": "Preferences",
+    "column_name": "RowVersion",
+    "data_type": "bigint",
+    "udt_name": "int8",
+    "is_nullable": "NO"
+  },
+  {
+    "table_name": "Preferences",
+    "column_name": "Preference_Preferences_Guid",
+    "data_type": "uuid",
+    "udt_name": "uuid",
+    "is_nullable": "YES"
+  },
+  {
+    "table_name": "TrickplayInfos",
+    "column_name": "ItemId",
+    "data_type": "uuid",
+    "udt_name": "uuid",
+    "is_nullable": "NO"
+  },
+  {
+    "table_name": "TrickplayInfos",
+    "column_name": "Width",
+    "data_type": "integer",
+    "udt_name": "int4",
+    "is_nullable": "NO"
+  },
+  {
+    "table_name": "TrickplayInfos",
+    "column_name": "Height",
+    "data_type": "integer",
+    "udt_name": "int4",
+    "is_nullable": "NO"
+  },
+  {
+    "table_name": "TrickplayInfos",
+    "column_name": "TileWidth",
+    "data_type": "integer",
+    "udt_name": "int4",
+    "is_nullable": "NO"
+  },
+  {
+    "table_name": "TrickplayInfos",
+    "column_name": "TileHeight",
+    "data_type": "integer",
+    "udt_name": "int4",
+    "is_nullable": "NO"
+  },
+  {
+    "table_name": "TrickplayInfos",
+    "column_name": "ThumbnailCount",
+    "data_type": "integer",
+    "udt_name": "int4",
+    "is_nullable": "NO"
+  },
+  {
+    "table_name": "TrickplayInfos",
+    "column_name": "Interval",
+    "data_type": "integer",
+    "udt_name": "int4",
+    "is_nullable": "NO"
+  },
+  {
+    "table_name": "TrickplayInfos",
+    "column_name": "Bandwidth",
+    "data_type": "integer",
+    "udt_name": "int4",
+    "is_nullable": "NO"
+  },
+  {
+    "table_name": "UserData",
+    "column_name": "CustomDataKey",
+    "data_type": "text",
+    "udt_name": "text",
+    "is_nullable": "NO"
+  },
+  {
+    "table_name": "UserData",
+    "column_name": "ItemId",
+    "data_type": "uuid",
+    "udt_name": "uuid",
+    "is_nullable": "NO"
+  },
+  {
+    "table_name": "UserData",
+    "column_name": "UserId",
+    "data_type": "uuid",
+    "udt_name": "uuid",
+    "is_nullable": "NO"
+  },
+  {
+    "table_name": "UserData",
+    "column_name": "Rating",
+    "data_type": "double precision",
+    "udt_name": "float8",
+    "is_nullable": "YES"
+  },
+  {
+    "table_name": "UserData",
+    "column_name": "PlaybackPositionTicks",
+    "data_type": "bigint",
+    "udt_name": "int8",
+    "is_nullable": "NO"
+  },
+  {
+    "table_name": "UserData",
+    "column_name": "PlayCount",
+    "data_type": "integer",
+    "udt_name": "int4",
+    "is_nullable": "NO"
+  },
+  {
+    "table_name": "UserData",
+    "column_name": "IsFavorite",
+    "data_type": "boolean",
+    "udt_name": "bool",
+    "is_nullable": "NO"
+  },
+  {
+    "table_name": "UserData",
+    "column_name": "LastPlayedDate",
+    "data_type": "timestamp with time zone",
+    "udt_name": "timestamptz",
+    "is_nullable": "YES"
+  },
+  {
+    "table_name": "UserData",
+    "column_name": "Played",
+    "data_type": "boolean",
+    "udt_name": "bool",
+    "is_nullable": "NO"
+  },
+  {
+    "table_name": "UserData",
+    "column_name": "AudioStreamIndex",
+    "data_type": "integer",
+    "udt_name": "int4",
+    "is_nullable": "YES"
+  },
+  {
+    "table_name": "UserData",
+    "column_name": "SubtitleStreamIndex",
+    "data_type": "integer",
+    "udt_name": "int4",
+    "is_nullable": "YES"
+  },
+  {
+    "table_name": "UserData",
+    "column_name": "Likes",
+    "data_type": "boolean",
+    "udt_name": "bool",
+    "is_nullable": "YES"
+  },
+  {
+    "table_name": "UserData",
+    "column_name": "RetentionDate",
+    "data_type": "timestamp with time zone",
+    "udt_name": "timestamptz",
+    "is_nullable": "YES"
+  },
+  {
+    "table_name": "Users",
+    "column_name": "Id",
+    "data_type": "uuid",
+    "udt_name": "uuid",
+    "is_nullable": "NO"
+  },
+  {
+    "table_name": "Users",
+    "column_name": "Username",
+    "data_type": "character varying",
+    "udt_name": "varchar",
+    "is_nullable": "NO"
+  },
+  {
+    "table_name": "Users",
+    "column_name": "Password",
+    "data_type": "character varying",
+    "udt_name": "varchar",
+    "is_nullable": "YES"
+  },
+  {
+    "table_name": "Users",
+    "column_name": "MustUpdatePassword",
+    "data_type": "boolean",
+    "udt_name": "bool",
+    "is_nullable": "NO"
+  },
+  {
+    "table_name": "Users",
+    "column_name": "AudioLanguagePreference",
+    "data_type": "character varying",
+    "udt_name": "varchar",
+    "is_nullable": "YES"
+  },
+  {
+    "table_name": "Users",
+    "column_name": "AuthenticationProviderId",
+    "data_type": "character varying",
+    "udt_name": "varchar",
+    "is_nullable": "NO"
+  },
+  {
+    "table_name": "Users",
+    "column_name": "PasswordResetProviderId",
+    "data_type": "character varying",
+    "udt_name": "varchar",
+    "is_nullable": "NO"
+  },
+  {
+    "table_name": "Users",
+    "column_name": "InvalidLoginAttemptCount",
+    "data_type": "integer",
+    "udt_name": "int4",
+    "is_nullable": "NO"
+  },
+  {
+    "table_name": "Users",
+    "column_name": "LastActivityDate",
+    "data_type": "timestamp with time zone",
+    "udt_name": "timestamptz",
+    "is_nullable": "YES"
+  },
+  {
+    "table_name": "Users",
+    "column_name": "LastLoginDate",
+    "data_type": "timestamp with time zone",
+    "udt_name": "timestamptz",
+    "is_nullable": "YES"
+  },
+  {
+    "table_name": "Users",
+    "column_name": "LoginAttemptsBeforeLockout",
+    "data_type": "integer",
+    "udt_name": "int4",
+    "is_nullable": "YES"
+  },
+  {
+    "table_name": "Users",
+    "column_name": "MaxActiveSessions",
+    "data_type": "integer",
+    "udt_name": "int4",
+    "is_nullable": "NO"
+  },
+  {
+    "table_name": "Users",
+    "column_name": "SubtitleMode",
+    "data_type": "integer",
+    "udt_name": "int4",
+    "is_nullable": "NO"
+  },
+  {
+    "table_name": "Users",
+    "column_name": "PlayDefaultAudioTrack",
+    "data_type": "boolean",
+    "udt_name": "bool",
+    "is_nullable": "NO"
+  },
+  {
+    "table_name": "Users",
+    "column_name": "SubtitleLanguagePreference",
+    "data_type": "character varying",
+    "udt_name": "varchar",
+    "is_nullable": "YES"
+  },
+  {
+    "table_name": "Users",
+    "column_name": "DisplayMissingEpisodes",
+    "data_type": "boolean",
+    "udt_name": "bool",
+    "is_nullable": "NO"
+  },
+  {
+    "table_name": "Users",
+    "column_name": "DisplayCollectionsView",
+    "data_type": "boolean",
+    "udt_name": "bool",
+    "is_nullable": "NO"
+  },
+  {
+    "table_name": "Users",
+    "column_name": "EnableLocalPassword",
+    "data_type": "boolean",
+    "udt_name": "bool",
+    "is_nullable": "NO"
+  },
+  {
+    "table_name": "Users",
+    "column_name": "HidePlayedInLatest",
+    "data_type": "boolean",
+    "udt_name": "bool",
+    "is_nullable": "NO"
+  },
+  {
+    "table_name": "Users",
+    "column_name": "RememberAudioSelections",
+    "data_type": "boolean",
+    "udt_name": "bool",
+    "is_nullable": "NO"
+  },
+  {
+    "table_name": "Users",
+    "column_name": "RememberSubtitleSelections",
+    "data_type": "boolean",
+    "udt_name": "bool",
+    "is_nullable": "NO"
+  },
+  {
+    "table_name": "Users",
+    "column_name": "EnableNextEpisodeAutoPlay",
+    "data_type": "boolean",
+    "udt_name": "bool",
+    "is_nullable": "NO"
+  },
+  {
+    "table_name": "Users",
+    "column_name": "EnableAutoLogin",
+    "data_type": "boolean",
+    "udt_name": "bool",
+    "is_nullable": "NO"
+  },
+  {
+    "table_name": "Users",
+    "column_name": "EnableUserPreferenceAccess",
+    "data_type": "boolean",
+    "udt_name": "bool",
+    "is_nullable": "NO"
+  },
+  {
+    "table_name": "Users",
+    "column_name": "MaxParentalRatingScore",
+    "data_type": "integer",
+    "udt_name": "int4",
+    "is_nullable": "YES"
+  },
+  {
+    "table_name": "Users",
+    "column_name": "MaxParentalRatingSubScore",
+    "data_type": "integer",
+    "udt_name": "int4",
+    "is_nullable": "YES"
+  },
+  {
+    "table_name": "Users",
+    "column_name": "RemoteClientBitrateLimit",
+    "data_type": "integer",
+    "udt_name": "int4",
+    "is_nullable": "YES"
+  },
+  {
+    "table_name": "Users",
+    "column_name": "InternalId",
+    "data_type": "bigint",
+    "udt_name": "int8",
+    "is_nullable": "NO"
+  },
+  {
+    "table_name": "Users",
+    "column_name": "SyncPlayAccess",
+    "data_type": "integer",
+    "udt_name": "int4",
+    "is_nullable": "NO"
+  },
+  {
+    "table_name": "Users",
+    "column_name": "CastReceiverId",
+    "data_type": "character varying",
+    "udt_name": "varchar",
+    "is_nullable": "YES"
+  },
+  {
+    "table_name": "Users",
+    "column_name": "RowVersion",
+    "data_type": "bigint",
+    "udt_name": "int8",
+    "is_nullable": "NO"
+  },
+  {
+    "table_name": "__EFMigrationsHistory",
+    "column_name": "MigrationId",
+    "data_type": "character varying",
+    "udt_name": "varchar",
+    "is_nullable": "NO"
+  },
+  {
+    "table_name": "__EFMigrationsHistory",
+    "column_name": "ProductVersion",
+    "data_type": "character varying",
+    "udt_name": "varchar",
+    "is_nullable": "NO"
+  }
+]

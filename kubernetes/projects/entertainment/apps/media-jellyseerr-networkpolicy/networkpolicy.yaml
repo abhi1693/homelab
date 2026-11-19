@@ -37,9 +37,6 @@ spec:
         - podSelector:
             matchLabels:
               app.kubernetes.io/name: episeerr
-        - podSelector:
-            matchLabels:
-              app.kubernetes.io/name: media-acquisition-schedule
       ports:
         - protocol: TCP
           port: 5055

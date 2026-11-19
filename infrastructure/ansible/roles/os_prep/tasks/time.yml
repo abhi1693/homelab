@@ -61,3 +61,7 @@
 
 - name: Verify active synchronization before subsequent host work
   ansible.builtin.include_tasks: time_validation.yml
+
+- name: Install persistent K3s synchronization gates when enabled
+  ansible.builtin.include_tasks: time_startup_gate.yml
+  when: os_prep.k3s_time_gate.enabled | default(false) | bool

@@ -10,8 +10,7 @@ metadata:
 spec:
   progressDeadlineSeconds: 4800
   revisionHistoryLimit: 2
-  # Temporarily paused; restore one replica through Git to resume.
-  replicas: 0
+  replicas: 1
   strategy:
     type: Recreate
   selector:
@@ -66,7 +65,7 @@ spec:
             - --pod-uid
             - $(POD_UID)
             - --cohort
-            - qbit-0.2.13-ryokan-1.9.13
+            - qbit-0.2.14-ryokan-2.3.0
             - --source-pvc
             - ryokan-data
             - --source-pvc-uid
@@ -307,8 +306,8 @@ spec:
               mountPath: /data
       containers:
         - name: ryokan
-          # renovate: datasource=docker depName=ghcr.io/abhi1693/ryokan
-          image: registry.home/ghcr.io/abhi1693/ryokan:1.9.13@sha256:15e43bf5e84cde3abd955263c493764828ff8e400b788708b5719fdbb0242782
+          # renovate: datasource=docker depName=ghcr.io/johnthreekay/ryokan
+          image: registry.home/ghcr.io/johnthreekay/ryokan:2.3.0@sha256:696b246f3039ce919c9ec537301ad8835548d0824b0c0dcad3ed98db1aa98755
           imagePullPolicy: IfNotPresent
           envFrom:
             - configMapRef:
@@ -359,7 +358,7 @@ spec:
               mountPath: /tmp
         - name: import-reconciler
           # renovate: datasource=docker depName=ghcr.io/abhi1693/qbittorrent-smart-queues
-          image: registry.home/ghcr.io/abhi1693/qbittorrent-smart-queues:0.2.13@sha256:cd54a54c19a2ef40e450b1e53759a10c206eea3247263f6a15d5b67fa793db18
+          image: registry.home/ghcr.io/abhi1693/qbittorrent-smart-queues:0.2.14@sha256:a8baa131f2be59f9c3b7bf51fecee87368914f105a22e4fbf628936e57e65ef1
           imagePullPolicy: IfNotPresent
           command:
             - python
@@ -413,6 +412,8 @@ spec:
                 - ALL
             readOnlyRootFilesystem: true
             runAsNonRoot: true
+            runAsUser: 568
+            runAsGroup: 568
           volumeMounts:
             - name: data
               mountPath: /data

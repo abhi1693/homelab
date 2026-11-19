@@ -41,7 +41,7 @@ spec:
       containers:
         - name: reconcile
           # renovate: datasource=docker depName=docker.io/library/python
-          image: registry.home/docker.io/library/python:3.15-alpine@sha256:ff4d3c9b1a48f646eedd93182aaea385c7a5452f4c8a8cd7cef686babacf4928
+          image: registry.home/docker.io/library/python:3.15-alpine@sha256:0f9552bb28711333da16915ec146f5e6bb44a7fdac9ced15dc17c2e0206346dd
           imagePullPolicy: IfNotPresent
           command: [python3, -u, /app/reconcile.py]
           env:

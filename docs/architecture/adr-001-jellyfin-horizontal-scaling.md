@@ -2,7 +2,13 @@
 
 ## Status
 
-Proposed
+Superseded — 3 November 2026.
+
+Jellyfin 12.4 now runs as one replica with native SQLite on Longhorn RWO
+storage. The experimental PostgreSQL provider and custom core patch are retired.
+The proposed active-active design below is retained as historical context;
+follow the [current runtime and backup documentation](../../kubernetes/projects/entertainment/apps/media-jellyfin/README.md).
+
 
 ## Context
 

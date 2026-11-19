@@ -14,7 +14,7 @@ requirements, and regression fixtures remain private under `.github/`.
   Local changes, ignored files, symlinks, and submodules are not publication
   inputs. Reject unreadable, ambiguous, or undecodable inputs.
 - Omit private inventories, network configuration, GitHub metadata, credential
-  files, SOPS artifacts, certificate/key material, and actual Secret/ConfigMap
+  files, SOPS artifacts, age-encrypted `.age` snapshots, certificate/key material, and actual Secret/ConfigMap
   resources, including embedded resources and placeholder Secret templates.
   Unrendered Helm generators are omitted rather than exempted from parsing.
   Declarative references to those

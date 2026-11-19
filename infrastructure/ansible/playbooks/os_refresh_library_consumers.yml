@@ -1,0 +1,77 @@
+---
+- name: Refresh only idle fwupd daemons retaining an obsolete Brotli library
+  hosts: k3s_nodes
+  become: true
+  gather_facts: false
+  serial: 1
+  any_errors_fatal: true
+  vars:
+    os_library_inspection: |
+      import json
+      from pathlib import Path
+      stale = []
+      for maps in Path('/proc').glob('[0-9]*/maps'):
+          try:
+              if any('libbrotli' in line and '(deleted)' in line for line in maps.read_text().splitlines()):
+                  stale.append((maps.parent / 'comm').read_text().strip())
+          except OSError:
+              pass
+      print(json.dumps({'stale_consumers': sorted(set(stale)),
+                        'boot_id': Path('/proc/sys/kernel/random/boot_id').read_text().strip()}))
+  tasks:
+    - name: Inspect obsolete Brotli consumers and preserve this boot identity
+      ansible.builtin.command:
+        argv: [python3, -c, "{{ os_library_inspection }}"]
+      register: os_library_before
+      changed_when: false
+      check_mode: false
+
+    - name: Refuse to restart any unreviewed library consumer
+      ansible.builtin.assert:
+        that:
+          - (os_library_before.stdout | from_json).stale_consumers | difference(['fwupd']) | length == 0
+
+    - name: Read the firmware daemon state without requesting an update
+      ansible.builtin.command: busctl get-property org.freedesktop.fwupd / org.freedesktop.fwupd Status
+      register: os_library_fwupd_status
+      changed_when: false
+      check_mode: false
+      when: (os_library_before.stdout | from_json).stale_consumers | length > 0
+
+    - name: Require the daemon to be idle before a library refresh
+      ansible.builtin.assert:
+        that:
+          - os_library_fwupd_status.stdout | trim == 'u 1'
+        fail_msg: A busy, updating, downloading or unknown firmware daemon must not be restarted.
+      when: (os_library_before.stdout | from_json).stale_consumers | length > 0
+
+    - name: Restart only the idle firmware daemon to load the patched library
+      ansible.builtin.systemd_service:
+        name: fwupd.service
+        state: restarted
+      when: (os_library_before.stdout | from_json).stale_consumers | length > 0
+
+    - name: Recheck loaded libraries and the boot identity
+      ansible.builtin.command:
+        argv: [python3, -c, "{{ os_library_inspection }}"]
+      register: os_library_after
+      changed_when: false
+      check_mode: false
+
+    - name: Require no obsolete mappings and no node reboot
+      ansible.builtin.assert:
+        that:
+          - (os_library_after.stdout | from_json).boot_id == (os_library_before.stdout | from_json).boot_id
+          - (os_library_after.stdout | from_json).stale_consumers | length == 0
+      when: not ansible_check_mode
+
+    - name: Require the restarted daemon to return to idle
+      ansible.builtin.command: busctl get-property org.freedesktop.fwupd / org.freedesktop.fwupd Status
+      register: os_library_fwupd_after
+      changed_when: false
+      retries: 15
+      delay: 2
+      until: os_library_fwupd_after.stdout | trim == 'u 1'
+      when:
+        - not ansible_check_mode
+        - (os_library_before.stdout | from_json).stale_consumers | length > 0

@@ -3,12 +3,8 @@
 Profilarr manages Radarr and Sonarr quality profiles, custom formats, and media
 management settings from PCD sources such as Dictionarry and TRaSH Guides.
 
-The [acquisition schedule](../media-acquisition-schedule/README.md) runs one
-replica from 22:00–10:00 Asia/Kolkata (IST), on nights starting Monday–Friday;
-Friday night continues until Saturday at 10:00. Git keeps a paused baseline of
-zero replicas, and the schedule owns only the runtime replica field. Outside
-the window the pod stops while queued work and configuration PVCs remain
-retained. FlareSolverr stays online because DevFeed uses it.
+Runs continuously with one replica managed by Git/Fleet. Configuration, queues
+and media remain on their existing persistent storage.
 
 ## Runtime
 
@@ -22,9 +18,24 @@ The parser sidecar is intentionally omitted. Upstream documents it as required
 only for custom format and quality profile testing; linking and syncing profiles
 to Arr instances work without it.
 
+## Upgrade to 2.3.1
+
+The 2.3 release changes authentication and migrates the application database.
+Retain a full application backup and a consistent online SQLite snapshot before
+the rollout. An isolated restored-copy rehearsal of 2.3.1 migrated this instance
+from schema 70 to 76, passed SQLite integrity checks and HTTP health checks, and
+retained existing users, Arr connections, profile settings and database edits.
+Existing API-key hashes migrate to full-access default keys. Production remains
+on `AUTH=on`; the removed local-authentication bypass is not used.
+
+After Fleet applies the pinned ARM64 image, check the health endpoint, login
+protection and both Arr connections. If a migration must be rolled back, restore
+the pre-upgrade database and matching data directory before starting the old
+image; changing the image alone does not reverse the schema migration.
+
 ## Initial Setup
 
-The app starts with `AUTH=on`. During an acquisition window after the first
+The app starts with `AUTH=on`. After the first
 GitOps deployment, open
 `http://profilarr.media.home`, create the local admin account, and link:
 

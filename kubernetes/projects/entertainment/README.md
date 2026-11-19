@@ -33,7 +33,7 @@ apps.
 | `media-episeerr` | Season-ahead TV download automation. | Sonarr delay tags and webhook, Jellyseerr request tags, Jellyfin playback events. |
 | `media-ryokan` | Anime request/import workflow. | qBittorrent anime category, NAS anime library, direct public-indexer HTTPS egress. |
 | `media-shoko` | Anime metadata and library management. | NAS anime library, Jellyfin/Shokofin workflow. |
-| `media-jellyfin` | Media server. | NAS media library, custom image, PostgreSQL experiment, shared metadata PVCs. |
+| `media-jellyfin` | Media server. | NAS media library, custom image, Longhorn SQLite/config volumes, shared NFS metadata. |
 | `media-jellyseerr` | Media request portal. | Jellyfin and media app APIs. |
 | `media-flaresolverr` | Browser challenge helper for indexers. | Prowlarr indexer proxy. |
 | `media-helm-repositories` | Registers Helm repositories for media charts. | Rancher ClusterRepo. |
@@ -84,6 +84,12 @@ Review their retention before deleting or reusing them.
   indexers that need browser-challenge handling.
 - Ryokan uses direct public HTTPS for Nyaa and other external metadata/search
   endpoints.
+
+## Runtime
+
+All media applications run continuously at one replica through Git/Fleet.
+The former acquisition pause/resume controller is removed. qBittorrent backups
+and layout checks run every 15 minutes; tracker refresh runs daily at 03:17 IST.
 
 ## Operating Notes
 

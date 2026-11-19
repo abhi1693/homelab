@@ -10,7 +10,7 @@ metadata:
     home-lab.io/project-slug: entertainment
 spec:
   revisionHistoryLimit: 2
-  replicas: 0
+  replicas: 1
   strategy:
     type: Recreate
   selector:
@@ -38,7 +38,7 @@ spec:
       containers:
         - name: profilarr
           # renovate: datasource=docker depName=ghcr.io/dictionarry-hub/profilarr
-          image: registry.home/ghcr.io/dictionarry-hub/profilarr:2.2.0
+          image: registry.home/ghcr.io/dictionarry-hub/profilarr:2.3.1@sha256:352e42dec74ecfd68d13bb198fbc6d9346e3a8c55003026e1814e59319a2176d
           imagePullPolicy: IfNotPresent
           env:
             - name: TZ

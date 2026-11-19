@@ -2,14 +2,10 @@
 
 Fleet-managed season-ahead automation for the standard Sonarr library.
 
-The [acquisition schedule](../media-acquisition-schedule/README.md) runs one
-replica from 22:00–10:00 Asia/Kolkata (IST), on nights starting Monday–Friday;
-Friday night continues until Saturday at 10:00. Git keeps a paused baseline of
-zero replicas, and the schedule owns only the runtime replica field. Outside
-the window the pod stops while queued work, configuration PVCs, and media remain
-retained. FlareSolverr stays online because DevFeed uses it.
+Runs continuously with one replica managed by Git/Fleet. Configuration, queues
+and media remain on their existing persistent storage.
 
-During the acquisition window, Episeerr is available at
+Episeerr is available at
 `http://episodes.media.home`. Authentication is
 enabled, the username is `asaharan`, and the configured password is stored only
 in the encrypted `media-episeerr` SopsSecret.
@@ -62,8 +58,10 @@ season progress reaches 25 percent. Jellyfin episode events are fail-closed to
 the standard TV media root (`/media/tv`); Anime library items are ignored. The
 next season is not searched again once all of its episodes are already monitored.
 When the threshold is crossed, Episeerr first monitors the exact selected
-episodes and then sends Sonarr a `SeasonSearch` for every distinct selected
-season, including the complete next season.
+episodes and then searches only missing files. Complete missing seasons use
+`SeasonSearch`, including the complete next season; partially downloaded
+seasons use `EpisodeSearch` for the missing episode IDs. Repeated watch events
+do not search episodes already on disk.
 
 The retained 50 percent episode setting is only a compatibility sampling
 fallback if Jellyfin-to-Sonarr season-position resolution is unavailable. The
@@ -71,8 +69,8 @@ next-season decision still uses the separate 25 percent aggregate-season gate.
 
 ## Runtime Shape
 
-- Image: `registry.home/ghcr.io/abhi1693/home-lab-episeerr:3.9.6-2@sha256:ea5961a513fd660e9c7fecc07a305ef51aac355ae516da57a44f91d04e748c31`
-- Upstream release: `vansmak/episeerr:3.9.6`, pinned by digest in the image
+- Image: `registry.home/ghcr.io/abhi1693/home-lab-episeerr:4.0.5-1@sha256:3ebfce67d5cb6c99d220b12c89480f5ceeb1d04821ddc9db0cb90835306d0e42`
+- Upstream release: `vansmak/episeerr:4.0.5`, pinned by digest in the image
   Dockerfile
 - Service: `episeerr.media.svc.cluster.local:5002`
 - Config and SQLite state: retained 1Gi Longhorn PVC
@@ -80,12 +78,14 @@ next-season decision still uses the separate 25 percent aggregate-season gate.
 - Pod user: UID/GID `1000`, read-only root filesystem, dropped capabilities,
   RuntimeDefault seccomp, and no service-account token
 
-The `3.9.6-2` image copies the pinned upstream application onto a pinned
-Python 3.13 Alpine runtime with locked Python dependencies. It applies an
-assertion-guarded season-progress patch with five behavioral tests during the
+The `4.0.5-1` image copies the pinned upstream application onto a pinned
+Python 3.15 Alpine runtime with locked Python dependencies. It applies an
+assertion-guarded season-progress patch with behavioral tests during the
 build. Native ARM64 vulnerability/secret scanning and non-root, read-only
 authentication smoke tests must pass before the workflow publishes the tag.
-The init and application containers use the same immutable digest.
+The init and application containers use the same immutable digest. Gunicorn
+workers recycle after 2,000 requests plus up to 200 requests of jitter, matching
+upstream 4.x. The control socket is disabled for the read-only root filesystem.
 
 ## Network Boundary
 
@@ -137,3 +137,37 @@ and extra headroom where OOM records show clipping.
 | Container / value path | CPU request | Memory request | Memory limit |
 | --- | --- | --- | --- |
 | `media/episeerr/episeerr` | 25m → 10m | 160Mi → 96Mi | 384Mi → 256Mi |
+
+## 2026-11-12 attachment recovery
+
+Episeerr's pod was blocked before initialization: CSI requested the config
+volume on `k8s-rpi5` while its engine still ran on `k8s-rpi9`. Longhorn reported
+`engine is on node k8s-rpi9 vs volume on , must detach first`. Two replicas
+remained writable; the third was failed. No application pod had mounted the
+volume. A private full-volume recovery copy was taken before reconciliation.
+
+Fleet paused the deployment at zero replicas. CSI released its old attachment
+and Longhorn stopped the stale engine without deleting storage objects or
+clearing finalizers. Longhorn then attached the volume on `k8s-rpi5` with two
+writable replicas and scheduled a replacement third replica on `k8s-rpi7`.
+That rebuild initially queued behind Jellyfin under the one-rebuild-per-node
+policy. Episeerr resumes at one replica using the two writable copies and the
+verified recovery backup; this does not claim full storage redundancy.
+
+For a recurrence, pause the single client through Fleet, verify CSI releases
+its ticket and the stale engine stops, and allow Longhorn to reconcile its
+attachment before resuming. Inspect attachment tickets for Longhorn's offline
+rebuild controller as well as CSI: an offline rebuild can legitimately reattach
+the volume after application detachment. Never promote a failed replica or
+remove a storage finalizer to bypass this sequence. Verify the existing PVC
+and database, application readiness, login protection, integrations, and the
+three-replica storage target separately after resuming.
+
+The first resumed pod scheduled on `k8s-rpi4`, but the offline-rebuild ticket
+continued to own the attachment on `k8s-rpi5` while its third replica waited
+for the rebuild slot on `k8s-rpi7`. A temporary Fleet hostname selector restored
+service on `k8s-rpi5`; CSI then owned the attachment and the offline-rebuild
+ticket was removed. The temporary selector was removed on 2026-11-13 at the
+operator's request. Scheduling is again ARM64-only without a hostname pin.
+Storage redundancy and rebuild completion remain separate acceptance gates;
+do not infer three healthy replicas from application readiness.

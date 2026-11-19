@@ -4,6 +4,8 @@ kind: GitRepo
 metadata:
   name: home-lab-training
   namespace: fleet-local
+  annotations:
+    home-lab.io/status-reconcile-at: '2026-11-11T01:34:13Z'
   labels:
     app.kubernetes.io/name: home-lab-training
     app.kubernetes.io/part-of: fleet
@@ -16,6 +18,16 @@ spec:
   paths:
   - kubernetes/projects/training/apps/instructor-prerequisites
   - kubernetes/projects/training/apps/instructor-netbox
+  - kubernetes/projects/training/apps/student1-prerequisites
+  - kubernetes/projects/training/apps/student1-netbox
+  - kubernetes/projects/training/apps/student2-prerequisites
+  - kubernetes/projects/training/apps/student2-netbox
+  - kubernetes/projects/training/apps/student3-prerequisites
+  - kubernetes/projects/training/apps/student3-netbox
+  - kubernetes/projects/training/apps/student4-prerequisites
+  - kubernetes/projects/training/apps/student4-netbox
+  - kubernetes/projects/training/apps/student5-prerequisites
+  - kubernetes/projects/training/apps/student5-netbox
   correctDrift:
     enabled: true
     force: true

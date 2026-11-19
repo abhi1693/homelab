@@ -94,6 +94,12 @@ fit.
 | `k8s-rpi6` | `worker-3` | K3s Worker | `192.168.3.71/24` | `62bd6dbb6739d435` | `98:FE:54:22:12:5C` | Lab Switch Port 6 |
 | `k8s-rpi7` | `worker-4` | K3s Worker | `192.168.3.179/24` | `c8c596a76e73efdf` | `98:FE:54:22:13:58` | Lab Switch Port 7 |
 | `k8s-rpi8` | `worker-5` | K3s Worker | `192.168.3.8/24` | `cfc778dbffa5998e` | `98:FE:54:22:12:1D` | Lab Switch Port 8 |
+| `k8s-rpi9` | `worker-6` | K3s Worker | `192.168.3.245/24` | `76db551df1862f66` | `88:A2:9E:DC:4B:B1` | Pending physical verification |
+
+Pi9 was added on 2026-11-02. Its host identity is verified; NetBox registration,
+chassis/cable records and the Pi Recovery application's switch-port binding
+still require a separate reconciliation. The older rows retain their recorded
+baseline addresses; re-collect live addresses before treating them as current.
 
 An intentional topology or inventory change must update this baseline in the
 same repository change that updates the affected desired state or procedure.
@@ -345,8 +351,8 @@ it only after assigning a stable Git-owned application and source path.
 Repeat the full collection from Git, Kubernetes, hosts, UniFi, and NetBox. Then
 prove all of the following:
 
-- exactly eight live nodes match exactly eight NetBox cluster Devices;
-- the role split is three control-plane and five workers;
+- all nine live nodes match the corresponding NetBox cluster Devices;
+- the role split is three control-plane and six workers;
 - every Device has one unique serial, expected inventory alias, primary IP,
   `eth0` primary MAC, chassis bay, and switch cable;
 - the UPS exposes one Type M input, four battery-backed outlets, and two

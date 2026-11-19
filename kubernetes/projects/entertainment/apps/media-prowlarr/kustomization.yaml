@@ -5,6 +5,7 @@ configMapGenerator:
   - name: prowlarr-values
     files:
       - values.yaml
+      - custom-definitions-values.yaml
 generatorOptions:
   labels:
     app.kubernetes.io/name: prowlarr

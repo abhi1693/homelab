@@ -147,3 +147,44 @@ tests:
       - eval_time: 40m
         alertname: PostgreSQLDeadTupleRatioCritical
         exp_alerts: []
+  - name: physical critical exact threshold does not fire
+    interval: 1m
+    input_series:
+      - series: cnpg_pg_replication_lag{namespace="postgresql",pod="postgresql-2"}
+        values: 15+0x8
+    alert_rule_test:
+      - eval_time: 8m
+        alertname: CNPGClusterPhysicalReplicationLagCritical
+        exp_alerts: []
+  - name: physical critical retains five minute hold and seconds
+    interval: 1m
+    input_series:
+      - series: cnpg_pg_replication_lag{namespace="postgresql",pod="postgresql-2"}
+        values: 16+0x8
+    alert_rule_test:
+      - eval_time: 4m
+        alertname: CNPGClusterPhysicalReplicationLagCritical
+        exp_alerts: []
+      - eval_time: 5m
+        alertname: CNPGClusterPhysicalReplicationLagCritical
+        exp_alerts:
+          - exp_labels:
+              severity: critical
+              namespace: postgresql
+              cnpg_cluster: postgresql
+            exp_annotations:
+              summary: CNPG Cluster very high physical replication lag
+              description: |-
+                CloudNativePG Cluster "postgresql/postgresql" is experiencing a very high physical replication lag of 16s.
+
+                High replication lag indicates network issues, busy instances, slow queries or suboptimal configuration.
+              runbook_url: https://github.com/cloudnative-pg/charts/blob/main/charts/cluster/docs/runbooks/CNPGClusterPhysicalReplicationLag.md
+  - name: physical critical excludes pooler pods
+    interval: 1m
+    input_series:
+      - series: cnpg_pg_replication_lag{namespace="postgresql",pod="postgresql-pooler-netbox-rw-1"}
+        values: 999+0x8
+    alert_rule_test:
+      - eval_time: 8m
+        alertname: CNPGClusterPhysicalReplicationLagCritical
+        exp_alerts: []

@@ -1,0 +1,6 @@
+---
+image:
+  repository: ghcr.io/abhi1693/home-lab-netbox-training
+  # renovate: datasource=docker depName=ghcr.io/abhi1693/home-lab-netbox-training
+  tag: 4.7.4-dns1.7.3-branching1.2.3
+  digest: sha256:9a6b76485a6845f7401435859f12225902a22260aef8f27d76f791405dcffb91

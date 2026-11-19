@@ -19,7 +19,7 @@ def load_config(path=CONFIG):
     ipaddress.IPv4Address(config['address'])
     if not re.fullmatch(r'[a-zA-Z0-9_.-]+', config['interface']):
         raise ValueError('Invalid network interface')
-    if not re.fullmatch(r'k8s-rpi[1-8]', config['node']):
+    if not re.fullmatch(r'k8s-rpi[1-9]', config['node']):
         raise ValueError('Unknown source node')
     if len(config['receivers']) < 2:
         raise ValueError('At least two independent receivers are required')
@@ -31,7 +31,7 @@ def load_config(path=CONFIG):
             raise ValueError('Unknown receiver')
     for address, node in config['sources'].items():
         ipaddress.IPv4Address(address)
-        if not re.fullmatch(r'k8s-rpi[1-8]', node):
+        if not re.fullmatch(r'k8s-rpi[1-9]', node):
             raise ValueError('Unknown allowed source')
     return config
 
@@ -145,10 +145,13 @@ def boot_evidence(config):
 
 def main():
     parser = argparse.ArgumentParser()
-    parser.add_argument('action', choices=['configure', 'validate', 'receive', 'metrics', 'boot-evidence', 'canary'])
+    parser.add_argument('action', choices=['check-config', 'configure', 'validate', 'receive', 'metrics', 'boot-evidence', 'canary'])
+    parser.add_argument('--config', type=Path, default=CONFIG)
     args = parser.parse_args()
-    config = load_config()
-    if args.action == 'configure':
+    config = load_config(args.config)
+    if args.action == 'check-config':
+        print(json.dumps({'configuration_valid': True}))
+    elif args.action == 'configure':
         configure(config)
     elif args.action == 'validate':
         state = inspect(config)

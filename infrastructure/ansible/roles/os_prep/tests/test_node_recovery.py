@@ -2,6 +2,8 @@
 import importlib.util
 import json
 from pathlib import Path
+import subprocess
+import sys
 import tempfile
 import unittest
 from unittest.mock import patch
@@ -24,6 +26,10 @@ class RecoveryTests(unittest.TestCase):
             data = self.config()
             path.write_text(json.dumps(data))
             self.assertEqual(recovery.load_config(path), data)
+            result = subprocess.run(
+                [sys.executable, recovery.__file__, 'check-config', '--config', str(path)],
+                capture_output=True, text=True, check=True)
+            self.assertEqual(json.loads(result.stdout), {'configuration_valid': True})
             for field, value in [('interface', '../sys'), ('node', 'other-host')]:
                 invalid = {**data, field: value}
                 path.write_text(json.dumps(invalid))
@@ -42,6 +48,29 @@ class RecoveryTests(unittest.TestCase):
         self.assertEqual(len(encoded.splitlines()), 1)
         self.assertEqual(record['source_node'], 'k8s-rpi7')
         self.assertLessEqual(len(recovery.record_for_packet(b'x' * 20000, '192.168.3.181', sources)['message']), 8192)
+
+    def test_ninth_worker_is_valid_as_sender_and_as_receiver_allowlist_source(self):
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / 'config.json'
+            data = self.config()
+            data['node'] = 'k8s-rpi9'
+            data['address'] = '192.168.3.245'
+            data['sources']['192.168.3.245'] = 'k8s-rpi9'
+            path.write_text(json.dumps(data))
+            self.assertEqual(recovery.load_config(path), data)
+            data['node'] = 'k8s-rpi1'
+            data['address'] = '192.168.3.243'
+            path.write_text(json.dumps(data))
+            self.assertEqual(recovery.load_config(path), data)
+            for invalid in ['k8s-rpi0', 'k8s-rpi10', 'other-host']:
+                data['sources']['192.168.3.245'] = invalid
+                path.write_text(json.dumps(data))
+                with self.assertRaisesRegex(ValueError, 'Unknown allowed source'):
+                    recovery.load_config(path)
+                result = subprocess.run(
+                    [sys.executable, recovery.__file__, 'check-config', '--config', str(path)],
+                    capture_output=True, text=True, check=False)
+                self.assertNotEqual(result.returncode, 0)
 
     def test_exact_target_configuration_and_idempotence_preserve_unmanaged_targets(self):
         with tempfile.TemporaryDirectory() as directory:

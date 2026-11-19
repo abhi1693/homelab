@@ -27,7 +27,8 @@ def container(spec, name, field='containers'):
 def version(image, name, immutable=False):
     digest = r'@sha256:[0-9a-f]{64}'
     suffix = digest if immutable else '(?:' + digest + ')?'
-    found = re.fullmatch(re.escape('registry.home/ghcr.io/abhi1693/' + name) +
+    repository = 'johnthreekay/ryokan' if name == 'ryokan' else 'abhi1693/' + name
+    found = re.fullmatch(re.escape('registry.home/ghcr.io/' + repository) +
                         ':(' + SEMVER + ')' + suffix, image)
     if not found:
         raise ValueError('expected canonical semantic release image')
@@ -71,7 +72,7 @@ class ImageCohortContractTests(unittest.TestCase):
         image = 'registry.home/ghcr.io/abhi1693/qbittorrent-smart-queues:0.88.99@sha256:' + 'a' * 64
         container(self.qbit, 'qbittorrent-smart-queues')['image'] = image
         container(self.ryokan, 'import-reconciler')['image'] = image
-        container(self.ryokan, 'ryokan')['image'] = 'registry.home/ghcr.io/abhi1693/ryokan:1.88.99@sha256:' + 'b' * 64
+        container(self.ryokan, 'ryokan')['image'] = 'registry.home/ghcr.io/johnthreekay/ryokan:2.88.99@sha256:' + 'b' * 64
 
     def set_cohort(self, spec, value):
         backup = container(spec, 'backup-state-before-start', 'initContainers')
@@ -80,6 +81,12 @@ class ImageCohortContractTests(unittest.TestCase):
 
     def test_current_media_images_and_both_restore_cohorts_match(self):
         check_media(self.qbit, self.ryokan)
+
+    def test_retired_private_ryokan_fork_is_rejected(self):
+        image = container(self.ryokan, 'ryokan')
+        image['image'] = image['image'].replace('/johnthreekay/ryokan:', '/abhi1693/ryokan:')
+        with self.assertRaises(ValueError):
+            check_media(self.qbit, self.ryokan)
 
     def test_media_tag_only_writer_images_are_rejected(self):
         for target in ['qbit', 'core']:
@@ -105,7 +112,7 @@ class ImageCohortContractTests(unittest.TestCase):
 
     def test_updated_writer_images_with_stale_either_media_cohort_are_rejected(self):
         self.change_media_images()
-        expected = 'qbit-0.88.99-ryokan-1.88.99'
+        expected = 'qbit-0.88.99-ryokan-2.88.99'
         stale = cohort(self.qbit)
         for spec, other in [(self.qbit, self.ryokan), (self.ryokan, self.qbit)]:
             old = stale
@@ -118,19 +125,19 @@ class ImageCohortContractTests(unittest.TestCase):
     def test_new_releases_pass_when_all_writer_pins_and_cohorts_move_together(self):
         self.change_media_images()
         for spec in [self.qbit, self.ryokan]:
-            self.set_cohort(spec, 'qbit-0.88.99-ryokan-1.88.99')
+            self.set_cohort(spec, 'qbit-0.88.99-ryokan-2.88.99')
         check_media(self.qbit, self.ryokan)
 
     def test_ryokan_core_update_alone_requires_new_cohort(self):
-        container(self.ryokan, 'ryokan')['image'] = 'registry.home/ghcr.io/abhi1693/ryokan:1.88.99@sha256:' + 'b' * 64
+        container(self.ryokan, 'ryokan')['image'] = 'registry.home/ghcr.io/johnthreekay/ryokan:2.88.99@sha256:' + 'b' * 64
         with self.assertRaises(ValueError):
             check_media(self.qbit, self.ryokan)
 
     def test_ryokan_only_upgrade_preserves_controller_spec_and_historical_context(self):
         before = deepcopy(self.qbit)
-        container(self.ryokan, 'ryokan')['image'] = 'registry.home/ghcr.io/abhi1693/ryokan:1.88.99@sha256:' + 'b' * 64
+        container(self.ryokan, 'ryokan')['image'] = 'registry.home/ghcr.io/johnthreekay/ryokan:2.88.99@sha256:' + 'b' * 64
         actual_qbit = version(container(self.qbit, 'qbittorrent-smart-queues')['image'], 'qbittorrent-smart-queues')
-        self.set_cohort(self.ryokan, 'qbit-' + actual_qbit + '-ryokan-1.88.99')
+        self.set_cohort(self.ryokan, 'qbit-' + actual_qbit + '-ryokan-2.88.99')
         check_media(self.qbit, self.ryokan)
         self.assertEqual(self.qbit, before)
 
@@ -142,7 +149,7 @@ class ImageCohortContractTests(unittest.TestCase):
     def test_stale_controller_own_version_and_invalid_legacy_context_are_rejected(self):
         own = version(container(self.qbit, 'qbittorrent-smart-queues')['image'], 'qbittorrent-smart-queues')
         wrong = '0.0.0' if own != '0.0.0' else '0.0.1'
-        for label in ['qbit-' + wrong, 'qbit-' + wrong + '-ryokan-1.88.99',
+        for label in ['qbit-' + wrong, 'qbit-' + wrong + '-ryokan-2.88.99',
                       'qbit-' + own + '-ryokan-latest', 'qbit-' + own + '-ryokan-1.02.3',
                       'qbit-' + own + '-ryokan-1.2.3-extra']:
             self.set_cohort(self.qbit, label)

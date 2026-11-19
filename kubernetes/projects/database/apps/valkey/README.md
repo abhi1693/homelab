@@ -138,3 +138,13 @@ at-a-time break-glass recovery procedure, with replication and Sentinel checks
 between ordinals; publishing the template alone does not resize existing pods.
 
 Training instructor NetBox reserves logical databases **12** (tasks) and **13** (cache). These share the existing Sentinel service and memory budget.
+
+Student 1 NetBox reserves indexes 14 (tasks) and 15 (cache).
+
+Student 2 NetBox reserves indexes 16 (tasks) and 17 (cache).
+
+Student 3 NetBox reserves indexes 18 (tasks) and 19 (cache).
+
+Student 4 NetBox reserves indexes 20 (tasks) and 21 (cache).
+
+Student 5 NetBox reserves indexes 22 (tasks) and 23 (cache).

@@ -1,7 +1,7 @@
-# syntax=docker/dockerfile:1.28
+# syntax=docker/dockerfile:1.29
 
-ARG EPISEERR_IMAGE=docker.io/vansmak/episeerr:3.9.8@sha256:9766c7f657035e606ac8a2f43f24de23b97ba73f12c2610482b486f762214f4d
-ARG PYTHON_IMAGE=docker.io/library/python:3.15-alpine@sha256:ff4d3c9b1a48f646eedd93182aaea385c7a5452f4c8a8cd7cef686babacf4928
+ARG EPISEERR_IMAGE=docker.io/vansmak/episeerr:4.0.12@sha256:75c721c7e6ccc72e823bd76d694b97e754913f4ea0cc8dfdf9632d4805e97d47
+ARG PYTHON_IMAGE=docker.io/library/python:3.15-alpine@sha256:0f9552bb28711333da16915ec146f5e6bb44a7fdac9ced15dc17c2e0206346dd
 
 # Copy application source only; upstream's Debian runtime is not inherited.
 # hadolint ignore=DL3006
@@ -35,4 +35,4 @@ ENV PATH=/usr/local/bin:/usr/local/sbin:/usr/sbin:/usr/bin:/sbin:/bin \
 WORKDIR /app
 USER 1000:1000
 EXPOSE 5002
-CMD ["gunicorn", "--workers", "1", "--worker-class", "gthread", "--threads", "8", "--bind", "0.0.0.0:5002", "--access-logfile", "-", "--error-logfile", "-", "episeerr:app"]
+CMD ["gunicorn", "--no-control-socket", "--workers", "1", "--worker-class", "gthread", "--threads", "8", "--max-requests", "2000", "--max-requests-jitter", "200", "--bind", "0.0.0.0:5002", "--access-logfile", "-", "--error-logfile", "-", "episeerr:app"]

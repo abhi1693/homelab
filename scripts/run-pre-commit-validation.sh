@@ -67,6 +67,7 @@ validate_renovate_policy() {
 
   python3 scripts/check-renovate-policy.py
   python3 -m unittest discover -s scripts/tests -p 'test_terraform*.py' -v
+  python3 -m unittest discover -s scripts/tests -p 'test_netbox_chart_merge_policy.py' -v
   python3 -m unittest discover -s kubernetes/images/zitadel-login/tests -v
 }
 
@@ -86,6 +87,11 @@ validate_kubernetes_tests() {
   for app_test_directory in kubernetes/projects/*/apps/*/tests kubernetes/fleet/*/tests; do
     [[ -d "${app_test_directory}" ]] || continue
     python3 -m unittest discover -s "${app_test_directory}" -v
+  done
+  for private_app_test_directory in kubernetes/private/*/tests; do
+    [[ -d "${private_app_test_directory}" ]] || continue
+    compgen -G "${private_app_test_directory}/test*.py" > /dev/null || continue
+    python3 -m unittest discover -s "${private_app_test_directory}" -v
   done
   python3 -m unittest discover -s scripts/tests -p test_safe_node_shutdown.py -v
 }

@@ -1,6 +1,7 @@
 """Prevent Terraform automerge from bypassing initialized module validation."""
 
 import importlib.util
+import json
 from pathlib import Path
 import re
 import unittest
@@ -14,6 +15,11 @@ CONFIG = (ROOT / POLICY.CONFIG_PATH).read_text()
 WORKFLOW = (ROOT / ".github/workflows/terraform-validation.yml").read_text()
 RUNNER = (ROOT / "scripts/run-pre-commit-validation.sh").read_text()
 RULE = next(block for block in re.findall(r"\{[^{}]*\}", CONFIG) if POLICY.TERRAFORM_RULE in block)
+CLI_RULE = next(block for block in re.findall(r"\{[^{}]*\}", CONFIG) if POLICY.TERRAFORM_CLI_RULE in block)
+REVIEWED_RULES = [block for block in re.findall(r"\{[^{}]*\}", CONFIG)
+                  if 'groupSlug: "wardn-hub-images"' in block
+                  or 'groupSlug: "wardn-license-server-images"' in block
+                  or f'description: "{POLICY.NETBOX_CHART_RULE}"' in block]
 
 
 class TerraformMergePolicyTests(unittest.TestCase):
@@ -23,10 +29,62 @@ class TerraformMergePolicyTests(unittest.TestCase):
     def test_current_gate_and_existing_branch_policy_pass(self):
         self.assertEqual(self.check(), [])
         self.assertEqual(POLICY.check_backup_helper_policy(CONFIG), [])
-        reviewed = [block for block in re.findall(r"\{[^{}]*\}", CONFIG)
-                    if 'groupSlug: "wardn-hub-images"' in block
-                    or 'groupSlug: "wardn-license-server-images"' in block]
-        self.assertEqual(POLICY.check_default_merge_policy(CONFIG, *reviewed), [])
+        self.assertEqual(POLICY.check_default_merge_policy(CONFIG, *REVIEWED_RULES, CLI_RULE), [])
+
+    def test_cli_rule_cannot_be_missing_duplicated_bypassed_or_expanded(self):
+        for changed in ("", CLI_RULE + "," + CLI_RULE,
+                        CLI_RULE.replace("ignoreTests: false", "ignoreTests: true"),
+                        CLI_RULE.replace("automerge: false", "automerge: true"),
+                        CLI_RULE.replace('["uses-with"]', '["action"]'),
+                        CLI_RULE.replace('["hashicorp/terraform"]', '["terraform"]'),
+                        CLI_RULE.replace('[".github/workflows/terraform-validation.yml"]', '["**"]')):
+            with self.subTest(changed=changed):
+                self.assertTrue(self.check(config=CONFIG.replace(CLI_RULE, changed)))
+
+    def test_cli_release_extraction_strips_only_stable_release_prefix(self):
+        pattern = json.loads(re.search(r'extractVersion:\s*("(?:\\.|[^"\\])*")', CLI_RULE)[1])
+        # This named capture is the common JS/RE2/Python subset used by Renovate.
+        expression = re.compile(pattern.replace("(?<version>", "(?P<version>"))
+        for tag, expected in (("v1.17.2", "1.17.2"), ("1.18.0", "1.18.0")):
+            self.assertEqual(expression.fullmatch(tag)["version"], expected)
+        for tag in ("v1.18.0-beta.1", "terraform-v1.18.0", "latest", "1.18"):
+            self.assertIsNone(expression.fullmatch(tag))
+        broken = CLI_RULE.replace('extractVersion:', 'extractVersionTemplate:')
+        self.assertTrue(self.check(config=CONFIG.replace(CLI_RULE, broken)))
+
+    def test_cli_rule_matches_the_extracted_input_package_only(self):
+        # Renovate 44.226.2 known-actions/github-releases.ts and utils.ts emit
+        # this identity for hashicorp/setup-terraform's terraform_version input.
+        dependency = {"manager": "github-actions", "depType": "uses-with",
+                      "datasource": "github-releases", "packageName": "hashicorp/terraform",
+                      "packageFile": ".github/workflows/terraform-validation.yml"}
+        selectors = {"matchManagers": "manager", "matchDepTypes": "depType",
+                     "matchDatasources": "datasource", "matchPackageNames": "packageName",
+                     "matchFileNames": "packageFile"}
+        values = {key: json.loads(re.search(rf"{key}:\s*(\[[^\]]*\])", CLI_RULE)[1])
+                  for key in selectors}
+
+        def matches(value):
+            return all(value[field] in values[key] for key, field in selectors.items())
+
+        self.assertTrue(matches(dependency))
+        for field, other in (("manager", "terraform"), ("depType", "action"),
+                             ("datasource", "github-tags"), ("packageName", "terraform"),
+                             ("packageName", "hashicorp/setup-terraform"),
+                             ("packageFile", ".github/workflows/other.yml")):
+            with self.subTest(field=field, other=other):
+                self.assertFalse(matches({**dependency, field: other}))
+
+    def test_cli_pin_is_unprefixed_and_unrelated_merge_defaults_remain(self):
+        changed = re.sub(r'terraform_version: "(\d+\.\d+\.\d+)"',
+                         r'terraform_version: "v\1"', WORKFLOW)
+        self.assertTrue(self.check(workflow=changed))
+        defaults = CONFIG.split("packageRules:", 1)[0]
+        self.assertIn("ignoreTests: true", defaults)
+        self.assertIn("automerge: true", defaults)
+        self.assertEqual(POLICY.check_default_merge_policy(CONFIG, *REVIEWED_RULES, CLI_RULE), [])
+        self.assertTrue(POLICY.check_default_merge_policy(
+            CONFIG + "\n{\n  automerge: false\n}", *REVIEWED_RULES, CLI_RULE))
 
     def test_missing_duplicate_or_bypassed_gate_fails(self):
         for changed in ("", RULE + "," + RULE, RULE.replace("ignoreTests: false", "ignoreTests: true")):
@@ -96,6 +154,30 @@ class TerraformMergePolicyTests(unittest.TestCase):
                          'terraform_version: "1.13.4"', WORKFLOW)
         self.assertTrue(self.check(workflow=changed))
 
+
+class RenovateRuntimePolicyTests(unittest.TestCase):
+    def setUp(self):
+        self.cronjob = (ROOT / "kubernetes/projects/applications/apps/renovate/cronjob.yaml").read_text()
+
+    def test_fixed_runtime_and_error_reporting_pass(self):
+        self.assertEqual(POLICY.check_renovate_runtime_policy(CONFIG, self.cronjob), [])
+
+    def test_each_datasource_requires_only_the_next_major_ceiling(self):
+        for occurrence in (0, 1):
+            before, selected, after = CONFIG.partition('allowedVersions: "<45.0.0"')
+            if occurrence:
+                tail_before, selected, tail_after = after.partition(selected)
+                changed = before + 'allowedVersions: "<45.0.0"' + tail_before + 'allowedVersions: ">=44.164.1 <45.0.0"' + tail_after
+            else:
+                changed = before + 'allowedVersions: ">=44.164.1 <45.0.0"' + after
+            with self.subTest(datasource=occurrence):
+                self.assertTrue(POLICY.check_renovate_runtime_policy(changed, self.cronjob))
+
+    def test_runtime_downgrade_and_hidden_failures_are_rejected(self):
+        old = re.sub(r"renovate/renovate:\d+\.\d+\.\d+", "renovate/renovate:44.161.0", self.cronjob)
+        self.assertTrue(POLICY.check_renovate_runtime_policy(CONFIG, old))
+        self.assertTrue(POLICY.check_renovate_runtime_policy(CONFIG.replace("exitCodeForErrors: true", "exitCodeForErrors: false"), self.cronjob))
+        self.assertTrue(POLICY.check_renovate_runtime_policy(CONFIG.replace("      exitCodeForErrors: true,\n", ""), self.cronjob))
 
 if __name__ == "__main__":
     unittest.main()

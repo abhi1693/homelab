@@ -1,0 +1,105 @@
+---
+- name: Install exact approved kernel on one control plane node
+  hosts: "{{ target | default([]) }}"
+  become: true
+  gather_facts: true
+  serial: 1
+  any_errors_fatal: true
+  tasks:
+    - ansible.builtin.assert:
+        that:
+          - target in ['server-1', 'server-2', 'server-3']
+          - ansible_play_hosts_all | length == 1
+    - name: Require established cluster gates
+      ansible.builtin.include_role:
+        name: os_prep
+        tasks_from: os_updates_health
+        rolespec_validate: false
+      vars:
+        os_prep_os_health_phase: preflight
+    - name: Preserve K3s checksums
+      ansible.builtin.stat:
+        path: "{{ item }}"
+        checksum_algorithm: sha256
+      loop: [/usr/local/bin/k3s, /etc/rancher/k3s/config.yaml, /etc/rancher/k3s/registries.yaml]
+      register: preserved_files
+    - ansible.builtin.command: apt-mark showhold
+      changed_when: false
+      register: preserved_holds
+    - name: Simulate bounded kernel transaction
+      ansible.builtin.command: apt-get --simulate --no-install-recommends install linux-raspi=7.0.0-1023.23
+      changed_when: false
+      register: plan
+    - ansible.builtin.assert:
+        that:
+          - "'0 to remove' in plan.stdout"
+          - plan.stdout | regex_findall('(?m)^Inst (\\S+)') | reject('match', '^linux-') | list | length == 0
+    - name: Record the running kernel before maintenance
+      ansible.builtin.command: uname -r
+      changed_when: false
+      register: kernel_before
+    - name: Download verified Ubuntu kernel packages
+      ansible.builtin.command: apt-get --download-only --yes --no-install-recommends install linux-raspi=7.0.0-1023.23
+      register: kernel_download
+      changed_when: kernel_download.stdout is search('(?m)^Get:[0-9]+ ')
+    - name: Install only exact Ubuntu kernel and required dependencies
+      ansible.builtin.apt:
+        name: linux-raspi=7.0.0-1023.23
+        state: present
+        update_cache: false
+        install_recommends: false
+        force_apt_get: true
+        autoremove: false
+        auto_install_module_deps: false
+        policy_rc_d: 101
+        lock_timeout: 120
+      register: kernel_install
+      environment:
+        NEEDRESTART_MODE: l
+    - name: Validate staged vendor boot assets
+      ansible.builtin.include_role:
+        name: os_prep
+        tasks_from: os_updates_kernel
+        rolespec_validate: false
+    - name: Reboot only target after successful staged validation
+      ansible.builtin.reboot:
+        msg: Authorized rolling control-plane kernel-only upgrade to match rpi1
+        reboot_timeout: 900
+        connect_timeout: 10
+        post_reboot_delay: 20
+      when: kernel_install.changed or kernel_before.stdout != '7.0.0-1023-raspi'
+    - name: Require full post-reboot recovery before any next node
+      ansible.builtin.include_role:
+        name: os_prep
+        tasks_from: os_updates_health
+        rolespec_validate: false
+      vars:
+        os_prep_os_health_phase: recovery
+    - name: Validate running Ubuntu kernel native BTF and completed boot
+      ansible.builtin.include_role:
+        name: rpi_prep
+        tasks_from: kernel_validation
+        rolespec_validate: false
+    - ansible.builtin.command: uname -r
+      changed_when: false
+      register: running_kernel
+    - ansible.builtin.command: dpkg --audit
+      changed_when: false
+      register: audit
+    - ansible.builtin.command: apt-mark showhold
+      changed_when: false
+      register: after_holds
+    - ansible.builtin.assert:
+        that:
+          - running_kernel.stdout == '7.0.0-1023-raspi'
+          - audit.stdout | trim == ''
+          - preserved_holds.stdout == after_holds.stdout
+    - name: Verify unchanged K3s files
+      ansible.builtin.stat:
+        path: "{{ item.item }}"
+        checksum_algorithm: sha256
+      loop: "{{ preserved_files.results }}"
+      register: after_files
+      failed_when: (after_files.stat.checksum | default('')) != (item.stat.checksum | default(''))
+    - ansible.builtin.debug:
+        msg: "Verified {{ target }} kernel={{ running_kernel.stdout }}, unchanged etcd membership and full cluster recovery."

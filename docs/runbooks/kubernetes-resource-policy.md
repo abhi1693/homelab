@@ -81,8 +81,8 @@ were incident-time blockers, not remaining capacity grants. See the
 One current NetBox web/worker pair requests 1872MiB (1.83GiB) and 100m CPU.
 Seven additional pairs need at least 12.80GiB and 700m CPU before accounting for
 additional database/cache load, jobs or bursts. That already exceeds remaining
-RAM, even before further Medusa growth or ClickHouse. The currently deployed
-Medusa workload is included in the snapshot. More worker capacity or additional
+RAM, even before further application growth or ClickHouse. All workloads
+deployed at the time are included in the snapshot. More worker capacity or additional
 retirements are required; lower background CPU priority alone cannot create RAM.
 Reservations also exceed four-worker N-1 capacity (16 CPUs / 62.37GiB).
 These are dated scheduler reservations, not measurements of current utilization

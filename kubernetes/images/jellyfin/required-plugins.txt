@@ -1,18 +1,18 @@
-# Installed Jellyfin plugins observed in the live media/jellyfin deployment on 2026-05-19.
+# Jellyfin 12.4 plugin lock. Replace upstream pre-releases explicitly on stable adoption.
 # Format: runtime plugin directory|source zip URL|checksum
-AniDB_11.0.0.0|https://repo.jellyfin.org/files/plugin/anidb/anidb_11.0.0.0.zip|sha256:4a28720873a5ad324ebe7787caa35d1fadfad790d5ce257454ac02843749e830
-Collection Sections_2.3.8.0|https://github.com/IAmParadox27/jellyfin-plugin-collection-sections/releases/download/2.3.8.0/Release-10.11.8.zip|sha256:4781b696d78545fe63ccec08f854d1a72d311a20064d1bf1264293a272e6d527
-Custom Tabs_0.2.8.0|https://github.com/IAmParadox27/jellyfin-plugin-custom-tabs/releases/download/0.2.8.0/Release-10.11.8.zip|sha256:0b7700b8dddf81324de263095467ddf9855f898db3de21c42953b8c136dcd30a
-DLNA_10.0.0.0|https://repo.jellyfin.org/files/plugin/dlna/dlna_10.0.0.0.zip|sha256:bb86cd553f164bdba5be4fd03ce711cdccdfc4402e43bbe63f737d1aacf1e4cb
-File Transformation_2.5.9.0|https://github.com/IAmParadox27/jellyfin-plugin-file-transformation/releases/download/2.5.9.0/Release-10.11.8.zip|sha256:161c41228f05b1556ecc3d9fa209d104c3e36236f2164dec7b88bae10fff0280
-Home Screen Sections_2.5.9.0|https://github.com/IAmParadox27/jellyfin-plugin-home-sections/releases/download/2.5.9.0/Release-10.11.8.zip|sha256:0f85edc95a8d41088f9102dc8c08ed3497ed01ff97607073869253e257ee1bfd
-IMDb Ratings_1.0.0.19|https://github.com/voc0der/jellyfin-imdb-rating-updater/releases/download/1.0.0.19/IMDb_Ratings_1.0.0.19.zip|sha256:369e241ece0ef2f4be444ce982ab466b5db196b126d36c9a3bd1ba46e41e3c1f
-JavaScript Injector_3.4.0.0|https://github.com/n00bcodr/Jellyfin-JavaScript-Injector/releases/download/3.4.0.0/Jellyfin.Plugin.JavaScriptInjector_10.11.0.zip|sha256:c453dd5a13065354c30e79bcf402d9cfe42b254a315f2fe5c11c1e7a2d5e5cc1
-Jellyfin Enhanced_11.9.0.0|https://github.com/n00bcodr/Jellyfin-Enhanced/releases/download/11.9.0.0/Jellyfin.Plugin.JellyfinEnhanced_10.11.0.zip|sha256:53d478431289f99b69409d5b69df08d8536970d8942301ef7248ce918fbbe345
-Media Bar_2.4.10.0|https://github.com/IAmParadox27/jellyfin-plugin-media-bar/releases/download/2.4.10.0/Release-10.11.8.zip|sha256:1e2f36c9b805b740e56ccbce20452cc765fb1082149cd35dc81ad05fe587b5fb
-Merge Versions_10.11.0.1|https://github.com/danieladov/jellyfin-plugin-mergeversions/releases/download/10.11.0.1/Jellyfin.Plugin.MergeVersions.zip|sha256:79afd80219176cadccb05752971072a9fc74dc1122327dcf37c3d8c4ebf0809b
-Plugin Pages_2.4.9.0|https://github.com/IAmParadox27/jellyfin-plugin-pages/releases/download/2.4.9.0/Release-10.11.8.zip|sha256:3331fb1e9ce360ab28e81ae7511b076498ccf426719dbeb69484dd8dae7e71e3
-Shoko_6.0.5.11|https://github.com/ShokoAnime/Shokofin/releases/download/v6.0.5/shoko_6.0.5.0_for_10.11.zip|sha256:3e6fee32e82a480384c66af88d0869bcf68bed9a897ac7023f37aeafb4666bef
-TMDb Box Sets_13.0.0.0|https://repo.jellyfin.org/files/plugin/tmdb-box-sets/tmdb-box-sets_13.0.0.0.zip|sha256:713bfb0335150a0d68619fa850d2e6c4d95ea2fac5640f0f4b38ff00f99a86e3
-Trakt_29.0.0.0|https://repo.jellyfin.org/files/plugin/trakt/trakt_29.0.0.0.zip|sha256:1305da8e6aaea20631cdc5f2585164e85dc176d8d5d733dcba58520a1b9e9783
-Webhook_21.0.0.0|https://github.com/jellyfin/jellyfin-plugin-webhook/releases/download/v21/webhook_21.0.0.0.zip|sha256:e1c984b208b28957165ab1420ee95e8683cf9d3fc0ee396f057cf6021907d79a
+AniDB_13.0.0.0|https://repo.jellyfin.org/files/plugin/anidb/anidb_13.0.0.0.zip|sha256:c4ae61a88ac5bd27f50e2fc309aa1b61a8ec237f4f73a2c89d0d45c1030dfaf3
+DLNA_14.0.0.0|https://repo.jellyfin.org/files/plugin/dlna/dlna_14.0.0.0.zip|sha256:91fe2885ea25f6d9efb5c57e8b8ee55ae7097d261908a5afd14ff3f5eaf57215
+TMDb Box Sets_15.0.0.0|https://repo.jellyfin.org/files/plugin/tmdb-box-sets/tmdb-box-sets_15.0.0.0.zip|sha256:a0a847f3a62f67b745539aa6e2697adfbb0cfbe6a902a30cbaf7462a39eea297
+Trakt_33.0.0.0|https://repo.jellyfin.org/files/plugin/trakt/trakt_33.0.0.0.zip|sha256:24bfc26881041d4827f439c26fb640f5a618380e44dfd30d36d41a44fe5ed846
+Webhook_22.0.0.0|https://repo.jellyfin.org/files/plugin/webhook/webhook_22.0.0.0.zip|sha256:05d2cc60a3c702163bd4cdb87828f23f2597c449a497dd84de05954163631259
+Collection Sections_2.3.11.0|https://github.com/IAmParadox27/jellyfin-plugin-collection-sections/releases/download/2.3.11.0/Release-12.4.0.zip|sha256:3c5d41d0d0dd183333cbcf76ebe217016ef40d7a5160398dae0553c9fa020d09
+Custom Tabs_0.3.3.0|https://github.com/IAmParadox27/jellyfin-plugin-custom-tabs/releases/download/0.3.3.0/Release-12.4.0.zip|sha256:d3907d3a049d758175e7e0148a1aa823444d84ff0809cfe81e052a74db201f3f
+File Transformation_3.0.3.0|https://github.com/IAmParadox27/jellyfin-plugin-file-transformation/releases/download/3.0.3.0/Release-12.4.0.zip|sha256:c608b2ccf802a2cd5fa48632565488a3f0d3ac52cbb51a9ea0c1b8849f8819e9
+Home Screen Sections_3.0.4.0|https://github.com/IAmParadox27/jellyfin-plugin-home-sections/releases/download/3.0.4.0/Release-12.4.0.zip|sha256:4159d80ec83bc36dc9ab018ae805ef7919a5c113b3ee8ad160d9fb8525844ca8
+Media Bar_3.0.2.0|https://github.com/IAmParadox27/jellyfin-plugin-media-bar/releases/download/3.0.2.0/Release-12.4.0.zip|sha256:39a58e2644cc513a6bacb17ab48dea062ab288d4e9d5e460d5429ef5f6bbe79d
+Plugin Pages_3.0.3.0|https://github.com/IAmParadox27/jellyfin-plugin-pages/releases/download/3.0.3.0/Release-12.4.0.zip|sha256:c4d040c4fd6ad74d8d31b64fc76771bb4543bfe9912f3976eeec11a33dc2b7fc
+Jellyfin Enhanced_12.14.0.0|https://github.com/n00bcodr/Jellyfin-Enhanced/releases/download/12.14.0.0/Jellyfin.Plugin.JellyfinEnhanced_12.0.0.zip|sha256:cbedb0f98a1827fb9d943372aa986260bb2244e95672c16e5b27a524fa321d43
+JavaScript Injector_4.1.0.0|https://github.com/n00bcodr/Jellyfin-JavaScript-Injector/releases/download/4.1.0.0/Jellyfin.Plugin.JavaScriptInjector_12.0.0.zip|sha256:099aa99dd9aa7df330ea6aeb9e9e74adb5373f01927bc9f0988493b3cefd18d6
+Merge Versions_12.0.1.0|https://github.com/danieladov/jellyfin-plugin-mergeversions/releases/download/12.0.1/Jellyfin.Plugin.MergeVersions.zip|sha256:57c6ccb6a3926e47d2492b00fc2ee5c41b1871275dc85be281fb4e923041ec89
+IMDb Ratings_1.0.0.24|https://github.com/voc0der/jellyfin-plugin-imdb-ratings/releases/download/1.0.0.24/IMDb_Ratings_1.0.0.24.zip|sha256:8569320b70b47f8c154be852f010d0a1339590d911f2ee749504f33f3f4dfacb
+Shoko_6.0.5.4012|https://github.com/ShokoAnime/Shokofin/releases/download/v6.0.5-dev.40/shoko_6.0.5.40_for_12.y.z.zip|sha256:0baec99d53bc29201ec1093b5f5ca73743a51844f4da2188e115b467132459dc

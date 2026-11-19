@@ -116,6 +116,12 @@ lock files, and its validation and policy inputs. It executes formatting,
 applying resources. Initialization must precede validation so an old module
 cache cannot hide removed inputs after a module upgrade.
 
+The Terraform CLI input in that workflow is a separate `github-actions`
+`uses-with` dependency: display name `terraform`, package `hashicorp/terraform`,
+and datasource `github-releases`. Its exact-file rule strips an optional `v`
+from stable release tags, requires passing checks, and opens a review PR.
+The setup action digest and other dependency update policies remain separate.
+
 ## Secrets
 
 `secrets.sops.yaml` creates:
@@ -240,7 +246,9 @@ Run `python3 scripts/check-renovate-policy.py` and the app's
 
 ## Restore-point writer branch checks
 
-qBittorrent Smart Queues and Ryokan keep branch automerge enabled. A late
+qBittorrent Smart Queues and Ryokan keep branch automerge enabled. Ryokan tracks
+`ghcr.io/johnthreekay/ryokan` stable 2.x releases with immutable digests; the
+retired private fork is no longer tracked. A late
 exact-package Docker rule sets `ignoreTests: false` for these two packages; the default `ignoreTests: true` for unrelated
 dependencies and the final manual Chainguard helper rule are unchanged.
 Infrastructure regressions runs on `renovate/**` branch pushes as well as master
@@ -285,3 +293,17 @@ License Server update rules and active-image cohort checks. Active Hub and
 other application image gates remain in force.
 
 Training NetBox generated `apps/*-netbox/values.yaml` and `helmop.yaml` are excluded from dependency edits. Their canonical versions and images live under `kubernetes/projects/training/_shared/netbox/`; after a source update, run `python3 scripts/render-training-netbox.py` and commit the rendered outputs. The shared configuration drift check prevents merging stale instance renders.
+
+The exact `custom.regex` Docker dependency
+`ghcr.io/netbox-community/netbox-chart/netbox` requires checks and a reviewed PR
+for only the shared `chart.yaml` and main NetBox `helmop.yaml`. It cannot use
+branch automerge: canonical updates need their generated instructor projection
+in the same PR. Workload-catalog CI watches the shared inputs and renderer and
+runs `scripts/render-training-netbox.py --check`; unrelated merge defaults stay
+unchanged.
+
+The retained NetBox pre-upgrade backup Job is an exact-file manual exception.
+Its completed pod template must keep the original image digest; a new backup
+uses a new Job identity. The policy validator requires this ignore path and
+rejects automatic update annotations in that file. Live PostgreSQL catalog
+images continue to receive their existing update policy.

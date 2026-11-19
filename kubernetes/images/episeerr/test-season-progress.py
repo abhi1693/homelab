@@ -205,7 +205,24 @@ search_function = next(
     and node.name == "trigger_episode_search_in_sonarr"
 )
 search_module = ast.Module(body=[search_function], type_ignores=[])
+search_inventory = [
+    {"id": identifier, "seasonNumber": season, "hasFile": False}
+    for season in (1, 2)
+    for identifier in (season * 100 + 1, season * 100 + 2)
+]
+missing_function = next(
+    node for node in tree.body
+    if isinstance(node, ast.FunctionDef) and node.name == "episodes_needing_search"
+)
+missing_namespace = {}
+exec(compile(ast.Module(body=[missing_function], type_ignores=[]),
+             "media_processor.py", "exec"), missing_namespace)
 search_namespace = {
+    "fetch_episodes_by_ids": lambda ids: [ep for ep in search_inventory if ep["id"] in ids],
+    "episodes_needing_search": missing_namespace["episodes_needing_search"],
+    "get_episode_details": lambda _series, season: [
+        ep for ep in search_inventory if ep["seasonNumber"] == season
+    ],
     "SONARR_URL": "http://sonarr",
     "SONARR_API_KEY": "key",
     "logger": Logger(),
@@ -227,6 +244,34 @@ assert search_http.commands == [
     {"name": "SeasonSearch", "seriesId": 7, "seasonNumber": 1},
     {"name": "SeasonSearch", "seriesId": 7, "seasonNumber": 2},
 ]
+
+# A partially downloaded season must never re-search the whole pack.
+search_http.commands.clear()
+search_inventory[0]["hasFile"] = True
+search_namespace["trigger_episode_search_in_sonarr"](
+    [101, 102, 201, 202], series_id=7, get_type="seasons"
+)
+assert search_http.commands == [
+    {"name": "SeasonSearch", "seriesId": 7, "seasonNumber": 2},
+    {"name": "EpisodeSearch", "episodeIds": [102]},
+]
+
+# A repeat watch event with every episode on disk must issue no searches.
+search_http.commands.clear()
+for item in search_inventory:
+    item["hasFile"] = True
+search_namespace["trigger_episode_search_in_sonarr"](
+    [101, 102, 201, 202], series_id=7, get_type="seasons"
+)
+assert search_http.commands == []
+
+# Missing inventory cannot justify a season-pack search.
+search_namespace["fetch_episodes_by_ids"] = lambda _ids: None
+search_namespace["trigger_episode_search_in_sonarr"](
+    [201, 202], series_id=7, get_type="seasons"
+)
+assert search_http.commands == [{"name": "EpisodeSearch", "episodeIds": [201, 202]}]
+print("Sonarr missing-file and repeated-watch search protections passed")
 
 operation_order = []
 dispatch_function = next(

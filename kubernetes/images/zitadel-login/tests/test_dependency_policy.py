@@ -48,8 +48,8 @@ class DependencyPolicyTest(unittest.TestCase):
 
     def test_known_affected_versions_remain_rejected_if_policy_is_edited(self):
         affected = {"dompurify": "3.4.16", "ip-address": "10.7.3",
-                    "@modelcontextprotocol/sdk": "1.31.0", "follow-redirects": "1.16.0",
-                    "@vitest/mocker": "4.1.11"}
+                    "@modelcontextprotocol/sdk": "1.31.0", "follow-redirects": "1.16.1",
+                    "@vitest/mocker": "4.1.11", "@hono/node-server": "2.1.5"}
         for package, value in affected.items():
             versions = copy.deepcopy(POLICY["minimumVersions"]);versions[package] = value
             with self.subTest(package=package):
@@ -57,9 +57,9 @@ class DependencyPolicyTest(unittest.TestCase):
 
     def test_caret_override_accepts_a_later_fixed_patch_resolution(self):
         workspace, lockfile = fixture()
-        workspace = workspace.replace("'follow-redirects': 1.16.1", "'follow-redirects@<1.16.1': ^1.16.1")
-        lockfile = lockfile.replace("'follow-redirects': 1.16.1", "'follow-redirects@<1.16.1': ^1.16.1")
-        lockfile = lockfile.replace("follow-redirects@1.16.1", "follow-redirects@1.16.2")
+        workspace = workspace.replace("'follow-redirects': 1.16.2", "'follow-redirects@<1.16.2': ^1.16.2")
+        lockfile = lockfile.replace("'follow-redirects': 1.16.2", "'follow-redirects@<1.16.2': ^1.16.2")
+        lockfile = lockfile.replace("follow-redirects@1.16.2", "follow-redirects@1.16.3")
         self.assertEqual(self.check(workspace, lockfile), [])
 
     def test_old_transitive_resolution_cannot_hide_behind_fixed_override(self):

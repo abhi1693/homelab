@@ -1,0 +1,61 @@
+---
+- name: Check the new worker selection before host preparation
+  hosts: k3s_nodes
+  gather_facts: false
+  any_errors_fatal: true
+
+  tasks:
+    - name: Require an explicit limit to the staged final worker
+      ansible.builtin.assert:
+        that:
+          - ansible_play_hosts_all == ['worker-6']
+          - inventory_hostname in groups['k3s_workers']
+          - inventory_hostname not in groups['k3s_servers']
+          - node_identity.hostname == 'k8s-rpi9'
+          - ansible_host is defined
+          - ansible_host | default('') | trim | length > 0
+          - ansible_host | default('') != 'REPLACE_WITH_CONFIRMED_IP'
+        fail_msg: >-
+          Confirm worker-6's IP in hosts.yml and run this playbook with
+          --limit worker-6. No other node may be selected for onboarding.
+
+- name: Prepare the new worker operating system
+  ansible.builtin.import_playbook: os_prep.yml
+  vars:
+    os_prep_entrypoint: main
+
+- name: Validate the new worker operating system
+  ansible.builtin.import_playbook: os_prep.yml
+  vars:
+    os_prep_entrypoint: validation
+
+- name: Prepare Raspberry Pi boot and kernel settings
+  ansible.builtin.import_playbook: rpi_prep.yml
+  vars:
+    rpi_prep_entrypoint: main
+
+- name: Validate Raspberry Pi boot and kernel settings
+  ansible.builtin.import_playbook: rpi_prep.yml
+  vars:
+    rpi_prep_entrypoint: validation
+
+- name: Join the existing cluster as a worker
+  ansible.builtin.import_playbook: k3s_agent.yml
+  vars:
+    k3s_agent_entrypoint: main
+    k3s_agent_rollout_mode: rolling
+
+- name: Validate the new worker agent
+  ansible.builtin.import_playbook: k3s_agent.yml
+  vars:
+    k3s_agent_entrypoint: validation
+
+- name: Configure NVMe monitoring on the new worker
+  ansible.builtin.import_playbook: smartctl_exporter.yml
+  vars:
+    smartctl_exporter_entrypoint: main
+
+- name: Validate NVMe monitoring on the new worker
+  ansible.builtin.import_playbook: smartctl_exporter.yml
+  vars:
+    smartctl_exporter_entrypoint: validation

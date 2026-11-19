@@ -28,6 +28,16 @@ resources:
     memory: 2304Mi
 worker:
   enabled: true
+  # Register core system jobs before the RQ command schedules recurring work.
+  command:
+    - /opt/netbox/venv/bin/python
+    - /opt/netbox/netbox/manage.py
+    - shell
+    - --no-imports
+    - --interface
+    - python
+    - -c
+    - 'import core.jobs; from django.core.management import call_command; call_command("rqworker")'
   replicaCount: 1
   nodeSelector:
     kubernetes.io/arch: arm64
@@ -49,7 +59,8 @@ worker:
 persistence:
   enabled: false
 housekeeping:
-  enabled: true
+  # NetBox 4.6+ performs daily housekeeping through its built-in RQ system job.
+  enabled: false
   schedule: 17 2 * * *
   resources:
     requests:

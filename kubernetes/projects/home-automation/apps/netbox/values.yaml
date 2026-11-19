@@ -6,7 +6,7 @@ image:
   registry: registry.home
   repository: ghcr.io/abhi1693/home-lab-netbox
   # renovate: datasource=docker depName=ghcr.io/abhi1693/home-lab-netbox
-  tag: 4.6.9-f3db127
+  tag: 4.7.4-e90b692@sha256:2044e1f75f22e9513ce3648803b85e1e49d21154eee436c6e795bb445a790848
   pullPolicy: IfNotPresent
   pullSecrets:
     - harbor-registry
@@ -105,23 +105,14 @@ ingress:
 metrics:
   enabled: false
 plugins:
-  - netbox_metatype_importer
   - netbox_custom_objects
   - netbox_topology_views
   - netbox_dns
   - netbox_lifecycle
-pluginsConfig:
-  netbox_metatype_importer:
-    branch: master
-    github_token: ""
-    repo: devicetype-library
-    repo_owner: netbox-community
-extraConfig:
-  - secret:
-      secretName: netbox-metatype-importer
-      optional: true
+pluginsConfig: {}
+extraConfig: []
 housekeeping:
-  enabled: true
+  enabled: false
   timezone: Asia/Kolkata
   successfulJobsHistoryLimit: 0
   failedJobsHistoryLimit: 0
@@ -135,7 +126,17 @@ housekeeping:
       cpu: 500m
       memory: 512Mi
 worker:
-  enabled: false
+  enabled: true
+  # Register core system jobs before the RQ command schedules recurring work.
+  command:
+    - /opt/netbox/venv/bin/python
+    - /opt/netbox/netbox/manage.py
+    - shell
+    - --no-imports
+    - --interface
+    - python
+    - -c
+    - 'import core.jobs; from django.core.management import call_command; call_command("rqworker")'
   replicaCount: 1
   pdb:
     enabled: false
@@ -163,9 +164,9 @@ worker:
   resources:
     requests:
       cpu: 50m
-      memory: 336Mi
-    limits:
       memory: 512Mi
+    limits:
+      memory: 1Gi
 extraDeploy:
   - apiVersion: cert-manager.io/v1
     kind: Certificate

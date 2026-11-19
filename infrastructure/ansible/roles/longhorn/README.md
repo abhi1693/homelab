@@ -4,12 +4,23 @@ Ansible owns the paired K3s HelmCharts on server-1. Fleet owns ancillary backup
 resources, maintenance settings and the storage-pool policy; do not migrate
 chart ownership during an upgrade.
 
+The role argument schema accepts the inventory's
+`snapshot_heavy_task_concurrent_limit` integer and `validation_allowed_pvcs`
+list of names. Keep this schema aligned with inventory when adding settings;
+unknown keys stop the `main` entrypoint before host or cluster changes.
+
 ## Reviewed upgrade
 
 `playbooks/longhorn_upgrade.yml` is a narrow maintenance workflow, not the
 bootstrap `main` entrypoint. It requires task-specific break-glass authorization
 and independently verified recovery copies. It does not run the bootstrap
 replica-count, disk-reservation, multipath, or placement reconciliation tasks.
+
+The preflight verifies that both exact Rancher chart artifacts are published and
+that their appVersion values match before any cluster stage begins. The catalog
+GET also runs in check mode, so a dry run validates publication without leaving
+the later assertions with an undefined response. This gate does not itself
+select or apply a new Longhorn release.
 
 Run these phases separately, inspecting volume, replica, node, and application
 health between them:

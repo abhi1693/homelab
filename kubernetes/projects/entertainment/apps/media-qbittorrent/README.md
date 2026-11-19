@@ -3,22 +3,29 @@
 qBittorrent and its state-backup CronJob use ARM64 workers. Required pod
 affinity keeps the backup on the node holding qBittorrent's RWO config volume.
 
-This bundle runs the qBittorrent client used by the media stack. The
-[acquisition schedule](../media-acquisition-schedule/README.md) runs qBittorrent
-and Smart Queues at one replica each from 22:00–10:00 Asia/Kolkata (IST), on
-nights starting Monday–Friday. Friday night continues until Saturday at 10:00.
-Outside that window their pods stop and the maintenance CronJobs are suspended;
-download queues, configuration PVCs, and media remain retained.
+This bundle runs qBittorrent and Smart Queues continuously at one replica each,
+with replica counts and maintenance CronJob suspension managed by Git/Fleet.
+Download queues, configuration PVCs and media remain on existing storage.
 
-Fleet installs a paused baseline of zero replicas and suspended maintenance.
-The schedule owns only runtime replica and suspend fields; all other drift
-correction remains enabled. FlareSolverr stays online because DevFeed uses it.
+## Upgrade to 5.3.0
 
-The quarter-hour backup and layout jobs have a five-minute catch-up deadline.
-Tracker refresh runs at 03:17 IST Tuesday–Saturday, within the preceding
-weekday night's acquisition window.
+Retain the current `qBittorrent` configuration and `BT_backup` directory, and
+verify the scheduled NFS state snapshot succeeded before rolling this singleton.
+The 5.3 release changes torrent-backup handling. An isolated, network-disabled
+restored-copy rehearsal retained all 27 catalog hashes and eight category paths
+present at qualification, and the Smart Queues client passed preference, rate
+limit, queue-limit, stop and synchronization API checks against 5.3.0.
 
-qBittorrent requests `125m` CPU. Set TrueCharts `resources.limits.cpu: 0` to remove its
+After Fleet applies the pinned ARM64 image, verify the live version and catalog,
+existing category paths, Smart Queues API access, memory bounds and resumed
+transfer behavior. Keep the state snapshots if rollback is necessary; restore
+the pre-upgrade state before returning to an older client after incompatible
+state changes.
+
+Quarter-hour backup and layout jobs have a five-minute catch-up deadline.
+Tracker refresh runs daily at 03:17 IST.
+
+qBittorrent requests `250m` CPU. Set TrueCharts `resources.limits.cpu: 0` to remove its
 inherited CPU cap and allow hashing/transfer bursts. Let Fleet roll this singleton only in a quiet transfer window.
 
 The smart queues controller code lives in
@@ -45,7 +52,7 @@ reconciles it:
   seeding sub-limit remains 8; qBittorrent stores the fallback upload bandwidth
   cap in KiB/s, so the persisted startup value is `12 KiB/s`.
 
-The qBittorrent pod is allowed up to `2 GiB` of memory to absorb restore and
+The qBittorrent pod is allowed up to `3 GiB` of memory to absorb restore and
 peer-reconnect bursts without OOM-killing the client and dropping active peers.
 
 `qbittorrent-smart-queues` also enforces runtime limits. The primary ISP link is
@@ -175,8 +182,8 @@ combined primary-WAN download and upload usage. The billing cycle starts on the
 It normally derives a daily guardrail by dividing the monthly guardrail by the
 number of days in the current billing cycle. The configured daily and monthly quota stop points are intentionally
 lifted and the local-time uncapped window spans `00:00` through `00:00`, which
-the controller treats as a full-day window while it is running. The acquisition
-schedule above controls pod availability. There is no client-activity based bypass.
+the controller treats as a full-day window. Both the client and controller run
+continuously. There is no client-activity based bypass.
 
 UniFi usage periods follow the reporting timezone discovered from the gateway,
 currently `Asia/Kolkata`, rather than UTC. Completed local days come from daily
@@ -212,7 +219,7 @@ selection resumes only after both active-WAN state and combined usage accounting
 are available again.
 
 `qbittorrent-smart-queues` runs as a single-replica Deployment in continuous
-mode while the acquisition window is open, polling every 30 seconds after each
+mode, polling every 30 seconds after each
 pass. Five is the useful-worker ceiling under the configured uncapped bandwidth
 policy, not a fixed target. The
 controller begins with up to two discovery workers when nothing is productive,
@@ -571,3 +578,15 @@ deleted or assigned to a guessed series. Sonarr and Radarr now use 14-day
 recycle protection for replacements. Ryokan retains all 720 prior receipts
 plus four new imports; its stale logs were compacted from roughly 4.1GiB to
 84MiB without removing the 573 recorded errors.
+
+## Availability admission safety hold — 13 November 2026
+
+Availability admission is disabled in Fleet (QBT_AVAILABILITY_ADMISSION_ENABLED=false).
+The previous 0.2.13 rejection path could delete torrent data when no Sonarr/Radarr
+queue matched, including Ryokan-managed downloads. The controller is now pinned
+to verified 0.2.14: availability rejection preserves data, manual force-starts
+and completed downloads are protected, and metadata timeouts preserve downloaded
+payloads and unknown ownership. Admission remains disabled pending operator
+validation. Other queue management remains enabled. The Ryokan import-reconciler
+uses the same image to preserve the backup-cohort contract; its code is unchanged.
+Both workloads take pre-start state backups before starting the new image.

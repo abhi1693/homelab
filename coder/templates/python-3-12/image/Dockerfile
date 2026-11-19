@@ -1,4 +1,4 @@
-# syntax=docker/dockerfile:1.28
+# syntax=docker/dockerfile:1.29
 
 ARG BASE_IMAGE
 FROM ${BASE_IMAGE}

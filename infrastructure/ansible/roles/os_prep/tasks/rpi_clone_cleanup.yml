@@ -1,0 +1,13 @@
+---
+- name: Identify prohibited cloning tool paths
+  ansible.builtin.include_tasks: rpi_clone_paths.yml
+
+- name: Remove Raspberry Pi cloning scripts and home checkouts
+  ansible.builtin.file:
+    path: "{{ item }}"
+    state: absent
+  loop: "{{ os_prep_rpi_clone_paths }}"
+
+- name: Validate cloning tool removal
+  ansible.builtin.include_tasks: rpi_clone_validation.yml
+  when: not ansible_check_mode

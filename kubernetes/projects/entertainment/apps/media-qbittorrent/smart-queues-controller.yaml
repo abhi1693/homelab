@@ -9,7 +9,7 @@ metadata:
     app.kubernetes.io/part-of: media-stack
     home-lab.io/project-slug: entertainment
 spec:
-  replicas: 0
+  replicas: 1
   progressDeadlineSeconds: 2400
   revisionHistoryLimit: 2
   strategy:
@@ -73,7 +73,7 @@ spec:
             - --pod-uid
             - $(POD_UID)
             - --cohort
-            - qbit-0.2.13-ryokan-1.9.12
+            - qbit-0.2.14-ryokan-2.3.0
             - --source-pvc
             - qbittorrent-smart-queues-state-nfs
             - --source-pvc-uid
@@ -137,7 +137,7 @@ spec:
       containers:
         - name: qbittorrent-smart-queues
           # renovate: datasource=docker depName=ghcr.io/abhi1693/qbittorrent-smart-queues
-          image: registry.home/ghcr.io/abhi1693/qbittorrent-smart-queues:0.2.13@sha256:cd54a54c19a2ef40e450b1e53759a10c206eea3247263f6a15d5b67fa793db18
+          image: registry.home/ghcr.io/abhi1693/qbittorrent-smart-queues:0.2.14@sha256:a8baa131f2be59f9c3b7bf51fecee87368914f105a22e4fbf628936e57e65ef1
           imagePullPolicy: IfNotPresent
           ports:
             - name: metrics
@@ -224,7 +224,7 @@ spec:
             - name: QBT_DELETE_FILES
               value: "true"
             - name: QBT_AVAILABILITY_ADMISSION_ENABLED
-              value: "true"
+              value: "false"
             - name: QBT_AVAILABILITY_MIN_COMPLETE
               value: "1.0"
             - name: QBT_AVAILABILITY_PROBE_DOWNLOAD_LIMIT_BYTES_PER_SEC

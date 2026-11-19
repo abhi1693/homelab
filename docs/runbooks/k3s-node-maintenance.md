@@ -716,3 +716,40 @@ server gate requires authenticated `/readyz` success on every server and the VIP
 - `kubernetes/projects/entertainment/apps/media-jellyfin/values.yaml`
 - `kubernetes/projects/system/apps/rancher-monitoring/README.md`
 - `kubernetes/projects/home-automation/apps/ups-monitoring/README.md`
+
+## Boot clock jumps and false container creation errors
+
+On 7 November 2026, Pi 5 had healthy running CSI NFS, Envoy and node-exporter
+processes while kubelet reported `CreateContainerError`. Chrony corrected an
+approximately 101.8-day boot clock error after containers had started. The
+replacement containers therefore had July creation timestamps while exited
+predecessors retained November timestamps. Kubernetes 1.36 sorts container
+statuses by creation time and uses the first matching container name, allowing
+the exited predecessor to mask the running replacement.
+
+Prevent recurrence with the inventory-managed [Chrony startup gate](../../infrastructure/ansible/roles/os_prep/README.md#k3s-startup-waits-for-chrony).
+It is installed without restarting K3s. Its acceptance check proves current
+synchronization, not cold-boot behavior; test a future boot only within approved
+single-node maintenance. Investigate RTC/persistent-clock behavior separately.
+
+Do not assume a repeated name-reservation alert needs a running container to
+be stopped. For an explicitly authorized incident, first match the current pod
+UID, container name and attempt to both CRI records and actual host processes.
+Require the proposed predecessor to be `CONTAINER_EXITED` with no runtime task,
+and its replacement to be running and healthy. Confirm the timestamp inversion,
+archive inspect metadata and old logs privately, then recheck immediately before
+removing only that exact exited record without force. Never remove a running
+replacement, pod sandbox, image, volume or application data through this method.
+Stop on any unexpected state or identity change. Do not reuse recorded IDs from
+an earlier incident.
+
+The Pi 5 recovery removed five confirmed exited predecessor records, starting
+with node-exporter as a canary. It did not stop/recreate a running process or
+restart K3s. After each group, require Kubernetes readiness, unchanged running
+container IDs/PIDs, healthy local service endpoints, responsive existing NFS
+mounts, Bound PVCs and unchanged workload readiness. A normal container garbage
+collector may remove old records concurrently; an absent record is a reason to
+reinspect current state, not to select another container automatically.
+
+Upstream references: [status sorting](https://github.com/kubernetes/kubernetes/blob/v1.36.5/pkg/kubelet/kuberuntime/kuberuntime_container.go)
+and [first matching status selection](https://github.com/kubernetes/kubernetes/blob/v1.36.5/pkg/kubelet/container/runtime.go).

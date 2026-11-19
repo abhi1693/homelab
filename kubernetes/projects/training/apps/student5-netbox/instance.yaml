@@ -1,0 +1,41 @@
+---
+studentPlugins: true
+# Allow time for first-boot PostgreSQL migrations.
+chart:
+  timeoutSeconds: 1800
+values:
+  replicaCount: 0
+  startupProbe:
+    failureThreshold: 160
+  fullnameOverride: student5-netbox
+  existingSecret: student5-netbox
+  superuser:
+    name: admin
+    email: student5@home.invalid
+    existingSecret: student5-netbox-admin
+  allowedHosts:
+  - netbox-lab5.practicelab.dev
+  csrf:
+    trustedOrigins:
+    - https://netbox-lab5.practicelab.dev
+  ingress:
+    enabled: false
+    className: cloudflare-tunnel
+    hosts:
+    - host: netbox-lab5.practicelab.dev
+      paths:
+      - /
+  externalDatabase:
+    database: netbox_student5
+    username: netbox_student5
+    existingSecretName: student5-netbox
+  tasksDatabase:
+    database: 22
+  cachingDatabase:
+    database: 23
+  podAnnotations:
+    home-lab.io/bootstrap-revision: training-v1
+  worker:
+    replicaCount: 0
+    podAnnotations:
+      home-lab.io/bootstrap-revision: training-v1

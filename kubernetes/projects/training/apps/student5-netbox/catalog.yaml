@@ -1,0 +1,41 @@
+---
+apiVersion: home-lab.io/v1alpha1
+kind: WorkloadCatalog
+metadata:
+  name: student5-netbox
+spec:
+  displayName: Student 5 NetBox
+  purpose: Student 5 NetBox lab for classroom practice.
+  owner: home-lab
+  project: training
+  cluster: home-k3s
+  lifecycle: active
+  criticality: low
+  dataClassification: sensitive
+  repository: https://github.com/abhi1693/home-lab
+  gitPath: kubernetes/projects/training/apps/student5-netbox
+  runbook: kubernetes/projects/training/apps/student5-netbox/README.md
+  knownLimitations:
+  - Lab is paused with ingress disabled.
+  workloads:
+  - key: home-k3s/student5/apps/deployment/student5-netbox
+    namespace: student5
+    apiGroup: apps
+    kind: Deployment
+    name: student5-netbox
+    desiredReplicas: 0
+    sourcePath: kubernetes/projects/training/apps/student5-netbox/values.yaml
+    images:
+    - ghcr.io/abhi1693/home-lab-netbox-training
+  - key: home-k3s/student5/apps/deployment/student5-netbox-worker
+    namespace: student5
+    apiGroup: apps
+    kind: Deployment
+    name: student5-netbox-worker
+    desiredReplicas: 0
+    sourcePath: kubernetes/projects/training/apps/student5-netbox/values.yaml
+    images:
+    - ghcr.io/abhi1693/home-lab-netbox-training
+  persistentStores: []
+  endpoints: []
+  dependencies: []

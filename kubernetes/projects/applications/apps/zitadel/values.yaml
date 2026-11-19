@@ -3,7 +3,7 @@ imageRegistry: registry.home/docker.io
 image:
   repository: registry.home/ghcr.io/zitadel/zitadel
   # renovate: datasource=docker depName=ghcr.io/zitadel/zitadel
-  tag: v4.20.0@sha256:9ea0e9ecfdc43115da871242e40a0320f2ece864c7cd8b5d41a863a7f4902499
+  tag: v4.20.2@sha256:d7ffdecfe037940beeae24c8bb32a420b2adc67fab7bc51554bdae58f9624ef3
   pullPolicy: IfNotPresent
 imagePullSecrets: []
 zitadel:
@@ -101,7 +101,7 @@ login:
     repository: registry.home/ghcr.io/abhi1693/home-lab-zitadel-login
     # Bounded GitHub registration session retry; core stays on upstream v4.20.0.
     # renovate: datasource=docker depName=ghcr.io/abhi1693/home-lab-zitadel-login
-    tag: 4.20.0-idp-retry2-ddd2af6@sha256:0d5fbf1e9c5fedf28487d1f529b5b46f2d31e5a3e815564c9a98a0475e1b60d3
+    tag: 4.20.0-idp-retry2-c77a3e2@sha256:257db1e5038eaab044011ba3ed5c906c5fd1ecbd068bd6a59ce1665fb1882b43
     pullPolicy: IfNotPresent
   service:
     type: ClusterIP

@@ -3,7 +3,7 @@ image:
   baseRepo: registry.home/registry.k8s.io
   nfs:
     repository: registry.home/registry.k8s.io/sig-storage/nfsplugin
-    tag: v4.13.4
+    tag: v4.13.6
     pullPolicy: IfNotPresent
 
 kubeletDir: /var/lib/kubelet

@@ -92,6 +92,12 @@ argument_specs:
             required: true
             description:
               - Namespace that Longhorn should run in.
+          validation_allowed_pvcs:
+            type: list
+            elements: str
+            required: false
+            description:
+              - Ancillary PVC names allowed during Longhorn validation.
           chart_version:
             type: str
             required: true
@@ -202,6 +208,11 @@ argument_specs:
             required: true
             description:
               - Maximum concurrent replica rebuilds Longhorn should run per node.
+          snapshot_heavy_task_concurrent_limit:
+            type: int
+            required: true
+            description:
+              - Maximum concurrent heavy snapshot tasks Longhorn should run per node.
           concurrent_automatic_engine_upgrade_per_node_limit:
             type: int
             required: true

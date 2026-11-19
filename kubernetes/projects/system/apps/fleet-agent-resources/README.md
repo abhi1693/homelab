@@ -19,3 +19,12 @@ a read-only filesystem, and never reads application Secrets.
 Validate with Python unittest discovery in this directory, Kustomize rendering
 and server-side dry runs. Verify both new Fleet agent replicas are Ready with
 150m requests and that bundle desired/applied deployment IDs agree.
+
+## 2026-11-13 terminal-history cleanup
+
+A one-time Fleet Job removed exactly two failed ShipyardHQ pods and the failed
+2026-11-05 resource-policy Job. It checked their recorded UIDs and terminal
+states, healthy ShipyardHQ replacement replicas, and a newer successful policy
+run. Deletes used UID and resource-version preconditions. The completed helper
+and its narrowly scoped service account, Roles, and RoleBindings were removed
+through Fleet after verifying all three terminal targets were absent.

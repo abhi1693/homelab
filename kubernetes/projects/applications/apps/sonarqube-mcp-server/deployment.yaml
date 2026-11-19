@@ -41,7 +41,7 @@ spec:
       containers:
         - name: server
           # renovate: datasource=docker depName=sonarsource/sonarqube-mcp
-          image: registry.home/docker.io/sonarsource/sonarqube-mcp:1.19.0.2785@sha256:fdd8a409b34bb130a648eff3195dedbc7001c4aa3ad326fd51a968160c1e4c04
+          image: registry.home/docker.io/sonarsource/sonarqube-mcp:1.31.0.4891@sha256:a2c04608b1e18fa5093eb17de64d942abb0a7e0c6b7ba4148724b1bb617e93ee
           imagePullPolicy: IfNotPresent
           env:
             - name: SONARQUBE_TRANSPORT

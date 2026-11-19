@@ -97,6 +97,24 @@
       127.0.0.1 instead of a physical control-plane address or the VIP.
     success_msg: "Live kube-vip replicas use their node-local K3s API"
 
+- name: Wait for K3s to reconcile the pinned kube-vip image
+  ansible.builtin.command:
+    argv:
+      - /usr/local/bin/k3s
+      - kubectl
+      - -n
+      - kube-system
+      - get
+      - daemonset
+      - kube-vip-ds
+      - -o
+      - jsonpath={.spec.template.spec.containers[0].image}
+  register: kube_vip_live_image
+  changed_when: false
+  until: kube_vip_live_image.stdout | trim == 'ghcr.io/kube-vip/kube-vip:' ~ kube_vip.version
+  retries: 30
+  delay: 2
+
 - name: Wait for kube-vip DaemonSet rollout
   ansible.builtin.command:
     argv:
@@ -110,6 +128,34 @@
       - --timeout=180s
   register: kube_vip_rollout
   changed_when: false
+
+- name: Read reconciled kube-vip rollout status
+  ansible.builtin.command:
+    argv:
+      - /usr/local/bin/k3s
+      - kubectl
+      - -n
+      - kube-system
+      - get
+      - daemonset
+      - kube-vip-ds
+      - -o
+      - json
+  register: kube_vip_live_daemonset
+  changed_when: false
+
+- name: Assert every control-plane kube-vip manager has rolled out
+  ansible.builtin.assert:
+    that:
+      - kube_vip_ds.status.observedGeneration == kube_vip_ds.metadata.generation
+      - kube_vip_ds.status.desiredNumberScheduled == groups['k3s_servers'] | length
+      - kube_vip_ds.status.updatedNumberScheduled == kube_vip_ds.status.desiredNumberScheduled
+      - kube_vip_ds.status.numberReady == kube_vip_ds.status.desiredNumberScheduled
+      - kube_vip_ds.status.numberAvailable == kube_vip_ds.status.desiredNumberScheduled
+      - kube_vip_ds.status.numberUnavailable | default(0) == 0
+    fail_msg: Expected the reconciled kube-vip image on every Ready control-plane manager.
+  vars:
+    kube_vip_ds: "{{ kube_vip_live_daemonset.stdout | from_json }}"
 
 - name: Wait for the control-plane VIP API endpoint
   ansible.builtin.wait_for:

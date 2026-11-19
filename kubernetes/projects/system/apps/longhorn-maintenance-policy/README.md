@@ -41,3 +41,13 @@ The system-managed CSI resource Setting is also Git-owned. Its JSON matches
 bootstrap inventory and the Fleet HelmChartConfig override, so an existing
 installation receives the reviewed requests without waiting for a bootstrap
 playbook. Only the three node-sidecar CPU requests change.
+
+## 2026-11-13 stalled replica recovery
+
+Offline rebuilding was temporarily disabled to release controller-owned
+attachment tickets for paused media clients. CSI then detached their volumes
+and Longhorn stopped engines retaining removed failed-replica addresses.
+Active clients kept their CSI attachments. The retained Fleet Setting restores
+`offline-replica-rebuilding: true`, matching the Ansible bootstrap default.
+Rebuild concurrency stays at one per node. No Longhorn volume backup target
+was added as part of this recovery.

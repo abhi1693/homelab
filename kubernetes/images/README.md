@@ -22,8 +22,10 @@ image path.
 
 | Path | Purpose |
 | --- | --- |
+| `harbor/` | Published ARM64 runtime cohort metadata and read-only chart qualification. |
 | `episeerr/` | Episeerr ARM64 runtime with patched Python dependencies. |
 | `jellyfin/` | Jellyfin image customization, plugin metadata, and PostgreSQL-oriented patch work. |
+| `netbox-training/` | Student NetBox image with DNS and Branching. |
 | `netbox/` | NetBox image customization and pinned plugin requirements. |
 
 ## Coupling With Apps

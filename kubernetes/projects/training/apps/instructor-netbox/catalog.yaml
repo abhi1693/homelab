@@ -37,14 +37,6 @@ spec:
     sourcePath: kubernetes/projects/training/apps/instructor-netbox/values.yaml
     images:
     - ghcr.io/netbox-community/netbox
-  - key: home-k3s/instructor/batch/cronjob/instructor-netbox-housekeeping
-    namespace: instructor
-    apiGroup: batch
-    kind: CronJob
-    name: instructor-netbox-housekeeping
-    sourcePath: kubernetes/projects/training/apps/instructor-netbox/values.yaml
-    images:
-    - ghcr.io/netbox-community/netbox
   persistentStores: []
   endpoints:
   - key: instructor-netbox/web

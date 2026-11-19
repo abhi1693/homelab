@@ -19,7 +19,7 @@ the loop sleeps between reconciliations.
 | Pool | Nodes | Longhorn tag | StorageClass |
 | --- | --- | --- | --- |
 | Control plane | Nodes with the control-plane role (`k8s-rpi1`–`k8s-rpi3`) | `storage-control-plane` | `longhorn-control-plane` |
-| Worker | Other cluster nodes (`k8s-rpi4`–`k8s-rpi8`) | `storage-worker` | `longhorn-workers` |
+| Worker | Other cluster nodes (`k8s-rpi4`–`k8s-rpi9`) | `storage-worker` | `longhorn-workers` |
 
 `policy.yaml` assigns `cattle-monitoring-system` and `cups` claims to the
 control-plane pool. Other namespaces, including Home Assistant, use workers.
@@ -128,8 +128,8 @@ References: [storage tags](https://longhorn.io/docs/1.12.1/nodes-and-volumes/nod
 ## CSI reservation and recovery override
 
 The Fleet-owned Longhorn HelmChartConfig also sets node CSI requests to
-10m for the plugin and 5m each for registrar and liveness. Across eight nodes,
-this reserves 160m rather than 560m CPU. Existing memory and CPU burst limits,
+10m for the plugin and 5m each for registrar and liveness. Across nine nodes,
+this reserves 180m rather than 630m CPU. Existing memory and CPU burst limits,
 instance-manager guarantees, replicas and storage placement remain unchanged.
 Bootstrap inventory declares the same CSI resources.
 

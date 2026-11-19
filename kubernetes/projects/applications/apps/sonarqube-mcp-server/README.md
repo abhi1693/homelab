@@ -5,7 +5,7 @@ namespace. The endpoint is `https://sonar.mcp.home/mcp`, accessible over the LAN
 or VPN. Traefik terminates TLS with a certificate from `home-local-ca`;
 clients must trust that CA. ExternalDNS creates the internal DNS record.
 
-The image is pinned to `1.19.0.2785` and its ARM64 digest, pulled through Harbor.
+The image is pinned to `1.31.0.4891` and its multi-platform OCI digest, pulled through Harbor.
 The server uses Streamable HTTP on port 8080, SonarCloud organization `abhi1693`,
 and default project `abhi1693_devfeed.tech`. Read-only mode is enforced at server
 level. Enabled toolsets are issues, rules, sources, quality-gates, measures,
@@ -52,7 +52,7 @@ then test authenticated initialization and tool listing with the user token.
 Rollback by reverting the application registration and manifests in Git and
 letting Fleet reconcile. No namespace is created or relabeled by this app.
 
-Upstream: https://github.com/SonarSource/sonarqube-mcp-server/tree/1.19.0.2785
+Upstream: https://github.com/SonarSource/sonarqube-mcp-server/tree/1.31.0.4891
 
 ## Resource review — 28 October 2026
 
@@ -65,3 +65,15 @@ and extra headroom where OOM records show clipping.
 | Container / value path | CPU request | Memory request | Memory limit |
 | --- | --- | --- | --- |
 | `devfeed/sonarqube-mcp-server/server` | 100m → 25m | 256Mi → 320Mi | 768Mi → 768Mi |
+
+## November security qualification
+
+The official ARM64 candidate passed native Java 21.0.13 / Node 24.22.1 checks,
+default JVM and Node trust-store checks for the inventory's distrusted CA
+fingerprints, and isolated non-root read-only HTTP/authentication checks.
+See the [qualification workflow source](../../../../images/sonarqube-mcp-qualification/README.md).
+Trivy 0.76.1 reported zero HIGH/CRITICAL image findings. The shaded JAR removes
+Maven package metadata; the upstream Gradle lock and published ARM64 SBOM were
+assessed separately. The Gradle handlebars 4.3.1 alert is limited to test
+configurations, and its classes are absent from the distributed JAR. No runtime
+finding was suppressed. The existing read-only mode and explicit toolsets remain.

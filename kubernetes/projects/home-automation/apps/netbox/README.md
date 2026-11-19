@@ -13,14 +13,14 @@ headers such as `Cross-Origin-Opener-Policy` to apply to this non-local origin.
 Current choices:
 
 - chart: `oci://ghcr.io/netbox-community/netbox-chart/netbox`
-- chart version: `8.3.92`
-- NetBox version: `v4.6.9`
-- image: `registry.home/ghcr.io/abhi1693/home-lab-netbox:4.6.9-f3db127`
+- chart version: `8.3.101`
+- NetBox version: `v4.7.4`
+- image: `registry.home/ghcr.io/abhi1693/home-lab-netbox:4.7.4-e90b692`
 - namespace: `netbox`
 - ingress: enabled through Traefik
 - web replicas: `1`
 - worker replicas: `1`
-- housekeeping: enabled
+- housekeeping: built-in daily system job; legacy CronJob disabled
 - PostgreSQL operator: CloudNativePG
 - PostgreSQL cluster chart: `cnpg/cluster`
 - PostgreSQL cluster instances: `3`
@@ -28,11 +28,10 @@ Current choices:
 - queue/cache: shared Database project Valkey Sentinel service
 - media persistence: retained NAS directory through NFS CSI
 - required plugins:
-  - `netbox-metatype-importer` from its NetBox 4.6 compatibility branch
-  - `netboxlabs-netbox-custom-objects==0.6.1`
-  - `netbox-topology-views==4.5.1`
-  - `netbox-plugin-dns==1.5.11`
-  - `netbox-lifecycle==1.1.9`
+  - `netboxlabs-netbox-custom-objects==0.7.0`
+  - `netbox-topology-views==4.7.0`
+  - `netbox-plugin-dns==1.7.3`
+  - `netbox-lifecycle==1.1.10`
 - registry pull Secret: namespace-scoped `harbor-registry`, backed by
   `robot-namespace-netbox`
 
@@ -79,8 +78,9 @@ for their output.
 
 ## Plugins
 
-`netbox-metatype-importer` is enabled so device and module types can be imported
-from the NetBox Device Type Library instead of seeded by hand.
+`netbox-metatype-importer` is disabled because its upstream maximum remains
+4.6.99. Its data and encrypted credentials are retained. Re-enable it only after
+a supported plugin release passes qualification against NetBox 4.7.
 
 `netbox-custom-objects`, `netbox-topology-views`, `netbox-plugin-dns`, and
 `netbox-lifecycle` are enabled for workload catalog objects, cabling topology,
@@ -96,11 +96,11 @@ notices, not fabricated end-of-sale dates. Follow
 for evidence requirements and drift checks.
 
 Required plugins are baked into
-`registry.home/ghcr.io/abhi1693/home-lab-netbox:4.6.9-f3db127`
+`registry.home/ghcr.io/abhi1693/home-lab-netbox:4.7.4-e90b692`
 instead of installed at pod startup. Add plugin source archives to
 `kubernetes/images/netbox/required-plugins.txt`; the `NetBox App Image` workflow
 builds the image from the Harbor GHCR proxy copy of
-`netbox-community/netbox:v4.6.9` and publishes a commit-SHA tag.
+`netbox-community/netbox:v4.7.4` and publishes a commit-SHA tag.
 
 The image build enables the same plugin list temporarily and runs Django
 `collectstatic` after installation. This is required for plugin-owned browser
@@ -124,20 +124,68 @@ kubectl -n netbox create secret generic netbox-metatype-importer-config \
 
 ## HA model
 
-NetBox uses one web replica, no worker replica, and no PDB because a singleton
+NetBox uses one web replica, one background worker, and no web PDB because a singleton
 web service cannot preserve availability during voluntary disruption. Its
 Services, ingress, PVC, PostgreSQL database and role, and Valkey data are
 declaratively managed. PostgreSQL remains a shared three-instance CloudNativePG
 cluster.
 
 
-## Background worker disabled
+## Background worker and housekeeping
 
-The worker is disabled after verifying no queued or active jobs. Normal
-inventory UI/API operations remain available. Queued jobs, imports, scripts and
-plugin background work wait until worker.enabled is restored to true.
-The direct housekeeping CronJob remains enabled. Existing failed-job records
-are retained; disabling the worker does not delete Redis queues.
+One RQ worker processes the native daily System Housekeeping job. It requests
+50m CPU and 512Mi memory with a 1Gi memory limit. The legacy housekeeping
+CronJob is disabled because NetBox 4.7 removed `manage.py housekeeping`.
+Existing retention settings, PostgreSQL data, Valkey queues and credentials are
+preserved. Confirm the native job completes and schedules its next daily run;
+a Ready web Deployment alone does not prove background maintenance is working.
+
+Maintenance flags and worker resources are projected from `values.yaml` into
+`helmop.yaml` by `python3 scripts/render-training-netbox.py`. This makes them
+part of Fleet's tracked Helm values/deployment identity as well as the referenced
+ConfigMap. Run the renderer and `--check` after changing them; never hand-edit
+the projection. Runtime credential Secret references remain unchanged.
 
 The web container and its mkdir-only init each request 50m CPU, so the init
 does not inflate the web pod's scheduler reservation.
+
+If Fleet retains an old `WaitApplied` summary after the NetBox HelmOp and child
+BundleDeployment are Ready with matching desired/applied IDs, verify the web
+and worker pods, then refresh the HelmOp's `home-lab.io/status-reconcile-at`
+metadata annotation through Git. Confirm parent readiness and preserved pod
+identities after reconciliation, following the root operational workflow.
+This is a workaround for stale parent reporting; the cause of a missed
+transition remains unproven. Preserve workload and controller evidence when it
+recurs, then diagnose Fleet before considering a controller upgrade.
+
+## NetBox 4.7 maintenance cutover
+
+The isolated ARM64 4.7.4 migration preserved identity/value hashes for all 378
+checked business tables and passed authenticated UI/API checks. The production
+cutover quiesces the singleton and housekeeping through Git, takes the fresh
+[private NAS rollback point](../netbox-upgrade-backup/README.md), then restores
+the web replica and housekeeping on the new immutable image.
+The metatype importer will remain disabled until upstream supports NetBox 4.7;
+its retained database data and credentials are not deleted.
+
+The completed qualification Job and its disposable database are removed through
+Git after evidence capture. The independent pre-upgrade NAS rollback point stays
+retained; it is not the disposable qualification database.
+
+## Production verification
+
+Production runs 4.7.4 with zero restarts. All four enabled plugin navigation
+pages and authenticated inventory APIs returned HTTP 200; device/IP counts
+remained 36/26. Identity/value fingerprints remained identical for 377 business
+tables. The administrator's account metadata and existing password were also
+verified against the retained rollback dump: its PBKDF2 work factor increased
+from 1,200,000 to 1,500,000 iterations. An existing browser session required a
+fresh sign-in. Session keys and API-token peppers remained byte-identical.
+The disabled importer's 8,358 records remain in its retained table.
+
+Production has no invalid indexes or unvalidated constraints, and the required
+trusted `ltree` extension is installed. The four-worker web process used about
+1,256 MiB during the post-upgrade check, within its unchanged 2,304 MiB limit.
+The separate RQ worker is now enabled for native NetBox 4.7 housekeeping.
+
+The worker explicitly imports `core.jobs` before invoking NetBox's native `rqworker` command. The deployed 4.7.4 app configuration otherwise registers only the search-cache safety-net job at startup. This bootstrap restores native daily housekeeping registration and schedule recovery without changing retention, installing code at runtime, or using the removed management command.

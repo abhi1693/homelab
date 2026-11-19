@@ -2,15 +2,10 @@
 
 Ryokan is the anime-only request and import service.
 
-The deployment is temporarily paused at zero replicas through GitOps. Its
-configuration PVC, backup claim, library mounts, Secrets, Service and Ingress
-are retained.
-
-To resume, restore `spec.replicas: 1` in [deployment.yaml](deployment.yaml),
-commit the change and let Fleet reconcile. The startup backup and credential
-sync run before the service resumes. The recommendation profile already
-disables replica scaling and availability recovery, so it does not reactivate
-the paused deployment.
+The deployment runs continuously with one replica managed by Git/Fleet.
+Existing configuration, storage and application data are retained. Automatic
+replica scaling and availability recovery remain disabled in its recommendation
+profile.
 
 It retains two ReplicaSet revisions; Git and Fleet history remain the primary
 rollback path.
@@ -63,33 +58,27 @@ The web UI is available at `http://requests.anime.media.home`.
 Ryokan mounts `/downloads` so it can read qBittorrent's reported anime torrent
 paths, and `/media/anime` as the NAS-backed anime library.
 
-Ryokan stores a durable checkpoint after each file reaches its final
-library path. If the process restarts while a multi-file grab is still pending,
-the next pass verifies and resumes completed files instead of copying or
-recycling them again. It also finishes deferred replacement bookkeeping after
-an interrupted upgrade. Existing destinations created before checkpoint
-support are adopted only after a full byte comparison. Verification uses one
-read-only worker to bound shared-storage contention. Import placement,
-replacement bookkeeping and database writes remain serialized.
-Each completed grab processes at most one new file per pass, then yields to the
-next pending grab. Durable checkpoints let large batches continue on later
-passes without making other ready downloads wait for the whole batch.
+## Official runtime
 
-The filename parser recognizes zero-padded episode tokens such as
-`Group_Title_01.mkv`. In the library scanner, bracketed tokens such as
-`[01][HEVC][GB][4K].mp4` are accepted only when the release contains every
-meaningful token from the target series folder name; this prevents a
-mis-mapped release from being imported into an unrelated series.
+The app uses the official [johnthreekay/Ryokan](https://github.com/johnthreekay/Ryokan)
+image at version **2.3.0**, through Harbor's GHCR proxy, pinned to immutable
+multi-platform digest `sha256:8e4aaa2aa097d94270eaf0289e3732cd5d7d95155f2a5e43c6e35079e353f0d2`.
+The verified ARM64 manifest is
+`sha256:0d8735ce242edfd26199c74f8cefb031b323848acab476ba5de3fdc8d826a9e0`.
+Release source: [v2.3.0](https://github.com/johnthreekay/Ryokan/releases/tag/v2.3.0).
 
-Completed multi-video grabs are treated as batches from their actual wanted
-file shape even when the indexer recorded `is_batch=false` and only episode 1.
-Videos beneath `Extras/`, `Samples/`, `Trailers/`, and similar secondary-media
-directories are excluded from episode routing and batch preflight. Dotted codec
-tokens such as `H.264` and `H.265` are not interpreted as episode numbers.
-Ryokan validates every parseable episode destination before copying any file:
-unparseable or non-positive extras are warned and skipped, while duplicate
-episode destinations fail the whole import without changing the library.
+This replaces the private 1.9.13 fork. The fork's per-file checkpoint and
+one-file-per-pass settings are not part of the official image; its two custom
+post-processing environment variables are removed. Imports now follow upstream
+behavior. Existing configuration, private key, artwork and library storage are
+retained. Credential initialization still enforces source-retaining copy mode
+and recycle protection before the app starts. Upstream performs its database
+migrations at startup after the stopped-state backup completes. A rollback
+across this version change requires restoring that backup, not only reverting
+the image tag.
 
+The import reconciler shares Ryokan's UID/GID 568 because the official entrypoint
+makes `/data` private to that user. Directory permissions remain private.
 The pod also runs the narrowly scoped import reconciler on port `8979` with a
 `256Mi` memory limit for bulk receipt checks. Smart
 Queues submits the selected qBittorrent media paths while copy-mode sources are
@@ -190,8 +179,9 @@ artwork and import-reconciler state before credential sync or either writer
 starts. See [the shared backup contract](../media-state-backups/README.md).
 No additional quiesce commit or backup Job is used.
 
-Core 1.9.13 follows the accepted qBit 0.2.13 rollout. Both qBit consumers retain
-the same verified image while Ryokan and the credential-sync runtime update.
+Official Ryokan 2.3.0 keeps both qBit consumers on the verified 0.2.14 image.
+The Ryokan backup cohort is `qbit-0.2.14-ryokan-2.3.0`; the qBit controller
+uses the matching cohort for this fail-safe guard release.
 The first init makes a new complete stopped SQLite/configuration/key restore
 point for this target cohort before credential sync and both writers start.
 

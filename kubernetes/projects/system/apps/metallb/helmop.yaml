@@ -33,7 +33,7 @@ spec:
     releaseName: metallb
     repo: https://metallb.github.io/metallb
     chart: metallb
-    version: 0.16.1
+    version: 0.16.2
     timeoutSeconds: 600
     takeOwnership: true
     valuesFrom:

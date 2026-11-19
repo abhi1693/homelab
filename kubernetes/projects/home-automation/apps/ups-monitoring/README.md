@@ -17,7 +17,7 @@ Current choices:
 
 - namespace: `ups`
 - NUT image: `instantlinux/nut-upsd:2.8.5-r1`
-- dashboard image: `brandawg93/peanut:6.0.0`
+- dashboard image: `brandawg93/peanut:6.1.2`
 - Prometheus exporter image: `druggeri/nut_exporter:3.3`
 - ingress class: `traefik`
 - hostname: `ups.home`

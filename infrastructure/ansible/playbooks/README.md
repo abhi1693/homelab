@@ -12,7 +12,8 @@ subsystem.
 | Playbook | Scope |
 | --- | --- |
 | `site.yml` | Full bootstrap sequence. |
-| `os_prep.yml` | Base OS preparation, time-only NTP convergence/validation, package plans, rolling OS upgrades and reboots, and persistent security validation. |
+| `add_worker.yml` | Onboard the final worker, `worker-6` (`k8s-rpi9`), with an explicit single-host limit, OS/Pi preparation, agent join and NVMe monitoring validation. |
+| `os_prep.yml` | Base OS preparation, cloning-tool cleanup/validation, time-only NTP convergence/validation, package plans, rolling OS upgrades and reboots, and persistent security validation. |
 | `rpi_prep.yml` | Raspberry Pi-specific preparation. |
 | `k3s_server.yml` | Serial K3s server changes with Node, etcd, and platform recovery gates. |
 | `k3s_server_tools.yml` | Prepare the checksum-pinned etcd client before server maintenance; no restarts. |
@@ -40,6 +41,12 @@ Run the full bootstrap:
 ```sh
 ansible-playbook playbooks/site.yml
 ```
+
+For the planned final worker, use the dedicated
+[onboarding workflow](../README.md#final-worker-k8s-rpi9) after its IP is
+confirmed. `add_worker.yml` requires `--limit worker-6`; its local assertions
+reject a wider selection before gathering facts or preparing hosts. It does not
+rerun control-plane or platform bootstrap.
 
 Run a validation entrypoint:
 
@@ -82,3 +89,8 @@ ansible-playbook playbooks/node_image_cache_prune.yml \
 The full site playbook is useful for initial bootstrap and broad convergence.
 Role-specific playbooks are useful during development and operations because
 they let one subsystem be validated without rerunning the full stack.
+
+K3s startup time gates can be converged serially without package changes or
+service restarts using `os_prep.yml -e os_prep_entrypoint=time_startup_gate`;
+`time_startup_gate_validation` checks configuration and the current clock. See
+[timeout and failure behavior](../roles/os_prep/README.md#k3s-startup-waits-for-chrony).

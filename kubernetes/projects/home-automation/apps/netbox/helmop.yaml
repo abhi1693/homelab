@@ -1,3 +1,4 @@
+# Maintenance values are synchronized from values.yaml by scripts/render-training-netbox.py.
 ---
 apiVersion: fleet.cattle.io/v1alpha1
 kind: HelmOp
@@ -10,46 +11,66 @@ metadata:
 spec:
   defaultNamespace: netbox
   dependsOn:
-    - name: rancher-project-home-automation
-    - name: home-automation-helm-repositories
-    - name: csi-driver-nfs-helmop
-    - name: netbox-secrets
+  - name: rancher-project-home-automation
+  - name: home-automation-helm-repositories
+  - name: csi-driver-nfs-helmop
+  - name: netbox-secrets
   labels:
     app.kubernetes.io/part-of: netbox
     home-lab.io/project-slug: home-automation
   targets:
-    - name: default
-      clusterGroup: default
+  - name: default
+    clusterGroup: default
   targetRestrictions:
-    - name: default
-      clusterGroup: default
+  - name: default
+    clusterGroup: default
   diff:
     comparePatches:
-      - apiVersion: v1
-        kind: PersistentVolumeClaim
-        name: netbox-media-v2-nfs
-        namespace: netbox
-        jsonPointers:
-          - /spec/volumeName
+    - apiVersion: v1
+      kind: PersistentVolumeClaim
+      name: netbox-media-v2-nfs
+      namespace: netbox
+      jsonPointers:
+      - /spec/volumeName
   correctDrift:
     enabled: true
     force: true
     keepFailHistory: true
   downstreamResources:
-    - kind: ConfigMap
-      name: netbox-values
+  - kind: ConfigMap
+    name: netbox-values
   helm:
     releaseName: netbox
     repo: oci://ghcr.io/netbox-community/netbox-chart/netbox
     # renovate: datasource=docker depName=ghcr.io/netbox-community/netbox-chart/netbox
-    version: 8.3.92
+    version: 8.3.102
     timeoutSeconds: 600
     valuesFrom:
-      - configMapKeyRef:
-          name: netbox-values
-          namespace: fleet-local
-          key: values.yaml
-      - secretKeyRef:
-          name: netbox-values
-          namespace: netbox
-          key: values.yaml
+    - configMapKeyRef:
+        name: netbox-values
+        namespace: fleet-local
+        key: values.yaml
+    - secretKeyRef:
+        name: netbox-values
+        namespace: netbox
+        key: values.yaml
+    values:
+      housekeeping:
+        enabled: false
+      worker:
+        enabled: true
+        command:
+        - /opt/netbox/venv/bin/python
+        - /opt/netbox/netbox/manage.py
+        - shell
+        - --no-imports
+        - --interface
+        - python
+        - -c
+        - import core.jobs; from django.core.management import call_command; call_command("rqworker")
+        resources:
+          requests:
+            cpu: 50m
+            memory: 512Mi
+          limits:
+            memory: 1Gi

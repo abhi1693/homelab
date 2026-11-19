@@ -13,10 +13,16 @@ configurations:
   - kustomizeconfig.yaml
 resources:
   - backup-20260916.yaml
+  - backup-pr217-preflight-20261111.yaml
   - namespace.yaml
   - limitrange.yaml
   - secrets.sops.yaml
   - instructor-secrets.sops.yaml
+  - student5-secrets.sops.yaml
+  - student4-secrets.sops.yaml
+  - student3-secrets.sops.yaml
+  - student2-secrets.sops.yaml
+  - student1-secrets.sops.yaml
   - registry-secrets.sops.yaml
   - db-performance-grafana-dashboard.yaml
   - grafana-dashboard.yaml

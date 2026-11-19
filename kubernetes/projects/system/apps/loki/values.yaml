@@ -4,8 +4,8 @@ deploymentMode: SingleBinary
 loki:
   image:
     # renovate: datasource=docker depName=docker.io/grafana/loki
-    tag: 3.6.17
-    digest: sha256:cd5471d6ae439eb0a7a9055b9b2fb3fd3c5485934dd576473a6289d3936b8b27
+    tag: 3.6.20
+    digest: sha256:be040ec94865dabe4821ce1c0f109452bd4b5acb566ae376672696eb43caedb7
   auth_enabled: false
   commonConfig:
     path_prefix: /var/loki

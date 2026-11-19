@@ -51,5 +51,16 @@ class LedgerChartTests(unittest.TestCase):
         self.assertFalse(any(d['kind'] == 'ConfigMap' for d in resources))
         self.assertFalse(any(v['name'] == 'code' for v in spec['volumes']))
 
+    def test_deployment_pins_exact_mixed_kernel_allowlist(self):
+        resources = self.resources(self.render('--is-upgrade'))
+        deployment = next(d for d in resources if d['kind'] == 'Deployment')
+        env = {item['name']: item.get('value') for item in
+               deployment['spec']['template']['spec']['containers'][0]['env']}
+        self.assertNotIn('APPROVED_KERNEL', env)
+        self.assertEqual(json.loads(env['APPROVED_KERNELS']),
+                         ['7.0.0-1020-raspi', '7.0.0-1023-raspi'])
+        self.assertEqual(deployment['spec']['replicas'], 2)
+        self.assertFalse(any(d['kind'] == 'Lease' for d in resources))
+
 if __name__ == '__main__':
     unittest.main()

@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Render Fleet NetBox values from shared defaults and per-instance overrides."""
+"""Render Fleet NetBox configuration and tracked maintenance values."""
 import argparse
 import re
 from copy import deepcopy
@@ -23,7 +23,7 @@ def merge(base, override):
     return result
 
 
-def serialize(data):
+def serialize(data, header=HEADER):
     # Preserve dependency metadata in generated inputs for repository validation.
     # Renovate ignores these outputs and updates only the canonical shared sources.
     lines = yaml.safe_dump(data, sort_keys=False).splitlines()
@@ -39,32 +39,64 @@ def serialize(data):
             indent = re.match(r'\s*', line).group()
             output.append(f'{indent}# renovate: datasource=docker depName=ghcr.io/netbox-community/netbox-chart/netbox')
         output.append(line)
-    return HEADER + '---\n' + '\n'.join(output) + '\n'
+    return header + '---\n' + '\n'.join(output) + '\n'
+
+
+def maintenance_values(values):
+    # Main NetBox keeps runtime-only bootstrap credentials in a Secret overlay.
+    # Track its maintenance settings without moving those credentials into Git.
+    return {
+        'housekeeping': {'enabled': values['housekeeping']['enabled']},
+        'worker': {
+            'enabled': values['worker']['enabled'],
+            'command': deepcopy(values['worker']['command']),
+            'resources': deepcopy(values['worker']['resources']),
+        },
+    }
 
 
 def render(check=False):
     defaults = yaml.safe_load((TRAINING / '_shared/netbox/values.yaml').read_text())
     chart = yaml.safe_load((TRAINING / '_shared/netbox/chart.yaml').read_text())
+    student_plugins = yaml.safe_load((TRAINING / '_shared/netbox/student-plugins/values.yaml').read_text())
     stale = []
     for source in sorted((TRAINING / 'apps').glob('*/instance.yaml')):
         instance = yaml.safe_load(source.read_text())
-        unknown = set(instance) - {'values', 'chart'}
+        unknown = set(instance) - {'values', 'chart', 'studentPlugins'}
         if unknown:
             raise ValueError(f'{source}: unknown keys {sorted(unknown)}')
         app = source.parent
-        values = merge(defaults, instance.get('values', {}))
+        base = merge(defaults, student_plugins) if instance.get('studentPlugins') else defaults
+        values = merge(base, instance.get('values', {}))
         helmop_path = app / 'helmop.yaml'
         helmop = yaml.safe_load(helmop_path.read_text())
         helmop['spec']['helm'].update(merge(chart, instance.get('chart', {})))
+        # Fleet's template phase cannot load downstream ConfigMaps.
+        # Include complete public settings, especially disabled dependencies
+        # and existing-Secret references, before that phase.
+        helmop['spec']['helm']['values'] = deepcopy(values)
         for path, data in [(app / 'values.yaml', values), (helmop_path, helmop)]:
             content = serialize(data)
             if path.read_text() != content:
                 stale.append(str(path.relative_to(ROOT)))
                 if not check:
                     path.write_text(content)
+    # The main instance retains its own values and wrapper, but shares the
+    # tracked maintenance projection so the two value sources cannot diverge.
+    main = ROOT / 'kubernetes/projects/home-automation/apps/netbox'
+    path = main / 'helmop.yaml'
+    helmop = yaml.safe_load(path.read_text())
+    values = yaml.safe_load((main / 'values.yaml').read_text())
+    helmop['spec']['helm']['values'] = maintenance_values(values)
+    header = '# Maintenance values are synchronized from values.yaml by scripts/render-training-netbox.py.\n'
+    content = serialize(helmop, header)
+    if path.read_text() != content:
+        stale.append(str(path.relative_to(ROOT)))
+        if not check:
+            path.write_text(content)
     if check and stale:
         raise SystemExit('Run python3 scripts/render-training-netbox.py:\n' + '\n'.join(stale))
-    print('Training NetBox configuration is current.' if check else 'Rendered Training NetBox configuration.')
+    print('NetBox configuration and maintenance projections are current.' if check else 'Rendered NetBox configuration and maintenance projections.')
 
 
 if __name__ == '__main__':

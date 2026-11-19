@@ -17,7 +17,7 @@ import sys
 import time
 from urllib.error import HTTPError, URLError
 from urllib.parse import quote
-from urllib.request import ProxyHandler, build_opener
+from urllib.request import ProxyHandler, Request, build_opener
 
 
 NAMESPACE = "cattle-monitoring-system"
@@ -84,13 +84,16 @@ def snapshot(grafana_url):
         "name": identity(x), "data": x.get("data", {}),
     } for x in kubectl("get", "configmap", "-A", "-l", "grafana_dashboard=1", "-o", "json")["items"]]
 
-    # Deliberately do not read credentials. The current internal Grafana exposes
-    # Viewer access. Fail rather than silently omit dashboards if auth changes.
+    # Deliberately do not read Secrets. Authenticated installations may provide
+    # an Authorization header through the process environment. Never log it.
     def grafana(path):
         opener = build_opener(ProxyHandler({}))
         for attempt in range(3):
             try:
-                with opener.open(grafana_url.rstrip("/") + path, timeout=30) as response:
+                authorization = os.environ.get("GRAFANA_HTTP_AUTHORIZATION", "")
+                request = Request(grafana_url.rstrip("/") + path,
+                                  headers={"Authorization": authorization} if authorization else {})
+                with opener.open(request, timeout=30) as response:
                     return json.load(response)
             except (OSError, URLError) as exc:
                 if isinstance(exc, HTTPError) and exc.code < 500:

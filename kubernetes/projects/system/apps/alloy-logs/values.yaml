@@ -2,6 +2,9 @@
 crds:
   create: false
 
+image:
+  digest: sha256:8ab871206bd2d8f89277f53abffee5f452a293980788d52f85fa183a87a505a4
+
 controller:
   type: deployment
   replicas: 2

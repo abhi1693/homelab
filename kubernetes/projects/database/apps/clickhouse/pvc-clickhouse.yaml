@@ -15,7 +15,7 @@ spec:
   storageClassName: longhorn-workers
   resources:
     requests:
-      storage: 50Gi
+      storage: 100Gi
   volumeName: pvc-a0f8703b-2333-4eaf-a91e-9e1111b7793b
 ---
 apiVersion: v1

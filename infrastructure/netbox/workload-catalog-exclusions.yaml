@@ -153,3 +153,23 @@ spec:
       disposition: support
       application: fleet
       reason: Owns the instructor namespace and encrypted training credentials.
+    - path: kubernetes/projects/training/apps/student1-prerequisites
+      disposition: support
+      application: fleet
+      reason: Owns the student1 namespace and encrypted training credentials.
+    - path: kubernetes/projects/training/apps/student2-prerequisites
+      disposition: support
+      application: fleet
+      reason: Owns the student2 namespace and encrypted training credentials.
+    - path: kubernetes/projects/training/apps/student3-prerequisites
+      disposition: support
+      application: fleet
+      reason: Owns the student3 namespace and encrypted training credentials.
+    - path: kubernetes/projects/training/apps/student4-prerequisites
+      disposition: support
+      application: fleet
+      reason: Owns the student4 namespace and encrypted training credentials.
+    - path: kubernetes/projects/training/apps/student5-prerequisites
+      disposition: support
+      application: fleet
+      reason: Owns the student5 namespace and encrypted training credentials.

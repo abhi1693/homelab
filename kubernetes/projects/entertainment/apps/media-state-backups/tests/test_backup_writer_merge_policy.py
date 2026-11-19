@@ -32,12 +32,12 @@ class BackupWriterMergePolicyTests(unittest.TestCase):
         self.assertTrue(self.check(changed))
 
     def test_wrong_package_or_datasource_rejected(self):
-        for changed in [RULE.replace('ghcr.io/abhi1693/ryokan', 'ghcr.io/example/unrelated'),
+        for changed in [RULE.replace('ghcr.io/johnthreekay/ryokan', 'ghcr.io/example/unrelated'),
                         RULE.replace('matchDatasources: ["docker"]', 'matchDatasources: ["github-releases"]')]:
             self.assertTrue(self.check(CONFIG.replace(RULE, changed)))
 
     def test_gate_cannot_expand_to_unrelated_packages(self):
-        changed = RULE.replace('"ghcr.io/abhi1693/ryokan"', '"ghcr.io/abhi1693/ryokan", "ghcr.io/example/unrelated"')
+        changed = RULE.replace('"ghcr.io/johnthreekay/ryokan"', '"ghcr.io/johnthreekay/ryokan", "ghcr.io/example/unrelated"')
         self.assertTrue(self.check(CONFIG.replace(RULE, changed)))
 
     def test_later_override_and_displaced_manual_helper_rule_rejected(self):
@@ -51,9 +51,12 @@ class BackupWriterMergePolicyTests(unittest.TestCase):
 
     def test_unrelated_default_test_and_branch_automerge_policy_preserved(self):
         self.assertTrue(self.check(CONFIG.replace('ignoreTests: true', 'ignoreTests: false', 1)))
-        # The existing guard still enforces branch automerge outside reviewed Hub/License rules.
+        # Branch automerge remains required outside the exact reviewed dependencies.
         reviewed = [block for block in re.findall(r'\{[^{}]*\}', CONFIG)
-                    if 'groupSlug: "wardn-hub-images"' in block or 'groupSlug: "wardn-license-server-images"' in block]
+                    if 'groupSlug: "wardn-hub-images"' in block
+                    or 'groupSlug: "wardn-license-server-images"' in block
+                    or f'description: "{POLICY.TERRAFORM_CLI_RULE}"' in block
+                    or f'description: "{POLICY.NETBOX_CHART_RULE}"' in block]
         self.assertEqual(POLICY.check_default_merge_policy(CONFIG, *reviewed), [])
         self.assertTrue(POLICY.check_default_merge_policy(CONFIG.replace('automerge: true', 'automerge: false', 1), *reviewed))
 

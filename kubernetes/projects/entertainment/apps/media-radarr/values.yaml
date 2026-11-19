@@ -38,7 +38,7 @@ ingress:
     tls: []
 workload:
   main:
-    replicas: 0
+    replicas: 1
     podSpec:
       automountServiceAccountToken: false
       labels:

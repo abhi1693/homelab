@@ -12,7 +12,7 @@ content redaction is applied.
 
 ## Sources and identity
 
-The chart remains pinned to `alloy` 1.13.1 and Alloy 1.20.1. The deployment opts
+The chart is pinned to `alloy` 1.15.0 and Alloy 1.21.3. The deployment opts
 into `--stability.level=public-preview` because `otelcol.storage.file` is Public
 Preview in that version. The native YAML OTel engine is not used. Rolling updates
 replace at most one collector per node, and all node taints are tolerated.
@@ -223,7 +223,8 @@ python3 scripts/validate-workload-catalog.py
 ```
 
 The local Docker pipeline fixture renders both handover stages with the pinned
-chart and validates them using Alloy 1.20.1. It checks source offsets, CRI partial
+chart selected by `helmop.yaml` and validates them using the immutable Alloy
+1.21.3 OCI digest. It checks source offsets, CRI partial
 records/rotation, audit parsing/offsets, OTel normalization, preserved bodies/timestamps and durable
 export recovery against a local HTTP fixture. It does not write to Loki or the
 cluster. Local fixtures do not prove real host coverage, spool mounting,
@@ -238,11 +239,11 @@ controlled test evidence rather than a freshness alert demanding a new error.
 OTel enqueue failures and terminal delivery failures must remain visible beside
 backend availability alerts; their counts are different pipeline stages.
 
-References: [pinned journal source](https://github.com/grafana/alloy/blob/v1.20.1/docs/sources/reference/components/loki/loki.source.journal.md),
-[pinned OTel bridge](https://github.com/grafana/alloy/blob/v1.20.1/docs/sources/reference/components/otelcol/otelcol.receiver.loki.md),
-[persistent storage](https://github.com/grafana/alloy/blob/v1.20.1/docs/sources/reference/components/otelcol/otelcol.storage.file.md),
-[exporter queue](https://github.com/grafana/alloy/blob/v1.20.1/docs/sources/shared/reference/components/otelcol-queue-block.md),
-and [exporter batching](https://github.com/grafana/alloy/blob/v1.20.1/docs/sources/shared/reference/components/otelcol-queue-batch-block.md).
+References: [pinned journal source](https://github.com/grafana/alloy/blob/v1.21.3/docs/sources/reference/components/loki/loki.source.journal.md),
+[pinned OTel bridge](https://github.com/grafana/alloy/blob/v1.21.3/docs/sources/reference/components/otelcol/otelcol.receiver.loki.md),
+[persistent storage](https://github.com/grafana/alloy/blob/v1.21.3/docs/sources/reference/components/otelcol/otelcol.storage.file.md),
+[exporter queue](https://github.com/grafana/alloy/blob/v1.21.3/docs/sources/shared/reference/components/otelcol-queue-block.md),
+and [exporter batching](https://github.com/grafana/alloy/blob/v1.21.3/docs/sources/shared/reference/components/otelcol-queue-batch-block.md).
 
 ## Continuous OS delivery monitoring
 
@@ -352,17 +353,26 @@ configuration and delivery behavior; ARM64 runtime CPU and queue checks remain
 part of live rollout validation.
 
 The follow-up memory review sets each collector request to `384Mi` (from
-`512Mi`), releasing `1Gi` across eight nodes. The `640Mi` limit is retained for
+`512Mi`), releasing `1152Mi` across nine nodes. The `640Mi` limit is retained for
 replay: the fourteen-day per-container peak was `535Mi`, with no recorded OOM
 events. Reloaders, queue durability, memory-limiter settings, and CPU bounds
-remain unchanged. Verify all eight nodes and log delivery after reconciliation.
+remain unchanged. Verify all nine nodes and log delivery after reconciliation.
 
 ## Remote critical kernel evidence
 
 The bounded system-journal unit index includes the four static host-recovery
 units. `home-lab-kernel-receiver.service` records critical kernel messages sent
-by the eight nodes to independent LAN receivers. These are `node/system`
+by the nine nodes to independent LAN receivers. These are `node/system`
 records, not duplicate local `node/kernel` collection. The indexed `node` is
 the receiver; extract journal `MESSAGE` and parse `source_node` for the sender.
 No dynamic peer, boot or message identifiers are added as index labels.
 See [host recovery](../../../../../infrastructure/ansible/roles/os_prep/README.md#remote-node-recovery-and-kernel-evidence).
+
+## Host log group access
+
+The collector runs as UID 0 with Ubuntu's `adm` GID 4 and drops all capabilities.
+Root ownership covers the CRI and journal files; group `adm` additionally permits
+reading selected `syslog:adm` mode-0640 files such as `cloud-init.log`. Host log
+mounts stay read-only. Verify the host group ID before onboarding another OS;
+do not grant DAC bypass capabilities or widen log-file permissions to repair
+a missing group.

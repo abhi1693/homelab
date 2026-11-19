@@ -30,7 +30,7 @@ are owned by the database project PostgreSQL bundle.
 
 ## Resources
 
-The web workload requests `30m` CPU and `103Mi` memory, with no CPU limit and a
+The web workload requests `90m` CPU and `204Mi` memory, with no CPU limit and a
 `256Mi` memory limit. The memory headroom accommodates Firefly's sequential
 database integrity and running-balance maintenance commands; do not run
 memory-intensive maintenance commands concurrently in the web container.
@@ -57,6 +57,11 @@ new installation to one replica and an unsuspended daily CronJob. Removing
 previously declared fields can reset them once during an ownership transition;
 verify and restore the scheduled state after that upgrade.
 
+The scaler passes JSONPath waits directly as `--for=jsonpath={.spec.replicas}=1`.
+Kubernetes `args` bypasses shell parsing, so shell quote characters must not be
+embedded in that argument: they make `kubectl wait` fail before web startup.
+Regression tests validate the direct argument syntax and startup ordering.
+
 The scaler's named-resource RBAC permits `get` before patching the daily
 CronJob or dedicated pooler, and name-filtered `list`/`watch` for Deployment
 waits and rollout checks. These reads are required by `kubectl` even when the
@@ -82,3 +87,10 @@ can make public HTTP/HTTPS requests for optional external integrations.
 Home Assistant's Firefly client uses port 9000 if no port is specified;
 enter the explicit `:80` in its integration setup even though browsers do not
 need it for this HTTP hostname.
+
+Updating a CronJob template affects future Jobs; it does not restart a failed
+run. Monthly lifecycle Jobs allow two retries and expire one day after
+completion. Their one-hour starting deadline bounds missed-schedule catch-up.
+After that window, recover an already-failed run with the guarded Fleet Job
+procedure above. Resuming the daily maintenance CronJob can independently
+catch up its latest missed daily run; verify its Job completes successfully.

@@ -23,7 +23,7 @@ import yaml
 
 
 APP = Path(__file__).resolve().parent
-IMAGE = "grafana/alloy:v1.20.1"
+IMAGE = "grafana/alloy:v1.21.3@sha256:8ab871206bd2d8f89277f53abffee5f452a293980788d52f85fa183a87a505a4"
 LOKI_IMAGE = "grafana/loki:3.6.17"
 JOURNAL_FIXTURE_IMAGE = "home-lab/alloy-native-journal-fixture:ubuntu-26.04"
 
@@ -35,7 +35,8 @@ def run(*args: str, **kwargs: object) -> str:
 def render(enabled: bool) -> str:
     manifests = run(
         "helm", "template", "alloy-node-logs", "alloy",
-        "--repo", "https://grafana.github.io/helm-charts", "--version", "1.13.1",
+        "--repo", "https://grafana.github.io/helm-charts", "--version",
+        yaml.safe_load((APP / "helmop.yaml").read_text())["spec"]["helm"]["version"],
         "--namespace", "cattle-monitoring-system", "-f", str(APP / "values.yaml"),
         "--set", f"nodeLogs.podLogsEnabled={str(enabled).lower()}",
     )

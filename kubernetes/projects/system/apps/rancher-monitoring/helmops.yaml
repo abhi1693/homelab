@@ -31,7 +31,7 @@ spec:
   helm:
     releaseName: rancher-monitoring-crd
     repo: oci://ghcr.io/prometheus-community/charts/kube-prometheus-stack
-    version: 92.2.0
+    version: 92.22.0
     timeoutSeconds: 1200
     takeOwnership: true
     valuesFrom:
@@ -45,6 +45,8 @@ apiVersion: fleet.cattle.io/v1alpha1
 kind: HelmOp
 metadata:
   name: rancher-monitoring-stack
+  annotations:
+    home-lab.io/status-reconcile-at: "2026-11-10T23:02:00Z"
   labels:
     app.kubernetes.io/name: rancher-monitoring
     app.kubernetes.io/part-of: rancher-monitoring
@@ -88,7 +90,7 @@ spec:
   helm:
     releaseName: rancher-monitoring
     repo: oci://ghcr.io/prometheus-community/charts/kube-prometheus-stack
-    version: 92.2.0
+    version: 92.22.0
     timeoutSeconds: 1200
     takeOwnership: true
     valuesFrom:

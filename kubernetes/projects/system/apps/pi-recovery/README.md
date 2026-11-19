@@ -1,6 +1,6 @@
 # Pi Recovery deployment
 
-Fleet deploys the ARM64-only [Pi Recovery v0.0.3](https://github.com/abhi1693/pi-recovery/releases/tag/v0.0.3)
+Fleet deploys the ARM64-only [Pi Recovery v0.0.7](https://github.com/abhi1693/pi-recovery/tree/v0.0.7)
 image by immutable digest. Application code, runtime tests and image publishing
 live in [abhi1693/pi-recovery](https://github.com/abhi1693/pi-recovery).
 This directory owns deployment, encrypted configuration, networking and bootstrap.
@@ -25,9 +25,14 @@ check. Only one action can be reserved or verified at a time.
 
 There are no per-node or cluster-wide daily quotas. `cooldown_seconds` in the
 runtime JSON configuration controls the global cooldown, defaulting to `300`
-seconds. Active, failed and uncertain recoveries remain interlocked independently
-of the cooldown. Review an uncertain action before acknowledging its exact action
-ID through Git. Recent audit history is bounded and is not a recovery quota.
+seconds. Active and uncertain recoveries, and failed control-plane recoveries,
+remain globally interlocked independently of the cooldown. A recorded worker
+verification failure may yield to a control-plane recovery after the Lease and
+cooldown expire. Its `deferred_failure` remains in the ledger across aborted
+checks and successful control-plane recovery, keeps review metrics active, and
+blocks worker retries until its exact action ID is acknowledged through Git.
+Live role inventory, resourceVersion fencing and all final safety checks still
+apply. Recent audit history is bounded and is not a recovery quota.
 
 Pre-failure CPU and I/O checks prefer rates. If only one successful post-boot
 scrape exists, valid current-boot counter averages can be used after at least
@@ -35,13 +40,22 @@ two minutes of measured uptime. The 15-minute recent-boot guard still applies.
 Missing or ambiguous evidence blocks recovery; logs identify the missing check
 and whether resource evidence uses a rate or a boot average.
 
+Saturation readings from the last successful scrape remain a veto for five
+minutes. Older readings are explicitly historical: they require at least three
+minutes of independently fresh switch evidence proving a frozen transmit path
+while inbound traffic advances. Logs include the evidence timestamp, age, values
+and decision. Missing, invalid or over-one-hour-old resource evidence still
+blocks recovery. Every peer, quorum, maintenance, identity, port and power check
+remains mandatory, including immediately before reserving the action. This does
+not distinguish every silent NIC failure from a wider OS or storage hang.
+
 ## Configuration and credentials
 
 `secrets.sops.yaml` is an encrypted SopsSecret. The existing SOPS operator renders
 `pi-recovery-runtime`; the receiver mounts `config.json`, and Alertmanager reads
 the matching webhook bearer token. Never commit decrypted configuration.
 
-Deployment environment pins this installation's approved kernel, node-exporter
+Deployment environment pins this installation's exact approved kernel allowlist, node-exporter
 port, Lease namespace, state annotation and maintenance annotation. The encrypted
 configuration contains the reviewed controller certificate, application version,
 switch identity, physical NIC bindings and node-to-port mappings. Start a new
@@ -50,6 +64,11 @@ installation in observation mode with `enabled=false`.
 A change to Secret configuration also needs a new pod-template
 `home-lab.io/policy-revision` value so both replicas reload it. Intended changes
 flow through Git and Fleet.
+
+The reviewed UniFi Network version is `11.0.99`. Its upgrade migrated the legacy
+switch API ID to a UUID; Pi Recovery v0.0.7 accepts this format while retaining
+exact version, certificate, integration ID, legacy ID and physical MAC checks.
+The replacement pins were verified against both APIs and all nine port schemas.
 
 ## Retained recovery state
 
@@ -98,3 +117,56 @@ python3 scripts/validate-workload-catalog.py
 Use `--is-upgrade` when rendering to verify that normal upgrades omit the Lease.
 Run application tests in the dedicated Pi Recovery repository. Release and verify
 an ARM64 image there before changing this deployment's digest.
+
+## Nine-node inventory correction
+
+The runtime inventory now includes `k8s-rpi9` at `192.168.3.245`. Its physical
+Ethernet MAC was read directly from the host and independently matched to port 9
+of the configured switch, with one learned device, link up and healthy PoE.
+The prior eight-node inventory made the strict live-node equality check reject
+alerts after the ninth worker joined; the webhook surfaced that refusal as HTTP
+400 `invalid payload`. No parser, power limits or safety guards are relaxed.
+
+The encrypted configuration changes only the node inventory. A new pod-template
+policy revision reloads it on both replicas; credentials, approved kernel,
+existing physical bindings and retained action ledger remain unchanged. Adding
+or removing a node must include this explicit inventory reconciliation, with
+independent physical-port verification before enabling recovery for a new node.
+
+## Reviewed rpi5 recovery acknowledgement
+
+The encrypted configuration acknowledges only action
+`4b47fbc9-d0d7-4f2f-997c-eab1d0e1c783`. That earlier worker attempt failed
+verification, but rpi5 subsequently returned Ready and hosted healthy workloads
+before a separate outage. This exact acknowledgement permits a fresh assessment;
+it does not issue a power cycle or acknowledge any future failure. The retained
+Lease, cooldown, quorum, physical switch evidence and final checks remain in
+force. Policy revision `6-reviewed-rpi5-action-ack` reloads both receivers.
+
+## Reviewed rpi3 recovery acknowledgement
+
+The encrypted configuration acknowledges only action
+`d5bfa81c-0f18-4f51-8d35-67cda6592fb3` from November 12, 2026.
+The power cycle at 04:02:22 UTC was followed by a new boot at 04:02:45 UTC,
+but the node did not report Ready until 04:13:10 UTC, beyond the 450-second
+verification window. Read-only review confirmed the node Ready, a healthy
+node-exporter scrape, and all nine cluster nodes Ready before acknowledgement.
+The ledger does not retain the original node UID and boot ID snapshot, so the
+historical recovery verification is limited to available boot-time and status evidence.
+
+This acknowledgement permits fresh recovery assessment without deleting or
+resetting the retained Lease, forcing a power cycle, or acknowledging future
+failures. Policy revision `8-reviewed-rpi3-action-ack` reloads both replicas.
+The review alert can remain active while the ledger retains its failed phase;
+do not manufacture a recovery solely to clear the notification.
+
+## Mixed control-plane kernel rollout
+
+Pi Recovery v0.0.7 accepts the explicit JSON-array `APPROVED_KERNELS` allowlist
+containing only `7.0.0-1020-raspi` and `7.0.0-1023-raspi`. This covers the
+unchanged workers and upgraded control-plane nodes. It is exact matching, not a
+range, wildcard or prefix; unknown kernels remain blocked. Policy revision
+`9-exact-mixed-kernel-allowlist` reloads both replicas. No encrypted credentials,
+node bindings, cooldowns, quorum checks, physical evidence checks, action
+acknowledgements or retained recovery ledger are changed. Deployment does not
+request a power cycle.

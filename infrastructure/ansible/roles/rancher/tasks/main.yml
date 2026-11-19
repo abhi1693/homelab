@@ -66,6 +66,25 @@
     fail_msg: Expected local K3s API /readyz endpoint to return ok before deploying Rancher.
     success_msg: "Local K3s API is ready for Rancher deployment"
 
+- name: Read live Rancher deployment before evaluating upgrade capacity
+  ansible.builtin.command:
+    argv:
+      - /usr/local/bin/k3s
+      - kubectl
+      - -n
+      - "{{ rancher.namespace }}"
+      - get
+      - deployment
+      - rancher
+      - --ignore-not-found
+      - -o
+      - json
+  environment:
+    KUBECONFIG: /etc/rancher/k3s/k3s.yaml
+  register: rancher_live_upgrade_deployment
+  changed_when: false
+  check_mode: false
+
 - name: Check whether the Rancher HelmChart manifest already exists
   ansible.builtin.stat:
     path: /var/lib/rancher/k3s/server/manifests/rancher-helmchart.yaml
@@ -87,17 +106,21 @@
   ansible.builtin.assert:
     that:
       - >-
-        not rancher_existing_chart_manifest.stat.exists or
-        not rancher_chart_manifest_preflight.changed or
+        rancher_live_upgrade_deployment.stdout | trim == '' or
+        (rancher_existing_chart_manifest.stat.exists and
+         not (rancher_chart_manifest_preflight.changed | default(true))) or
         rancher.anti_affinity != 'required' or
-        rancher.replicas | int < groups['k3s_servers'] | length
+        rancher.replicas | int < groups['k3s_servers'] | length or
+        (rancher_live_upgrade_deployment.stdout | from_json).spec.replicas | int
+          < groups['k3s_servers'] | length
     fail_msg: >-
       Updating the Rancher HelmChart would trigger a chart rollout. The upstream
       chart hardcodes maxSurge=1. Required pod anti-affinity
       with {{ rancher.replicas }} replicas on {{ groups['k3s_servers'] | length }}
       eligible servers leaves surge pods Pending. Keep required anti-affinity;
-      review chart support for maxSurge=0 or add eligible server capacity before
-      starting another chart upgrade.
+      use playbooks/rancher_upgrade.yml to free one server with two healthy
+      replicas before upgrading and restoring the inventory replica count.
+      A missing bootstrap manifest does not make an existing deployment safe.
     success_msg: Rancher chart upgrade scheduling is safe for this cluster
 
 - name: Ensure K3s manifests directory exists for Rancher
@@ -453,21 +476,6 @@
   register: rancher_control_plane_scheduling
   changed_when: "'patched' in rancher_control_plane_scheduling.stdout"
 
-- name: Wait for Rancher deployment rollout
-  ansible.builtin.command:
-    argv:
-      - /usr/local/bin/k3s
-      - kubectl
-      - -n
-      - "{{ rancher.namespace }}"
-      - rollout
-      - status
-      - deployment/rancher
-      - --timeout=600s
-  environment:
-    KUBECONFIG: /etc/rancher/k3s/k3s.yaml
-  changed_when: false
-
 - name: Read Rancher deployment rolling update strategy
   ansible.builtin.command:
     argv:
@@ -506,6 +514,21 @@
     rancher_rolling_update_strategy.stdout.split() | length < 2 or
     rancher_rolling_update_strategy.stdout.split()[0] != (rancher.rolling_update.max_surge | string) or
     rancher_rolling_update_strategy.stdout.split()[1] != (rancher.rolling_update.max_unavailable | string)
+
+- name: Wait for Rancher deployment rollout
+  ansible.builtin.command:
+    argv:
+      - /usr/local/bin/k3s
+      - kubectl
+      - -n
+      - "{{ rancher.namespace }}"
+      - rollout
+      - status
+      - deployment/rancher
+      - --timeout=600s
+  environment:
+    KUBECONFIG: /etc/rancher/k3s/k3s.yaml
+  changed_when: false
 
 - name: Wait for Rancher ingress TLS Secret to exist
   ansible.builtin.command:

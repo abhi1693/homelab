@@ -104,7 +104,7 @@ spec:
   template:
     metadata:
       annotations:
-        home-lab.io/policy-revision: 3-automatic
+        home-lab.io/policy-revision: 9-exact-mixed-kernel-allowlist
       labels:
         app.kubernetes.io/name: pi-recovery
         app.kubernetes.io/part-of: node-recovery
@@ -131,7 +131,7 @@ spec:
       containers:
         - name: receiver
           # renovate: datasource=docker depName=ghcr.io/abhi1693/pi-recovery
-          image: registry.home/ghcr.io/abhi1693/pi-recovery:0.0.3@sha256:782efc251702f48954f967a4a6cfbfd60ce0d320db3830eeeac1e883ad6e3d70
+          image: registry.home/ghcr.io/abhi1693/pi-recovery:0.0.7@sha256:b87d5189bf182a213b5617a3e95ea82ed3165f0590daa2dcffcdcfb6f7d8dc1e
           imagePullPolicy: IfNotPresent
           command:
             - python3
@@ -155,8 +155,8 @@ spec:
               valueFrom:
                 fieldRef:
                   fieldPath: metadata.namespace
-            - name: APPROVED_KERNEL
-              value: 7.0.0-1020-raspi
+            - name: APPROVED_KERNELS
+              value: '["7.0.0-1020-raspi","7.0.0-1023-raspi"]'
             - name: NODE_EXPORTER_PORT
               value: '9796'
             - name: PI_RECOVERY_STATE_KEY

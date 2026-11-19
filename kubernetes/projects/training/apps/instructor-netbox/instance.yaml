@@ -1,4 +1,7 @@
 ---
+# Hold the deployed chart until its separate upgrade is reviewed.
+chart:
+  version: 8.3.101
 values:
   fullnameOverride: instructor-netbox
   existingSecret: instructor-netbox

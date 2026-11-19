@@ -2,13 +2,10 @@
 
 Shoko is the anime-only metadata and library manager for this stack.
 
-The deployment is temporarily paused at zero replicas through GitOps. Its
-configuration PVC, library mounts, Secrets, Service and Ingress are retained.
-
-To resume, restore `spec.replicas: 1` in [deployment.yaml](deployment.yaml),
-commit the change and let Fleet reconcile. The recommendation profile already
-disables replica scaling and availability recovery, so it does not reactivate
-the paused deployment.
+The deployment runs continuously with one replica managed by Git/Fleet.
+Existing configuration, storage and application data are retained. Automatic
+replica scaling and availability recovery remain disabled in its recommendation
+profile.
 
 It retains two ReplicaSet revisions; Git and Fleet history remain the primary
 rollback path.

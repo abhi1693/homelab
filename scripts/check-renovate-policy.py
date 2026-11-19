@@ -13,6 +13,8 @@ REPOSITORY_ROOT = Path(__file__).resolve().parents[1]
 CONFIG_PATH = Path("kubernetes/projects/applications/apps/renovate/configmap.yaml")
 
 CRITICAL_PATHS = (
+    # Completed Jobs have immutable pod templates and must retain their image.
+    Path("kubernetes/projects/home-automation/apps/netbox-upgrade-backup/job.yaml"),
     Path("infrastructure/ansible/inventories/home/group_vars"),
     Path("kubernetes/projects/database/apps/cnpg-operator/chart"),
     Path("kubernetes/projects/system/apps/cilium"),
@@ -27,6 +29,7 @@ CRITICAL_GLOBS = (
 )
 
 REQUIRED_IGNORE_PATHS = (
+    "kubernetes/projects/home-automation/apps/netbox-upgrade-backup/job.yaml",
     "infrastructure/ansible/inventories/home/group_vars/**",
     "kubernetes/projects/database/apps/cnpg-operator/chart/**",
     "kubernetes/projects/database/apps/valkey/helmop.yaml",
@@ -139,7 +142,7 @@ def iter_files(path: Path):
 def check_default_merge_policy(
     config: str, reviewed_cohort_rule: str | None, *additional_reviewed_rules: str
 ) -> list[str]:
-    """Keep direct updates enabled outside the explicitly reviewed image cohorts."""
+    """Keep direct updates enabled outside the explicitly reviewed dependencies."""
     defaults = config
     for rule in (reviewed_cohort_rule, *additional_reviewed_rules):
         if rule:
@@ -166,10 +169,22 @@ def check_default_merge_policy(
 
 BACKUP_WRITER_PACKAGES = (
     "ghcr.io/abhi1693/qbittorrent-smart-queues",
-    "ghcr.io/abhi1693/ryokan",
+    "ghcr.io/johnthreekay/ryokan",
 )
 BACKUP_WRITER_RULE = "Require passing restore-point cohort checks before writer image automerge"
 TERRAFORM_RULE = "Require initialized template validation before Terraform automerge"
+TERRAFORM_CLI_RULE = "Review Terraform CI CLI pins and preserve unprefixed versions"
+NETBOX_CHART_RULE = "Review canonical NetBox chart updates after regenerating instances"
+NETBOX_CHART_FILES = (
+    "kubernetes/projects/training/_shared/netbox/chart.yaml",
+    "kubernetes/projects/home-automation/apps/netbox/helmop.yaml",
+)
+NETBOX_RENDER_CI_PATHS = (
+    ".github/workflows/workload-catalog.yml",
+    "kubernetes/projects/*/apps/**",
+    "kubernetes/projects/training/_shared/netbox/**",
+    "scripts/render-training-netbox.py",
+)
 TERRAFORM_CI_PATHS = {
     "coder/templates/**/*.tf",
     "coder/templates/**/.terraform.lock.hcl",
@@ -181,6 +196,51 @@ TERRAFORM_CI_PATHS = {
     "kubernetes/projects/applications/apps/renovate/configmap.yaml",
     ".github/workflows/terraform-validation.yml",
 }
+
+
+def check_netbox_chart_merge_policy(config: str, workflow: str) -> list[str]:
+    """Keep canonical chart updates in reviewed PRs with generated-output checks."""
+    failures: list[str] = []
+    rules = re.findall(r"\{[^{}]*\}", config.split("packageRules:", 1)[-1].split("lockFileMaintenance:", 1)[0])
+    selected = [rule for rule in rules if f'description: "{NETBOX_CHART_RULE}"' in rule]
+    if len(selected) != 1:
+        failures.append("expected one exact canonical NetBox chart review gate")
+    else:
+        rule = selected[0]
+        expected = {"matchManagers": ["custom.regex"], "matchDatasources": ["docker"],
+                    "matchPackageNames": ["ghcr.io/netbox-community/netbox-chart/netbox"],
+                    "matchFileNames": list(NETBOX_CHART_FILES)}
+        keys = re.findall(r"^\s*(\w+):", rule, re.MULTILINE)
+        valid = sorted(keys) == sorted(["description", *expected, "ignoreTests", "automerge"])
+        for key, value in expected.items():
+            match = re.search(rf"{key}:\s*(\[[^\]]*\])", rule)
+            try:
+                actual = json.loads(match[1]) if match else None
+            except json.JSONDecodeError:
+                actual = None
+            valid = valid and actual == value
+        for key in ("ignoreTests", "automerge"):
+            valid = valid and re.findall(rf"^\s*{key}:\s*([^,\n]+)", rule, re.MULTILINE) == ["false"]
+        if not valid:
+            failures.append("NetBox chart gate must select only its exact custom Docker package and two canonical files, requiring review/checks")
+        if len(rules) < 5 or rules[-5] != rule:
+            failures.append("NetBox chart gate must precede the final CLI, Terraform, writer and helper gates")
+    ignored = re.search(r"ignorePaths:\s*(\[[^\]]*\])", config)
+    for path in ("kubernetes/projects/training/apps/*-netbox/values.yaml",
+                 "kubernetes/projects/training/apps/*-netbox/helmop.yaml"):
+        if ignored is None or f'"{path}"' not in ignored[1]:
+            failures.append("NetBox generated instance outputs must remain excluded from dependency edits")
+    for event in ("pull_request", "push"):
+        section = re.search(rf"^  {event}:\n(.*?)(?=^  [a-z_]+:|^\S|\Z)", workflow, re.MULTILINE | re.DOTALL)
+        paths = re.search(r"^    paths:\n((?:      - [^\n]+\n)+)", section[1], re.MULTILINE) if section else None
+        selected_paths = [line.strip()[2:].strip('\"\'') for line in paths[1].splitlines()] if paths else []
+        if any(path not in selected_paths for path in NETBOX_RENDER_CI_PATHS):
+            failures.append(f"NetBox render CI must watch its shared, wrapper and renderer inputs on {event}")
+    step = re.search(r"^      - name: Check NetBox configuration and maintenance projections\n(.*?)(?=^      - |\Z)", workflow, re.MULTILINE | re.DOTALL)
+    if (step is None or step[1].strip() != "run: python scripts/render-training-netbox.py --check"
+            or re.search(r"^\s*(?:if|continue-on-error):", workflow, re.MULTILINE)):
+        failures.append("NetBox render CI must run its unconditional generated-output check without bypass")
+    return failures
 
 
 def check_terraform_merge_policy(config: str, workflow: str, runner: str) -> list[str]:
@@ -201,6 +261,31 @@ def check_terraform_merge_policy(config: str, workflow: str, runner: str) -> lis
             failures.append("Terraform gate must require tests for exactly the Coder Terraform manager scope")
         if len(rules) < 3 or rules[-3] != rule:
             failures.append("Terraform gate must precede only the writer gate and final manual helper rule")
+
+    cli_rules = [rule for rule in rules if f'description: "{TERRAFORM_CLI_RULE}"' in rule]
+    if len(cli_rules) != 1:
+        failures.append("expected one exact Terraform CI CLI review and version extraction rule")
+    else:
+        cli_rule = cli_rules[0]
+        required = ('matchManagers: ["github-actions"]', 'matchDepTypes: ["uses-with"]',
+                    'matchDatasources: ["github-releases"]',
+                    'matchPackageNames: ["hashicorp/terraform"]',
+                    'matchFileNames: [".github/workflows/terraform-validation.yml"]',
+                    'ignoreTests: false', 'automerge: false')
+        keys = re.findall(r"^\s*(\w+):", cli_rule, re.MULTILINE)
+        expected_keys = ["description", "matchManagers", "matchDepTypes", "matchDatasources",
+                         "matchPackageNames", "matchFileNames", "extractVersion", "ignoreTests", "automerge"]
+        pattern = re.search(r'extractVersion:\s*("(?:\\.|[^"\\])*")', cli_rule)
+        try:
+            extraction = json.loads(pattern[1]) if pattern else None
+        except json.JSONDecodeError:
+            extraction = None
+        if (any(value not in cli_rule for value in required)
+                or sorted(keys) != sorted(expected_keys)
+                or extraction != r"^v?(?<version>\d+\.\d+\.\d+)$"):
+            failures.append("Terraform CI CLI rule must select exactly its uses-with package, strip v and require review/checks")
+        if len(rules) < 4 or rules[-4] != cli_rule:
+            failures.append("Terraform CI CLI rule must precede the final Terraform, writer and helper gates")
 
     for event in ("pull_request", "push"):
         section = re.search(rf"^  {event}:\n(.*?)(?=^  [a-z_]+:|^\S|\Z)",
@@ -299,6 +384,23 @@ def check_backup_helper_policy(config: str) -> list[str]:
     return []
 
 
+def check_renovate_runtime_policy(config: str, cronjob: str) -> list[str]:
+    """Keep PAT clone authentication fixed and repository failures observable."""
+    failures: list[str] = []
+    defaults = config.split("packageRules:", 1)[0]
+    if re.findall(r"^\s*exitCodeForErrors:\s*([^,\n]+)", defaults, re.MULTILINE) != ["true"]:
+        failures.append("Renovate repository failures must produce a nonzero process exit")
+    for package in ("renovatebot/renovate", "docker.io/renovate/renovate"):
+        rules = [rule for rule in re.findall(r"\{[^{}]*\}", config)
+                 if f'"{package}"' in rule and "matchPackageNames:" in rule]
+        if len(rules) != 1 or 'allowedVersions: "<45.0.0"' not in rules[0]:
+            failures.append(f"{package} must allow updates below the next major without a lower range pin")
+    image = re.search(r"(?m)^\s*image:\s*registry\.home/docker\.io/renovate/renovate:(\d+)\.(\d+)\.(\d+)(?:@sha256:[a-f0-9]{64})?\s*$", cronjob)
+    if image is None or tuple(map(int, image.groups())) < (44, 164, 1):
+        failures.append("Renovate runtime image must include the 44.164.1 PAT clone fix")
+    return failures
+
+
 def check_registry_tracked_images(config: str, root: Path) -> list[str]:
     """Require published-package metadata before source release publication."""
     failures: list[str] = []
@@ -332,7 +434,13 @@ def check_registry_tracked_images(config: str, root: Path) -> list[str]:
 def main() -> int:
     failures: list[str] = []
     config = (REPOSITORY_ROOT / CONFIG_PATH).read_text(encoding="utf-8")
+    failures.extend(check_renovate_runtime_policy(
+        config, (REPOSITORY_ROOT / "kubernetes/projects/applications/apps/renovate/cronjob.yaml").read_text()
+    ))
     failures.extend(check_backup_helper_policy(config))
+    failures.extend(check_netbox_chart_merge_policy(
+        config, (REPOSITORY_ROOT / ".github/workflows/workload-catalog.yml").read_text(),
+    ))
     failures.extend(check_terraform_merge_policy(
         config, (REPOSITORY_ROOT / ".github/workflows/terraform-validation.yml").read_text(),
         (REPOSITORY_ROOT / "scripts/run-pre-commit-validation.sh").read_text(),
@@ -520,8 +628,14 @@ def main() -> int:
                 ):
                     failures.append("NUT Deployment must select one guarded -rN runtime image tag")
 
+    cli_rules = [rule for rule in re.findall(r"\{[^{}]*\}", config)
+                 if f'description: "{TERRAFORM_CLI_RULE}"' in rule]
+    netbox_rules = [rule for rule in re.findall(r"\{[^{}]*\}", config)
+                    if f'description: "{NETBOX_CHART_RULE}"' in rule]
     failures.extend(check_default_merge_policy(
         config, hub_rules[0] if len(hub_rules) == 1 else None,
+        cli_rules[0] if len(cli_rules) == 1 else None,
+        netbox_rules[0] if len(netbox_rules) == 1 else None,
     ))
 
     for required_path in REQUIRED_IGNORE_PATHS:

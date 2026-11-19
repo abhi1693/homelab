@@ -1,10 +1,18 @@
 # Longhorn Fstrim Labeler
 
-This bundle labels every PVC using the `longhorn` StorageClass for the daily
-Longhorn filesystem trim RecurringJob unless the PVC has
-`home-lab.io/longhorn-fstrim: disabled`. It also labels the matching Longhorn
-`Volume` custom resource so existing bound volumes are immediately eligible for
-the job.
+This bundle labels every bound filesystem PVC backed by the
+driver.longhorn.io CSI driver for the daily Longhorn filesystem trim
+RecurringJob unless the PVC has home-lab.io/longhorn-fstrim: disabled.
+It discovers the backing PV, so longhorn, longhorn-workers,
+longhorn-control-plane, static Longhorn bindings and future StorageClass names
+receive the same coverage. The CSI volume handle identifies the matching
+Longhorn Volume custom resource, even when its name differs from the PV name.
+
+Unbound PVCs are reconsidered on the next hourly run after binding. Raw block
+volumes have no filesystem to trim and are skipped. NFS and other CSI drivers
+are excluded; discard on a NAS filesystem belongs on its storage server.
+PV access is read-only (get); label permissions remain limited to PVCs and
+Longhorn volumes.
 
 For disabled PVCs, the labeler removes filesystem-trim labels from both the PVC
 and the matching Longhorn `Volume`. Use this for disposable or latency-sensitive

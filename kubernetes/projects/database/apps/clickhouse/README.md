@@ -7,10 +7,22 @@ admin, worker, ingestion and reader roles; grants are confined to that database.
 Server operator credentials remain in this namespace. New applications require
 their own database, credentials, limits and explicit network-policy admission.
 
-The immutable ARM64-capable ClickHouse 26.8 image uses a 50 GiB Longhorn worker
+The immutable ARM64-capable ClickHouse 26.8 image uses a 100 GiB Longhorn worker
 volume and retained 100 GiB NFS backups. No scheduled ClickHouse backup Job is deployed. The NFS backup volume is retained
 for operator-managed backups. Include migration history, checkpoints and readiness
 in backups; restore the complete application database before producers resume.
+
+The data claim grows in place from 50 GiB to 100 GiB through Fleet and the
+expandable longhorn-workers StorageClass. Preserve its existing volume binding.
+After reconciliation, verify both PVC capacity and filesystem capacity, and
+investigate any FileSystemResizePending condition before considering a
+maintenance action. No deployment-template change is required for this request.
+PVC expansion cannot be rolled back by reducing the requested size.
+
+The extra headroom does not replace diagnostic-log retention: the 12 November
+2026 audit found about 6.74 GiB available on the 50 GiB claim, with
+system.text_log and system.query_log accounting for about 32.4 GiB of active
+parts without table TTLs. Retention and logging changes require separate review.
 
 Budgets: 1 CPU / 2304 MiB requests, 3 CPU / 6 GiB limits, 4.5 GiB tracked
 server memory, 128 total queries, 64 SELECTs and 96 INSERTs. Admission is

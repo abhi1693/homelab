@@ -9,45 +9,6 @@
 - name: Check Cilium kernel BTF compatibility
   ansible.builtin.import_tasks: kernel_btf.yml
 
-- name: Check Cilium and bundled Traefik manifest files
-  ansible.builtin.stat:
-    path: "{{ item }}"
-  loop:
-    - /usr/local/bin/cilium
-    - /var/lib/rancher/k3s/server/manifests/traefik-config.yaml
-  register: cilium_core_file_stats
-
-- name: Assert Cilium CLI and bundled Traefik manifest files exist
-  ansible.builtin.assert:
-    that:
-      - item.stat.exists
-    fail_msg: "Expected {{ item.stat.path }} to exist"
-    success_msg: "{{ item.stat.path }} exists"
-  loop: "{{ cilium_core_file_stats.results }}"
-
-- name: Read installed Cilium CLI version
-  ansible.builtin.command: /usr/local/bin/cilium version --client
-  register: cilium_cli_version_output
-  changed_when: false
-
-- name: Assert installed Cilium CLI version matches inventory
-  ansible.builtin.assert:
-    that:
-      - cilium.cli_version in cilium_cli_version_output.stdout
-    fail_msg: "Expected installed Cilium CLI version {{ cilium.cli_version }}"
-    success_msg: "Installed Cilium CLI version matches {{ cilium.cli_version }}"
-
-- name: Wait for Cilium to report healthy status
-  ansible.builtin.command:
-    argv:
-      - /usr/local/bin/cilium
-      - status
-      - --wait
-  environment:
-    KUBECONFIG: /etc/rancher/k3s/k3s.yaml
-  register: cilium_status
-  changed_when: false
-
 - name: Wait for Cilium DaemonSet rollout
   ansible.builtin.command:
     argv:
@@ -89,6 +50,25 @@
       - --timeout=300s
   register: cilium_envoy_rollout
   changed_when: false
+
+- name: Read cluster nodes for Cilium coverage validation
+  ansible.builtin.command:
+    argv: [/usr/local/bin/k3s, kubectl, get, nodes, -o, json]
+  environment:
+    KUBECONFIG: /etc/rancher/k3s/k3s.yaml
+  register: cilium_validation_nodes
+  changed_when: false
+
+- name: Read deployed Cilium agent pods
+  ansible.builtin.command:
+    argv: [/usr/local/bin/k3s, kubectl, -n, kube-system, get, pods, -l, k8s-app=cilium, -o, json]
+  environment:
+    KUBECONFIG: /etc/rancher/k3s/k3s.yaml
+  register: cilium_validation_agents
+  changed_when: false
+
+- name: Validate Cilium agent coverage and health
+  ansible.builtin.import_tasks: validation_agents.yml
 
 - name: Read deployed Cilium agent and operator images
   ansible.builtin.command:

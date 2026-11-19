@@ -13,12 +13,6 @@ dependsOn:
   - name: sonarr-helmop
 diff:
   comparePatches:
-    - apiVersion: apps/v1
-      kind: Deployment
-      name: episeerr
-      namespace: media
-      jsonPointers:
-        - /spec/replicas
     - apiVersion: v1
       kind: PersistentVolumeClaim
       name: episeerr-data

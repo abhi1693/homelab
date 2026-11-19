@@ -5,7 +5,7 @@ image:
   repository: registry.home/oci.trueforge.org/containerforge/prowlarr
   pullPolicy: IfNotPresent
   # renovate: datasource=docker depName=oci.trueforge.org/containerforge/prowlarr
-  tag: "2.6.5"
+  tag: "2.7.0@sha256:153694fcefc28f7c234a40c85cc15fca1f0e0f501dfb4377c792f3e24787d6b7"
 imagePullSecret:
   harbor-registry:
     enabled: true
@@ -40,7 +40,7 @@ ingress:
     tls: []
 workload:
   main:
-    replicas: 0
+    replicas: 1
     podSpec:
       automountServiceAccountToken: false
       annotations:
@@ -48,6 +48,7 @@ workload:
       containers:
         main:
           env:
+            PROWLARR__SERVER__ALLOWEDHOSTS: "prowlarr.media.home,prowlarr,prowlarr.media,prowlarr.media.svc,prowlarr.media.svc.cluster.local"
             PROWLARR__AUTH__APIKEY:
               secretKeyRef:
                 name: media-jellyfin-arr-api-keys
@@ -65,6 +66,14 @@ workload:
           nodeAffinityPolicy: Honor
           nodeTaintsPolicy: Honor
 persistence:
+  custom-indexers:
+    enabled: true
+    type: configmap
+    objectName: custom-indexers
+    defaultMode: "0444"
+    mountPath: /config/Definitions/Custom/internetarchive-client.yml
+    subPath: internetarchive-client.yml
+    readOnly: true
   config:
     size: 512Mi
     storageClass: longhorn

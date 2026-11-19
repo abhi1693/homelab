@@ -5,7 +5,7 @@ taint. The node plugin remains a DaemonSet on every ARM64 node and tolerates the
 taint without a control-plane selector.
 
 This Fleet bundle installs the upstream Kubernetes NFS CSI driver in
-`kube-system` with the official Helm chart. The release is pinned to `4.13.4`
+`kube-system` with the official Helm chart. The release is pinned to `4.13.6`
 and runs on the cluster's ARM64 nodes with the K3s kubelet root at
 `/var/lib/kubelet`.
 
@@ -76,7 +76,7 @@ Render the source bundle and upstream release locally:
 kubectl kustomize kubernetes/projects/system/apps/csi-driver-nfs
 helm template csi-driver-nfs csi-driver-nfs \
   --repo https://raw.githubusercontent.com/kubernetes-csi/csi-driver-nfs/master/charts \
-  --version 4.13.4 \
+  --version 4.13.6 \
   --namespace kube-system \
   -f kubernetes/projects/system/apps/csi-driver-nfs/values.yaml
 ```

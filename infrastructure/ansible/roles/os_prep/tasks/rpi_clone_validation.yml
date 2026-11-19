@@ -1,0 +1,22 @@
+---
+- name: Identify prohibited cloning tool paths for validation
+  ansible.builtin.include_tasks: rpi_clone_paths.yml
+
+- name: Inspect prohibited cloning tool paths without following symlinks
+  ansible.builtin.stat:
+    path: "{{ item }}"
+    follow: false
+    get_checksum: false
+    get_mime: false
+    get_attributes: false
+  loop: "{{ os_prep_rpi_clone_paths }}"
+  register: os_prep_rpi_clone_status
+
+- name: Require cloning tools and home checkouts to be absent
+  ansible.builtin.assert:
+    that:
+      - not item.stat.exists
+    fail_msg: "Prohibited cloning tool path exists: {{ item.item }}"
+  loop: "{{ os_prep_rpi_clone_status.results }}"
+  loop_control:
+    label: "{{ item.item }}"

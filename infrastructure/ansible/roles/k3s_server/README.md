@@ -17,7 +17,8 @@ ansible-playbook playbooks/k3s_server.yml -e k3s_server_entrypoint=validation
 ```
 
 The tools play installs only the ARM64 `etcdctl` client from the checksum-pinned
-official etcd 3.6.14 release, compatible with the embedded etcd in K3s 1.36.5.
+official etcd 3.6.14 release, compatible with embedded etcd 3.6.14-k3s3 in
+both K3s 1.36.5 and the target 1.36.6 release.
 It does not install an etcd server, alter systemd, or restart K3s. Re-running
 it is idempotent. The version, SHA256, and associated
 K3s release are in `inventories/home/group_vars/k3s_servers.yml`. Review these
@@ -28,6 +29,24 @@ an absent or mismatched client stops the run before maintenance starts.
 Before an actual upgrade, retain a fresh verified etcd snapshot and its K3s
 server token, review release compatibility, and resolve existing incidents.
 Successful checks here do not replace those operator prerequisites.
+
+### Qualified 1.36.6 patch upgrade
+
+K3s `v1.36.6+k3s1` retains the embedded etcd 3.6.14 family and updates
+containerd to `2.3.7-k3s1.36`. Review the
+[official release](https://github.com/k3s-io/k3s/releases/tag/v1.36.6%2Bk3s1),
+including snapshot restriction changes and bundled Helm/Traefik updates. Preserve
+the existing disabled bundled components and managed configuration. Verify the
+ARM64 binary against the release's `sha256sum-arm64.txt` before maintenance.
+Review source configuration semantically before applying: an established
+bootstrap server may currently use the shared join endpoint, and a legacy
+`p2p.k3s.cattle.io/enabled=true` label can remain in its file. Verify the token
+and every networking/security setting are unchanged before restoring inventory.
+K3s ignores datastore bootstrap/join flags when an existing etcd datastore is
+present; the health gate must still prove unchanged voting membership.
+
+Apply the reviewed branch through the serial server and agent playbooks, pass
+both recovery barriers, and only then merge the version change.
 
 ### Upgrade and recovery
 

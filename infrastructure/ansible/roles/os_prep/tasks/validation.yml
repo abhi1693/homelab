@@ -2,6 +2,9 @@
 - name: Select the Ubuntu host policy
   ansible.builtin.include_tasks: profile.yml
 
+- name: Validate prohibited Raspberry Pi cloning tools are absent
+  ansible.builtin.include_tasks: rpi_clone_validation.yml
+
 - name: Validate persistent network time synchronization
   ansible.builtin.include_tasks: time_validation.yml
 
@@ -75,3 +78,7 @@
   loop: "{{ os_prep.required_nfs_exports | default([]) }}"
   loop_control:
     loop_var: os_prep_nfs_export
+
+- name: Validate K3s synchronization startup gates when enabled
+  ansible.builtin.include_tasks: time_startup_gate_validation.yml
+  when: os_prep.k3s_time_gate.enabled | default(false) | bool

@@ -1,0 +1,12 @@
+---
+name: student4-prerequisites
+defaultNamespace: student4
+labels:
+  app.kubernetes.io/name: student4-netbox
+  app.kubernetes.io/part-of: netbox
+  home-lab.io/project-slug: training
+dependsOn:
+- name: rancher-project-training
+- name: sops-secrets-operator-helmop
+helm:
+  takeOwnership: true

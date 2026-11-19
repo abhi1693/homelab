@@ -1,0 +1,85 @@
+---
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: netbox-pre-upgrade-474-backup-20261103
+  namespace: netbox
+spec:
+  backoffLimit: 0
+  activeDeadlineSeconds: 900
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: netbox
+        app.kubernetes.io/instance: netbox
+        app.kubernetes.io/component: upgrade-backup
+    spec:
+      restartPolicy: Never
+      automountServiceAccountToken: false
+      nodeSelector: {kubernetes.io/arch: arm64}
+      imagePullSecrets: [{name: harbor-registry}]
+      securityContext:
+        runAsUser: 1000
+        runAsGroup: 1000
+        runAsNonRoot: true
+        fsGroup: 988
+        supplementalGroups: [988]
+        seccompProfile: {type: RuntimeDefault}
+      containers:
+        - name: backup
+          # Retained completed Job: keep this immutable pod template unchanged.
+          image: registry.home/ghcr.io/cloudnative-pg/postgresql:17.11-202610260819-system-bookworm@sha256:9cf9466e674a794aee83693b9c28d8b3103d612a943bf144117a718b97b9d1db
+          command: [/bin/bash, -ec]
+          args:
+            - |
+              umask 007
+              backup=/backup/netbox-4.6.9-before-4.7.4-20261103
+              if test -f "$backup/receipt.json"; then
+                cd "$backup"
+                sha256sum --check SHA256SUMS
+                test "$(stat -c '%u:%g' netbox.dump)" = 977:988
+                test "$(stat -c '%a' netbox.dump)" = 660
+                exit 0
+              fi
+              test ! -e "$backup"
+              mkdir -m 0770 "$backup"
+              test "$(stat -c '%u:%g' "$backup")" = 977:988
+              pg_dump --format=custom --lock-wait-timeout=30s --dbname=netbox --file="$backup/netbox.dump.partial"
+              pg_restore --list "$backup/netbox.dump.partial" > "$backup/archive.list"
+              mv "$backup/netbox.dump.partial" "$backup/netbox.dump"
+              cp /encrypted/netbox-config.json.age "$backup/netbox-config.json.age"
+              chmod 0660 "$backup"/*
+              cd "$backup"
+              sha256sum netbox.dump netbox-config.json.age archive.list > SHA256SUMS
+              printf '{"source_database":"netbox","source_version":"4.6.9","source_chart":"8.3.92","target_version":"4.7.4","source_quiesced":true,"created_at":"%s"}\n' "$(date -u +%FT%TZ)" > receipt.json.partial
+              chmod 0660 SHA256SUMS receipt.json.partial
+              test "$(stat -c '%u:%g' netbox.dump)" = 977:988
+              sha256sum --check SHA256SUMS
+              mv receipt.json.partial receipt.json
+              echo 'Private NAS rollback dump and age-encrypted session/API-token configuration verified'
+          env:
+            - {name: PGHOST, value: postgresql-rw.postgresql.svc.cluster.local}
+            - {name: PGPORT, value: '5432'}
+            - {name: PGUSER, value: netbox}
+            - {name: PGOPTIONS, value: '-c default_transaction_read_only=on'}
+            - name: PGPASSWORD
+              valueFrom:
+                secretKeyRef: {name: netbox-postgresql, key: password}
+          resources:
+            requests: {cpu: 100m, memory: 128Mi}
+            limits: {memory: 512Mi}
+          securityContext:
+            readOnlyRootFilesystem: true
+            allowPrivilegeEscalation: false
+            capabilities: {drop: [ALL]}
+          volumeMounts:
+            - {name: backup, mountPath: /backup}
+            - {name: encrypted, mountPath: /encrypted, readOnly: true}
+            - {name: tmp, mountPath: /tmp}
+      volumes:
+        - name: backup
+          persistentVolumeClaim: {claimName: netbox-pre-upgrade-backup-nfs}
+        - name: encrypted
+          configMap: {name: netbox-pre-upgrade-config}
+        - name: tmp
+          emptyDir: {sizeLimit: 128Mi}

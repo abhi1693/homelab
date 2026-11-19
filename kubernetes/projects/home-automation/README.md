@@ -66,3 +66,6 @@ were retired through Fleet. Resource changes are reviewed and applied through Gi
 The dedicated runtime namespace, permissions, and Longhorn state volume are
 removed. The NFS backup directory and its PV are also deleted; no recommendation-engine
 PVC, PV, or archived state is retained.
+
+The retained `netbox-upgrade-backup` bundle holds the one-time private NAS
+rollback point for the NetBox 4.7 schema upgrade. It adds no recurring schedule.

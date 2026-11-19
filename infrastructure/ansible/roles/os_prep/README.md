@@ -7,6 +7,28 @@ manages automation sudo, hostname, timezone, NTP and shared NFS/iSCSI tools.
 Autonomous package upgrades and reboots are disabled in favor of supervised
 maintenance. Existing CA distrust fingerprints remain enforced.
 
+## Prohibited cloning tools
+
+Normal host preparation removes `rpi-clone` and `rpi-clone-setup` from
+`/usr/local/sbin` and `/usr/local/bin`, plus the `rpi-clone` checkout in `/root`
+and each direct user directory under `/home`. Symlinked home directories are
+not traversed. Normal validation fails if any of these paths exist, including
+broken symlinks. This policy also covers new workers during onboarding.
+
+Dedicated entrypoints let operators preview, clean and verify these paths
+without package upgrades, reboots or K3s changes. From `infrastructure/ansible`:
+
+```sh
+ansible-playbook playbooks/os_prep.yml -e os_prep_entrypoint=rpi_clone_cleanup --check
+ansible-playbook playbooks/os_prep.yml -e os_prep_entrypoint=rpi_clone_cleanup
+ansible-playbook playbooks/os_prep.yml -e os_prep_entrypoint=rpi_clone_validation
+```
+
+Add `--limit 'k3s_nodes:!worker-6'` to exclude the new Pi during a rollout.
+These are Ansible convergence and validation steps, not a continuous install
+block: an administrator can recreate files between runs. Arbitrarily renamed
+copies and checkouts outside these standard locations are outside this policy.
+
 ## Network time on all nodes
 
 `time` preserves the active chrony/NTS or systemd-timesyncd client, enables it
@@ -18,6 +40,44 @@ NTP and the inventory timezone. Neither entrypoint upgrades packages or reboots.
 ansible-playbook playbooks/os_prep.yml -e os_prep_entrypoint=time
 ansible-playbook playbooks/os_prep.yml -e os_prep_entrypoint=time_validation
 ```
+
+## K3s startup waits for Chrony
+
+The Home Lab inventory enables `k3s_time_gate`. Both K3s server and agent
+service definitions append a pre-start `chronyc waitsync` check after starting
+Chrony. Each start requires synchronization and at most 0.1 seconds remaining
+clock correction. Sixty checks at five-second intervals allow about five
+minutes; an outer 310-second timeout (plus a five-second kill grace) also bounds
+RPC stalls. No command forces a clock step or changes the distribution's sources.
+
+Failure prevents that K3s start; it never starts with an unsynchronized clock.
+The existing K3s `Restart=always` policy retries after its existing five-second
+delay, including after NTP connectivity recovers. The drop-in adds only a
+`Wants`/`After` relationship to Chrony: losing Chrony later does not stop a running
+K3s process. It does not enable the distribution's unbounded wait command or
+reset existing `ExecStartPre` commands, K3s startup timeouts or restart policies.
+
+Convergence installs drop-ins and reloads systemd only. Existing K3s processes
+are left running; never restart all nodes to test this change. The gate requires
+Chrony enabled/running and refuses to silently switch a timesyncd deployment.
+The ordinary `time` entrypoint installs it; a dedicated serial apply avoids all
+other host preparation, package upgrades and reboots:
+
+```sh
+ansible-playbook playbooks/os_prep.yml -e os_prep_entrypoint=time_startup_gate --check --limit worker-2
+ansible-playbook playbooks/os_prep.yml -e os_prep_entrypoint=time_startup_gate --limit worker-2
+ansible-playbook playbooks/os_prep.yml -e os_prep_entrypoint=time_startup_gate_validation --limit worker-2
+ansible-playbook playbooks/os_prep.yml -e os_prep_entrypoint=time_startup_gate
+ansible-playbook playbooks/os_prep.yml -e os_prep_entrypoint=time_startup_gate_validation
+```
+
+Validation compares both installed files with inventory, checks effective
+pre-start commands on installed K3s units, and runs the real bounded check
+against the current clock without restarting K3s. A currently synchronized
+clock cannot prove cold-boot behavior; verify ordered startup during the next
+individually approved node maintenance. Startup gating does not repair runtime
+metadata already recorded with an incorrect clock. Diagnose that independently
+before selecting a one-node recovery plan.
 
 ## Persistent host logs and payload buffering
 
@@ -99,6 +159,51 @@ successful service result and a recent local journal record. This proves local
 generation only; the independently scheduled Loki checker must reconcile those
 node canaries to prove collection, transport, ingestion and query freshness.
 
+## Bounded package patches without reboot
+
+`playbooks/os_safe_packages.yml` applies the inventory's exact `safe_package_pins`
+serially. Its allow-list contains only libbrotli1 and the reviewed bpftool,
+Linux userspace headers, performance-tool and tmux packages. The current tool
+cohort pins `bpftool` to `7.7.0+7.0.0-43.43` and `linux-libc-dev`, `linux-perf`
+and `linux-tools-common` to `7.0.0-43.43`; the libbrotli1 and tmux pins are
+unchanged. It rejects package removals or
+additional dependency changes, suppresses package-triggered service restarts,
+and checks full cluster health before/after each host and unchanged boot IDs.
+It does not upgrade kernel images, systemd, cloud-init or firmware, and never
+reboots. Run a single worker first, then the remaining nodes:
+
+```sh
+ansible-playbook playbooks/os_safe_packages.yml --syntax-check
+ansible-playbook playbooks/os_safe_packages.yml --limit worker-6
+ansible-playbook playbooks/os_safe_packages.yml
+```
+
+Run the branch's playbook before merging an inventory pin update. Its normal
+apply refreshes signed APT metadata and repeats the exact transaction simulation
+on each host; cached package availability alone does not qualify an update.
+Require all selected hosts to pass package consistency, security floors, cluster
+health and unchanged boot-ID checks before merging the PR. A pending reboot
+from earlier maintenance blocks this entrypoint and must be resolved through the
+guarded rolling maintenance workflow first.
+
+The host security floor now includes `libbrotli1 >= 1.2.0-3ubuntu0.1`.
+Installing the library does not reload it into existing processes. Services
+still using an older mapped library need the separately guarded maintenance
+cycle; this package-only workflow does not claim full runtime remediation.
+Other available APT updates remain visible to `os_updates_validation`.
+
+After the Brotli patch, `playbooks/os_refresh_library_consumers.yml` can refresh
+only `fwupd` processes retaining deleted Brotli mappings. It rejects other
+consumers and requires fwupd's D-Bus status to be exactly IDLE (`u 1`) before
+restarting the daemon. It performs no firmware update, device reset or node
+reboot, and verifies that obsolete mappings disappear and boot IDs remain.
+A busy/unknown daemon stops the play; never bypass the guard.
+
+```sh
+ansible-playbook playbooks/os_refresh_library_consumers.yml --limit worker-4
+ansible-playbook playbooks/os_refresh_library_consumers.yml
+```
+
 ## Rolling OS updates
 
 Run from `infrastructure/ansible`:
@@ -154,12 +259,16 @@ Raspberry Pi kernel/module/boot and NVMe health checks live in the permanent
 
 ## Remote node recovery and kernel evidence
 
-`playbooks/node_recovery.yml` manages all eight nodes without restarting K3s,
+`playbooks/node_recovery.yml` manages all nine nodes without restarting K3s,
 upgrading packages, changing kernel/boot parameters or rebooting hosts. It starts
 three rootless, bounded UDP/6666 kernel receivers on the control-plane hosts,
 then changes and validates one host at a time. Receivers run under systemd,
 outside Kubernetes; they do not depend on pod scheduling or local kubelet health.
 Physical receiver MACs are discovered from facts at apply time, not pinned in Git.
+The configuration accepts the nine managed Pi identities and is validated
+before replacement, so an invalid source cannot be installed before a receiver
+restart. Adding a worker also requires refreshing the three receivers' source
+allowlists through this playbook.
 
 The former PID 1 hardware-watchdog policy is retired: the 2026-10-29 network
 outage left PID 1 responsive and feeding the device, so it did not recover the
@@ -172,7 +281,7 @@ manager reexec or reboot is used. Re-running the workflow cannot re-enable it.
 Dynamic netconsole forwards critical kernel messages over the direct IPv4 LAN
 to all three receivers (two peers for a receiver host). Existing console log
 levels are retained so audit/info storms are not duplicated. Each UDP source
-must be one of the eight inventory IPs. This allowlist is not authentication;
+must be one of the nine inventory IPs. This allowlist is not authentication;
 keep UDP/6666 on the trusted management LAN. Each record is JSON escaped,
 bounded to 8KiB, and limited to 200 records/source/second, with a visible rate-limit
 record. Receiver journal storage inherits the existing 512MiB/seven-day bounds.
@@ -225,6 +334,9 @@ targets. Do not unload netconsole if other targets exist, open the watchdog from
 another process, or force a reboot to test recovery.
 
 ## macb network TX-stall canary
+
+The [rpi1 Ubuntu kernel canary](../../../../docs/runbooks/macb-kernel-canary.md)
+records the recovery-event ranking, selected kernel, acceptance and recovery-policy limitation.
 
 The 2026-10-29 rpi7 outage was a partial connectivity failure: old-boot journal
 records show PID 1 and the recovery timer still running throughout the 17-minute

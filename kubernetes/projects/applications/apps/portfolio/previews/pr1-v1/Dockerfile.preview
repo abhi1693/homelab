@@ -1,0 +1,22 @@
+FROM node:26-alpine@sha256:6bd9ab43c0ec0190ca7b2d193906cb8b7edf6e7f4afa43ddeccd6452710bffb5 AS runtime-base
+
+FROM --platform=$BUILDPLATFORM node:26-alpine@sha256:6bd9ab43c0ec0190ca7b2d193906cb8b7edf6e7f4afa43ddeccd6452710bffb5 AS inventory
+COPY --from=runtime-base /lib/apk/db/installed /tmp/runtime-installed
+# Keep accurate target-architecture package inventory for the libraries copied below.
+RUN node -e "const f=require('node:fs');const p=f.readFileSync('/tmp/runtime-installed','utf8').split('\n\n').filter(x=>/^P:(musl|libgcc|libstdc\+\+)$/m.test(x));if(p.length!==3)throw Error('Runtime inventory changed');f.writeFileSync('/tmp/installed',p.join('\n\n')+'\n\n')"
+
+FROM scratch
+LABEL org.opencontainers.image.source="https://github.com/yashikavarshney/yashikavarshneyy" org.opencontainers.image.revision="e6dcf46fa4ab47014b2910aae8949f0a42f8b72f"
+COPY --from=runtime-base /usr/local/bin/node /usr/local/bin/node
+COPY --from=runtime-base /lib/ld-musl-*.so.1 /lib/
+COPY --from=runtime-base /usr/lib/libstdc++.so.6* /usr/lib/
+COPY --from=runtime-base /usr/lib/libgcc_s.so.1 /usr/lib/
+COPY --from=runtime-base /etc/alpine-release /etc/alpine-release
+COPY --from=inventory /tmp/installed /lib/apk/db/installed
+WORKDIR /app
+COPY dist/ ./dist/
+COPY server.mjs ./
+ENV NODE_ENV=production PORT=8080
+USER 1000:1000
+EXPOSE 8080
+ENTRYPOINT ["/usr/local/bin/node", "--disable-proto=throw", "--max-old-space-size=64", "server.mjs"]

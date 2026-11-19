@@ -1,0 +1,61 @@
+{
+  "target_version": "2.16.0",
+  "images": [
+    {
+      "component": "harbor-core",
+      "source": "docker.io/goharbor/harbor-core:v2.16.0",
+      "destination": "ghcr.io/abhi1693/harbor-core:v2.16.0",
+      "digest": "sha256:e84f0df9fcdb5450bf7e95d583615eb844fdd4a6cfcd6be051e942fd2587a168",
+      "architecture": "arm64",
+      "state": "published"
+    },
+    {
+      "component": "harbor-portal",
+      "source": "docker.io/goharbor/harbor-portal:v2.16.0",
+      "destination": "ghcr.io/abhi1693/harbor-portal:v2.16.0",
+      "digest": "sha256:885808dafa61d917645cf07b94a1415889a89a8c099d215a9fce994b4efe6602",
+      "architecture": "arm64",
+      "state": "published"
+    },
+    {
+      "component": "harbor-jobservice",
+      "source": "docker.io/goharbor/harbor-jobservice:v2.16.0",
+      "destination": "ghcr.io/abhi1693/harbor-jobservice:v2.16.0",
+      "digest": "sha256:9e27c681ab9ef212aea22197c76611234ee2fdc4e92531e7d136ccdcbf46809c",
+      "architecture": "arm64",
+      "state": "published"
+    },
+    {
+      "component": "harbor-registryctl",
+      "source": "docker.io/goharbor/harbor-registryctl:v2.16.0",
+      "destination": "ghcr.io/abhi1693/harbor-registryctl:v2.16.0",
+      "digest": "sha256:5cf3459d95b02968bd6eeceb854e93a95963aa6a6f6360289d65977be1d00ee9",
+      "architecture": "arm64",
+      "state": "published"
+    },
+    {
+      "component": "registry-photon",
+      "source": "docker.io/goharbor/registry-photon:v2.16.0",
+      "destination": "ghcr.io/abhi1693/registry-photon:v2.16.0",
+      "digest": "sha256:951247bb8f359ef5712809f2cf00a42b50eabd8aaccd697358222bd16963ae41",
+      "architecture": "arm64",
+      "state": "published"
+    },
+    {
+      "component": "trivy-adapter-photon",
+      "source": "docker.io/goharbor/trivy-adapter-photon:v2.16.0",
+      "destination": "ghcr.io/abhi1693/trivy-adapter-photon:v2.16.0",
+      "digest": "sha256:addd522372ffdc782bc1a8e2a94bad74d1b0103a349cc589f86814dcf01a4ebe",
+      "architecture": "arm64",
+      "state": "published"
+    },
+    {
+      "component": "harbor-exporter",
+      "source": "docker.io/goharbor/harbor-exporter:v2.16.0",
+      "destination": "ghcr.io/abhi1693/harbor-exporter:v2.16.0",
+      "digest": "sha256:cfff6b733d7de3ec0b38fcf2b9e18be4d5e4e0414e60d7fc39e34ec22e13f446",
+      "architecture": "arm64",
+      "state": "published"
+    }
+  ]
+}

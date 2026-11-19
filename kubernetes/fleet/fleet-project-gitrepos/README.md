@@ -40,3 +40,18 @@ See the [versioned deployer implementation](https://github.com/rancher/fleet/blo
 and [retry durations](https://github.com/rancher/fleet/blob/14b1cd93eea8772b3abcf1b3786c254233ac149a/pkg/durations/durations.go).
 
 `home-lab-training` discovers the instructor prerequisites and training applications.
+
+Temporary migration-qualification bundles must have explicit parent discovery
+paths too. Remove their registration together with the retired bundle directory
+after collecting validation evidence.
+
+A recovered child GitRepo can be Ready while the outer registration bundle still
+reports its earlier child progress. Verify the live GitRepo, every child HelmOp
+and BundleDeployment, desired/applied IDs, and workload endpoints first. When
+those are healthy after a bounded recheck, a new UTC
+`metadata.annotations["home-lab.io/status-reconcile-at"]` value on that child's
+Git-managed GitRepo requests a fresh parent summary through Fleet. Preserve its
+`spec`, commit and push, then verify ancestor readiness and unchanged workload
+identities. This is a reporting workaround; the underlying watch/retry cause is
+unproven. The normal missing-prerequisite retry guidance above still applies to
+actual dependency failures.

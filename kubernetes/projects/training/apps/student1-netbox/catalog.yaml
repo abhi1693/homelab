@@ -1,0 +1,51 @@
+---
+apiVersion: home-lab.io/v1alpha1
+kind: WorkloadCatalog
+metadata:
+  name: student1-netbox
+spec:
+  displayName: Student 1 NetBox
+  purpose: Student 1 NetBox lab for classroom practice.
+  owner: home-lab
+  project: training
+  cluster: home-k3s
+  lifecycle: active
+  criticality: low
+  dataClassification: sensitive
+  repository: https://github.com/abhi1693/home-lab
+  gitPath: kubernetes/projects/training/apps/student1-netbox
+  runbook: kubernetes/projects/training/apps/student1-netbox/README.md
+  dashboard: https://netbox-lab1.practicelab.dev
+  knownLimitations:
+  - A single web replica and a single worker make planned maintenance visible to users.
+  workloads:
+  - key: home-k3s/student1/apps/deployment/student1-netbox
+    namespace: student1
+    apiGroup: apps
+    kind: Deployment
+    name: student1-netbox
+    desiredReplicas: 1
+    sourcePath: kubernetes/projects/training/apps/student1-netbox/values.yaml
+    images:
+    - ghcr.io/abhi1693/home-lab-netbox-training
+  - key: home-k3s/student1/apps/deployment/student1-netbox-worker
+    namespace: student1
+    apiGroup: apps
+    kind: Deployment
+    name: student1-netbox-worker
+    desiredReplicas: 1
+    sourcePath: kubernetes/projects/training/apps/student1-netbox/values.yaml
+    images:
+    - ghcr.io/abhi1693/home-lab-netbox-training
+  persistentStores: []
+  endpoints:
+  - key: student1-netbox/web
+    name: web
+    url: https://netbox-lab1.practicelab.dev
+    dnsName: netbox-lab1.practicelab.dev
+    exposure: public
+    protocol: https
+    ports:
+    - 443
+    sourcePath: kubernetes/projects/training/apps/student1-netbox/values.yaml
+  dependencies: []

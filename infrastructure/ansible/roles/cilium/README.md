@@ -5,18 +5,26 @@ Traefik. Once the `fleet-local/cilium` HelmOp exists and targets
 `kube-system/cilium`, the role skips Cilium CLI install/upgrade operations;
 Fleet then owns runtime changes. The `cli` entrypoint still only maintains the
 CLI binary. `validation` inspects network configuration, rollout limits,
-readiness, and agent/Hubble metrics on every node.
+readiness, and agent/Hubble metrics on every node. Runtime validation uses
+`k3s kubectl` and the `cilium-dbg` binary inside each running agent. It requires
+one non-terminating Ready agent per cluster node and a healthy agent response;
+it does not require a host Cilium CLI or the old on-disk Traefik bootstrap
+manifest. The CLI version is checked by the `cli` entrypoint. Traefik is checked
+through its deployed HelmChartConfig, workload, ingress and Service resources.
 
 Both `main` and `validation` use the same kernel compatibility gate. Cilium
 versions **1.20.2 and later**, including later patch and minor releases, require
 `/sys/kernel/btf/vmlinux` on every cluster node. Missing BTF blocks the role;
-there is no compatibility override. Keep the current **1.20.1** pin while the
+there is no compatibility override. The **1.20.4** pin is qualified against
+the nine Ubuntu BTF-enabled kernels and the recorded preflight checks. Keep
+BTF-less hosts on 1.20.1 while the
 [upstream regression](https://github.com/cilium/cilium/issues/48778) remains
-unresolved for these kernels. Change this boundary only after an upstream fix
-and compatibility with the actual host kernels are verified.
+unresolved; do not bypass the gate for future patch or minor upgrades.
 
-The local regression fixtures execute the production Ansible condition and
-assertions with synthetic per-node stat results. They use localhost only and
+The local regression fixtures execute production Ansible conditions and
+assertions with synthetic BTF and Pod data. Runtime cases cover missing or
+duplicate agents, unready Pods, ignored terminating Pods and unhealthy agents
+inside otherwise Ready Pods. They use localhost only and
 do not run the role, contact cluster hosts, or read live databases. From the
 repository root, run:
 

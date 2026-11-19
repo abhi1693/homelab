@@ -230,7 +230,7 @@ keys, and removal deletes them. The public bucket domain must also serve `avatar
 account origin without a bucket suffix. The worker and proxy share signing values
 from `imgproxy-secrets.sops.yaml`, independently generated for DevFeed.
 
-Imgproxy v4.0.17 runs one ARM64 replica with two processing workers, a bounded queue,
+Imgproxy v4.0.23 runs one ARM64 replica with two processing workers, a bounded queue,
 100m CPU/256Mi memory requested, and 1 CPU/512Mi memory limits. Its source allowlist
 contains only the production bucket's `originals/` prefix. Network policies allow
 only the Images worker to reach its HTTP port; proxy downloads use public HTTPS.
@@ -357,8 +357,18 @@ permanently retired PostgreSQL analytics history after acknowledged import.
 An image downgrade cannot restore it.
 
 Importer probes read the packaged private heartbeat helper directly. They avoid
-importing the full analytics worker under its half-CPU budget; repeated worker
-imports exceeded the probe deadline despite advancing historical checkpoints.
+importing the full analytics worker; repeated worker imports exceeded the probe
+deadline despite advancing historical checkpoints.
+
+After historical import completes, the same process continues bounded
+current-state reconciliation. It reserves 500m CPU and permits bursts up to one
+core, with the existing 256Mi memory request and 512Mi limit. Current card pages stay
+bounded to 100 identities and overview pages to 1,000 source records, with one
+coordinator and the existing builder, fence and advisory-lock rules. Validate
+resource changes against source mutations or dirty work remaining, acknowledged
+page progress and whole-set coverage, and paired PostgreSQL and ClickHouse work
+measurements while preserving interactive workload health. An old coverage
+timestamp alone does not prove stale data when its source has not changed.
 
 The importer reads AI enablement, full automation, the Codex model and server URL
 from `devfeed-automation`, matching the administration API's policy inputs. It

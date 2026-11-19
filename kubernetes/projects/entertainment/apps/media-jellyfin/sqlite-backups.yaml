@@ -1,0 +1,229 @@
+---
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: jellyfin-sqlite-backup
+  namespace: media
+  labels: &id001
+    app.kubernetes.io/name: jellyfin-state-backup
+    app.kubernetes.io/part-of: media-stack
+spec:
+  schedule: 15 4 * * *
+  timeZone: Asia/Kolkata
+  concurrencyPolicy: Forbid
+  successfulJobsHistoryLimit: 2
+  failedJobsHistoryLimit: 2
+  jobTemplate:
+    spec:
+      backoffLimit: 0
+      activeDeadlineSeconds: 900
+      template:
+        metadata:
+          labels: *id001
+        spec:
+          restartPolicy: Never
+          automountServiceAccountToken: false
+          nodeSelector:
+            kubernetes.io/arch: arm64
+          securityContext:
+            fsGroup: 568
+            fsGroupChangePolicy: OnRootMismatch
+            runAsNonRoot: true
+            supplementalGroups:
+            - 0
+            - 1000
+            - 988
+            seccompProfile:
+              type: RuntimeDefault
+          affinity:
+            podAffinity:
+              requiredDuringSchedulingIgnoredDuringExecution:
+              - labelSelector:
+                  matchLabels:
+                    app.kubernetes.io/instance: jellyfin
+                    app.kubernetes.io/name: jellyfin
+                topologyKey: kubernetes.io/hostname
+          imagePullSecrets:
+          - name: harbor-registry
+          containers:
+          - name: backup
+            # renovate: datasource=docker depName=ghcr.io/abhi1693/home-lab-jellyfin-sqlite-migrator
+            image: registry.home/ghcr.io/abhi1693/home-lab-jellyfin-sqlite-migrator:10.11.8-1@sha256:d218716f8cf0d27d6c9e31b98aea9ff7f6ca7cef516c2771f9bd39e49ecfb0b8
+            command:
+            - python
+            - -B
+            - /scripts/backup-sqlite.py
+            env:
+            - name: BACKUP_UID
+              value: '977'
+            - name: BACKUP_GID
+              value: '988'
+            securityContext:
+              runAsUser: 568
+              runAsGroup: 568
+              readOnlyRootFilesystem: true
+              allowPrivilegeEscalation: false
+              capabilities:
+                drop:
+                - ALL
+            resources:
+              requests:
+                cpu: 100m
+                memory: 192Mi
+              limits:
+                cpu: 500m
+                memory: 512Mi
+            volumeMounts:
+            - name: config
+              mountPath: /config
+              readOnly: true
+            - name: data
+              mountPath: /data
+              readOnly: true
+            - name: backups
+              mountPath: /backups
+              readOnly: false
+            - name: scripts
+              mountPath: /scripts
+              readOnly: true
+            - name: tmp
+              mountPath: /tmp
+              readOnly: false
+          volumes:
+          - name: config
+            persistentVolumeClaim:
+              claimName: jellyfin-sqlite-config
+              readOnly: true
+          - name: data
+            persistentVolumeClaim:
+              claimName: jellyfin-sqlite-data
+              readOnly: true
+          - name: backups
+            persistentVolumeClaim:
+              claimName: jellyfin-shared-data-nfs
+              readOnly: false
+          - name: scripts
+            configMap:
+              name: jellyfin-sqlite-backup
+          - name: tmp
+            emptyDir:
+              sizeLimit: 128Mi
+---
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: jellyfin-sqlite-backup-bootstrap-20261103-v2
+  namespace: media
+  labels: &id001
+    app.kubernetes.io/name: jellyfin-state-backup
+    app.kubernetes.io/part-of: media-stack
+spec:
+  backoffLimit: 0
+  activeDeadlineSeconds: 900
+  template:
+    metadata:
+      labels: *id001
+    spec:
+      restartPolicy: Never
+      automountServiceAccountToken: false
+      nodeSelector:
+        kubernetes.io/arch: arm64
+      securityContext:
+        fsGroup: 568
+        fsGroupChangePolicy: OnRootMismatch
+        runAsNonRoot: true
+        supplementalGroups:
+        - 0
+        - 1000
+        - 988
+        seccompProfile:
+          type: RuntimeDefault
+      affinity:
+        podAffinity:
+          requiredDuringSchedulingIgnoredDuringExecution:
+          - labelSelector:
+              matchLabels:
+                app.kubernetes.io/instance: jellyfin
+                app.kubernetes.io/name: jellyfin
+            topologyKey: kubernetes.io/hostname
+      imagePullSecrets:
+      - name: harbor-registry
+      containers:
+      - name: backup
+        # renovate: datasource=docker depName=ghcr.io/abhi1693/home-lab-jellyfin-sqlite-migrator
+        image: registry.home/ghcr.io/abhi1693/home-lab-jellyfin-sqlite-migrator:10.11.8-1@sha256:d218716f8cf0d27d6c9e31b98aea9ff7f6ca7cef516c2771f9bd39e49ecfb0b8
+        command:
+        - python
+        - -B
+        - /scripts/backup-sqlite.py
+        env:
+        - name: BACKUP_UID
+          value: '977'
+        - name: BACKUP_GID
+          value: '988'
+        securityContext:
+          runAsUser: 568
+          runAsGroup: 568
+          readOnlyRootFilesystem: true
+          allowPrivilegeEscalation: false
+          capabilities:
+            drop:
+            - ALL
+        resources:
+          requests:
+            cpu: 100m
+            memory: 192Mi
+          limits:
+            cpu: 500m
+            memory: 512Mi
+        volumeMounts:
+        - name: config
+          mountPath: /config
+          readOnly: true
+        - name: data
+          mountPath: /data
+          readOnly: true
+        - name: backups
+          mountPath: /backups
+          readOnly: false
+        - name: scripts
+          mountPath: /scripts
+          readOnly: true
+        - name: tmp
+          mountPath: /tmp
+          readOnly: false
+      volumes:
+      - name: config
+        persistentVolumeClaim:
+          claimName: jellyfin-sqlite-config
+          readOnly: true
+      - name: data
+        persistentVolumeClaim:
+          claimName: jellyfin-sqlite-data
+          readOnly: true
+      - name: backups
+        persistentVolumeClaim:
+          claimName: jellyfin-shared-data-nfs
+          readOnly: false
+      - name: scripts
+        configMap:
+          name: jellyfin-sqlite-backup
+      - name: tmp
+        emptyDir:
+          sizeLimit: 128Mi
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: jellyfin-state-backup
+  namespace: media
+spec:
+  podSelector:
+    matchLabels:
+      app.kubernetes.io/name: jellyfin-state-backup
+      app.kubernetes.io/part-of: media-stack
+  policyTypes:
+  - Ingress
+  - Egress
+  ingress: []
+  egress: []

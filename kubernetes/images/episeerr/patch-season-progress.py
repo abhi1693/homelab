@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Patch Episeerr 3.9.6 with aggregate season-progress prefetching."""
+"""Patch Episeerr 4.0.5 with aggregate season-progress prefetching."""
 
 from pathlib import Path
 
@@ -289,105 +289,50 @@ replace_once(
 
 replace_once(
     "media_processor.py",
-    """    # NEW: If rule type is 'seasons', prefer season packs
+    """    data = {"name": "EpisodeSearch", "episodeIds": episode_ids}
+    response = http.post(url, json=data, headers=headers)
+
     episode = None
-    if get_type == 'seasons':
-        # Get the season number from the first episode
-        episode = get_episode_details_by_id(episode_ids[0])
-        if episode and series_id:
-            first_season = episode['seasonNumber']
-\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20
-            # BUGFIX: If there are multiple episodes, check if we should search the NEXT season
-            # This happens when the first episode is the remainder of the current season
-            if len(episode_ids) > 1:
-                # Check the second episode's season
-                second_episode = get_episode_details_by_id(episode_ids[1])
-                if second_episode and second_episode['seasonNumber'] > first_season:
-                    # The bulk of episodes are in the next season, search for that
-                    season_to_search = second_episode['seasonNumber']
-                    logger.info(f"Rule type is 'seasons' - searching for season pack for Season {season_to_search} (next full season)")
-                else:
-                    # All episodes in same season
-                    season_to_search = first_season
-                    logger.info(f"Rule type is 'seasons' - searching for season pack for Season {season_to_search}")
-            else:
-                # Only one episode, use its season
-                season_to_search = first_season
-                logger.info(f"Rule type is 'seasons' - searching for season pack for Season {season_to_search}")
-\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20
-            # Use SeasonSearch to prefer season packs
-            data = {
-                "name": "SeasonSearch",
-                "seriesId": series_id,
-                "seasonNumber": season_to_search
-            }
-        else:
-            # Fallback to episode search if we can't determine season
-            logger.warning("Could not determine season, falling back to episode search")
-            data = {"name": "EpisodeSearch", "episodeIds": episode_ids}
-    else:
-        # Default: Individual episode search
-        data = {"name": "EpisodeSearch", "episodeIds": episode_ids}
 """,
-    """    # Search every distinct season represented by the newly monitored
-    # episodes. At the prefetch threshold this is normally the remainder of
-    # the current season plus the complete next season; checking only the
-    # second episode could miss the next-season search entirely.
+    """    # Keep upstream's missing-file filter. A full missing season can use a
+    # pack search; a partially downloaded season must search only missing IDs.
     episode = None
     search_commands = []
-    if get_type == 'seasons':
-        season_numbers = []
+    individual_ids = []
+    if get_type == 'seasons' and series_id and episodes is not None:
+        details_by_id = {item['id']: item for item in episodes}
+        by_season = {}
         for episode_id in episode_ids:
-            details = get_episode_details_by_id(episode_id)
-            if details and episode is None:
-                episode = details
+            details = details_by_id.get(episode_id)
             season_number = details.get('seasonNumber') if details else None
-            if season_number is not None and season_number not in season_numbers:
-                season_numbers.append(season_number)
-
-        if series_id and season_numbers:
-            search_commands = [
-                {
+            if season_number is None:
+                individual_ids.append(episode_id)
+            else:
+                by_season.setdefault(season_number, []).append(episode_id)
+        for season_number, selected_ids in by_season.items():
+            inventory = get_episode_details(series_id, season_number)
+            all_ids = {item['id'] for item in inventory}
+            if (all_ids and set(selected_ids) == all_ids
+                    and not any(item.get('hasFile') for item in inventory)):
+                search_commands.append({
                     "name": "SeasonSearch",
                     "seriesId": series_id,
                     "seasonNumber": season_number,
-                }
-                for season_number in season_numbers
-            ]
-            logger.info(
-                "Rule type is 'seasons' - searching season pack(s) for "
-                f"seasons {season_numbers}"
-            )
-        else:
-            logger.warning("Could not determine seasons, falling back to episode search")
-            search_commands = [{"name": "EpisodeSearch", "episodeIds": episode_ids}]
+                })
+            else:
+                individual_ids.extend(selected_ids)
     else:
-        search_commands = [{"name": "EpisodeSearch", "episodeIds": episode_ids}]
-""",
-)
-
-replace_once(
-    "media_processor.py",
-    """    response = http.post(url, json=data, headers=headers)
-\x20\x20\x20\x20
-    if response.ok:
-""",
-    """    responses = [
-        http.post(url, json=search_command, headers=headers)
-        for search_command in search_commands
-    ]
-    failed_responses = [response for response in responses if not response.ok]
-    if failed_responses:
-        logger.error(
-            "Failed to send search command(s): "
-            + "; ".join(response.text for response in failed_responses)
-        )
+        individual_ids = episode_ids
+    if individual_ids:
+        search_commands.append({"name": "EpisodeSearch", "episodeIds": individual_ids})
+    responses = [http.post(url, json=command, headers=headers) for command in search_commands]
+    if not responses or any(not response.ok for response in responses):
+        logger.error("Failed to send Sonarr search command(s)")
         return
     response = responses[-1]
-
-    if response.ok:
 """,
 )
+
 
 replace_once(
     "settings_db.py",

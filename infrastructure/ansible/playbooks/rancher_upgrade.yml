@@ -1,0 +1,79 @@
+---
+- name: Check Rancher staged upgrade prerequisites
+  hosts: server-1
+  become: true
+  gather_facts: false
+  any_errors_fatal: true
+  tasks:
+    - name: Require the reviewed three-server topology
+      ansible.builtin.assert:
+        that:
+          - groups['k3s_servers'] | length == 3
+          - rancher.replicas | int == 3
+          - rancher.anti_affinity == 'required'
+          - rancher.rolling_update.max_surge | int == 0
+          - rancher.rolling_update.max_unavailable | int == 1
+
+    - name: Read the installed Rancher chart version
+      ansible.builtin.command:
+        argv: [/usr/local/bin/k3s, kubectl, -n, kube-system, get, helmchart, rancher, -o, 'jsonpath={.spec.version}']
+      register: rancher_upgrade_source_chart
+      changed_when: false
+      check_mode: false
+
+    - name: Require an explicit installed chart version
+      ansible.builtin.assert:
+        that:
+          - rancher_upgrade_source_chart.stdout | trim is match('^[0-9]+\.[0-9]+\.[0-9]+$')
+
+    - name: Record the source chart version for the capacity stage
+      ansible.builtin.set_fact:
+        rancher_upgrade_source_version: "{{ rancher_upgrade_source_chart.stdout | trim }}"
+
+    - name: Read control-plane capacity for the staged upgrade
+      ansible.builtin.command:
+        argv: [/usr/local/bin/k3s, kubectl, get, nodes, -l, node-role.kubernetes.io/control-plane=true, -o, json]
+      register: rancher_upgrade_servers
+      changed_when: false
+      check_mode: false
+
+    - name: Require three Ready and schedulable control-plane nodes
+      ansible.builtin.assert:
+        that:
+          - (rancher_upgrade_servers.stdout | from_json)['items'] | length == 3
+          - not (item.spec.unschedulable | default(false))
+          - item.status.conditions | selectattr('type', 'equalto', 'Ready') | selectattr('status', 'equalto', 'True') | list | length == 1
+          - item.metadata.name in groups['k3s_servers'] | map('extract', hostvars, 'node_identity') | map(attribute='hostname') | list
+      loop: "{{ (rancher_upgrade_servers.stdout | from_json)['items'] }}"
+      loop_control:
+        label: "{{ item.metadata.name }}"
+
+# Keep the existing chart version while freeing a server for its surge pod.
+- import_playbook: rancher.yml
+  vars:
+    rancher:
+      chart_version: "{{ rancher_upgrade_source_version }}"
+      replicas: 2
+- import_playbook: rancher.yml
+  vars:
+    rancher_entrypoint: validation
+    rancher:
+      chart_version: "{{ rancher_upgrade_source_version }}"
+      replicas: 2
+
+# Upgrade with two replicas and required anti-affinity still enabled.
+- import_playbook: rancher.yml
+  vars:
+    rancher:
+      replicas: 2
+- import_playbook: rancher.yml
+  vars:
+    rancher_entrypoint: validation
+    rancher:
+      replicas: 2
+
+# Restore inventory's three replicas, then validate the final state.
+- import_playbook: rancher.yml
+- import_playbook: rancher.yml
+  vars:
+    rancher_entrypoint: validation

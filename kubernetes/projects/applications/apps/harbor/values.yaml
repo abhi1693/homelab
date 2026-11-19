@@ -79,7 +79,7 @@ portal:
     # Harbor must bootstrap without depending on its own registry endpoint.
     repository: ghcr.io/abhi1693/harbor-portal
     # renovate: datasource=docker depName=ghcr.io/abhi1693/harbor-portal
-    tag: v2.15.1
+    tag: v2.16.0
   replicas: 2
   podDisruptionBudget:
     enabled: true
@@ -110,7 +110,7 @@ core:
   image:
     repository: ghcr.io/abhi1693/harbor-core
     # renovate: datasource=docker depName=ghcr.io/abhi1693/harbor-core
-    tag: v2.15.1
+    tag: v2.16.0
   replicas: 2
   podDisruptionBudget:
     enabled: true
@@ -142,7 +142,7 @@ jobservice:
   image:
     repository: ghcr.io/abhi1693/harbor-jobservice
     # renovate: datasource=docker depName=ghcr.io/abhi1693/harbor-jobservice
-    tag: v2.15.1
+    tag: v2.16.0
   replicas: 2
   podDisruptionBudget:
     enabled: true
@@ -182,7 +182,7 @@ registry:
     image:
       repository: ghcr.io/abhi1693/registry-photon
       # renovate: datasource=docker depName=ghcr.io/abhi1693/registry-photon
-      tag: v2.15.1
+      tag: v2.16.0
     extraEnvVars:
       - name: REGISTRY_STORAGE_REDIRECT_DISABLE
         value: "true"
@@ -196,7 +196,7 @@ registry:
     image:
       repository: ghcr.io/abhi1693/harbor-registryctl
       # renovate: datasource=docker depName=ghcr.io/abhi1693/harbor-registryctl
-      tag: v2.15.1
+      tag: v2.16.0
     resources:
       requests:
         cpu: 10m
@@ -224,7 +224,7 @@ trivy:
   image:
     repository: ghcr.io/abhi1693/trivy-adapter-photon
     # renovate: datasource=docker depName=ghcr.io/abhi1693/trivy-adapter-photon
-    tag: v2.15.1
+    tag: v2.16.0
   replicas: 1
   podDisruptionBudget:
     enabled: false
