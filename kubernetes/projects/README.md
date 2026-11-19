@@ -25,6 +25,7 @@ and drift correction easier to reason about than a single flat app directory.
 | Entertainment | `entertainment/` | Media stack, media storage, torrent/import workflows, and request portals. |
 | Home Automation | `home-automation/` | Home Assistant, NetBox, rack automation, Cloudflare tunnel control, and UPS monitoring. |
 | System | `system/` | Monitoring, logging, tracing, profiling, DNS, backup, compliance, operators, and cluster maintenance. |
+| Training | [training/](training/README.md) | Isolated instructor and student NetBox labs with shared chart defaults. |
 
 ## Directory Shape
 

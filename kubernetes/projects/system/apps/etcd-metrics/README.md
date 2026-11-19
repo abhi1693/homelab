@@ -116,14 +116,6 @@ Upstream references:
 [etcd monitoring](https://etcd.io/docs/v3.6/op-guide/monitoring/), and
 [etcd performance guidance](https://etcd.io/docs/v3.6/faq/#what-does-the-etcd-warning-apply-entries-took-too-long-mean).
 
-## Resource review — 28 October 2026
+## Resource sizing
 
-Values use the 28 October historical review in
-[the resource policy](../../../../../docs/runbooks/kubernetes-resource-policy.md#2026-10-28-historical-resource-review).
-CPU reservations cover measured sustained demand with headroom; existing burst
-policies remain in place. Memory caps preserve the observed fourteen-day peaks
-and extra headroom where OOM records show clipping.
-
-| Container / value path | CPU request | Memory request | Memory limit |
-| --- | --- | --- | --- |
-| `cattle-monitoring-system/etcd-metrics/kube-rbac-proxy` | 5m → 5m | 32Mi → 64Mi | 96Mi → 96Mi |
+See [daemonset.yaml](daemonset.yaml), [kustomization.yaml](kustomization.yaml), [rbac.yaml](rbac.yaml) for the configured resources and [the resource policy](../../../../../docs/runbooks/kubernetes-resource-policy.md#2026-10-28-historical-resource-review) for the historical measurements.

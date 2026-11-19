@@ -542,8 +542,7 @@ revision, preserving node separation while allowing rolling image updates.
 The [controller runbook](kubernetes/projects/home-automation/apps/cloudflare-tunnel-ingress-controller/README.md)
 documents connector scheduling and upgrade validation.
 
-Examples include the portfolio, blog, ShipyardHQ, Wardn AI website, Wardn Hub,
-and Wardn License Server. The app bundle usually owns:
+Examples include the portfolio, blog, ShipyardHQ and Wardn Hub. The app bundle usually owns:
 
 - namespace and labels;
 - deployment and service;
@@ -770,6 +769,7 @@ node outage does not pause GitOps reconciliation.
 | `home-lab-applications` | Public and personal application workloads. |
 | `home-lab-entertainment` | Media stack and supporting automation. |
 | `home-lab-home-automation` | Home Assistant, NetBox and its MCP server, USB printing, UPS monitoring, and Cloudflare tunnel controller. |
+| `home-lab-training` | Instructor and student NetBox labs. See the [shared configuration and rendering instructions](kubernetes/projects/training/README.md). |
 
 This split has practical benefits:
 
@@ -819,10 +819,8 @@ These services are not just "apps"; they are the platform other apps depend on.
 | Personal Blog | Public blog deployment. | Harbor image, Cloudflare Tunnel, Sanity revalidation secret. |
 | Portfolio | Public portfolio and isolated static Node PR previews. | Harbor images, Cloudflare Tunnel. |
 | ShipyardHQ | Public commerce/content application with web, worker, image proxy, and build jobs. | PostgreSQL, Valkey, R2, Harbor, NFS build cache, Cloudflare Tunnel. |
-| Wardn AI | Paused agent platform: API, frontend, worker, WhatsApp bridge, and dedicated PostgreSQL pooler at zero replicas. | PostgreSQL, Wardn Hub, NFS and Longhorn storage, internal Traefik ingress. |
-| Wardn AI Website | Public product website for Wardn AI. | Harbor image, Cloudflare Tunnel. |
 | Wardn Hub | Public registry with API, frontend, and scoring online; consolidated worker and Codex temporarily paused at zero replicas, with refresh hook skipped and login state retained. | PostgreSQL, OpenTelemetry, Harbor, Cloudflare Tunnel, NFS build cache, Longhorn Codex state. |
-| [Zitadel](kubernetes/projects/applications/apps/zitadel/README.md) | Central identity provider on v4.20.0 with signed Login UI cookies, a custom GitHub registration retry and an isolated DevFeed virtual instance at auth.devfeed.tech. | PostgreSQL, SOPS secrets, Cloudflare Tunnel. |
+| [Zitadel](kubernetes/projects/applications/apps/zitadel/README.md) | Central identity provider on v4.20.2 with signed Login UI cookies, a custom GitHub registration retry and an isolated DevFeed virtual instance at auth.devfeed.tech. | PostgreSQL, SOPS secrets, Cloudflare Tunnel. |
 
 ### Database Project
 
@@ -974,17 +972,6 @@ web restore init, and cleanup CronJob. Complete build-variable prefixes, includi
 changes; the normal builder hook completes before replacement web pods restore it.
 The [cache regression tests](kubernetes/projects/applications/apps/shipyardhq/tests/test_build_cache_key.py)
 execute each manifest's hash block with synthetic inputs.
-
-Wardn License Server also tracks published backend/frontend Docker images as a
-reviewed group, covering the API, console and direct-writer migration hook.
-Release events start publication, so both native-checked immutable images must
-be verified before merging an update. The private source workflow disables
-unsupported GitHub artifact attestations; existing pins stay unchanged until a
-verified release update. Other enabled dependencies retain branch automerge.
-The release's strict License guard keeps all three image references on one
-stable version, binds API/frontend/migration containers to their correct image
-components and requires one immutable digest per component.
-
 
 PostgreSQL retains a dedicated `app` bootstrap role and database aligned with
 CNPG's generated credentials. Existing clusters missing that role/database use
@@ -1611,28 +1598,3 @@ Runbooks and architecture decisions:
 - Keep Terraform formatted with `terraform fmt`.
 - Prefer Git-managed cluster changes over live `kubectl` or `helm` mutation.
 - Do not revert unrelated local changes when working in this repository.
-
-The [28 October app retirement record](docs/runbooks/2026-10-28-app-retirements.md)
-lists removed services, retained data and the Episeerr activity decision.
-
-
-Fleet agent CPU requests are reconciled explicitly at 150m per replica.
-CPU reservations for low-volume media services and NetBox are sized separately
-from burst limits. NetBox runs its inventory UI/API without a background worker;
-queued jobs require re-enabling that worker. Longhorn admits one replica rebuild
-and one heavy snapshot operation per node to bound recovery contention.
-
-The **Training** Rancher project contains the `instructor` namespace for the instructor NetBox lab, using separate credentials and a retained PostgreSQL database.
-
-Instructor NetBox uses the official community chart 8.3.101 with ARM64 NetBox 4.7.4 at `https://instructor.netbox.home`, with one web and one worker replica in Training. Its worker runs the built-in daily System Housekeeping job; the obsolete external housekeeping CronJob is disabled. Main NetBox also runs a dedicated worker for native housekeeping. Instructor nonsecret values and main NetBox maintenance flags are generated into tracked HelmOp values so Fleet reconciles their changes. Canonical chart updates require reviewed PRs with the renderer output; workload-catalog CI rejects stale projections.
-
-Training NetBox instances inherit common chart and application settings with explicit per-instance overrides; see [Training configuration](kubernetes/projects/training/README.md). Regenerate Fleet inputs with `python3 scripts/render-training-netbox.py` and validate with `--check`.
-
-Cilium upgrade preflight runs through a separate temporary Fleet bundle for
-image preparation and policy-schema validation. It does not upgrade the CNI;
-remove the preflight bundle through Git after recording its results. The
-[2 November Cilium preflight](kubernetes/projects/system/apps/cilium/README.md#upgrade-preflight--2-november-2026)
-passed on all nine nodes, including all 25 installed Cilium network policies.
-Production and bootstrap Cilium are pinned to 1.20.4. See the
-[rollout and recovery evidence](kubernetes/projects/system/apps/cilium/README.md#rollout-and-recovery-evidence--2-november-2026)
-for the verified rollout, rpi1 recovery, Fleet retry and validation limitations.

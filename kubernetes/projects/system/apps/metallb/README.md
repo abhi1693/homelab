@@ -32,14 +32,6 @@ must allow MetalLB memberlist traffic on TCP and UDP `7946` between K3s nodes.
    the qBittorrent peer ports.
 6. Repeat the LAN checks during a controlled WAN disconnect.
 
-## Resource review — 28 October 2026
+## Resource sizing
 
-Values use the 28 October historical review in
-[the resource policy](../../../../../docs/runbooks/kubernetes-resource-policy.md#2026-10-28-historical-resource-review).
-CPU reservations cover measured sustained demand with headroom; existing burst
-policies remain in place. Memory caps preserve the observed fourteen-day peaks
-and extra headroom where OOM records show clipping.
-
-| Container / value path | CPU request | Memory request | Memory limit |
-| --- | --- | --- | --- |
-| `metallb-system/metallb-controller/controller` | 20m → 20m | 64Mi → 128Mi | 192Mi → 192Mi |
+See [kustomization.yaml](kustomization.yaml), [values.yaml](values.yaml) for the configured resources and [the resource policy](../../../../../docs/runbooks/kubernetes-resource-policy.md#2026-10-28-historical-resource-review) for the historical measurements.

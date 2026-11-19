@@ -38,6 +38,8 @@ flowchart TD
   bundle --> database["database-gitrepo.yaml"]
   bundle --> entertainment["entertainment-gitrepo.yaml"]
   bundle --> homeAutomation["home-automation-gitrepo.yaml"]
+  bundle --> training["training-gitrepo.yaml"]
+  training --> trainingApps["kubernetes/projects/training/apps"]
   bundle --> system["system-gitrepo.yaml"]
   bundle --> rancherProjects["rancher-projects-gitrepo.yaml"]
 

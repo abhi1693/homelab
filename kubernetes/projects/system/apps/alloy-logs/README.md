@@ -30,21 +30,13 @@ enable a duplicate API pod-log source. See the handover and recovery procedure i
 Verify both event replicas are Ready on distinct nodes, fresh events reach Loki,
 and node pod collection remains healthy after a configuration change.
 
-The pinned chart is Grafana Alloy 1.15.0 (Alloy 1.21.3). Each replica requests 15m CPU and 128Mi memory across Alloy and its config
+The pinned chart is Grafana Alloy 1.16.0 (Alloy 1.21.3). Each replica requests 15m CPU and 128Mi memory across Alloy and its config
 reloader. Alloy is capped at 100m CPU with `GOMAXPROCS=1`; its reloader is
 capped at 25m. Event bursts may take longer to export under these limits.
 
-## Resource review — 28 October 2026
+## Resource sizing
 
-Values use the 28 October historical review in
-[the resource policy](../../../../../docs/runbooks/kubernetes-resource-policy.md#2026-10-28-historical-resource-review).
-CPU reservations cover measured sustained demand with headroom. The CPU ceilings
-above supersede the former unlimited burst policy. Memory caps preserve the observed fourteen-day peaks
-and extra headroom where OOM records show clipping.
-
-| Container / value path | CPU request | Memory request | Memory limit |
-| --- | --- | --- | --- |
-| `cattle-monitoring-system/alloy-logs/alloy` | 50m → 10m | 192Mi → 96Mi | 256Mi → 384Mi |
+See [kustomization.yaml](kustomization.yaml), [values.yaml](values.yaml) for the configured resources and [the resource policy](../../../../../docs/runbooks/kubernetes-resource-policy.md#2026-10-28-historical-resource-review) for the historical measurements.
 
 ## Fleet status refresh
 

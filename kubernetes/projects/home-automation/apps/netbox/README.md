@@ -13,7 +13,7 @@ headers such as `Cross-Origin-Opener-Policy` to apply to this non-local origin.
 Current choices:
 
 - chart: `oci://ghcr.io/netbox-community/netbox-chart/netbox`
-- chart version: `8.3.101`
+- chart version: `8.3.102`
 - NetBox version: `v4.7.4`
 - image: `registry.home/ghcr.io/abhi1693/home-lab-netbox:4.7.4-e90b692`
 - namespace: `netbox`

@@ -83,14 +83,6 @@ The UniFi API key is SOPS-encrypted under the companion SopsSecret template's
 `stringData.api-key`; `data` requires base64-encoded input. Keep the encrypted
 template and generated Secret consistent when rotating credentials.
 
-## Resource review — 28 October 2026
+## Resource sizing
 
-Values use the 28 October historical review in
-[the resource policy](../../../../../docs/runbooks/kubernetes-resource-policy.md#2026-10-28-historical-resource-review).
-CPU reservations cover measured sustained demand with headroom; existing burst
-policies remain in place. Memory caps preserve the observed fourteen-day peaks
-and extra headroom where OOM records show clipping.
-
-| Container / value path | CPU request | Memory request | Memory limit |
-| --- | --- | --- | --- |
-| `kube-public/external-dns-unifi/external-dns` | 10m → 10m | 32Mi → 80Mi | 96Mi → 128Mi |
+See [values.yaml](values.yaml) for the configured resources and [the resource policy](../../../../../docs/runbooks/kubernetes-resource-policy.md#2026-10-28-historical-resource-review) for the historical measurements.

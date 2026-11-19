@@ -386,23 +386,9 @@ rule coverage, log delivery, historical queries, dashboard UIDs, datasource
 references and alert delivery. PDBs cover voluntary eviction; they do not prove
 node-failure availability or protect against a NAS outage.
 
-## Resource review — 28 October 2026
+## Resource sizing
 
-Values use the 28 October historical review in
-[the resource policy](../../../../../docs/runbooks/kubernetes-resource-policy.md#2026-10-28-historical-resource-review).
-CPU reservations cover measured sustained demand with headroom; existing burst
-policies remain in place. Memory caps preserve the observed fourteen-day peaks
-and extra headroom where OOM records show clipping.
-
-| Container / value path | CPU request | Memory request | Memory limit |
-| --- | --- | --- | --- |
-| `cattle-monitoring-system/rancher-monitoring/prometheus` | 400m → 500m | 4Gi → 4Gi | 5Gi → 6400Mi |
-| `cattle-monitoring-system/rancher-monitoring/thanos-sidecar` | 25m → 250m | 512Mi → 640Mi | 2Gi → 2Gi |
-| `cattle-monitoring-system/rancher-monitoring/grafana` | 25m → 25m | 512Mi → 512Mi | 1Gi → 1280Mi |
-| `cattle-monitoring-system/rancher-monitoring/grafana-sidecar` | 10m → 10m | 192Mi → 128Mi | 272Mi → 272Mi |
-| `cattle-monitoring-system/rancher-monitoring/kube-state-metrics` | 10m → 10m | 192Mi → 96Mi | 384Mi → 384Mi |
-| `cattle-monitoring-system/rancher-monitoring/node-exporter` | 5m → 5m | 48Mi → 32Mi | 192Mi → 96Mi |
-| `cattle-monitoring-system/thanos-query/thanos-query` | 100m → 250m | 768Mi → 1408Mi | 3Gi → 3Gi |
+See [bundle manifests](.) for the configured resources and [the resource policy](../../../../../docs/runbooks/kubernetes-resource-policy.md#2026-10-28-historical-resource-review) for the historical measurements.
 
 The follow-up seven-day review reduces Prometheus from `500m` to `350m` and
 each Thanos sidecar from `250m` to `100m`, releasing `600m` across two replicas.

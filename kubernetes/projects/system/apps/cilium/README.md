@@ -51,18 +51,9 @@ Upstream references: [metrics](https://docs.cilium.io/en/stable/observability/me
 [per-node configuration and restart requirements](https://docs.cilium.io/en/stable/configuration/per-node-config/),
 and the pinned [1.20.4 chart](https://github.com/cilium/cilium/tree/v1.20.4/install/kubernetes/cilium).
 
-## Resource review — 28 October 2026
+## Resource sizing
 
-Values use the 28 October historical review in
-[the resource policy](../../../../../docs/runbooks/kubernetes-resource-policy.md#2026-10-28-historical-resource-review).
-CPU reservations cover measured sustained demand with headroom; existing burst
-policies remain in place. Memory caps preserve the observed fourteen-day peaks
-and extra headroom where OOM records show clipping.
-
-| Container / value path | CPU request | Memory request | Memory limit |
-| --- | --- | --- | --- |
-| `kube-system/cilium/cilium-agent` | 100m → 150m | 384Mi → 512Mi | 768Mi → 768Mi |
-| `kube-system/cilium-envoy/cilium-envoy` | 25m → 25m | 64Mi → 96Mi | 256Mi → 256Mi |
+See [kustomization.yaml](kustomization.yaml), [values.yaml](values.yaml) for the configured resources and [the resource policy](../../../../../docs/runbooks/kubernetes-resource-policy.md#2026-10-28-historical-resource-review) for the historical measurements.
 
 The follow-up memory review sets Envoy requests to `80Mi` (from `96Mi`),
 releasing `144Mi` across nine nodes. The fourteen-day per-container peak was

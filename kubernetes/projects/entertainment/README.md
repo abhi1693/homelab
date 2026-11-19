@@ -38,6 +38,8 @@ apps.
 | `media-flaresolverr` | Browser challenge helper for indexers. | Prowlarr indexer proxy. |
 | `media-helm-repositories` | Registers Helm repositories for media charts. | Rancher ClusterRepo. |
 
+Additional Fleet bundles in this project include [media-episeerr-networkpolicy](apps/media-episeerr-networkpolicy/), [media-jellyseerr-networkpolicy](apps/media-jellyseerr-networkpolicy/), [media-profilarr](apps/media-profilarr/), [media-ryokan-networkpolicy](apps/media-ryokan-networkpolicy/), [media-state-backups](apps/media-state-backups/).
+
 ## Storage Flow
 
 Downloads and completed media are intentionally separate.

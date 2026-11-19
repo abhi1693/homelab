@@ -295,17 +295,6 @@ Release `1.5.42` removes the Faro SDK and private source-map collection.
 The retired collector and runtime/build flags are removed. Backend tracing, logs,
 profiling, and application analytics are preserved.
 
-## Resource review — 28 October 2026
+## Resource sizing
 
-Values use the 28 October historical review in
-[the resource policy](../../../../../docs/runbooks/kubernetes-resource-policy.md#2026-10-28-historical-resource-review).
-CPU reservations cover measured sustained demand with headroom; existing burst
-policies remain in place. Memory caps preserve the observed fourteen-day peaks
-and extra headroom where OOM records show clipping.
-
-| Container / value path | CPU request | Memory request | Memory limit |
-| --- | --- | --- | --- |
-| `shipyardhq/shipyardhq/web` | 220m → 125m | 1280Mi → 896Mi | 5Gi → 2048Mi |
-| `shipyardhq/shipyardhq/restore-next-build` | 125m → 125m | 1280Mi → 384Mi | 5Gi → 1024Mi |
-| `shipyardhq/shipyardhq-worker/worker` | 60m → 30m | 498Mi → 384Mi | 896Mi → 1280Mi |
-| `shipyardhq/shipyardhq-imgproxy/imgproxy` | 10m → 25m | 180Mi → 160Mi | 192Mi → 384Mi |
+See [bundle manifests](.) for the configured resources and [the resource policy](../../../../../docs/runbooks/kubernetes-resource-policy.md#2026-10-28-historical-resource-review) for the historical measurements.

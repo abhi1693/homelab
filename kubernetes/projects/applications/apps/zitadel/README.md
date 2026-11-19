@@ -6,8 +6,8 @@ ZITADEL is the central identity provider for cluster applications.
 - Ingress class: `cloudflare-tunnel`
 - Database: shared CNPG PostgreSQL through `postgresql-pooler-zitadel-rw`
 - Secrets: SOPS-managed `zitadel-masterkey`, `zitadel-env`, `zitadel-login-env`, and `zitadel-postgresql`
-- Core: upstream v4.20.0, pinned by image digest
-- Chart: official `ghcr.io/zitadel/zitadel-charts/zitadel` OCI artifact, version 10.4.0
+- Core: upstream v4.20.2, pinned by image digest
+- Chart: official `ghcr.io/zitadel/zitadel-charts/zitadel` OCI artifact, version 10.5.0
 
 The chart's `wait-for-zitadel` init container is bounded through
 `tools.wait4x.resources` at `10m`/`32Mi` requests and `100m`/`64Mi` limits.
@@ -56,7 +56,7 @@ The Login UI runs the digest-pinned `home-lab-zitadel-login:4.20.0-idp-retry2-c7
 image. It retries only session lookup after successful GitHub account creation
 and linking, covering transient user projection delay. See
 [the image source](../../../../images/zitadel-login/README.md) for regression
-tests, dependency pins, and rollback. The core server uses upstream v4.20.0.
+tests, dependency pins, and rollback. The core server uses upstream v4.20.2.
 
 ## Upgrade operations
 
@@ -162,19 +162,9 @@ Validate the app with `kubectl kustomize`, render the pinned Helm chart with
 both original workloads and both DevFeed login replicas, discovery issuers,
 Login V2 readiness and the SMTP CronJob's pending/success status.
 
-## Resource review — 28 October 2026
+## Resource sizing
 
-Values use the 28 October historical review in
-[the resource policy](../../../../../docs/runbooks/kubernetes-resource-policy.md#2026-10-28-historical-resource-review).
-CPU reservations cover measured sustained demand with headroom; existing burst
-policies remain in place. Memory caps preserve the observed fourteen-day peaks
-and extra headroom where OOM records show clipping.
-
-| Container / value path | CPU request | Memory request | Memory limit |
-| --- | --- | --- | --- |
-| `zitadel/zitadel/zitadel` | 50m → 25m | 207Mi → 256Mi | 768Mi → 768Mi |
-| `zitadel/zitadel-login/zitadel-login` | 70m → 25m | 168Mi → 224Mi | 256Mi → 256Mi |
-| `zitadel/zitadel-devfeed-login/login` | 70m → 25m | 146Mi → 256Mi | 256Mi → 384Mi |
+See [bundle manifests](.) for the configured resources and [the resource policy](../../../../../docs/runbooks/kubernetes-resource-policy.md#2026-10-28-historical-resource-review) for the historical measurements.
 
 ## November Login security patch
 

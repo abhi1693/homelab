@@ -1,6 +1,6 @@
 # Loki
 
-The runtime is digest-pinned to Loki `3.6.17` on ARM64; chart `7.3.0` is retained.
+The runtime is digest-pinned to Loki `3.6.20` on ARM64 with chart `7.7.0`.
 
 This bundle installs the local log backend for the Rancher Monitoring namespace
 through a Fleet `HelmOp`.
@@ -142,17 +142,9 @@ durability. Keep WAL-progress, permanent-drop/rejection and node OTel alerts
 visible together. See the [OS incident runbook](../../../../../docs/runbooks/incident-coverage.md)
 for coverage, query examples and SSH evidence collection.
 
-## Resource review — 28 October 2026
+## Resource sizing
 
-Values use the 28 October historical review in
-[the resource policy](../../../../../docs/runbooks/kubernetes-resource-policy.md#2026-10-28-historical-resource-review).
-CPU reservations cover measured sustained demand with headroom; existing burst
-policies remain in place. Memory caps preserve the observed fourteen-day peaks
-and extra headroom where OOM records show clipping.
-
-| Container / value path | CPU request | Memory request | Memory limit |
-| --- | --- | --- | --- |
-| `cattle-monitoring-system/loki/loki` | 250m → 100m | 768Mi → 768Mi | 2Gi → 2560Mi |
+See [kustomization.yaml](kustomization.yaml), [values.yaml](values.yaml) for the configured resources and [the resource policy](../../../../../docs/runbooks/kubernetes-resource-policy.md#2026-10-28-historical-resource-review) for the historical measurements.
 
 ## Backend placement
 

@@ -30,6 +30,8 @@ Keeping these services in one project makes the boundary clear.
 | `netbox` | Source-of-truth app for IPAM, infrastructure inventory, cabling, DNS, and lifecycle documentation; UniFi Network clients are excluded. | Direct PostgreSQL write service, Valkey data, NFS media, and custom image plugins. |
 | `ups-monitoring` | NUT, PeaNUT dashboard, exporter, Grafana dashboard, and alerts. | USB UPS on a specific node, Home Assistant integration, monitoring. |
 
+Additional Fleet bundles in this project include [cloudflare-tunnel-ingress-controller-secrets](apps/cloudflare-tunnel-ingress-controller-secrets/), [netbox-secrets](apps/netbox-secrets/), [netbox-upgrade-backup](apps/netbox-upgrade-backup/).
+
 ## Coupling Patterns
 
 - Home Assistant is the local automation runtime, but some safety workflows are

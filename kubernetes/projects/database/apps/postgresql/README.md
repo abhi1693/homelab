@@ -243,8 +243,6 @@ declared app-side maximum connection demand.
 | `harbor` | `harbor-rw` | chart-managed | 24 | 36 |
 | `netbox` | direct | implicit | n/a | 10 |
 | `wardn_hub` | `wardn-hub-rw` | implicit | 12 | 12 |
-| `wardn_ai` | `wardn-ai-rw` | paused | 0 | 12 |
-| `wardn_license` | `wardn-license-rw` | paused | 0 | 12 |
 | `firefly` | `firefly-iii-rw` | implicit | 4 | 10 |
 | `zitadel` | `zitadel-rw` | 16 | 32 | 32 |
 | `home_assistant` | `home-assistant-rw` | implicit | 10 | 12 |
@@ -256,10 +254,6 @@ producer handoff. The role ceiling does not reserve global PostgreSQL capacity.
 Recheck live global headroom, include authentication connections, and follow
 the [migration maintenance gates](../../../applications/apps/devfeed/migrations.md#maintenance-gates)
 before changing the application schema.
-
-`wardn-ai-rw` is paused at zero instances alongside Wardn AI. Its database and
-role remain retained in the shared cluster. Restoring its single instance
-provides six backend slots.
 
 Jellyfin caps its Npgsql pool at 14 connections. Each session-mode PgBouncer
 replica has 15 backend slots, so either replica can absorb the application's
@@ -449,29 +443,6 @@ CNPG/Fleet; verify all three PVC capacities, in-pod filesystem sizes, replicatio
 and disk alerts after reconciliation. PVCs cannot shrink, so volume expansion
 has no capacity rollback. Retain claims and database records during recovery.
 
-`wardn-license-rw` is operator-paused at zero instances alongside its API and
-console. Its database, role and credentials are retained; its dedicated PDB is
-omitted until the [application resumption procedure](../../../applications/apps/wardn-license-server/README.md#shutdown-state)
-is explicitly requested.
-
-## Resource review — 28 October 2026
-
-Each PostgreSQL instance reserves `2560Mi`, preserving the `5Gi` limit,
-`750m` CPU request, burstable CPU, shared buffers, connection limits, and
-three-instance synchronous topology. The follow-up fourteen-day review measured
-a `2357Mi` per-container working-set peak with no recorded OOM events. Reducing
-the request from `3Gi` releases `1536Mi` across three instances while retaining
-the existing burst allowance. This changes scheduler reservations, not cache
-allocation; CPU remains sized for primary failover.
-
-Existing poolers with sufficient history reserve 96Mi instead of 56Mi because
-observed working-set peaks were 55–77Mi. The busy DevFeed pooler reserves 100m
-CPU; Wardn Hub and Jellyfin poolers reserve 10m and remain CPU-burstable. The
-new commerce pooler is unchanged because its history is too short.
-
-The CNPG operator performs the existing sequential rollout;
-verify 3/3 Ready, streaming replication, archiving, and unchanged PVC identities.
-
 ## Retired app poolers — 28 October 2026
 
 Hyperlocal Kitchen, Launchboard, Wardn AI and Wardn License Server pooler
@@ -495,12 +466,4 @@ When an application lives in another namespace, its local Secret must be updated
 with the same credential during rotation. This established pattern is manually
 coordinated; it is not automatic CNPG secret generation or cross-namespace mounting.
 
-Student 1 NetBox uses retained database and login role `netbox_student1`.
-
-Student 2 NetBox uses retained database and login role `netbox_student2`.
-
-Student 3 NetBox uses retained database and login role `netbox_student3`.
-
-Student 4 NetBox uses retained database and login role `netbox_student4`.
-
-Student 5 NetBox uses retained database and login role `netbox_student5`.
+Student labs 1–5 each have a retained database and matching login role named `netbox_student1` through `netbox_student5`. See the [Training project](../../../training/README.md) for provisioning and isolation.

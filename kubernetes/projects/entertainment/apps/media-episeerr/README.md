@@ -126,17 +126,9 @@ container completed, the startup log reports `Episeerr integrations configured`,
 the Jellyfin Webhook plugin is active, and a test request carries both transient
 Episeerr tags before using the policy for existing series.
 
-## Resource review — 28 October 2026
+## Resource sizing
 
-Values use the 28 October historical review in
-[the resource policy](../../../../../docs/runbooks/kubernetes-resource-policy.md#2026-10-28-historical-resource-review).
-CPU reservations cover measured sustained demand with headroom; existing burst
-policies remain in place. Memory caps preserve the observed fourteen-day peaks
-and extra headroom where OOM records show clipping.
-
-| Container / value path | CPU request | Memory request | Memory limit |
-| --- | --- | --- | --- |
-| `media/episeerr/episeerr` | 25m → 10m | 160Mi → 96Mi | 384Mi → 256Mi |
+See [deployment.yaml](deployment.yaml), [pvc.yaml](pvc.yaml) for the configured resources and [the resource policy](../../../../../docs/runbooks/kubernetes-resource-policy.md#2026-10-28-historical-resource-review) for the historical measurements.
 
 ## 2026-11-12 attachment recovery
 

@@ -549,18 +549,9 @@ the shared `heavy-media` group. Plan placement using explicit CPU/memory
 reservations and storage constraints. The state-backup CronJob waits for the actual qBittorrent Pod through
 its existing affinity rule.
 
-## Resource review — 28 October 2026
+## Resource sizing
 
-Values use the 28 October historical review in
-[the resource policy](../../../../../docs/runbooks/kubernetes-resource-policy.md#2026-10-28-historical-resource-review).
-CPU reservations cover measured sustained demand with headroom; existing burst
-policies remain in place. Memory caps preserve the observed fourteen-day peaks
-and extra headroom where OOM records show clipping.
-
-| Container / value path | CPU request | Memory request | Memory limit |
-| --- | --- | --- | --- |
-| `media/qbittorrent/qbittorrent` | 370m → 250m | 1960Mi → 1960Mi | 2Gi → 3072Mi |
-| `media/qbittorrent-smart-queues/qbittorrent-smart-queues` | 90m → 75m | 62Mi → 64Mi | 144Mi → 144Mi |
+See [bundle manifests](.) for the configured resources and [the resource policy](../../../../../docs/runbooks/kubernetes-resource-policy.md#2026-10-28-historical-resource-review) for the historical measurements.
 
 The 1960MiB qBittorrent memory reservation is retained for large torrent sets
 and reconnect/hash-check bursts. Its higher 3GiB cap covers the previously

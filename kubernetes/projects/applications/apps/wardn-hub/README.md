@@ -223,19 +223,9 @@ Validate these contracts with
 `python3 -m unittest discover -s kubernetes/projects/applications/apps/wardn-hub/tests -v`
 and `python3 scripts/check-renovate-policy.py`.
 
-## Resource review — 28 October 2026
+## Resource sizing
 
-Values use the 28 October historical review in
-[the resource policy](../../../../../docs/runbooks/kubernetes-resource-policy.md#2026-10-28-historical-resource-review).
-CPU reservations cover measured sustained demand with headroom; existing burst
-policies remain in place. Memory caps preserve the observed fourteen-day peaks
-and extra headroom where OOM records show clipping.
-
-| Container / value path | CPU request | Memory request | Memory limit |
-| --- | --- | --- | --- |
-| `wardn/wardn-hub-api/api` | 100m → 25m | 285Mi → 320Mi | 384Mi → 384Mi |
-| `wardn/wardn-hub-frontend/frontend` | 160m → 50m | 320Mi → 384Mi | 320Mi → 512Mi |
-| `wardn/wardn-hub-scoring/scoring` | 20m → 10m | 65Mi → 96Mi | 144Mi → 144Mi |
+See [bundle manifests](.) for the configured resources and [the resource policy](../../../../../docs/runbooks/kubernetes-resource-policy.md#2026-10-28-historical-resource-review) for the historical measurements.
 
 ### Faro retirement
 

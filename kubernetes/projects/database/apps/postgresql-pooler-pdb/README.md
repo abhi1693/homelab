@@ -3,9 +3,4 @@
 This Fleet bundle owns disruption budgets for the listed CNPG poolers in the
 `postgresql` namespace. Each budget selects its pooler by `cnpg.io/poolerName`.
 
-The other pooler budgets retain their existing settings.
-
-Wardn License is also operator-paused. Its dedicated pooler budget is omitted
-while `wardn-license-rw` has zero instances. Restore `minAvailable: 1` with selector
-`cnpg.io/poolerName: postgresql-pooler-wardn-license-rw` together with its two
-pooler instances when the application is explicitly resumed.
+The [retired applications](../../../../../docs/runbooks/2026-10-28-app-retirements.md) have no dedicated pooler or disruption budget. Their database retention is documented in the [PostgreSQL bundle](../postgresql/README.md).

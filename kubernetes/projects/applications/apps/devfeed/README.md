@@ -245,86 +245,15 @@ Topic and source logos use the managed-image pipeline. Keep the bucket CORS
 policy and public response headers compatible with browser canvas exports.
 Validate ordinary and Origin-bearing image responses after storage/CDN changes.
 
-## Resource review — 28 October 2026
-
-The first sizing batch uses fourteen days of workload-owned Prometheus history,
-with recent 24-hour/three-day sustained CPU checked separately from one-minute
-burst peaks. CPU requests for background workers cover observed mean demand
-plus headroom; their uncapped CPU policy permits the measured bursts. Memory
-limits remain above historical working-set peaks, with at least 512Mi for the
-resized analysis workers. Short-lived init-container reservations are preserved.
-
-| Container | CPU request | Memory request | Memory limit |
-| --- | --- | --- | --- |
-| `chimely` | 75m → 25m | 128Mi → 64Mi | 512Mi → 128Mi |
-| `mcp` | 50m → 10m | 128Mi → 128Mi | 512Mi → 256Mi |
-| `partner-api` | 100m → 25m | 256Mi → 256Mi | 1Gi → 512Mi |
-| `article-enrichment-worker` | 500m → 200m | 256Mi → 384Mi | 1Gi → 1Gi |
-| `images-worker` | 350m → 150m | 256Mi → 256Mi | 1Gi → 512Mi |
-| `topic-analysis-worker` | 250m → 100m | 256Mi → 256Mi | 1Gi → 512Mi |
-| `research-verification-worker` | 250m → 100m | 256Mi → 256Mi | 1Gi → 512Mi |
-| `relationships-worker` | 250m → 125m | 256Mi → 256Mi | 1Gi → 512Mi |
-| `source-discovery-worker` | 100m → 100m | 256Mi → 128Mi | 1Gi → 512Mi |
-
-## Resource review — reservation and memory safety batch
-
-Values use the 28 October historical review in
-[the resource policy](../../../../../docs/runbooks/kubernetes-resource-policy.md#2026-10-28-historical-resource-review).
-CPU reservations cover measured sustained demand with headroom; existing burst
-policies remain in place. Memory caps preserve the observed fourteen-day peaks
-and extra headroom where OOM records show clipping.
-
-| Container / value path | CPU request | Memory request | Memory limit |
-| --- | --- | --- | --- |
-| `devfeed/devfeed-admin/admin` | 100m → 25m | 128Mi → 256Mi | 512Mi → 512Mi |
-| `devfeed/devfeed-admin-api/admin-api` | 100m → 25m | 256Mi → 256Mi | 1Gi → 1536Mi |
-| `devfeed/devfeed-partner/partner` | 100m → 25m | 128Mi → 224Mi | 512Mi → 512Mi |
-| `devfeed/devfeed-user-api/user-api` | 100m → 50m | 256Mi → 256Mi | 1Gi → 512Mi |
-| `devfeed/devfeed-worker-ai/ai-worker` | 250m → 200m | 256Mi → 384Mi | 1Gi → 768Mi |
-| `devfeed/devfeed-worker-article-analysis/article-analysis-worker` | 300m → 200m | 256Mi → 640Mi | 1Gi → 1Gi |
-| `devfeed/devfeed-worker-ingestion/ingestion-worker` | 400m → 250m | 256Mi → 384Mi | 1Gi → 1Gi |
-| `devfeed/devfeed-worker-notification/notification-worker` | 400m → 325m | 256Mi → 256Mi | 1Gi → 512Mi |
-| `devfeed/devfeed-worker-source-enrichment/source-enrichment-worker` | 100m → 100m | 256Mi → 160Mi | 1Gi → 768Mi |
-| `devfeed/devfeed-search-indexer/indexer` | 100m → 125m | 256Mi → 192Mi | 1Gi → 512Mi |
-| `devfeed/devfeed-typesense/typesense` | 100m → 50m | 512Mi → 768Mi | 2Gi → 2Gi |
-| `devfeed/sonarqube-mcp-server/server` | 100m → 25m | 256Mi → 320Mi | 768Mi → 768Mi |
-
-## Resource review — sustained demand and burst envelopes
-
-Values use the 28 October historical review in
-[the resource policy](../../../../../docs/runbooks/kubernetes-resource-policy.md#2026-10-28-historical-resource-review).
-CPU reservations cover measured sustained demand with headroom; existing burst
-policies remain in place. Memory caps preserve the observed fourteen-day peaks
-and extra headroom where OOM records show clipping.
-
-| Container / value path | CPU request | Memory request | Memory limit |
-| --- | --- | --- | --- |
-| `devfeed/devfeed-api/api` | 100m → 200m | 256Mi → 320Mi | 1Gi → 768Mi |
-| `devfeed/devfeed-web/web` | 100m → 250m | 128Mi → 384Mi | 512Mi → 512Mi |
-| `devfeed/devfeed-scheduler/scheduler` | 500m → 750m | 256Mi → 1152Mi | 1Gi → 1536Mi |
-| `devfeed/devfeed-codex/codex` | 100m → 150m | 512Mi → 384Mi | 2Gi → 3072Mi |
-| `devfeed/devfeed-codex/log-retention` | 25m → 10m | 64Mi → 32Mi | 128Mi → 128Mi |
-| `devfeed/devfeed-worker-solver/solver-worker` | 100m → 100m | 256Mi → 416Mi | 1Gi → 1Gi |
-| `devfeed/devfeed-probes/probes` | 10m → 10m | 32Mi → 64Mi | 128Mi → 128Mi |
-
-
-### Browser telemetry
+## Browser telemetry
 
 The 0.1.6 applications remove Faro browser collection. DevFeed no longer mounts
 its browser key, sets its runtime flags or advertises a collector endpoint.
 Backend tracing, logs, profiling and application analytics remain enabled.
 
-## Final resource review — 28 October 2026
+## Resource sizing
 
-Values use the 28 October historical review in
-[the resource policy](../../../../../docs/runbooks/kubernetes-resource-policy.md#2026-10-28-historical-resource-review).
-CPU reservations cover measured sustained demand with headroom; existing burst
-policies remain in place. Memory caps preserve the observed fourteen-day peaks
-and extra headroom where OOM records show clipping.
-
-| Container / value path | CPU request | Memory request | Memory limit |
-| --- | --- | --- | --- |
-| `devfeed/devfeed-imgproxy/imgproxy` | 100m → 10m | 256Mi → 96Mi | 512Mi → 256Mi |
+See [bundle manifests](.) for the configured resources and [the resource policy](../../../../../docs/runbooks/kubernetes-resource-policy.md#2026-10-28-historical-resource-review) for the historical measurements.
 
 ## Public probe ownership
 
@@ -377,31 +306,3 @@ pages must be complete before readiness advances; during the October recovery,
 the separate cards-only warmup completed all five sources before these inputs
 were aligned. Historical checkpoints and the original capture boundary remain
 unchanged.
-
-## Priority worker resource review — 30 October 2026
-
-The 30 October review reduced fifteen workers reserving 2,450m CPU and 5,312Mi
-memory to eleven workers reserving 1,950m CPU and 4,000Mi memory. On 31 October,
-the high and default pools were temporarily reduced from four to two replicas
-each. The current seven-worker layout reserves 1,150m CPU and 2,464Mi memory,
-including the unchanged Images and solver consumers:
-
-| Pool | Replicas | CPU request per pod | Memory request per pod | Memory limit |
-| --- | ---: | ---: | ---: | ---: |
-| High | 2 | 200m | 384Mi | 1Gi |
-| Default | 2 | 200m | 384Mi | 1Gi |
-| Low | 1 | 100m | 256Mi | 1Gi |
-| Images | 1 | 150m | 256Mi | 512Mi |
-| Solver | 1 | 100m | 416Mi | 1Gi |
-
-The preceding 24 hours of five-minute samples included active processing before
-quota pacing paused AI. Busy general workers had approximately 0.28–0.41-core
-CPU percentiles; their largest memory 95th percentile was 382Mi and observed
-peak was 506Mi. The 1Gi limits retain peak headroom, while CPU remains uncapped.
-Notification memory stayed below 178Mi at the 95th percentile. Changing routing
-overrides changes the work mix and may require new sizing.
-
-Lower reservations do not establish lower CPU usage or faster inference. After
-rollout, compare useful completions, queue age, working sets, probe failures and
-restarts through representative active processing. Daily quota pacing remains
-an independent admission policy.

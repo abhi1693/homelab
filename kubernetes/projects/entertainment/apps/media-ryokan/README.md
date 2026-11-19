@@ -216,18 +216,9 @@ successfully, expected image identities, the retained source/key metadata and
 healthy anonymous login/assets; no synthetic production credentials or writes
 are used for verification.
 
-## Resource review — 28 October 2026
+## Resource sizing
 
-Values use the 28 October historical review in
-[the resource policy](../../../../../docs/runbooks/kubernetes-resource-policy.md#2026-10-28-historical-resource-review).
-CPU reservations cover measured sustained demand with headroom; existing burst
-policies remain in place. Memory caps preserve the observed fourteen-day peaks
-and extra headroom where OOM records show clipping.
-
-| Container / value path | CPU request | Memory request | Memory limit |
-| --- | --- | --- | --- |
-| `media/ryokan/ryokan` | 75m → 25m | 512Mi → 1152Mi | 2Gi → 2Gi |
-| `media/ryokan/import-reconciler` | 10m → 10m | 32Mi → 96Mi | 256Mi → 256Mi |
+See [deployment.yaml](deployment.yaml), [pvc.yaml](pvc.yaml) for the configured resources and [the resource policy](../../../../../docs/runbooks/kubernetes-resource-policy.md#2026-10-28-historical-resource-review) for the historical measurements.
 
 ## Guarded import-state recovery
 

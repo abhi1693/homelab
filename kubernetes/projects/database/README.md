@@ -29,6 +29,8 @@ PDBs, backups, and monitoring are treated as first-class configuration.
 | `valkey` | Shared Valkey replication and Sentinel. | Queues and caches for apps. |
 | `valkey-networkpolicy` | Restricts Valkey/Sentinel access. | Keeps cache/queue access explicit. |
 
+Additional Fleet bundles in this project include [clickhouse](apps/clickhouse/), [cnpg-operator-registry-secrets](apps/cnpg-operator-registry-secrets/), [postgresql-devfeed-prerequisites](apps/postgresql-devfeed-prerequisites/), [postgresql-wardn-license-prerequisites](apps/postgresql-wardn-license-prerequisites/), [postgresql-zitadel-secrets](apps/postgresql-zitadel-secrets/).
+
 ## PostgreSQL Contract
 
 Applications should connect through their own RW pooler service rather than

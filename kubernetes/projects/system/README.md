@@ -45,6 +45,8 @@ operator lifecycle.
 | `longhorn-fstrim-labeler` | Labels Longhorn PVCs for recurring filesystem trim. | Ensures Helm and StatefulSet-created volumes participate in fstrim. |
 | `longhorn-storage-pools` | Separates control-plane and worker storage. | Routes new PVCs, enforces pool selectors and guards default class retirement. |
 
+Additional Fleet bundles in this project include [cert-manager-local-ca](apps/cert-manager-local-ca/), [external-dns-unifi-secrets](apps/external-dns-unifi-secrets/), [fleet-agent-resources](apps/fleet-agent-resources/), [longhorn-backups](apps/longhorn-backups/), [longhorn-maintenance-policy](apps/longhorn-maintenance-policy/).
+
 ## Observability Coupling
 
 App bundles can add:

@@ -50,17 +50,9 @@ The Fleet bundle and HelmOp fetch the pinned chart directly from its OCI reposit
 They do not depend on the optional Rancher chart-catalog bundle, whose index refresh
 failures must not block solver configuration repairs.
 
-## Resource review — 28 October 2026
+## Resource sizing
 
-Values use the 28 October historical review in
-[the resource policy](../../../../../docs/runbooks/kubernetes-resource-policy.md#2026-10-28-historical-resource-review).
-CPU reservations cover measured sustained demand with headroom; existing burst
-policies remain in place. Memory caps preserve the observed fourteen-day peaks
-and extra headroom where OOM records show clipping.
-
-| Container / value path | CPU request | Memory request | Memory limit |
-| --- | --- | --- | --- |
-| `media/flaresolverr/flaresolverr` | 150m → 200m | 800Mi → 1024Mi | 2Gi → 2560Mi |
+See [kustomization.yaml](kustomization.yaml), [values.yaml](values.yaml) for the configured resources and [the resource policy](../../../../../docs/runbooks/kubernetes-resource-policy.md#2026-10-28-historical-resource-review) for the historical measurements.
 
 ## CPU reservation
 

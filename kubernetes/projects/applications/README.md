@@ -28,7 +28,9 @@ secret contract each app expects.
 | `portfolio` | Public portfolio site. | Cloudflare Tunnel at `abhimanyu-saharan.com`. | Harbor image, runtime config. |
 | `shipyardhq` | Public app with web, worker, image proxy, build job, and media storage. | Cloudflare Tunnel at `shipyardhq.dev` and image hostnames. | PostgreSQL, Valkey, R2, NFS build cache, Harbor image. |
 | `wardn-hub` | Wardn Hub API, frontend, and scoring online; consolidated worker and Codex automation temporarily paused, with resources and data retained. | Cloudflare Tunnel at `hub.wardnai.dev`. | PostgreSQL, OpenTelemetry, NFS build cache, Longhorn Codex state, Harbor image. |
-| `zitadel` | Central identity provider on v4.19.4 for app OIDC/SAML authentication, with signed Login UI cookies and a bounded GitHub registration retry. | Cloudflare Tunnel at `auth.abhimanyu-saharan.com`. | PostgreSQL, SOPS bootstrap secrets, monitoring. |
+| `zitadel` | Central identity provider on v4.20.2 for app OIDC/SAML authentication, with signed Login UI cookies and a bounded GitHub registration retry. | Cloudflare Tunnel at `auth.abhimanyu-saharan.com`. | PostgreSQL, SOPS bootstrap secrets, monitoring. |
+
+Additional Fleet bundles in this project include [devfeed](apps/devfeed/), [renovate](apps/renovate/), [sonarqube-mcp-server](apps/sonarqube-mcp-server/), [wardn-ai](apps/wardn-ai/), [wardn-license-server](apps/wardn-license-server/), [wardn-license-server-prerequisites](apps/wardn-license-server-prerequisites/).
 
 ## Coupling Patterns
 

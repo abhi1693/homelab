@@ -40,11 +40,7 @@ Docker updates are disabled by default and re-enabled only for native
 Dockerfile dependencies or image and OCI-chart names listed in `packageRules`.
 Each existing automated image rule also defines the versioning scheme, allowed
 version range, and branch automerge behavior for that image family.
-Wardn AI image pins are the exception: they use the `git-refs` datasource with
-`currentValue=master` so Renovate can update full commit-SHA image tags that
-Docker tag versioning ignores.
-
-Portfolio, the personal blog, the Wardn AI website, HA Sensors Gateway and Wardn
+Portfolio, the personal blog, HA Sensors Gateway and Wardn
 Hub Scoring track published GHCR images through the Docker datasource and
 explicit enabled package rules. Their GitHub releases
 start image builds, so release metadata alone cannot authorize an image update.
@@ -222,27 +218,6 @@ The policy guard rejects mixed versions, missing digest pins, inconsistent
 component digests and omitted init/hook images across all 14 references. A
 grouped PR alone does not establish that its complete cohort was published.
 Scoring tracks its private repository-owned runtime package independently.
-
-## Wardn License Server cohort updates
-
-License backend and frontend use the Docker datasource in one reviewed group
-with digest pinning and `automerge: false`. Keep the API, console and direct-writer
-migration hook together. Only stable `0.1.x` releases from `0.1.2` are eligible;
-a minor-version change requires a compatibility review.
-
-A GitHub release starts the source repository's image workflow. Final component
-tags appear only after native image checks, and publication across repositories
-is not atomic. A grouped PR can therefore be incomplete while promotion is in
-progress: verify both components, successful release scan/SBOM/smoke gates,
-matching source/version, ARM64 manifests and Harbor digest equality before
-merging. The source repository is private and explicitly disables unsupported
-GitHub artifact attestations; do not claim signed provenance for this cohort.
-The policy guard checks Docker metadata and limits review exceptions to the
-Hub and License groups; other enabled dependencies retain branch automerge.
-The strict License cohort guard rejects mixed versions, missing/invalid digest pins, mismatched backend
-digests, swapped API/frontend containers and omitted/unreviewed references.
-Run `python3 scripts/check-renovate-policy.py` and the app's
-`tests/test_image_cohort.py` regressions before accepting an update.
 
 ## Restore-point writer branch checks
 

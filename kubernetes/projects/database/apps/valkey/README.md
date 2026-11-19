@@ -124,27 +124,8 @@ full synchronization, allocator overhead and AOF rewrite activity. Change memory
 or chart behavior only through a guarded serial rollout with replication and
 Sentinel-quorum checks between members.
 
-## Resource review — 28 October 2026
+## Sizing and Training allocations
 
-Fourteen-day data-container working set peaked at 3104Mi and p99 was 2140Mi;
-recent p95 was 2099Mi. Each data replica now reserves 2560Mi and 100m CPU,
-retaining the 4Gi limit, `maxmemory 3gb`, persistence, Sentinel quorum, and
-`OnDelete` update strategy. Memory requests for Sentinel, exporter, and kubectl
-helpers are 48Mi, 64Mi, and 64Mi respectively, above observed 33Mi/46Mi/54Mi
-peaks. Do not divide the replicated dataset by the replica count.
+Each Valkey replica holds the full dataset. Size each data container for that dataset and verify Sentinel quorum and replication between ordinals during an `OnDelete` rollout. See the [bundle configuration](.) for resource requests and limits.
 
-Applying the new pod template requires the existing replica-first, one-ordinal
-at-a-time break-glass recovery procedure, with replication and Sentinel checks
-between ordinals; publishing the template alone does not resize existing pods.
-
-Training instructor NetBox reserves logical databases **12** (tasks) and **13** (cache). These share the existing Sentinel service and memory budget.
-
-Student 1 NetBox reserves indexes 14 (tasks) and 15 (cache).
-
-Student 2 NetBox reserves indexes 16 (tasks) and 17 (cache).
-
-Student 3 NetBox reserves indexes 18 (tasks) and 19 (cache).
-
-Student 4 NetBox reserves indexes 20 (tasks) and 21 (cache).
-
-Student 5 NetBox reserves indexes 22 (tasks) and 23 (cache).
+The instructor uses logical databases 12/13 for tasks and cache. Students 1–5 use consecutive pairs from 14/15 through 22/23. The [Training configuration](../../../training/README.md) documents provisioning and isolation.

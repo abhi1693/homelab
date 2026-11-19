@@ -85,14 +85,6 @@ Upstream references: [v2 architecture](https://grafana.com/docs/pyroscope/latest
 [metastore persistence](https://grafana.com/docs/pyroscope/latest/reference-pyroscope-v2-architecture/components/metastore/),
 and the [v2.4.0 Raft configuration](https://github.com/grafana/pyroscope/blob/v2.4.0/pkg/metastore/raftnode/node.go).
 
-## Resource review — 28 October 2026
+## Resource sizing
 
-Values use the 28 October historical review in
-[the resource policy](../../../../../docs/runbooks/kubernetes-resource-policy.md#2026-10-28-historical-resource-review).
-CPU reservations cover measured sustained demand with headroom; existing burst
-policies remain in place. Memory caps preserve the observed fourteen-day peaks
-and extra headroom where OOM records show clipping.
-
-| Container / value path | CPU request | Memory request | Memory limit |
-| --- | --- | --- | --- |
-| `cattle-monitoring-system/pyroscope/pyroscope` | 10m → 100m | 128Mi → 224Mi | 256Mi → 256Mi |
+See [deployment.yaml](deployment.yaml), [pvc.yaml](pvc.yaml) for the configured resources and [the resource policy](../../../../../docs/runbooks/kubernetes-resource-policy.md#2026-10-28-historical-resource-review) for the historical measurements.

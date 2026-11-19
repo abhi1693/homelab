@@ -12,7 +12,7 @@ content redaction is applied.
 
 ## Sources and identity
 
-The chart is pinned to `alloy` 1.15.0 and Alloy 1.21.3. The deployment opts
+The chart is pinned to `alloy` 1.16.0 and Alloy 1.21.3. The deployment opts
 into `--stability.level=public-preview` because `otelcol.storage.file` is Public
 Preview in that version. The native YAML OTel engine is not used. Rolling updates
 replace at most one collector per node, and all node taints are tolerated.
@@ -312,19 +312,6 @@ The known canary syslog identifier receives the bounded index value
 journald resolves `_SYSTEMD_UNIT`; the actual original fields remain unchanged.
 Health queries select this stream before parsing JSON, avoiding scans of the
 full retained-OS backfill.
-
-## Resource review — 28 October 2026
-
-Values use the 28 October historical review in
-[the resource policy](../../../../../docs/runbooks/kubernetes-resource-policy.md#2026-10-28-historical-resource-review).
-CPU reservations cover measured sustained demand with headroom. The CPU ceilings
-below supersede the former unlimited burst policy. Memory caps preserve the observed fourteen-day peaks
-and extra headroom where OOM records show clipping.
-
-| Container | CPU request | CPU limit | Memory request | Memory limit |
-| --- | --- | --- | --- | --- |
-| `alloy-node-logs/alloy` | 100m | 250m | 384Mi | 640Mi |
-| `alloy-node-logs/config-reloader` | 5m | 25m | 32Mi | 64Mi |
 
 ## CPU protection
 
