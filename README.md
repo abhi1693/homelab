@@ -1,0 +1,1638 @@
+<div align="center">
+
+<h1>home-lab - an ARM64 Raspberry Pi GitOps homelab</h1>
+<p><em>... managed with
+<a href="infrastructure/ansible/README.md">Ansible</a>,
+<a href="kubernetes/fleet/README.md">Rancher Fleet</a>,
+<a href="kubernetes/projects/applications/apps/renovate/README.md">Renovate</a>
+and <a href=".pre-commit-config.yaml">pre-commit</a></em></p>
+
+<p>
+  <img alt="Ansible bootstrap" src="https://img.shields.io/badge/Ansible-bootstrap-1A1918?style=flat-square&amp;logo=ansible&amp;logoColor=white">
+  <img alt="Rancher Fleet GitOps" src="https://img.shields.io/badge/Rancher%20Fleet-GitOps-0075A8?style=flat-square&amp;logo=rancher&amp;logoColor=white">
+  <img alt="Renovate 44.226.2" src="https://img.shields.io/badge/Renovate-44.226.2-1A1F6C?style=flat-square&amp;logo=renovatebot&amp;logoColor=white">
+</p>
+
+<p>
+  <img alt="Raspberry Pi 5 Model B" src="https://img.shields.io/badge/Raspberry%20Pi-5%20Model%20B-C51A4A?style=flat-square&amp;logo=raspberrypi&amp;logoColor=white">
+  <img alt="K3s v1.36.6+k3s1" src="https://img.shields.io/badge/K3s-v1.36.6%2Bk3s1-326CE5?style=flat-square&amp;logo=k3s&amp;logoColor=white">
+  <img alt="Cilium 1.20.4" src="https://img.shields.io/badge/Cilium-1.20.4-F8C517?style=flat-square&amp;logo=cilium&amp;logoColor=black">
+  <img alt="Rancher 2.15.3" src="https://img.shields.io/badge/Rancher-2.15.3-0075A8?style=flat-square&amp;logo=rancher&amp;logoColor=white">
+  <img alt="Longhorn 1.12.1" src="https://img.shields.io/badge/Longhorn-1.12.1-6D4AFF?style=flat-square">
+  <img alt="NFS CSI 4.13.6" src="https://img.shields.io/badge/NFS%20CSI-4.13.6-326CE5?style=flat-square&amp;logo=kubernetes&amp;logoColor=white">
+</p>
+
+<p>
+  <img alt="9 nodes" src="https://img.shields.io/badge/Nodes-9-555555?style=flat-square">
+  <img alt="36 ARM64 CPU cores" src="https://img.shields.io/badge/CPU-36%20ARM64%20cores-2EA44F?style=flat-square">
+  <img alt="140.3 GiB memory" src="https://img.shields.io/badge/Memory-140.3%20GiB-2EA44F?style=flat-square">
+  <img alt="9 x 500GB NVMe" src="https://img.shields.io/badge/NVMe-9%20x%20500GB-2EA44F?style=flat-square">
+</p>
+
+</div>
+
+An ARM64 Raspberry Pi home lab managed with Ansible, K3s, Cilium, Rancher
+Fleet, Kubernetes manifests, custom container images, and Coder workspaces.
+
+This repository documents the shape of a real self-hosted environment. It is
+both the operating repo for the lab and a reference implementation for running
+small-cluster GitOps on ARM64 hardware. It covers the complete path from bare
+nodes to running applications: host preparation, cluster bootstrap, service
+exposure, storage, databases, observability, application delivery, media
+automation, home automation, and developer workspaces.
+
+The repository is intentionally not a one-command installer. Hardware inventory,
+router configuration, credentials, DNS zones, domain ownership, and other
+site-specific values belong to the operator. The reusable value is the structure:
+how the platform is layered, how responsibilities are separated, and how
+applications are modeled as Git-managed bundles.
+
+## At A Glance
+
+| Area | Current shape |
+| --- | --- |
+| Hardware | Nine ARM64 Raspberry Pi nodes: three K3s servers and six workers. |
+| Kubernetes | K3s `v1.36.6+k3s1` with embedded etcd and a kube-vip API registration VIP. |
+| Bootstrap | Ansible prepares hosts, configures K3s, installs Cilium, Longhorn, Rancher, and Fleet. |
+| GitOps | Rancher Fleet reconciles one GitRepo per major project boundary. |
+| Networking | Cilium `1.20.4` provides CNI, kube-proxy replacement, and NetworkPolicy; MetalLB `0.16.2` provides Layer 2 service VIPs. |
+| Ingress | Traefik handles internal `*.home` ingress; Cloudflare Tunnel handles selected public ingress, including a capability-scoped Home Assistant mobile sensor gateway. |
+| Storage | Longhorn is the default block-storage layer; selected file workloads use retained, per-PVC directories on NAS-backed NFS CSI storage. |
+| Data services | CloudNativePG PostgreSQL and Valkey Sentinel provide shared app data dependencies. |
+| Registry | Harbor acts as the local registry and proxy/cache for external image registries. |
+| Secrets | SOPS/age covers Git-managed secrets; selected runtime secrets stay manually created. |
+| Observability | Upstream kube-prometheus-stack with Rancher dashboard integration, two-replica Thanos Query, Grafana, Loki with 14-day log retention, Tempo, Pyroscope, two-tier HA OpenTelemetry, and hardware exporters. |
+| Workspaces | Coder templates provide ARM64 Node.js, Python, NetBox, and Ubuntu Desktop environments. |
+
+The hourly [Longhorn trim labeler](kubernetes/projects/system/apps/longhorn-fstrim-labeler/README.md)
+enrolls bound Longhorn filesystem PVCs across all StorageClasses in daily trim,
+while preserving explicit opt-outs. NAS filesystem trim must be managed on the NAS.
+
+## Hardware Details
+
+All nine nodes use Ubuntu Server 26.04.1 with Canonical's packaged raspi
+kernel, native BTF and 4 KiB pages. Ansible owns Ubuntu bootstrap, persistent
+NTP/sudo/source policy, vendor A/B boot checks and host storage health.
+Host preparation removes prohibited `rpi-clone` tools and standard home
+checkouts; [host validation](infrastructure/ansible/roles/os_prep/README.md#prohibited-cloning-tools)
+flags their return.
+
+Application placement uses architecture, node roles and replica-spreading rules
+without hostname-specific preferences or exclusions. USB-attached CUPS/NUT retain their hardware placement constraints.
+
+User-facing application web, API and image services run at most two replicas.
+Singleton and paused workloads retain their lower replica counts. Background
+workers and infrastructure services use their independently sized replica counts.
+DevFeed's high and default worker pools temporarily run two consumers each.
+
+The Kubernetes node pool is intentionally homogeneous: nine Raspberry Pi 5 Model
+B systems with local NVMe storage and wired Ethernet. Serial numbers, MAC
+addresses, cabling, procurement, and lifecycle metadata belong in NetBox or
+private inventory rather than the public README.
+
+| Node | Board | CPU | Memory | Local storage | Network |
+| --- | --- | --- | --- | --- | --- |
+| `k8s-rpi1` | Raspberry Pi 5 Model B Rev 1.1 | 4-core ARM64 | 15.6 GiB | WD Green SN350 500GB NVMe, ext4 root, Longhorn data path | 1 GbE |
+| `k8s-rpi2` | Raspberry Pi 5 Model B Rev 1.1 | 4-core ARM64 | 15.6 GiB | WD Green SN350 500GB NVMe, ext4 root, Longhorn data path | 1 GbE |
+| `k8s-rpi3` | Raspberry Pi 5 Model B Rev 1.1 | 4-core ARM64 | 15.6 GiB | WD Green SN350 500GB NVMe, ext4 root, Longhorn data path | 1 GbE |
+| `k8s-rpi4` | Raspberry Pi 5 Model B Rev 1.1 | 4-core ARM64 | 15.6 GiB | WD Green SN350 500GB NVMe, ext4 root, Longhorn data path | 1 GbE |
+| `k8s-rpi5` | Raspberry Pi 5 Model B Rev 1.1 | 4-core ARM64 | 15.6 GiB | WD Blue SN5100 500GB NVMe, ext4 root, Longhorn data path | 1 GbE |
+| `k8s-rpi6` | Raspberry Pi 5 Model B Rev 1.1 | 4-core ARM64 | 15.6 GiB | WD Blue SN5100 500GB NVMe, ext4 root, Longhorn data path | 1 GbE |
+| `k8s-rpi7` | Raspberry Pi 5 Model B Rev 1.1 | 4-core ARM64 | 15.6 GiB | WD Blue SN5100 500GB NVMe, ext4 root, Longhorn data path | 1 GbE |
+| `k8s-rpi8` | Raspberry Pi 5 Model B Rev 1.1 | 4-core ARM64 | 15.6 GiB | WD Blue SN5100 500GB NVMe, ext4 root, Longhorn data path | 1 GbE |
+| `k8s-rpi9` | Raspberry Pi 5 Model B Rev 1.1 | 4-core ARM64 | 15.6 GiB | WD Blue SN5100 500GB NVMe, ext4 root, Longhorn data path | 1 GbE |
+
+The final worker, `k8s-rpi9` (`worker-6`), joins through the
+[single-worker onboarding workflow](infrastructure/ansible/README.md#final-worker-k8s-rpi9).
+Memory totals reflect the live Ubuntu kernel; per-node figures are rounded.
+
+Aggregate hardware capacity:
+
+| Resource | Capacity |
+| --- | --- |
+| CPU | 36 ARM64 cores across nine nodes. |
+| Memory | 140.3 GiB reported total memory across nine nodes. |
+| Local NVMe | 9 x 500GB NVMe devices, about 4.1 TiB usable before Longhorn replication and filesystem overhead. |
+
+## External Dependencies
+
+The lab is self-hosted where it matters operationally, but it still relies on a
+small set of external systems for source control, public ingress, certificates,
+and selected application integrations.
+
+| Dependency | Used for | Git-managed surface |
+| --- | --- | --- |
+| GitHub | Repository hosting, image automation, GHCR image sources, app webhooks. | Workflows, manifests, Renovate metadata, Harbor proxy paths. |
+| Cloudflare | Public tunnel ingress, DNS automation for public routes, DNS01 certificate solving, R2-backed app storage. | Tunnel ingress class, cert-manager issuer configuration, app secret contracts. |
+| Let's Encrypt | Public TLS certificates through cert-manager ACME. | cert-manager ClusterIssuer settings. |
+| UniFi gateway | LAN routing, internal DNS, mDNS reflection, and scoped cross-VLAN player control. | ExternalDNS UniFi app plus VLAN and firewall notes; Kubernetes VIPs use ordinary connected-VLAN routing. |
+| NAS | NFS exports for media plus retained per-PVC shared application storage. | Static media PVs, the `nfs-shared-retain` StorageClass, application claims, and storage runbooks. |
+| Network time | Distribution-managed NTP/NTS sources keep node clocks synchronized. | Ansible preserves the time client; K3s starts require bounded Chrony synchronization before server/agent startup. |
+| External registries | Upstream images from Docker Hub, GHCR, OCI registries, and vendor registries. | Harbor proxy/cache paths and Renovate update comments. |
+| App SaaS APIs | App-specific integrations such as GitHub, Clerk, Sanity, payment APIs, and similar services. | Per-app manifests and README secret contracts. |
+
+## Common Commands
+
+Install and run the repository validation hooks before committing. The Linux
+bootstrap uses `uv` for the pinned Python tools, installs checksum-verified
+validator binaries, and configures the Git hook. The hooks operate only on
+repository files and do not mutate the live cluster.
+
+```sh
+scripts/setup-pre-commit.sh
+pre-commit run --all-files
+```
+
+The bootstrap requires `uv`, Terraform, ShellCheck, `curl`, and standard archive
+tools. It installs the remaining pinned tools in
+`${UV_TOOL_BIN_DIR:-$HOME/.local/bin}`.
+
+Run narrower validation from the subsystem you are changing when needed.
+
+`scripts/run-pre-commit-validation.sh kubernetes-tests` runs app regressions from
+Kubernetes project and Fleet bundle `tests` directories, including configuration
+initialization across container and node restarts.
+
+Ansible bootstrap checks:
+
+```sh
+cd infrastructure/ansible
+ansible-galaxy collection install -r collections/requirements.yml
+ansible-playbook --syntax-check playbooks/site.yml
+ansible-playbook playbooks/k3s_server.yml -e k3s_server_entrypoint=validation
+```
+
+Node preparation enables and validates NTP before package and K3s work. The
+[time-only Ansible entrypoints](infrastructure/ansible/roles/os_prep/README.md#network-time-on-all-nodes)
+converge all nodes without OS upgrades, forced clock steps or reboots, preserving
+the distribution's chrony/NTS or systemd-timesyncd configuration. The Home Lab Chrony policy also installs a [bounded K3s startup gate](infrastructure/ansible/roles/os_prep/README.md#k3s-startup-waits-for-chrony) without restarting running nodes.
+
+All nine nodes have a [remote recovery policy](infrastructure/ansible/roles/os_prep/README.md#remote-node-recovery-and-kernel-evidence):
+critical kernel forwarding to independent LAN peers and monitored evidence
+collection. The ineffective PID 1 hardware-watchdog policy has been retired.
+The serial Ansible workflow needs no console access or planned reboot; normal logs continue through Alloy and Loki.
+rpi7 also has an [opt-in macb TX-stall mitigation](infrastructure/ansible/roles/os_prep/README.md#macb-network-tx-stall-canary),
+with persisted offload settings and minute NIC evidence. It is a canary, pending
+sustained network-stability observation.
+The [kernel canary and control-plane extension](docs/runbooks/macb-kernel-canary.md) use the kernel-only `os_kernel_update.yml` Ansible workflow with serial cluster recovery gates to test Ubuntu's MACB TX-timeout recovery.
+The [Pi recovery receiver](kubernetes/projects/system/apps/pi-recovery/README.md)
+checks alerts against node, switch and directional traffic evidence before a
+bounded PoE power cycle, with a durable interlock and cooldowns.
+It checks newly firing alerts immediately and can use the reviewed node-to-port
+mapping when a silent NIC's learned MAC entry has aged out; the complete stall
+pattern and all other safety checks remain required.
+Receiver updates are independent of monitoring DaemonSet readiness so a node
+outage cannot block deployment of recovery fixes.
+The receiver's local Helm chart bootstraps a retained recovery ledger; normal
+upgrades leave its runtime state and action history untouched.
+Application code and tests live in [Pi Recovery](https://github.com/abhi1693/pi-recovery).
+Fleet deploys its ARM64-only `v0.0.7` release by immutable image digest, with
+control-plane priority, an exact 1020/1023 kernel allowlist, and a configurable five-minute default cooldown.
+A failed worker recovery can yield to a control-plane recovery after Lease
+expiry while retaining the worker failure for review and blocking worker retries.
+Active, ambiguous and failed control-plane actions remain globally interlocked.
+Historical overload requires three minutes of fresh silent-transmit evidence;
+recent overload and missing evidence continue to block recovery.
+
+Use the [rolling OS update workflow](infrastructure/ansible/roles/os_prep/README.md#rolling-os-updates)
+for HTTPS Ubuntu sources, verified package downloads, worker canaries, serial
+Ubuntu vendor kernel upgrades, ordering around database primaries,
+and bounded recovery after each reboot.
+Persistent package and CA trust baselines are checked during routine validation.
+The bounded [`os_safe_packages.yml`](infrastructure/ansible/playbooks/os_safe_packages.yml)
+workflow applies reviewed library and diagnostic-tool patches serially without
+rebooting or upgrading service/kernel packages.
+
+Monitoring configuration updates can continue while a deployed NFS bundle has
+unhealthy node agents, keeping alert changes available during node recovery.
+
+Upgrade applications one at a time through Git and Fleet. Capture workload,
+database/storage, Fleet, and public-route health first. For first-party apps,
+merge validated source changes and publish the native ARM64 patch image through
+CI before changing its GitOps pin; verify the scan, SBOM, provenance, tag, and
+digest. Image update automation must track published containers rather than
+the GitHub release event that starts their build.
+The [application release runbook](docs/runbooks/application-release-upgrades.md)
+covers runner capacity, GHCR package ownership and Actions access, immutable
+release failures, coupled image cohorts and live acceptance checks.
+
+Blog runtime credential changes follow a [staged GitOps cutover](docs/runbooks/personal-blog-credential-cutover.md):
+encrypted provider-response recovery, Secret materialization before the normal
+image/revision rollout, private Pod environment proof, and exact old-key retirement.
+Verify privileged Sanity recovery access before rotating the required preview
+token.
+
+Keep paused replicas and suspended jobs paused. Wait for matching Fleet desired
+and applied bundle IDs, healthy replacement pods, the expected runtime/image,
+and live application checks before moving to the next app. Record compatibility
+holds and unavailable vendor fixes rather than bypassing validation. The
+[Portfolio workflow](kubernetes/projects/applications/apps/portfolio/README.md#upgrades)
+shows the checks for a stateless public app; stateful apps also require their
+documented database migrations and backup/restore gates.
+
+Rancher chart upgrades have a [scheduling preflight](infrastructure/ansible/README.md)
+that blocks an unschedulable surge while the three replicas require separate
+control-plane nodes.
+
+Kubernetes bundle dry run:
+
+```sh
+kubectl apply --dry-run=server -f kubernetes/projects/<project>/apps/<app>/
+```
+
+NetBox workload catalog validation:
+
+```sh
+python -m pip install --requirement .github/requirements/workload-catalog.txt
+python scripts/validate-workload-catalog.py
+python -m unittest discover --start-directory .github/tests --pattern test_workload_catalog.py -v
+```
+
+Catalog CI checks every project app-directory change in pull requests and
+`master`/`renovate/**` pushes. New apps need a catalog or reviewed classification
+before merge. Retained backup PVCs belong in their owning application catalogs;
+completed destination-validation Jobs remain component configuration.
+Catalog inventory follows tracked and staged paths; unrelated untracked work
+does not become part of the repository catalog.
+
+Coder template checks:
+
+```sh
+terraform -chdir=coder/templates/python-3-12 fmt -check
+terraform -chdir=coder/templates/python-3-12 init -backend=false
+terraform -chdir=coder/templates/python-3-12 validate
+```
+
+README version badge sync:
+
+```sh
+scripts/sync-readme-versions.py --check
+scripts/sync-readme-versions.py --update
+```
+
+## Table of Contents
+
+- [At A Glance](#at-a-glance)
+- [Hardware Details](#hardware-details)
+- [External Dependencies](#external-dependencies)
+- [Common Commands](#common-commands)
+- [Why This Repository Exists](#why-this-repository-exists)
+- [Design Goals](#design-goals)
+- [Topology](#topology)
+- [Traffic Model](#traffic-model)
+- [North-South Traffic](#north-south-traffic)
+- [East-West Traffic](#east-west-traffic)
+- [Why Cilium](#why-cilium)
+- [Layer 2 LoadBalancer VIPs](#layer-2-loadbalancer-vips)
+- [Repository Architecture](#repository-architecture)
+- [Bootstrap Architecture](#bootstrap-architecture)
+- [GitOps Architecture](#gitops-architecture)
+- [Shared Platform Services](#shared-platform-services)
+- [Self-Hosted Applications](#self-hosted-applications)
+- [How Applications Are Coupled](#how-applications-are-coupled)
+- [Storage Model](#storage-model)
+- [Image and Registry Model](#image-and-registry-model)
+- [Observability Model](#observability-model)
+- [Developer Workspaces](#developer-workspaces)
+- [Operational Workflow](#operational-workflow)
+- [Validation](#validation)
+- [Secrets and Local Configuration](#secrets-and-local-configuration)
+- [Benefits](#benefits)
+- [Tradeoffs](#tradeoffs)
+- [Documentation Map](#documentation-map)
+- [Conventions](#conventions)
+
+## Why This Repository Exists
+
+Most homelab examples stop at a list of services or a collection of manifests.
+This repository is meant to show the connective tissue:
+
+- how nodes become a K3s cluster;
+- how the Kubernetes API remains reachable during bootstrap;
+- how Cilium provides pod networking and NetworkPolicy while MetalLB provides
+  LAN service VIP allocation and Layer 2 advertisement;
+- how Rancher Fleet turns app directories into independently reconciled GitOps
+  bundles;
+- how shared services such as PostgreSQL, Valkey, Harbor, Longhorn, Traefik,
+  monitoring, and SOPS-backed secrets support the application layer;
+- how public, internal, and in-cluster traffic take different paths;
+- how ARM64 constraints affect chart selection, image building, storage, and
+  scheduling choices.
+
+The repo is useful if you want to understand how to operate a small Kubernetes
+environment without flattening everything into one giant Helm release or one
+manual cluster. It is also useful as a pattern library: the manifests show how
+apps are split into namespaces, network policies, ingress, storage, secrets,
+monitoring, and dependency bundles.
+
+## Design Goals
+
+The lab is built around a few explicit goals.
+
+| Goal | What it means in this repo |
+| --- | --- |
+| Git as the source of truth | Intended cluster state lives in Git and is reconciled by Fleet. |
+| Reproducible bootstrap | Ansible owns host prep, K3s configuration, platform add-ons, and validation. |
+| Small-cluster pragmatism | The design accepts ARM64 and Raspberry Pi limits instead of pretending this is a cloud region. |
+| Clear blast-radius boundaries | Rancher projects and app directories separate application, database, media, automation, and system concerns. |
+| Explicit dependencies | Apps declare their database, cache, storage, ingress, image, secret, and monitoring assumptions in nearby files. |
+| Internal-first operations | Most admin surfaces are internal-only; public exposure is deliberate and narrow. |
+| Learnable layout | Each app bundle is readable without needing a separate deployment system or hidden generator. |
+
+## Topology
+
+The physical cluster is an ARM64 Raspberry Pi K3s environment. The logical
+topology has two control planes:
+
+- Ansible performs the bootstrap.
+- Rancher Fleet reconciles post-bootstrap state from Git.
+
+```mermaid
+flowchart TD
+  operator["Operator workstation"]
+  repo["Git repository<br/>Ansible, Kubernetes bundles, docs, images, templates"]
+
+  subgraph bootstrap["Bootstrap control plane"]
+    ansible["Ansible"]
+    site["site.yml"]
+    roles["Role entrypoints<br/>main / validation / reset"]
+  end
+
+  subgraph nodes["ARM64 node pool"]
+    server1["K3s server"]
+    server2["K3s server"]
+    server3["K3s server"]
+    workers["Optional worker nodes"]
+  end
+
+  subgraph platform["Cluster platform"]
+    k3s["K3s"]
+    kubevip["kube-vip<br/>API registration VIP"]
+    cilium["Cilium<br/>CNI and policy"]
+    metallb["MetalLB<br/>Layer 2 service VIPs"]
+    traefik["Traefik<br/>internal ingress"]
+    longhorn["Longhorn<br/>block storage"]
+    nfscsi["NFS CSI<br/>NAS-backed shared storage"]
+    rancher["Rancher"]
+    fleet["Rancher Fleet"]
+  end
+
+  subgraph shared["Shared services"]
+    postgres["CloudNativePG PostgreSQL"]
+    valkey["Valkey Sentinel"]
+    harbor["Harbor registry"]
+    monitoring["Upstream kube-prometheus-stack<br/>Prometheus, Thanos Query, Grafana, Alertmanager"]
+    telemetry["Loki, Tempo, Pyroscope<br/>HA OpenTelemetry gateways and processors"]
+    secrets["SOPS Secrets Operator"]
+  end
+
+  subgraph apps["Project workloads"]
+    appProject["Applications"]
+    dbProject["Database"]
+    mediaProject["Entertainment"]
+    homeProject["Home automation"]
+    systemProject["System"]
+  end
+
+  operator --> repo
+  repo --> ansible
+  ansible --> site
+  site --> roles
+  roles --> server1
+  roles --> server2
+  roles --> server3
+  roles --> workers
+
+  server1 --> k3s
+  server2 --> k3s
+  server3 --> k3s
+  k3s --> kubevip
+  k3s --> cilium
+  k3s --> metallb
+  k3s --> traefik
+  k3s --> longhorn
+  k3s --> nfscsi
+  k3s --> rancher
+  rancher --> fleet
+
+  repo --> fleet
+  fleet --> appProject
+  fleet --> dbProject
+  fleet --> mediaProject
+  fleet --> homeProject
+  fleet --> systemProject
+
+  dbProject --> postgres
+  dbProject --> valkey
+  appProject --> harbor
+  systemProject --> monitoring
+  systemProject --> telemetry
+  systemProject --> secrets
+
+  appProject --> postgres
+  appProject --> valkey
+  mediaProject --> postgres
+  mediaProject --> valkey
+  homeProject --> postgres
+  homeProject --> valkey
+```
+
+The three K3s servers carry the standard
+`node-role.kubernetes.io/control-plane=true` label and the declarative
+`CriticalAddonsOnly=true:NoExecute` taint. Platform controllers and
+observability backends select that label and tolerate the taint. Node-local
+network, storage, and exporter DaemonSets tolerate it without being pinned.
+Ordinary application workloads have no critical toleration, so they schedule
+on the six untainted workers without a custom node-pool label.
+
+## Traffic Model
+
+The cluster has two very different traffic paths.
+
+- **North-south traffic** enters or leaves the cluster. Examples: a browser
+  hitting an app, a public Cloudflare Tunnel request, a LAN client reaching
+  `*.home`, image pulls from registries, app egress to APIs, DNS updates, and
+  Layer 2 service VIP advertisements on the cluster VLAN.
+- **East-west traffic** stays inside the cluster. Examples: app pods reaching
+  PostgreSQL poolers, Valkey Sentinel, service-to-service HTTP, Prometheus
+  scrapes, OpenTelemetry export, and media apps sharing storage.
+
+The repo models these paths separately because they have different reliability
+and security needs. North-south traffic is about controlled exposure. East-west
+traffic is about least-privilege service communication and predictable shared
+dependencies.
+
+```mermaid
+flowchart LR
+  subgraph outside["Outside cluster"]
+    internet["Internet clients"]
+    cloudflare["Cloudflare Tunnel"]
+    lan["LAN clients"]
+    gateway["UniFi gateway<br/>connected VLAN routing"]
+  end
+
+  subgraph edge["Cluster edge"]
+    speakers["MetalLB Layer 2 speakers"]
+    lbipam["MetalLB IP address pools"]
+    traefik["Traefik LoadBalancer VIP"]
+    appVIPs["App LoadBalancer VIP pool"]
+  end
+
+  subgraph cluster["Kubernetes cluster"]
+    ingress["Ingress resources"]
+    services["ClusterIP Services"]
+    policies["NetworkPolicies / Cilium policies"]
+    pods["Application pods"]
+    postgres["PostgreSQL poolers"]
+    valkey["Valkey Sentinel"]
+    monitoring["Prometheus / OTLP / logs / traces"]
+  end
+
+  internet --> cloudflare
+  cloudflare --> ingress
+  lan --> gateway
+  gateway --> traefik
+  gateway --> appVIPs
+  lbipam --> speakers
+  speakers --> traefik
+  speakers --> appVIPs
+  appVIPs --> services
+  traefik --> ingress
+  ingress --> services
+  services --> policies
+  policies --> pods
+  pods --> postgres
+  pods --> valkey
+  pods --> monitoring
+```
+
+## North-South Traffic
+
+North-south traffic is handled through a small number of controlled entry
+points.
+
+### Internal LAN ingress
+
+Internal web apps use Traefik and `Ingress` resources. Traefik runs in
+`kube-system` as the bundled K3s ingress controller, but the repo overrides its
+configuration through a `HelmChartConfig` generated by Ansible. The important
+choices are:
+
+- `type: LoadBalancer`;
+- an explicit MetalLB address-pool annotation;
+- the dedicated `192.168.3.3` Traefik LoadBalancer IP;
+- `externalTrafficPolicy: Local`;
+- multiple Traefik replicas;
+- pod anti-affinity and topology spread.
+
+`externalTrafficPolicy: Local` matters because ingress traffic should land on a
+node that actually has a local Traefik endpoint. That preserves client source
+IP behavior and avoids an unnecessary cross-node service hop after traffic has
+already reached the cluster.
+
+### Public ingress
+
+Public web apps are generally exposed through the Cloudflare Tunnel ingress
+controller rather than by opening the home network directly. That pattern keeps
+public HTTPS termination and edge protection outside the home gateway while the
+in-cluster app still receives normal Kubernetes service traffic.
+
+Tunnel connectors use required hostname anti-affinity scoped to each rollout
+revision, preserving node separation while allowing rolling image updates.
+The [controller runbook](kubernetes/projects/home-automation/apps/cloudflare-tunnel-ingress-controller/README.md)
+documents connector scheduling and upgrade validation.
+
+Examples include the portfolio, blog, ShipyardHQ, Wardn AI website, Wardn Hub,
+and Wardn License Server. The app bundle usually owns:
+
+- namespace and labels;
+- deployment and service;
+- public ingress;
+- ConfigMap for non-secret runtime settings;
+- SOPS-backed or manually managed Secret for credentials;
+- image pull secret reference;
+- network policy;
+- optional jobs, workers, monitoring, and storage.
+
+### Direct LoadBalancer services
+
+Some workloads need a service VIP outside Traefik. qBittorrent is the clearest
+example because torrent traffic uses TCP/UDP peer ports rather than normal HTTP
+ingress. Those services request fixed addresses from the MetalLB app pool and
+are advertised to the LAN by ARP. qBittorrent's static-IP WAN exposure is a
+router port forward for TCP/UDP `53181` to `192.168.3.16` only; the WebUI/API
+stays on LAN/VPN paths.
+
+[CUPS](kubernetes/projects/home-automation/apps/cups/README.md) shares the USB
+HP Deskjet 2510 on `k8s-rpi1` through LAN-only IPP at
+`ipp://printer.home:631/printers/hp-deskjet-2510`, with the CUPS page at
+`http://printer.home`. ExternalDNS maps the Service to `192.168.3.19`.
+Administration at `https://printer.home:631/admin/` requires the dedicated
+`printadmin` login, supplied by a SOPS-encrypted Secret, from a trusted LAN.
+Rendering uses a private, ephemeral `/tmp/cups-tmp` volume so Ghostscript can
+create scratch files under the node's enforced AppArmor profile.
+Its Longhorn state and fixed
+Service address survive a planned move to another Pi; update the hostname
+selector in Git when moving the cable. Clients are added manually; automatic
+AirPrint discovery is not included.
+
+### Egress
+
+Application egress is deliberately app-specific:
+
+- media indexer traffic goes direct by default and may use FlareSolverr for
+  browser-challenge handling;
+- ExternalDNS talks to the UniFi DNS provider webhook;
+- apps call public APIs such as GitHub, Clerk, Sanity, Cloudflare, or payment
+  and finance integrations;
+- image pulls use Harbor proxy/cache projects where possible.
+
+NetworkPolicy files make those assumptions visible near each app.
+
+## East-West Traffic
+
+East-west traffic is the majority of cluster traffic. It is where most of the
+coupling lives.
+
+Common east-west paths:
+
+| Source | Destination | Why |
+| --- | --- | --- |
+| Web apps | PostgreSQL poolers | Application persistence. |
+| Web apps and workers | Valkey Sentinel | Queues, caches, BullMQ, and transient state. |
+| Traefik | App services | Internal HTTP ingress. |
+| Prometheus | ServiceMonitors and exporters | Metrics scraping. |
+| Apps | OpenTelemetry Collector | OTLP metrics and traces. |
+| Grafana | Thanos Query, Loki, Tempo, Pyroscope | Observability queries. |
+| Media apps | Shared media PVCs | Downloads, imports, metadata, and serving. |
+| Fleet | Git repositories | Desired state sync. |
+| Renovate | Git repositories and image registries | Container image update commits. |
+
+The repo treats these paths as first-class architecture. Database apps have
+poolers and connection budgets. Media apps separate downloads from final media
+storage. Monitoring apps expose ServiceMonitors and PrometheusRules. Network
+policies describe who can talk to what.
+
+This is why app directories include more than Deployments. A useful app bundle
+needs the deployment plus its service, ingress, PVC, policy, runtime config,
+secrets contract, monitoring, and dependency notes.
+
+## Why Cilium
+
+Cilium is used because it consolidates several cluster networking needs into
+one system:
+
+- Kubernetes CNI for pod networking;
+- NetworkPolicy enforcement;
+- Hubble visibility for network flow troubleshooting;
+- ARM64-friendly operation on a small K3s cluster.
+
+MetalLB deliberately owns LAN service exposure separately. That adds a small
+component boundary while keeping Kubernetes VIP ownership inside the cluster
+and independent of WAN state. Cilium remains the pod dataplane and policy
+engine.
+
+The Ansible Cilium role installs the Cilium CLI, waits for the local K3s API,
+and bootstraps Cilium and bundled Traefik. After the
+[Cilium Fleet bundle](kubernetes/projects/system/apps/cilium/README.md) takes
+ownership, the role checks the runtime without upgrading it through the CLI.
+Runtime validation queries the deployed agents and Traefik API resources; it
+does not depend on the host Cilium CLI or historical bootstrap manifest files.
+Fleet preserves the existing release, cluster identity and VXLAN routing mode;
+configuration changes roll agents one node at a time.
+For a CLI-only update, run `playbooks/cilium.yml -e cilium_entrypoint=cli` from
+`infrastructure/ansible/`; this entrypoint changes the CLI on the bootstrap
+server without rendering values or touching the Cilium dataplane.
+
+Cilium runs **1.20.4** after the authorized patch upgrade. All nine
+nodes use Canonical's vendor-maintained BTF-enabled raspi kernel. Native BTF
+compatibility checks stay in the Cilium role; no custom kernel packages or
+detached metadata are built, deployed or used. Longhorn's PDB and evacuation
+protections remain in the [maintenance policy](kubernetes/projects/system/apps/longhorn-maintenance-policy/README.md).
+Bootstrap and
+read-only role validation share a guard that rejects **1.20.2 and later** when
+any node lacks `/sys/kernel/btf/vmlinux`; newer patch or minor versions cannot
+skip that guard. BTF-less hosts remain held at 1.20.1 until an upstream
+compatibility fix is verified against their actual kernels. The normal Ansible validation hook runs the
+[role's local version-boundary fixtures](infrastructure/ansible/roles/cilium/README.md)
+without contacting cluster hosts.
+
+## Layer 2 LoadBalancer VIPs
+
+The cluster uses MetalLB address pools and Layer 2 advertisements for service
+exposure on the LAN.
+
+The model is:
+
+1. A Service explicitly requests an address from a declared MetalLB pool.
+2. MetalLB selects an eligible speaker for the VIP.
+3. That node answers ARP for the VIP on its physical `eth0` interface.
+4. The UniFi gateway uses ordinary connected-VLAN routing.
+5. LAN clients reach the VIP through ordinary connected-VLAN routing,
+   independent of WAN state.
+
+There are two service exposure classes:
+
+| VIP type | Purpose |
+| --- | --- |
+| Dedicated Traefik VIP | Stable ingress address for `*.home` HTTP services. |
+| App LoadBalancer pool | Small pool for non-HTTP or app-specific LoadBalancer services. |
+
+Network anchors:
+
+| Purpose | Address or range | Owner |
+| --- | --- | --- |
+| K3s API registration VIP | `192.168.3.2` | kube-vip |
+| Internal Traefik LoadBalancer VIP | `192.168.3.3` | MetalLB `ingress-services` pool |
+| App LoadBalancer service pool | `192.168.3.16-192.168.3.23` | MetalLB `app-services` pool |
+| Cluster VLAN gateway | `192.168.3.1` | UniFi gateway |
+
+The address pools distinguish Traefik from other services:
+
+- Traefik gets the dedicated ingress VIP.
+- App-specific LoadBalancer services request addresses from the app pool.
+- Automatic allocation is disabled, so unrelated Services cannot consume a LAN
+  VIP silently.
+
+This keeps service exposure explicit. A normal ClusterIP service stays internal.
+An app only becomes LAN-routable when it asks for a LoadBalancer address from
+the MetalLB pool.
+
+`kube-vip` has a different job: it supports the Kubernetes API registration VIP
+used by K3s servers and agents. Each host-networked kube-vip replica uses the
+K3s API on its own control-plane node, so leader election does not depend on the
+VIP or one physical server. MetalLB handles application service VIPs after the
+network stack is running; kube-vip helps the cluster form and keep the API
+endpoint stable.
+
+The [kube-vip role](infrastructure/ansible/roles/kube_vip/README.md) pins
+`v1.3.1` for the control plane only. Its one-manager-at-a-time rollout is applied
+through the dedicated Ansible playbook and checked with authenticated API
+probes through the registration VIP.
+
+## Repository Architecture
+
+The repo is divided by responsibility rather than by tool alone.
+
+| Area | Path | Responsibility |
+| --- | --- | --- |
+| Bootstrap | `infrastructure/ansible/` | Prepare hosts, install K3s, Cilium, Rancher, Longhorn, Fleet, and validation. |
+| Kubernetes platform | `kubernetes/fleet/` and `kubernetes/projects/system/` | Fleet GitRepos, system controllers, monitoring, DNS, backup, compliance, logging, tracing. |
+| Workload projects | `kubernetes/projects/<project>/apps/<app>/` | App bundles grouped by Rancher project. |
+| Custom images | `kubernetes/images/` | Dockerfiles, patches, plugin lists, and image-specific documentation. |
+| Developer workspaces | `coder/templates/` | Coder Terraform templates and shared workspace image layers. |
+| Runbooks and ADRs | `docs/` | Operational procedures and design decisions that need more context than a manifest. |
+| Scripts | `scripts/` | Small utilities used by operators or migration workflows. |
+
+The main architectural rule is locality: files that explain or operate an app
+should live next to the app. For example, an application directory can contain
+its Deployment, Service, Ingress, NetworkPolicy, Fleet metadata, values,
+CronJobs, PVCs, monitoring, and README. That makes the bundle reviewable as a
+unit.
+
+## Bootstrap Architecture
+
+Ansible owns the base platform because the cluster cannot reconcile itself
+until the API, networking, storage, Rancher, and Fleet exist.
+
+Important bootstrap roles:
+
+| Role | What it does |
+| --- | --- |
+| `os_prep` | Base operating-system preparation, persistent NTP validation, persistent host security baselines, and rolling OS upgrades with reboot recovery gates. |
+| `rpi_prep` | Raspberry Pi-specific host setup and telemetry helpers. |
+| `k3s_server` | Serial K3s server configuration with Node, etcd consensus, and platform recovery gates; explicit bootstrap mode and a separately prepared pinned etcd client. |
+| `k3s_agent` | K3s worker/agent configuration with one-at-a-time execution and post-restart Node lease, version, and readiness gates. |
+| `kube_vip` | Kubernetes API registration VIP support. |
+| `cilium` | CNI, NetworkPolicy, Hubble, and Traefik-to-MetalLB wiring. |
+| `longhorn` | Distributed storage installation. |
+| `cert_manager` | Certificate management bootstrap. |
+| `rancher` | Rancher installation through K3s HelmChart; [staged three-server upgrades](infrastructure/ansible/roles/rancher/README.md) use `playbooks/rancher_upgrade.yml`. |
+| `fleet_apps` | Fleet GitRepo bootstrap for the post-bootstrap app layer. |
+| `smartctl_exporter` | Host-level S.M.A.R.T. metrics where container image support is not enough. |
+
+Each role has validation tasks. This is important for infrastructure because
+"the command ran" is not the same as "the cluster is usable." Validation checks
+the resulting state after the role converges.
+
+## GitOps Architecture
+
+Rancher Fleet is the post-bootstrap reconciler. The repository uses multiple
+Fleet `GitRepo` resources rather than one repo-wide bundle. Two local Fleet
+agents use required hostname anti-affinity across control-plane nodes so one
+node outage does not pause GitOps reconciliation.
+
+| GitRepo | Scope |
+| --- | --- |
+| `home-lab-rancher-projects` | Rancher project metadata under `kubernetes/projects/*/_project`. |
+| `home-lab-system` | System services and cluster add-ons. |
+| `home-lab-database` | PostgreSQL, Valkey, database operators, and database network policy. |
+| `home-lab-applications` | Public and personal application workloads. |
+| `home-lab-entertainment` | Media stack and supporting automation. |
+| `home-lab-home-automation` | Home Assistant, NetBox and its MCP server, USB printing, UPS monitoring, and Cloudflare tunnel controller. |
+
+This split has practical benefits:
+
+- drift and failures are easier to isolate;
+- image updates are handled centrally by Renovate; DevFeed image updates are grouped
+  and track stable `X.Y.Z` Docker tags with SHA-256 pins;
+- project directories can have different reconciliation force settings;
+- app teams or future automation can reason about one project at a time;
+- Rancher project metadata can be treated differently from application bundles.
+
+## Shared Platform Services
+
+These services are not just "apps"; they are the platform other apps depend on.
+
+| Service | Project | Role in the lab |
+| --- | --- | --- |
+| Cilium | Bootstrap/system | Pod network, policy enforcement, and Hubble flow visibility. |
+| MetalLB | System | Explicit service VIP allocation and ARP-based Layer 2 advertisement. |
+| Traefik | Bootstrap/system | Internal HTTP ingress for `*.home` style services. |
+| Longhorn | Bootstrap/system | Persistent block storage for workloads and platform services. |
+| NFS CSI Driver | System | CSI lifecycle for existing NAS-backed NFS exports. |
+| Rancher | Bootstrap/system | Cluster management plane and Fleet host. |
+| Fleet | Bootstrap/system | GitOps reconciliation engine. |
+| CloudNativePG | Database | PostgreSQL operator and shared database cluster. |
+| ClickHouse | Database | Shared analytics in the `clickhouse` namespace with per-app databases, scoped credentials, bounded admission sized for producer fanout, 1 CPU / 2304 MiB reservations and 3 CPU / 6 GiB limits, retained backup storage, native Prometheus metrics and a ClickHouse Overview Grafana dashboard. |
+| PostgreSQL | Database | Shared relational database with app-specific roles and poolers; PostgreSQL instance images are managed centrally through a CNPG ImageCatalog. Debian base upgrades require the documented [NetBox collation check and index maintenance](kubernetes/projects/database/apps/postgresql/README.md#bookworm-collation-maintenance). |
+| Valkey | Database | Shared cache/queue service with Sentinel. |
+| Harbor | Applications | Local registry and proxy/cache layer for images. |
+| SOPS Secrets Operator | System | Converts encrypted SOPS resources into native Kubernetes Secrets. |
+| Upstream monitoring + Rancher dashboards | System | HA Prometheus scraping, Thanos Query, Grafana, Alertmanager, dashboards, and alert rules. |
+| Loki | System | Log aggregation. |
+| Tempo | System | Trace storage for OpenTelemetry traces. |
+| Pyroscope | System | Continuous profiling backend; bounded Longhorn storage with 24-hour retention, serial compaction, and memory headroom above its Go runtime target. Raft logs and snapshots share the persistent volume. |
+| OpenTelemetry Collector | System | Two-replica OTLP gateway and affinity-routed processing tiers for metrics and traces. |
+| ExternalDNS for UniFi | System | Reconciles internal DNS records from Kubernetes Ingress hosts and annotated Services. |
+
+## Self-Hosted Applications
+
+### Applications Project
+
+| App | What it does | Notable dependencies |
+| --- | --- | --- |
+| [DevFeed](kubernetes/projects/applications/apps/devfeed/README.md) | Developer news, reader and partner portals, administration, search and evidence-gated background processing. | PostgreSQL, Typesense, Valkey Sentinel, Chimely, Codex, imgproxy, R2, Zitadel and Cloudflare Tunnel. |
+| Firefly III | Personal finance application with a monthly active window; the in-cluster scaler owns web replicas and daily-cron suspension. | PostgreSQL pooler, NFS upload PVC, internal Traefik ingress, scoped Home Assistant API access. |
+| Harbor | Local registry and proxy/cache registry. | PostgreSQL, Valkey, NFS storage, monitoring. |
+| [SonarQube MCP Server](kubernetes/projects/applications/apps/sonarqube-mcp-server/README.md) | Read-only SonarCloud MCP access for DevFeed at `https://sonar.mcp.home/mcp`. | SonarCloud, per-client user tokens, Harbor, internal Traefik, local CA. |
+| Personal Blog | Public blog deployment. | Harbor image, Cloudflare Tunnel, Sanity revalidation secret. |
+| Portfolio | Public portfolio and isolated static Node PR previews. | Harbor images, Cloudflare Tunnel. |
+| ShipyardHQ | Public commerce/content application with web, worker, image proxy, and build jobs. | PostgreSQL, Valkey, R2, Harbor, NFS build cache, Cloudflare Tunnel. |
+| Wardn AI | Paused agent platform: API, frontend, worker, WhatsApp bridge, and dedicated PostgreSQL pooler at zero replicas. | PostgreSQL, Wardn Hub, NFS and Longhorn storage, internal Traefik ingress. |
+| Wardn AI Website | Public product website for Wardn AI. | Harbor image, Cloudflare Tunnel. |
+| Wardn Hub | Public registry with API, frontend, and scoring online; consolidated worker and Codex temporarily paused at zero replicas, with refresh hook skipped and login state retained. | PostgreSQL, OpenTelemetry, Harbor, Cloudflare Tunnel, NFS build cache, Longhorn Codex state. |
+| [Zitadel](kubernetes/projects/applications/apps/zitadel/README.md) | Central identity provider on v4.20.0 with signed Login UI cookies, a custom GitHub registration retry and an isolated DevFeed virtual instance at auth.devfeed.tech. | PostgreSQL, SOPS secrets, Cloudflare Tunnel. |
+
+### Database Project
+
+| App | What it does |
+| --- | --- |
+| CloudNativePG operator | Installs the PostgreSQL operator and CRDs. |
+| PostgreSQL | Shared PostgreSQL cluster, roles, databases, poolers, query dashboards, and connection budgets. |
+| Valkey | Shared Valkey replication and Sentinel for queues and caches. |
+| Database network policies | Boundary policies for database access. |
+| PostgreSQL pooler PDBs | Availability policy for app-specific poolers. |
+
+The [retained DevFeed analytics recovery evidence](docs/runbooks/devfeed-clickhouse-recovery-evidence.md)
+documents protected tables, detached data and verification after temporary repair
+resources are retired.
+
+The [database Helm repository bundle](kubernetes/projects/database/apps/database-helm-repositories/README.md)
+refreshes the Bitnami Valkey OCI catalog every 15 minutes so transient download
+errors receive regular recovery attempts through Rancher reconciliation.
+
+### Entertainment Project
+
+| App | What it does |
+| --- | --- |
+| qBittorrent | Torrent client with category paths, state snapshots, download-layout repair, smart-queue bandwidth policy, and LoadBalancer peer port exposure. |
+| Prowlarr | Indexer manager for media applications. |
+| Profilarr | Quality profile, custom format, and quality-definition management for Radarr and Sonarr. |
+| Sonarr | TV library management. |
+| Episeerr | Version 4.0.5; complete-current-season downloads with Jellyfin-driven next-season prefetch. |
+| Radarr | Movie library management. |
+| Ryokan | Official upstream 2.2.3; anime request/import workflow with direct public-indexer HTTPS egress and receipt-verified batch cleanup. |
+| Shoko | Anime metadata and library management for Jellyfin/Shokofin. |
+| Jellyfin | Version 12.4; singleton SQLite/config on Longhorn, media/metadata on NFS, daily validated NAS state backups. |
+| Jellyseerr / Seerr | Media request portal backed by Jellyfin. |
+| FlareSolverr | Browser-challenge helper for selected indexers and the DevFeed solver worker (2Gi memory cap, CPU bursts allowed). |
+| media-storage | Shared NFS CSI declarations for the completed library and downloads. |
+
+All media applications run continuously with one replica each, including
+qBittorrent, Smart Queues, Sonarr, Radarr, Episeerr, Prowlarr, Profilarr, Ryokan
+and Shoko. Fleet owns their replica counts and maintenance CronJob suspension;
+there is no overnight or weekend pause/resume controller.
+
+The media stack is intentionally split between download storage and completed
+library storage. Download clients write to a NAS-backed downloads PVC, and
+qBittorrent keeps a retained NFS snapshot of its torrent catalog so Longhorn
+config-volume loss does not also erase the active download queue.
+Importers move completed content into the UNAS-backed media library. Jellyfin
+scans the completed video library, not partial downloads.
+
+### Home Automation Project
+
+| App | What it does |
+| --- | --- |
+| Home Assistant | Home automation runtime with commit-pinned source from `abhi1693/home-assistant`, responsive family dashboard, private per-user health views, an Abhimanyu-only Firefly III finance dashboard with savings and payment-method charts, daily spending/income month comparisons and calendar/financial-year comparisons, dated bills and private investment schedules, account-filtered Protect activity and alerts, a dedicated LAN-reachable go2rtc WebRTC relay, PostgreSQL Recorder, checksum-pinned Dyson HushJet support from upstream PR #321, HACS bootstrap, and code-server sidecar. |
+| NetBox | Source of truth for IPAM, infrastructure inventory, cabling, DNS, lifecycle documentation, and the Git-backed catalog of durable K3s applications and controllers; every project app directory is cataloged or explicitly classified, while UniFi Network clients and transient or operator-generated Kubernetes objects remain excluded. |
+| NetBox MCP Server | Authenticated per-user MCP access to NetBox through an ARM64, TLS-proxied, network-isolated service. |
+| Cloudflare Tunnel ingress controller | Maps Kubernetes ingress intent to Cloudflare Tunnel routes. |
+| UPS Monitoring | Network UPS Tools, PeaNUT dashboard, exporter, Grafana dashboard, and alerts. |
+
+### System Project
+
+| App | What it does |
+| --- | --- |
+| Upstream monitoring | Two Prometheus scrapers with Thanos sidecars, two Thanos Query replicas, Grafana, Alertmanager, dashboards, rules, and datasource provisioning. |
+| Loki | Log storage and query backend. |
+| Tempo | Trace backend for OpenTelemetry traces. |
+| Pyroscope | Profiling backend. |
+| OpenTelemetry Collector | Two gateways route OTLP telemetry by trace/stream identity into two processing replicas that forward to Prometheus and Tempo. |
+| ExternalDNS for UniFi | Creates internal DNS records from Traefik Ingress hosts and annotated Services. |
+| Rancher Backup | Rancher backup operator and R2-backed backup configuration. |
+| SOPS Secrets Operator | Decrypts encrypted SOPS resources into Kubernetes Secrets. |
+| Longhorn recurring jobs | Filesystem trim and recurring storage maintenance hooks. |
+
+## How Applications Are Coupled
+
+The main coupling points are explicit and intentional.
+
+### Database coupling
+
+Most applications do not run their own database. The database project owns a
+shared PostgreSQL cluster and app-specific roles, databases, and PgBouncer-style
+poolers.
+
+Each of the three PostgreSQL instances requests and limits memory to 5Gi,
+reserving 15Gi across the cluster so any replica can become primary. CPU remains
+uncapped with a 750m request per instance, reserving 2.25 cores across the cluster.
+Each instance uses 512MiB of PostgreSQL shared buffers and a 3GiB planner cache
+estimate within its existing memory budget.
+DevFeed's migration hook manages its [role/database JIT default](kubernetes/projects/applications/apps/devfeed/migrations.md#devfeed-jit-default)
+without changing JIT for other applications or restarting PostgreSQL.
+Each instance has a 32Gi data PVC and a separate 4Gi WAL PVC, for 108Gi of
+provisioned volumes and 324Gi of nominal capacity with three Longhorn replicas.
+
+This gives the lab one place to manage:
+
+- PostgreSQL version and storage;
+- backup and monitoring strategy;
+- connection budgets;
+- role/database lifecycle;
+- query dashboards and performance analysis.
+
+The tradeoff is that the database project becomes a critical shared dependency.
+A bad database change can affect many apps, so pooler budgets, PDBs, monitoring,
+and validation matter.
+
+### Cache and queue coupling
+
+Valkey is shared for app queues and cache-like workloads. Logical DB indexes
+separate apps where needed. This avoids running a separate Redis/Valkey instance
+for every app on small hardware, but it means noisy queue users need limits and
+monitoring. Valkey data containers request 1536Mi and allow 4Gi each so full
+replica synchronization can hold the persisted and incoming datasets together.
+Capacity repairs use a sequential Fleet rollout and return to `OnDelete` after
+replication and Sentinel quorum are verified.
+
+### Registry coupling
+
+Harbor is the local image hub. Workloads can pull from local Harbor projects or
+from Harbor proxy/cache projects such as Docker Hub and GHCR mirrors. This
+reduces external registry dependency and makes ARM64 image choices visible.
+
+Harbor's own component images are a bootstrap exception: they pull directly
+from GHCR so the registry can recover without depending on `registry.home`.
+
+Zitadel Login images publish immutable `4.20.0-idp-retry2-<commit>` tags after
+native ARM64 builds, runtime vulnerability scans, and smoke tests that enforce
+the Node and Next.js security floors, CA distrust policy, and non-root server startup.
+Deploying a new build requires a separate Fleet values change.
+
+Renovate checks non-foundational application, build, CI, and Coder dependencies
+and automerges most enabled updates directly into the default branch without opening
+PRs, while manifests keep Harbor pull paths. Home-built images use GHCR source paths
+through the Harbor GHCR proxy cache, for example
+`registry.home/ghcr.io/abhi1693/...`. Cluster-foundational versions such as
+K3s, Cilium, Rancher, Longhorn, MetalLB, and CSI NFS remain manually governed.
+NUT updates accept only `2.x.y-rN` container tags because its upstream OCI
+repository also contains Helm chart artifacts under bare version tags.
+Valkey chart upgrades require a guarded `OnDelete` rollout, so that HelmOp pin
+remains excluded from automated updates.
+
+Wardn Hub image updates form a reviewed backend/frontend/Codex cohort. All 14
+image references must share one release version and one immutable digest per
+component; `scripts/check-renovate-policy.py` rejects partial updates. Its grouped
+Renovate PR requires native release and signed-provenance verification before
+merge. Scoring keeps its own independent release.
+
+ShipyardHQ shares a `next-build-v12` cache contract across its builder hook,
+web restore init, and cleanup CronJob. Complete build-variable prefixes, including
+`NEXT_PUBLIC_` and `CLERK_`, invalidate the cached artifact when configuration
+changes; the normal builder hook completes before replacement web pods restore it.
+The [cache regression tests](kubernetes/projects/applications/apps/shipyardhq/tests/test_build_cache_key.py)
+execute each manifest's hash block with synthetic inputs.
+
+Wardn License Server also tracks published backend/frontend Docker images as a
+reviewed group, covering the API, console and direct-writer migration hook.
+Release events start publication, so both native-checked immutable images must
+be verified before merging an update. The private source workflow disables
+unsupported GitHub artifact attestations; existing pins stay unchanged until a
+verified release update. Other enabled dependencies retain branch automerge.
+The release's strict License guard keeps all three image references on one
+stable version, binds API/frontend/migration containers to their correct image
+components and requires one immutable digest per component.
+
+
+PostgreSQL retains a dedicated `app` bootstrap role and database aligned with
+CNPG's generated credentials. Existing clusters missing that role/database use
+the [staged bootstrap owner repair](docs/runbooks/postgresql-bootstrap-owner-repair.md)
+before switching the monitoring database back to `app`.
+
+PostgreSQL poolers retain one warm backend per database/user pool and release
+excess unused server connections after 120 seconds to preserve connection headroom. Long-running queries and client-attached sessions are unaffected;
+see the [PgBouncer operating notes](kubernetes/projects/database/apps/postgresql/README.md#pgbouncer-connection-budgets).
+
+DevFeed uses twenty interactive pooler slots and a direct writer connection for
+its bounded analytics reconciliation process. Independent high/default/low
+worker pools retain capacity for each priority, with Images and solver isolated.
+Its completed queue-routing cutover used staged Git/Fleet drain revisions and
+preserved 805 queued deliveries and 29 historical failed records. The temporary
+transport hooks are retired; compatible patch releases use the ongoing schema
+hook and normal rolling image upgrades;
+schema or serving-policy changes require the reviewed
+[migration lifecycle](kubernetes/projects/applications/apps/devfeed/migrations.md).
+Check fresh global connection counts and keep both poolers from rolling together.
+
+### Ingress coupling
+
+Internal apps share Traefik. Public apps usually use the Cloudflare Tunnel
+ingress controller. This split keeps local-only admin apps simple while public
+apps avoid direct home-router exposure.
+
+### Observability coupling
+
+Apps integrate with the system project through ServiceMonitors,
+PrometheusRules, OpenTelemetry, logs, traces, and dashboards. Grafana is the
+front door for the observability stack, with Prometheus, Loki, Tempo, and
+Pyroscope as backing systems. Control-plane collection avoids duplicate API
+server samples from the K3s endpoint and disables unused high-cardinality
+histograms at the source while retaining the API SLI metrics used by Rancher
+alerts. Loki self-metrics follow the global 60-second scrape interval. Two
+OpenTelemetry gateways route traces by trace ID and metrics by stream ID into
+two stateful processing replicas, which retain errors and slow traces while
+sampling routine trace traffic before Tempo.
+
+Loki alerts also check successful WAL progress under incoming traffic. Follow
+the [stale NFS WAL runbook](docs/runbooks/loki-stale-nfs-wal.md) for Fleet-managed
+recovery that retains WAL and log data, verifies fresh logs, and accounts for
+permanent collector drops.
+
+### Storage coupling
+
+Longhorn is the default Kubernetes storage class for replicated cluster-managed
+volumes. Every Longhorn PVC requests three replicas spread across eligible
+storage nodes, including PostgreSQL data/WAL and Valkey data. Those services
+also retain application-level replication, intentionally stacking block and
+application redundancy; PostgreSQL object-store backups remain its independent
+recovery path.
+Replica recovery admits one incoming Longhorn rebuild per node to leave
+headroom on the shared root NVMe and 1 GbE network, including embedded etcd
+disk writes on control-plane nodes. Queued recovery can take longer; existing
+copies finish without interruption.
+The [storage pools policy](kubernetes/projects/system/apps/longhorn-storage-pools/README.md)
+keeps control-plane application replicas on `k8s-rpi1`–`k8s-rpi3` and worker
+application replicas on `k8s-rpi4`–`k8s-rpi9`. New claims are routed to the
+corresponding StorageClass; existing claims retain their bindings. RWX share
+managers follow the same pool.
+The same GitOps policy keeps the existing default class until no PVC or PV
+references `longhorn`, then makes `longhorn-workers` default and retires the old
+class. Changing replica placement does not change a bound PVC's class name.
+Three control-plane replicas use all three eligible nodes, so maintenance
+cannot restore full redundancy until the missing control-plane node returns.
+The upstream NFS CSI driver mounts NAS-backed storage where shared file
+semantics are more important than Kubernetes-local block storage. Static PVs
+retain the existing media exports, while the opt-in `nfs-shared-retain`
+StorageClass creates isolated `${namespace}/${pvc-name}` directories below the
+shared NAS export.
+
+### Secret coupling
+
+Secrets are either encrypted in Git with SOPS patterns or created out of band
+when the secret should not be owned by Fleet. App READMEs document required
+runtime secrets so the contract is visible without committing values.
+
+## Storage Model
+
+The lab uses different storage patterns for different workloads.
+
+| Storage type | Used for | Why |
+| --- | --- | --- |
+| Longhorn RWO/RWX PVCs | Databases, WAL, Raft state, SQLite applications, and security-sensitive app state. | Kubernetes-native block persistence with replication and Git-visible claims. |
+| NFS CSI NAS storage | Monitoring data, completed media, torrent scratch/downloads, registries, uploads, build caches, and file-oriented shared state. | Upstream CSI lifecycle and retained per-PVC directories without consuming replicated Longhorn capacity. |
+| `emptyDir` | Ephemeral build output, local runtime cache, non-durable experiments. | Avoids unnecessary persistent write load. |
+| Chart-managed PVCs with pinned details | Apps whose Helm charts manage PVCs. | Prevents Fleet from fighting immutable bound PVC fields. |
+
+The storage design is pragmatic. PostgreSQL and Valkey use three-replica
+Longhorn volumes beneath three application-level copies. Media downloads and
+completed media are separate UNAS Shared Drives mounted through NFS CSI.
+Selected file-oriented application
+claims use retained directories below the shared NAS export; database-backed
+claims stay on Longhorn. Prometheus uses two independent retained Longhorn
+claims. Tempo and Pyroscope each use a retained 2Gi Longhorn claim with 24-hour
+retention. Retained rollback storage is documented with its owning app.
+Other monitoring components still use retained NFS where
+that capacity tradeoff is acceptable. NFS has weaker latency and failure
+semantics than local block storage:
+[upstream Prometheus does not support NFS for its local TSDB](https://prometheus.io/docs/prometheus/latest/storage/),
+and [Loki documents shared filesystems as suitable only for small deployments](https://grafana.com/docs/loki/latest/operations/storage/filesystem/).
+
+## Image and Registry Model
+
+ARM64 support is a recurring design constraint. Some upstream images are not
+published as ARM64 manifests or need plugins baked in. The repository therefore
+keeps custom image definitions under `kubernetes/images/` and Coder image
+definitions under `coder/templates/base/image/`.
+
+Important image patterns:
+
+- Harbor provides local registry and proxy/cache behavior.
+- App workloads use namespace-scoped pull secrets for private Harbor projects.
+- Public proxy-cache projects can be used for upstream images.
+- Renovate metadata comments let Renovate update selected image tags in Git.
+- Custom images keep patches, plugin lists, and Dockerfiles reviewable.
+
+This makes image supply explicit. The downside is that image build and registry
+operations become part of the platform, not an afterthought.
+
+## Observability Model
+
+Observability is built into the system project and then extended by app bundles.
+
+[Monitoring](kubernetes/projects/system/apps/rancher-monitoring/README.md) uses
+upstream kube-prometheus-stack and Rancher dashboard integration. The owning
+HelmOps and values files define chart/runtime versions, retained PVC bindings,
+Service names and dashboard/datasource identities. K3s scraping uses
+authenticated native kubelet endpoints. Review stateful backup and recovery
+requirements before every upgrade; previous maintenance approval is not standing
+authority for another operation.
+
+| Signal | System |
+| --- | --- |
+| Metrics | Two upstream Prometheus scrapers, Thanos Query, and ServiceMonitor resources. |
+| Dashboards | Grafana dashboards from labeled ConfigMaps. |
+| Alerts | PrometheusRules and AlertmanagerConfig resources. |
+| Logs | CPU-bounded Alloy node collection of container logs, retained OS journals, API audit and selected OS files; persistent OTel export queues and OS-source-to-query checks; clustered events and two Loki gateways. Loki storage remains single-replica. |
+| Traces | Two OpenTelemetry gateways, two tail-sampling processors, and Tempo with a 2Gi Longhorn claim. |
+| Profiles | Pyroscope with a 2Gi Longhorn claim; Raft state and profiles survive pod replacement. |
+| Network flows | Cilium agent/operator metrics and bounded Hubble flow aggregates. |
+| Hardware health | node-exporter, Raspberry Pi throttling metrics, smartctl exporter, UPS exporter. |
+
+[Slack notifications](docs/runbooks/slack-notifications.md) correlate explicitly
+related delivery failures and DevFeed availability burns, show each member's
+firing/resolved status and source, and explain why Alertmanager sent an update.
+The four-hour repeat remains unchanged; Alloy permanent-loss incidents bridge
+brief quiet gaps with a ten-minute recovery hold without adding an initial rule
+pending period. Local capture validation exercises routing and rendering without
+posting test messages to Slack.
+
+The [incident coverage runbook](docs/runbooks/incident-coverage.md) describes
+the container-log handover, full retained OS journals, API audit, native etcd
+metrics and Cilium/Hubble scrapes. Ansible bounds journal retention and mounts
+4GiB local payload filesystems. Node Alloy splits a combined 64MiB durable payload budget
+into a 56MiB bulk queue and an independent 8MiB OS/kernel queue. The two consumers
+share the same 250m CPU ceiling, so bulk catch-up does not block current OS
+evidence. Collector recovery updates can proceed while a deployed Loki bundle
+is degraded. It fsyncs OTel payload queues separately
+from source positions; source-to-queue crash windows remain explicit. The
+**OS / Host Metrics** dashboard reads existing host metrics without querying
+Loki. A separate **OS / Logs** dashboard provides source-specific journal,
+audit and file browsing with explicit event/stored timestamps and unchanged
+original-record drilldowns. Informational host canaries support source-to-query
+checks. Grafana requires authentication and original log bodies
+are preserved without redaction. `python3 scripts/collect-os-incident.py`
+captures bounded private SSH evidence even when Loki or Kubernetes is down. Dashboard query fixtures run locally with the pinned Loki image:
+`python3 scripts/check-os-dashboard-queries.py`.
+Kernel journals on quiet nodes are checked through reader health rather than
+requiring a recent error.
+
+[Trace and profile persistence](docs/runbooks/observability-persistence.md)
+keeps both backends' data on bounded persistent volumes, with 24-hour retention
+and one writer per backend. Longhorn replication protects storage across pod
+replacement; both services remain single-instance backends with a restart gap.
+
+The shared **imgproxy / Overview** dashboard compares DevFeed and ShipyardHQ,
+with application and instance filters and private 60-second metric scrapes.
+
+Grafana excludes the unused ingress-nginx dashboards; Traefik remains the ingress
+monitoring view.
+
+DevFeed has one operational overview for availability, reader latency/errors,
+worker progress and search backlog; its telemetry and alerts remain enabled.
+
+Wardn Hub uses shared cluster resource monitoring; dedicated API/worker metric
+scrapes and Codex metric export are disabled. Application logs and traces
+remain available.
+
+The observability stack is intentionally local and modest. OpenTelemetry uses
+two stateless gateways and two stateful processors with identity-aware routing;
+Prometheus HA uses
+local Longhorn volumes with Thanos sidecars and Query but no object store; it
+does not depend on R2 or another cloud provider. It aims to answer
+operational questions for a small cluster: node pressure, storage health,
+database performance, queue behavior, application traces, and whether a change
+made the lab worse. Prometheus scrapes the dedicated API server target
+for `apiserver_*` metrics; the parallel K3s server scrape retains K3s, cAdvisor,
+and probe metrics without ingesting duplicate API server series.
+
+See the [monitoring availability boundary](kubernetes/projects/system/apps/rancher-monitoring/README.md#coverage-and-ha-boundary)
+before changing replicas or storage.
+The metrics backend is redundant; the complete observability stack is not yet HA.
+
+Scheduler reservations are periodically right-sized from Prometheus history
+while CPU remains burstable for storage and database hot paths. Longhorn
+instance managers reserve 12% CPU **per instance-manager pod** on a four-core
+node, Rancher replicas request 200m, and PostgreSQL instances request 750m.
+The recommendation engine has been retired; resource changes are reviewed
+and deployed through Git/Fleet. Historical resource reviews preserve
+measured burst headroom and land in verified batches; short-history services and
+stateful rollout safeguards remain explicit. Check application and system requests against
+the allocatable CPU remaining after one four-core node is lost, including
+placement constraints and per-node headroom. See the [resource policy](docs/runbooks/kubernetes-resource-policy.md)
+for sizing, validation, and the [dated capacity assessment](docs/runbooks/kubernetes-resource-policy.md#capacity-after-the-28-october-review).
+
+Platform version badges describe desired state, not live rollout status.
+K3s maintenance requires [server preparation and recovery gates](infrastructure/ansible/roles/k3s_server/README.md#prepare-before-maintenance).
+The [staged Longhorn upgrade](infrastructure/ansible/roles/longhorn/README.md)
+checks deployed Helm versions and upgrades engines one at a time. Retiring older
+instance managers requires [application recovery gates](docs/runbooks/storage/longhorn-instance-manager-retirement.md).
+
+Longhorn has no active backup target. Its
+[retained recovery storage](kubernetes/projects/system/apps/longhorn-backups/README.md)
+is not a recurring backup service. Establish and verify a supported target,
+review the backup scope, and test recovery before storage maintenance.
+PostgreSQL retains its independent base backups and WAL archive.
+
+Git/Fleet is the primary rollback source for custom workloads. Literal
+Deployments retain two ReplicaSet revisions so automated resource proposals and
+regular image releases do not leave the API server watching ten inactive
+ReplicaSets per workload.
+
+## Developer Workspaces
+
+Coder templates provide Kubernetes-backed development environments on the same
+ARM64 platform. Templates include Node.js, Python, NetBox plugin development,
+and Ubuntu Desktop variants.
+
+The templates are self-contained because `coder templates push -d` uploads only
+the selected directory. Shared setup logic is maintained under
+`coder/templates/_shared/` and vendored into each template.
+
+The workspace design uses the same platform primitives as the rest of the lab:
+
+- Kubernetes pods for workspaces;
+- Longhorn-backed home storage;
+- ARM64 base images;
+- optional service sidecars such as PostgreSQL or Redis-style services;
+- image build definitions tracked in Git.
+
+## Operational Workflow
+
+Standalone DBS, HDFC, SBI, OneCard, and ICICI statement conversion and Firefly API
+workflows live in the
+[`abhi1693/firefly-importer`](https://github.com/abhi1693/firefly-importer)
+repository. This repository continues to own the Firefly III GitOps deployment.
+
+Shared CI and container builds use the current contracts in
+[`abhi1693/actions`](https://github.com/abhi1693/actions), with one native
+runner/platform matrix for ARM64 and multi-platform builds. See
+[repository workflows](.github/workflows/).
+
+Typical change flow:
+
+1. Edit the relevant role, app bundle, image, or template in Git.
+2. Run the narrow validation that matches the change.
+3. Commit and push.
+4. Let Fleet reconcile Kubernetes state.
+5. Use read-only inspection to diagnose convergence.
+6. Encode fixes back into Git instead of mutating live resources by hand.
+
+If a Fleet ancestor summary retains earlier progress after recovery, verify the
+live workloads, child HelmOp/GitRepo readiness and matching BundleDeployment
+desired/applied IDs. After a bounded recheck, update
+`metadata.annotations["home-lab.io/status-reconcile-at"]` to a new UTC timestamp
+on the healthy Git-managed HelmOp or GitRepo whose parent retains the old state.
+Preserve its `spec`, commit and push, then verify the refreshed ancestors and
+unchanged workload identities. This reporting workaround does not establish the
+underlying watch/retry cause. See the
+[project GitRepo guidance](kubernetes/fleet/fleet-project-gitrepos/README.md).
+
+Unused PostgreSQL collation-version metadata has a separate, explicit operator
+procedure in the [database runbook](kubernetes/projects/database/apps/postgresql/README.md).
+Qualify its SQL guards and review a fresh audit before applying bounded batches;
+retain the recovery point and private evidence outside Git.
+
+This workflow keeps the cluster understandable over time. Manual commands may
+still be needed for break-glass repair or initial secret creation, but they
+should not become the normal deployment mechanism.
+
+## Validation
+
+Helm values files with reserved names, including `custom-definitions-values.yaml`,
+receive YAML checks and are excluded from raw Kubernetes-object validation.
+Render them with their pinned chart and validate the resulting manifests.
+Fleet bundle ConfigMap generators use direct files at the bundle root; keep
+these inputs flat for Fleet's virtual post-render filesystem.
+
+Container publication uses centrally maintained security gates for SBOMs, provenance
+and runtime scanning. See [repository workflows](.github/workflows/). The personal
+blog tracks final published Docker images, so a source release cannot select an
+image before its native real-CMS build and security/runtime gates pass. Its
+existing single-image branch-update policy remains enabled; acceptance verifies
+the exact ARM64 index/config, signed provenance, public posts/feeds and assets.
+
+Pre-commit is the repository-wide validation runner. On Linux, bootstrap its
+Python and native tooling, install the hook, and run the complete suite with:
+
+```sh
+scripts/setup-pre-commit.sh
+pre-commit run --all-files
+```
+
+Kubernetes schema validation excludes container build inputs under
+`kubernetes/images/`; their package and lock files still receive YAML validation.
+NetBox image changes also run plugin-version verification regressions. Its image
+build checks installed versions against the exact source requirements, avoiding
+a second version list when dependency automation updates plugin pins.
+
+The pre-commit configuration preserves the former validation workflow's
+Ansible, YAML policy, Kubernetes schema, Terraform, shell, and Dockerfile
+checks. The bootstrap requires `uv`, Terraform, ShellCheck, `curl`, and standard
+archive tools; it installs pinned Python tooling, `kubeconform`, `shfmt`, and
+`hadolint` under `${UV_TOOL_BIN_DIR:-$HOME/.local/bin}`. The hooks run the
+matching check against relevant staged files; context-wide checks such as
+Ansible, Renovate policy, and Terraform validation run when their subsystem
+changes.
+
+The [Terraform validation workflow](.github/workflows/terraform-validation.yml)
+also runs the full formatting, backend-disabled initialization, and validation
+hook for all Coder templates on relevant pull requests and `master`/`renovate/**`
+pushes. Coder Terraform updates require passing checks before Renovate branch
+automerge; module upgrades must migrate removed inputs and validate against the
+pinned module API. Before initialization, hosted ARM64 CI observes the actual
+CLI version, platform, binary SHA256, and embedded Go compiler version, and
+rejects releases below the reviewed Terraform and Go security floors.
+The workflow's Terraform CLI pin uses an unprefixed numeric version. Its exact
+Renovate `github-actions`/`uses-with` rule normalizes release tags and requires
+checks plus PR review before updating the CI toolchain.
+
+The [Infrastructure regressions](.github/workflows/infrastructure-regressions.yml)
+workflow also runs Ansible syntax, lint, and discovered role tests plus Kubernetes
+app regression tests on relevant pull requests and pushes to `master`. It reuses
+the local validation runner and pinned Python dependencies. Its fixtures require
+no SSH access, SOPS keys, or Kubernetes credentials. Triggers include Ansible,
+app test directories, DevFeed and PostgreSQL cutover manifests, the tested UPS
+Deployment, and shared validation inputs;
+add each new app suite's tested manifest or script paths to the workflow filters.
+
+The [DevFeed maintenance validation](.github/workflows/devfeed-maintenance.yml)
+workflow exercises queue draining with the deployed immutable ARM64 backend and
+an isolated Redis Unix socket. It checks active-job completion, solver handoff,
+supervised worker replacement, pause ownership and failure recovery before a
+Fleet maintenance Job is installed. It has no production credentials or network
+access inside the fixture; see the [maintenance tests](scripts/devfeed-maintenance/README.md).
+
+Subsystem-specific checks remain useful during development.
+
+Validate Renovate dashboard joins and retained-job counts with `promtool`:
+
+```sh
+python3 scripts/check-renovate-dashboard.py
+```
+
+This covers duplicate historical scrape labels and selection of the latest
+completed job. Follow with live range queries across the affected time window.
+
+Tempo configuration and image changes also run an ARM64 `Tempo validation`
+workflow on pull requests. It starts the pinned image with the repository
+configuration and checks an OTLP trace round trip and retained data recovery
+after container replacement before Fleet deployment.
+Run the same check locally with Docker:
+
+```sh
+python3 -m pip install --requirement .github/requirements/tempo.txt
+python3 scripts/validate-tempo.py
+```
+
+See the [Tempo runbook](kubernetes/projects/system/apps/tempo/README.md) for
+configuration migration and rollout verification.
+
+Pyroscope changes run a separate ARM64 `Pyroscope validation` workflow. Its
+Docker check exercises profile ingestion, Raft snapshot/log recovery and the
+same historical query after replacing the container with its volume retained:
+
+```sh
+python3 -m pip install --requirement .github/requirements/pyroscope.txt
+python3 scripts/validate-pyroscope.py
+```
+
+Slack routing and template changes run an ARM64 `Alertmanager notification
+validation` workflow. It exercises mixed statuses, permanent-loss visibility,
+bounded messages and group changes against a local capture receiver:
+
+```sh
+python3 -m pip install --requirement .github/requirements/alertmanager.txt
+python3 scripts/validate-alertmanager-notifications.py
+```
+
+Ansible:
+
+```sh
+cd infrastructure/ansible
+ansible-galaxy collection install -r collections/requirements.yml
+ansible-playbook --syntax-check playbooks/site.yml
+ansible-playbook playbooks/k3s_server.yml -e k3s_server_entrypoint=validation
+```
+
+Kubernetes:
+
+```sh
+python scripts/check-kubernetes-resource-bounds.py
+# PostgreSQL alert scenarios (requires promtool and PyYAML):
+python scripts/check-postgresql-observability.py
+# Include the exact pinned chart render for replication alert coverage:
+python scripts/check-postgresql-observability.py --rendered-cluster /path/to/cluster-render.yaml
+# Loki stalled-WAL alert scenarios (requires promtool and PyYAML):
+python scripts/check-loki-observability.py
+kubectl apply --dry-run=server -f kubernetes/projects/<project>/apps/<app>/
+```
+
+Coder templates:
+
+```sh
+terraform -chdir=coder/templates/python-3-12 fmt -check
+terraform -chdir=coder/templates/python-3-12 validate
+```
+
+Terraform validation requires provider initialization in the template directory.
+
+## Secrets and Local Configuration
+
+Do not commit plaintext secrets.
+
+The repository structure expects the following to be environment-specific:
+
+- Ansible inventory and host variables;
+- SOPS and age identities;
+- router-side VLAN, firewall, and local DNS configuration;
+- DNS provider credentials;
+- application API keys;
+- database passwords;
+- image pull credentials;
+- Cloudflare, GitHub, Sanity, Clerk, R2, and similar service tokens.
+
+Runtime secrets are handled in two ways:
+
+- encrypted SOPS resources where Fleet should own the resulting Kubernetes
+  Secret;
+- manually created Kubernetes Secrets where the application needs a value but
+  Fleet should not own it.
+
+App README files should document the required secret contract without storing
+the value.
+
+The public [`abhi1693/homelab`](https://github.com/abhi1693/homelab) mirror is
+published from tracked source files by `.github/workflows/mirror-public.yml`.
+Its fail-closed export excludes private inventories, inventory-derived recovery
+topology generators, credential resources and key material, scans every reachable public ref, and preserves the mirror's
+funding metadata. Source and mirror have separate histories. See the
+[public mirror security policy](docs/runbooks/public-mirror-security.md) for
+export boundaries, validation and publication controls.
+
+## Benefits
+
+This design has concrete advantages:
+
+- The cluster can be reasoned about from Git.
+- App dependencies are visible near the app.
+- Shared services reduce resource usage on small hardware.
+- Cilium provides one CNI and policy dataplane, while MetalLB keeps LAN service
+  exposure independent of the gateway's dynamic-routing process.
+- Fleet provides a clear reconciliation boundary without requiring a custom
+  deployment tool.
+- Rancher projects make ownership and policy boundaries visible.
+- ARM64 image constraints are documented and solved in Git.
+- Observability is treated as platform infrastructure, not a later add-on.
+
+## Tradeoffs
+
+The design also has costs:
+
+- Shared PostgreSQL and Valkey are efficient, but they are important shared
+  dependencies.
+- Fleet drift correction is powerful, but immutable Kubernetes fields and
+  chart-managed resources need careful handling.
+- Cilium is capable, but it makes networking more complex than a default K3s
+  flannel setup.
+- Layer 2 service advertisement avoids router peering, but one speaker receives
+  all traffic for a VIP and failover depends on neighbor-cache updates.
+- Longhorn is convenient, but storage IO and replica placement matter on small
+  ARM64 nodes.
+- Public and internal ingress are intentionally different paths, which adds
+  mental overhead.
+- Some secrets must remain manual or encrypted, so a public copy of the repo is
+  a reference architecture rather than a complete runnable environment.
+
+## Documentation Map
+
+Start with the directory-level maps, then drill into project or app READMEs when
+you need implementation detail.
+
+| Document | Purpose |
+| --- | --- |
+| [coder/README.md](coder/README.md) | Coder workspace model and template ownership. |
+| [coder/templates/README.md](coder/templates/README.md) | Coder template catalog, image flow, validation, and push commands. |
+| [docs/README.md](docs/README.md) | Runbooks, architecture notes, and long-form operational docs. |
+| [docs/architecture/unifi-enterprise-network-roadmap.md](docs/architecture/unifi-enterprise-network-roadmap.md) | Dated UniFi audit, enterprise-style segmentation and topology, incoming network/Protect/storage hardware integration, validation gates, and rollback plan. |
+| [infrastructure/README.md](infrastructure/README.md) | Bootstrap, host configuration, networking, and source-of-truth tooling. |
+| [infrastructure/ansible/README.md](infrastructure/ansible/README.md) | Ansible control plane, playbook flow, role entrypoints, and validation. |
+| [infrastructure/ansible/inventories/README.md](infrastructure/ansible/inventories/README.md) | Inventory structure and environment-specific host/group data. |
+| [infrastructure/ansible/playbooks/README.md](infrastructure/ansible/playbooks/README.md) | Playbook entrypoints and intended execution model. |
+| [infrastructure/ansible/roles/README.md](infrastructure/ansible/roles/README.md) | Role conventions and bootstrap responsibilities. |
+| [infrastructure/netbox/README.md](infrastructure/netbox/README.md) | NetBox source-of-truth workspace. |
+| [infrastructure/network/README.md](infrastructure/network/README.md) | Network design notes and manual router-facing configuration areas. |
+| [infrastructure/patches/README.md](infrastructure/patches/README.md) | Host and platform patch staging area. |
+| [kubernetes/README.md](kubernetes/README.md) | Fleet and Kubernetes operating model. |
+| [kubernetes/fleet/README.md](kubernetes/fleet/README.md) | Fleet control-plane bundles and GitRepo management. |
+| [kubernetes/images/README.md](kubernetes/images/README.md) | Custom image build context and ARM64 image conventions. |
+| [kubernetes/projects/README.md](kubernetes/projects/README.md) | Rancher project layout and project-level ownership. |
+| [scripts/README.md](scripts/README.md) | Helper scripts and automation expectations. |
+
+Project indexes:
+
+| Document | Purpose |
+| --- | --- |
+| [kubernetes/projects/applications/README.md](kubernetes/projects/applications/README.md) | Public and internal application workloads. |
+| [kubernetes/projects/database/README.md](kubernetes/projects/database/README.md) | PostgreSQL, Valkey, operators, pooling, and database contracts. |
+| [kubernetes/projects/entertainment/README.md](kubernetes/projects/entertainment/README.md) | Media stack, storage flow, and app coupling. |
+| [kubernetes/projects/home-automation/README.md](kubernetes/projects/home-automation/README.md) | Home Assistant, NetBox, UPS, tunnels, and hardware-adjacent services. |
+| [kubernetes/projects/system/README.md](kubernetes/projects/system/README.md) | Monitoring, logging, tracing, DNS, backup, and cluster add-ons. |
+
+App and component deep dives:
+
+| Document | Purpose |
+| --- | --- |
+| [coder/templates/netbox/README.md](coder/templates/netbox/README.md) | NetBox plugin development workspace. |
+| [coder/templates/nodejs-22/README.md](coder/templates/nodejs-22/README.md) | Node.js 22 ARM64 Coder workspace. |
+| [coder/templates/nodejs-24/README.md](coder/templates/nodejs-24/README.md) | Node.js 24 ARM64 Coder workspace. |
+| [coder/templates/nodejs-26/README.md](coder/templates/nodejs-26/README.md) | Node.js 26 ARM64 Coder workspace. |
+| [coder/templates/python-3-12/README.md](coder/templates/python-3-12/README.md) | Python 3.12 ARM64 Coder workspace. |
+| [coder/templates/ubuntu-desktop/README.md](coder/templates/ubuntu-desktop/README.md) | Ubuntu desktop Coder workspace. |
+| [kubernetes/fleet/fleet-gitjob-webhook/README.md](kubernetes/fleet/fleet-gitjob-webhook/README.md) | Fleet GitJob webhook integration. |
+| [kubernetes/images/episeerr/README.md](kubernetes/images/episeerr/README.md) | Hardened Episeerr image wrapper. |
+| [kubernetes/images/jellyfin/README.md](kubernetes/images/jellyfin/README.md) | Custom Jellyfin image context. |
+| [kubernetes/projects/applications/apps/firefly-iii/README.md](kubernetes/projects/applications/apps/firefly-iii/README.md) | Firefly III personal finance app. |
+| [kubernetes/projects/applications/apps/applications-helm-repositories/README.md](kubernetes/projects/applications/apps/applications-helm-repositories/README.md) | Application Helm repository registrations. |
+| [kubernetes/projects/applications/apps/harbor/README.md](kubernetes/projects/applications/apps/harbor/README.md) | Harbor registry. |
+| [kubernetes/projects/applications/apps/personal-blog/README.md](kubernetes/projects/applications/apps/personal-blog/README.md) | Personal blog deployment. |
+| [kubernetes/projects/applications/apps/portfolio/README.md](kubernetes/projects/applications/apps/portfolio/README.md) | Portfolio deployment. |
+| [kubernetes/projects/applications/apps/shipyardhq/README.md](kubernetes/projects/applications/apps/shipyardhq/README.md) | ShipyardHQ deployment. |
+| [kubernetes/projects/applications/apps/wardn-hub/README.md](kubernetes/projects/applications/apps/wardn-hub/README.md) | Wardn Hub deployment. |
+| [kubernetes/projects/database/apps/cnpg-operator/README.md](kubernetes/projects/database/apps/cnpg-operator/README.md) | CloudNativePG operator. |
+| [kubernetes/projects/database/apps/database-helm-repositories/README.md](kubernetes/projects/database/apps/database-helm-repositories/README.md) | Database Helm repository registrations. |
+| [kubernetes/projects/database/apps/postgresql/README.md](kubernetes/projects/database/apps/postgresql/README.md) | PostgreSQL cluster, roles, and poolers. |
+| [kubernetes/projects/database/apps/valkey/README.md](kubernetes/projects/database/apps/valkey/README.md) | Shared Valkey cache and queue service. |
+| [kubernetes/projects/entertainment/apps/media-flaresolverr/README.md](kubernetes/projects/entertainment/apps/media-flaresolverr/README.md) | FlareSolverr indexer challenge helper. |
+| [kubernetes/projects/entertainment/apps/media-episeerr/README.md](kubernetes/projects/entertainment/apps/media-episeerr/README.md) | Episeerr season-ahead TV download automation. |
+| [kubernetes/projects/entertainment/apps/media-helm-repositories/README.md](kubernetes/projects/entertainment/apps/media-helm-repositories/README.md) | Media Helm repository registrations. |
+| [kubernetes/projects/entertainment/apps/media-jellyfin/README.md](kubernetes/projects/entertainment/apps/media-jellyfin/README.md) | Jellyfin media server. |
+| [kubernetes/projects/entertainment/apps/media-jellyseerr/README.md](kubernetes/projects/entertainment/apps/media-jellyseerr/README.md) | Jellyseerr media request portal. |
+| [kubernetes/projects/entertainment/apps/media-profilarr/README.md](kubernetes/projects/entertainment/apps/media-profilarr/README.md) | Profilarr profile and quality-definition sync for Radarr/Sonarr. |
+| [kubernetes/projects/entertainment/apps/media-prowlarr/README.md](kubernetes/projects/entertainment/apps/media-prowlarr/README.md) | Prowlarr indexer management. |
+| [kubernetes/projects/entertainment/apps/media-qbittorrent/README.md](kubernetes/projects/entertainment/apps/media-qbittorrent/README.md) | qBittorrent peer traffic and automation. |
+| [kubernetes/projects/entertainment/apps/media-radarr/README.md](kubernetes/projects/entertainment/apps/media-radarr/README.md) | Radarr movie library automation. |
+| [kubernetes/projects/entertainment/apps/media-ryokan/README.md](kubernetes/projects/entertainment/apps/media-ryokan/README.md) | Ryokan anime workflow. |
+| [kubernetes/projects/entertainment/apps/media-shoko/README.md](kubernetes/projects/entertainment/apps/media-shoko/README.md) | Shoko anime metadata workflow. |
+| [kubernetes/projects/entertainment/apps/media-sonarr/README.md](kubernetes/projects/entertainment/apps/media-sonarr/README.md) | Sonarr TV library automation. |
+| [kubernetes/projects/entertainment/apps/media-storage/README.md](kubernetes/projects/entertainment/apps/media-storage/README.md) | Media storage, libraries, and first-run wiring. |
+| [kubernetes/projects/home-automation/apps/cloudflare-tunnel-ingress-controller/README.md](kubernetes/projects/home-automation/apps/cloudflare-tunnel-ingress-controller/README.md) | Cloudflare Tunnel ingress controller. |
+| [kubernetes/projects/home-automation/apps/home-assistant/README.md](kubernetes/projects/home-automation/apps/home-assistant/README.md) | Home Assistant deployment. |
+| [kubernetes/projects/home-automation/apps/home-assistant-go2rtc/README.md](kubernetes/projects/home-automation/apps/home-assistant-go2rtc/README.md) | Authenticated LAN-reachable WebRTC relay for Home Assistant cameras. |
+| [kubernetes/projects/home-automation/apps/home-automation-helm-repositories/README.md](kubernetes/projects/home-automation/apps/home-automation-helm-repositories/README.md) | Home automation Helm repository registrations. |
+| [kubernetes/projects/home-automation/apps/netbox/README.md](kubernetes/projects/home-automation/apps/netbox/README.md) | NetBox application deployment. |
+| [kubernetes/projects/home-automation/apps/ups-monitoring/README.md](kubernetes/projects/home-automation/apps/ups-monitoring/README.md) | UPS monitoring. |
+| [kubernetes/projects/home-automation/apps/cups/README.md](kubernetes/projects/home-automation/apps/cups/README.md) | USB printing, LAN IPP, and moving the printer between Pi nodes. |
+| [kubernetes/projects/system/apps/alloy-logs/README.md](kubernetes/projects/system/apps/alloy-logs/README.md) | Alloy cluster pod and event log collectors. |
+| [kubernetes/projects/system/apps/csi-driver-nfs/README.md](kubernetes/projects/system/apps/csi-driver-nfs/README.md) | Upstream NFS CSI driver for static exports and retained per-PVC NAS directories. |
+| [kubernetes/projects/system/apps/external-dns-unifi/README.md](kubernetes/projects/system/apps/external-dns-unifi/README.md) | ExternalDNS integration for UniFi DNS. |
+| [kubernetes/projects/system/apps/loki/README.md](kubernetes/projects/system/apps/loki/README.md) | Loki log backend. |
+| [kubernetes/projects/system/apps/opentelemetry-collector/README.md](kubernetes/projects/system/apps/opentelemetry-collector/README.md) | OpenTelemetry Collector. |
+| [kubernetes/projects/system/apps/pyroscope/README.md](kubernetes/projects/system/apps/pyroscope/README.md) | Pyroscope profiling. |
+| [kubernetes/projects/system/apps/rancher-backup/README.md](kubernetes/projects/system/apps/rancher-backup/README.md) | Rancher backup. |
+| [kubernetes/projects/system/apps/rancher-generated-resource-defaults/README.md](kubernetes/projects/system/apps/rancher-generated-resource-defaults/README.md) | Resource defaults for Rancher/Fleet-generated containers without chart values. |
+| [kubernetes/projects/system/apps/rancher-monitoring/README.md](kubernetes/projects/system/apps/rancher-monitoring/README.md) | Upstream kube-prometheus-stack with Rancher UI integration. |
+| [kubernetes/projects/system/apps/sops-secrets-operator/README.md](kubernetes/projects/system/apps/sops-secrets-operator/README.md) | SOPS secrets operator. |
+| [kubernetes/projects/system/apps/system-helm-repositories/README.md](kubernetes/projects/system/apps/system-helm-repositories/README.md) | System Helm repository registrations. |
+| [kubernetes/projects/system/apps/tempo/README.md](kubernetes/projects/system/apps/tempo/README.md) | Tempo tracing backend. |
+
+Runbooks and architecture decisions:
+
+| Document | Purpose |
+| --- | --- |
+| [docs/architecture/adr-001-jellyfin-horizontal-scaling.md](docs/architecture/adr-001-jellyfin-horizontal-scaling.md) | Historical Jellyfin horizontal scaling proposal, superseded by native SQLite. |
+| [docs/runbooks/fleet-namespace-psa-labels.md](docs/runbooks/fleet-namespace-psa-labels.md) | Fleet namespace ownership and Pod Security Admission label rollout guidance. |
+| [docs/runbooks/alertmanager-firing-alert-triage.md](docs/runbooks/alertmanager-firing-alert-triage.md) | Live alert inventory, synthetic alert interpretation, and exact failed-Job cleanup. |
+| [docs/runbooks/completed-torrent-import-recovery.md](docs/runbooks/completed-torrent-import-recovery.md) | Recover completed torrents with copy-first Arr mapping repair, exact library verification, and gated payload cleanup. |
+| [docs/runbooks/media-download-recovery.md](docs/runbooks/media-download-recovery.md) | Repair Arr authentication, unresolved Episeerr request holds, and verify download handoff. |
+| [docs/runbooks/kubernetes-cpu-overcommit.md](docs/runbooks/kubernetes-cpu-overcommit.md) | N-1 scheduler capacity diagnosis and evidence-backed CPU request sizing. |
+| [docs/runbooks/kubernetes-resource-policy.md](docs/runbooks/kubernetes-resource-policy.md) | Resource sizing, generated-container defaults, and Longhorn exceptions. |
+| [docs/runbooks/k3s-node-maintenance.md](docs/runbooks/k3s-node-maintenance.md) | Sequential node maintenance and guarded emergency runtime recovery, with etcd, storage, Fleet, and controller gates. |
+| [docs/runbooks/k3s-unplanned-node-failure.md](docs/runbooks/k3s-unplanned-node-failure.md) | Authorized failover after confirmed host power loss, Longhorn replica evacuation, and hardware return-to-service gates. |
+| [docs/runbooks/node-saturation-and-zombie-processes.md](docs/runbooks/node-saturation-and-zombie-processes.md) | Node load, I/O, CPU, and zombie-process diagnosis with targeted recovery. |
+| [docs/runbooks/statefulset-ondelete-rollout-recovery.md](docs/runbooks/statefulset-ondelete-rollout-recovery.md) | Safe sequential Valkey OnDelete rollout and Sentinel failover procedure. |
+| [docs/runbooks/networking/laptop-wireguard-mtu-tls-handshake-timeouts.md](docs/runbooks/networking/laptop-wireguard-mtu-tls-handshake-timeouts.md) | WireGuard MTU diagnosis for Kubernetes API and `*.home` TLS timeouts. |
+| [docs/runbooks/networking/wifiman-teleport-stuck-connection.md](docs/runbooks/networking/wifiman-teleport-stuck-connection.md) | Recover stuck WiFiman Teleport sessions with scoped local tunnel cleanup and sustained app/connection verification. |
+| [docs/runbooks/storage/anime-library-relocation-and-shoko-recovery.md](docs/runbooks/storage/anime-library-relocation-and-shoko-recovery.md) | Move misplaced anime into the NAS anime library and recover unrecognized Shoko files. |
+| [docs/runbooks/storage/ryokan-batch-import-corruption-recovery.md](docs/runbooks/storage/ryokan-batch-import-corruption-recovery.md) | Quarantine and manually recover corrupt Ryokan batch imports without repeating destructive remaps. |
+| [docs/runbooks/storage/nas-rebuild-maintenance.md](docs/runbooks/storage/nas-rebuild-maintenance.md) | Stop all Kubernetes access to the NAS-backed media library during a NAS rebuild. |
+| [docs/runbooks/storage/longhorn-disk-available-space-alerts.md](docs/runbooks/storage/longhorn-disk-available-space-alerts.md) | Longhorn disk schedulable-space alert diagnosis and mitigation. |
+| [docs/runbooks/storage/nfs-csi-volume-ownership-storms.md](docs/runbooks/storage/nfs-csi-volume-ownership-storms.md) | Root-squashed NFS ownership recursion, blocked mounts, and node I/O recovery. |
+| [docs/runbooks/storage/raspberry-pi-high-iowait.md](docs/runbooks/storage/raspberry-pi-high-iowait.md) | Distinguish real Raspberry Pi I/O queues from healthy synchronous Longhorn writes. |
+
+## Conventions
+
+- Use two-space YAML indentation and `---` document starts.
+- Keep Kubernetes resource, app, and directory names lower-case kebab-case.
+- Keep Ansible variables role-scoped, such as `k3s_server.*` or
+  `fleet_apps_entrypoint`.
+- Keep role task entrypoints consistent: `main`, `validation`, and `reset`.
+- Keep Terraform formatted with `terraform fmt`.
+- Prefer Git-managed cluster changes over live `kubectl` or `helm` mutation.
+- Do not revert unrelated local changes when working in this repository.
+
+The [28 October app retirement record](docs/runbooks/2026-10-28-app-retirements.md)
+lists removed services, retained data and the Episeerr activity decision.
+
+
+Fleet agent CPU requests are reconciled explicitly at 150m per replica.
+CPU reservations for low-volume media services and NetBox are sized separately
+from burst limits. NetBox runs its inventory UI/API without a background worker;
+queued jobs require re-enabling that worker. Longhorn admits one replica rebuild
+and one heavy snapshot operation per node to bound recovery contention.
+
+The **Training** Rancher project contains the `instructor` namespace for the instructor NetBox lab, using separate credentials and a retained PostgreSQL database.
+
+Instructor NetBox uses the official community chart 8.3.101 with ARM64 NetBox 4.7.4 at `https://instructor.netbox.home`, with one web and one worker replica in Training. Its worker runs the built-in daily System Housekeeping job; the obsolete external housekeeping CronJob is disabled. Main NetBox also runs a dedicated worker for native housekeeping. Instructor nonsecret values and main NetBox maintenance flags are generated into tracked HelmOp values so Fleet reconciles their changes. Canonical chart updates require reviewed PRs with the renderer output; workload-catalog CI rejects stale projections.
+
+Training NetBox instances inherit common chart and application settings with explicit per-instance overrides; see [Training configuration](kubernetes/projects/training/README.md). Regenerate Fleet inputs with `python3 scripts/render-training-netbox.py` and validate with `--check`.
+
+Cilium upgrade preflight runs through a separate temporary Fleet bundle for
+image preparation and policy-schema validation. It does not upgrade the CNI;
+remove the preflight bundle through Git after recording its results. The
+[2 November Cilium preflight](kubernetes/projects/system/apps/cilium/README.md#upgrade-preflight--2-november-2026)
+passed on all nine nodes, including all 25 installed Cilium network policies.
+Production and bootstrap Cilium are pinned to 1.20.4. See the
+[rollout and recovery evidence](kubernetes/projects/system/apps/cilium/README.md#rollout-and-recovery-evidence--2-november-2026)
+for the verified rollout, rpi1 recovery, Fleet retry and validation limitations.

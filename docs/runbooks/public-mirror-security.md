@@ -8,6 +8,8 @@ remote.
 The publisher lives in `.github/workflows/mirror-public.yml`; its exporter,
 requirements, and regression fixtures remain private under `.github/`.
 
+Keep client release notes under the private deployment directory. The publisher stops before replacing the public checkout if the exported root README is missing or empty.
+
 ## Publication boundary
 
 - Read regular, tracked text blobs from the selected immutable source commit.
